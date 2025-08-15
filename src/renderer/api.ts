@@ -109,3 +109,26 @@ export function openExternalLink(url: string) {
 export function openLogFolder() {
   ipcRenderer.send("open-log-folder");
 }
+
+// Update API
+export interface UpdateCheckResult {
+  success: boolean;
+  portable: boolean;
+  githubReleasesUrl?: string;
+  result?: {
+    updateAvailable: boolean;
+    version: string;
+    releaseName: string;
+    releaseDate: string;
+    // 기타 electron-updater 결과 필드
+  };
+  error?: string;
+}
+
+export async function checkUpdates(): Promise<UpdateCheckResult> {
+  return ipcRenderer.invoke("check-for-updates");
+}
+
+export async function openGithubReleases(url: string): Promise<void> {
+  return ipcRenderer.invoke("open-github-releases", url);
+}
