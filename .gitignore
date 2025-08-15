@@ -1,0 +1,13 @@
+node_modules
+dist
+build
+coverage
+
+dev.sqlite3
+dev.sqlite3-shm
+dev.sqlite3-wal
+
+.vscode
+.idea
+
+licenses.json
