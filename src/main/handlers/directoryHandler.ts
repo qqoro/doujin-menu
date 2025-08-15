@@ -360,6 +360,7 @@ export async function scanDirectory(
   deleted: number;
   foundPaths: Set<string>;
   bookIdsToGenerateThumbnails: number[];
+  processedBooks: { bookData: Book; infoMetadata: ParsedMetadata; coverPath: string | null; }[]; // 추가된 반환 값
 }> {
   const MAX_SCAN_DEPTH = 100;
   if (currentDepth > MAX_SCAN_DEPTH) {
@@ -372,15 +373,16 @@ export async function scanDirectory(
       deleted: 0,
       foundPaths: new Set(),
       bookIdsToGenerateThumbnails: [],
+      processedBooks: [], // 추가된 반환 값
     };
   }
   console.log(`[Main] Scanning directory: ${directoryPath}`);
 
-  const processedBooks: {
+  let processedBooks: {
     bookData: Book;
     infoMetadata: ParsedMetadata;
     coverPath: string | null;
-  }[] = [];
+  }[] = []; // let으로 변경 및 초기화
   const totalFoundBookPathsInScan = new Set<string>();
 
   try {
@@ -405,9 +407,7 @@ export async function scanDirectory(
           subScanResult.foundPaths.forEach((p) =>
             totalFoundBookPathsInScan.add(p),
           );
-          // 여기서 추가/업데이트/삭제된 카운트를 병합할 필요는 없음,
-          // 최상위 트랜잭션에서 계산될 것이기 때문.
-          // 삭제 로직을 위해 foundPaths만 필요함.
+          processedBooks.push(...subScanResult.processedBooks); // 하위 스캔 결과 병합
         }
       } else if (item.isFile() && (ext === ".cbz" || ext === ".zip")) {
         const bookResult = await processBookItem(itemPath, {
@@ -663,6 +663,7 @@ export async function scanDirectory(
         deleted: totalDeletedCount,
         foundPaths: totalFoundBookPathsInScan,
         bookIdsToGenerateThumbnails,
+        processedBooks: processedBooks, // 추가된 반환 값
       };
     }
   } catch (error) {
@@ -679,6 +680,7 @@ export async function scanDirectory(
     deleted: 0,
     foundPaths: totalFoundBookPathsInScan,
     bookIdsToGenerateThumbnails: [],
+    processedBooks: processedBooks, // 추가된 반환 값
   };
 }
 
