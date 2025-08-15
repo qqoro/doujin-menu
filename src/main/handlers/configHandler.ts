@@ -3,7 +3,7 @@ import Store from "electron-store";
 import { existsSync } from "fs";
 import fs from "fs/promises";
 import path from "path";
-import { closeDbConnection } from "../db/index.js";
+import db, { closeDbConnection } from "../db/index.js";
 import { scanDirectory } from "./directoryHandler.js";
 
 // 설정 파일의 타입을 정의합니다.
@@ -129,11 +129,63 @@ export const handleAddLibraryFolder = async () => {
   }
 };
 
+async function deleteBooksInFolder(folderPath: string) {
+  console.log(
+    `[ConfigHandler] Deleting books associated with folder: ${folderPath}`,
+  );
+  await db.transaction(async (trx) => {
+    const booksToDelete = await trx("Book")
+      .select("id", "path", "cover_path")
+      .where("path", "like", `${folderPath}%`);
+
+    for (const book of booksToDelete) {
+      console.log(`[ConfigHandler] Deleting book from DB: ${book.path}`);
+      await trx("BookArtist").where("book_id", book.id).del();
+      await trx("BookTag").where("book_id", book.id).del();
+      await trx("BookSeries").where("book_id", book.id).del();
+      await trx("BookGroup").where("book_id", book.id).del();
+      await trx("BookCharacter").where("book_id", book.id).del();
+      await trx("BookHistory").where("book_id", book.id).del();
+      await trx("Book").where("id", book.id).del();
+
+      if (book.cover_path) {
+        try {
+          await fs.unlink(book.cover_path);
+          console.log(
+            `[ConfigHandler] Deleted thumbnail file: ${book.cover_path}`,
+          );
+        } catch (e) {
+          console.error(
+            `[ConfigHandler] Failed to delete thumbnail file ${book.cover_path}:`,
+            e,
+          );
+        }
+      }
+    }
+  });
+  console.log(
+    `[ConfigHandler] Finished deleting books for folder: ${folderPath}`,
+  );
+}
+
 export const handleRemoveLibraryFolder = async (folderPath: string) => {
   const currentFolders = store.get("libraryFolders", []);
   const newFolders = currentFolders.filter((p) => p !== folderPath);
-  store.set("libraryFolders", newFolders);
-  return { success: true, folders: newFolders };
+
+  try {
+    await deleteBooksInFolder(folderPath); // 분리된 함수 호출
+    store.set("libraryFolders", newFolders);
+    console.log(
+      `[ConfigHandler] Successfully removed library folder ${folderPath} and associated books.`,
+    );
+    return { success: true, folders: newFolders };
+  } catch (error) {
+    console.error(
+      `[ConfigHandler] Failed to remove library folder ${folderPath} or associated books:`,
+      error,
+    );
+    return { success: false, error: (error as Error).message };
+  }
 };
 
 export const handleBackupDatabase = async (
