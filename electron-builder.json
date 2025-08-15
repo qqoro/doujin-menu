@@ -1,0 +1,43 @@
+{
+  "appId": "com.doujin.menu.app",
+  "productName": "동인메뉴판",
+  "directories": {
+    "output": "dist",
+    "buildResources": "src/main/static"
+  },
+  "win": {
+    "target": ["nsis", "portable"]
+  },
+  "nsis": {
+    "oneClick": false,
+    "perMachine": false,
+    "allowToChangeInstallationDirectory": true,
+    "artifactName": "doujin-menu-setup-${version}.${ext}",
+    "shortcutName": "동인메뉴판"
+  },
+  "portable": {
+    "artifactName": "doujin-menu-portable-${version}.${ext}"
+  },
+  "linux": {
+    "target": ["snap"]
+  },
+  "asar": true,
+  "publish": {
+    "provider": "github",
+    "owner": "qqoro",
+    "repo": "doujin-menu"
+  },
+  "files": ["build/main/**/*", "build/renderer/**/*", "package.json"],
+  "extraResources": [
+    {
+      "from": "src/main/static",
+      "to": "static",
+      "filter": ["**/*"]
+    },
+    {
+      "from": "build/main/migrations",
+      "to": "migrations",
+      "filter": ["**/*"]
+    }
+  ]
+}
