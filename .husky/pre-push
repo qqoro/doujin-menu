@@ -1,0 +1,1 @@
+pnpm dlx tsx ./.husky/hooks/tag-validator.ts
