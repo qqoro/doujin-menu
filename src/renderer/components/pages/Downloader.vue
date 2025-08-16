@@ -122,7 +122,7 @@ const handleSelectGallery = (gallery: Gallery) => {
 };
 
 const handleKeyDown = (event: KeyboardEvent) => {
-  if (event.key === "v" || event.key === "V") {
+  if (event.key.toLowerCase() === "v" && !event.ctrlKey && !event.shiftKey) {
     if (selectedGallery.value) {
       isPreviewDialogOpen.value = !isPreviewDialogOpen.value;
     }
