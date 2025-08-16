@@ -92,7 +92,7 @@ const handleMouseMove = (e: MouseEvent) => {
 const handleKeyDown = async (e: KeyboardEvent) => {
   if (e.key === "Escape") {
     e.preventDefault();
-    router.push("/library");
+    router.back();
     return;
   }
 
