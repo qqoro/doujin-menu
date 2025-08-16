@@ -22,13 +22,11 @@ export async function extractCoverFromZip(
   zipPath: string,
   outputPath: string,
 ): Promise<string | null> {
-  console.log(
-    `[메인] ZIP에서 커버 추출 시도: ${zipPath} to ${outputPath}`,
-  );
+  console.log(`[Main] ZIP에서 커버 추출 시도: ${zipPath} to ${outputPath}`);
   return new Promise((resolve, reject) => {
     yauzl.open(zipPath, { lazyEntries: true }, (err, zipfile) => {
       if (err) {
-        console.error(`[메인] ZIP 파일 열기 오류 ${zipPath}:`, err);
+        console.error(`[Main] ZIP 파일 열기 오류 ${zipPath}:`, err);
         return reject(err);
       }
 
@@ -45,7 +43,7 @@ export async function extractCoverFromZip(
           zipfile.openReadStream(entry, (err, readStream) => {
             if (err) {
               console.error(
-                `[메인] ZIP에서 엔트리 읽기 오류 ${entry.fileName}:`,
+                `[Main] ZIP에서 엔트리 읽기 오류 ${entry.fileName}:`,
                 err,
               );
               zipfile.close(); // 오류 발생 시 파일 닫기
@@ -55,14 +53,14 @@ export async function extractCoverFromZip(
             readStream.pipe(writeStream);
             writeStream.on("finish", () => {
               console.log(
-                `[메인] ZIP에서 커버 추출 성공: ${outputPath} (from ${entry.fileName})`,
+                `[Main] ZIP에서 커버 추출 성공: ${outputPath} (from ${entry.fileName})`,
               );
               zipfile.close(); // 추출 완료 후 파일 닫기
               resolve(outputPath);
             });
             writeStream.on("error", (writeErr) => {
               console.error(
-                `[메인] 추출된 ZIP 커버 쓰기 오류 ${outputPath}:`,
+                `[Main] 추출된 ZIP 커버 쓰기 오류 ${outputPath}:`,
                 writeErr,
               );
               zipfile.close(); // 오류 발생 시 파일 닫기
@@ -79,7 +77,7 @@ export async function extractCoverFromZip(
         // 모든 엔트리를 스캔했지만 적합한 커버 이미지를 찾지 못한 경우
         if (!foundImageAndStartedExtraction) {
           console.log(
-            `[메인] ${zipPath}의 ZIP 엔트리 스캔 완료. 적합한 커버 이미지를 찾지 못했습니다.`,
+            `[Main] ${zipPath}의 ZIP 엔트리 스캔 완료. 적합한 커버 이미지를 찾지 못했습니다.`,
           );
           zipfile.close(); // 파일 닫기
           resolve(null);
@@ -87,10 +85,7 @@ export async function extractCoverFromZip(
       });
 
       zipfile.on("error", (zipErr) => {
-        console.error(
-          `[메인] ZIP 파일 처리 중 오류 ${zipPath}:`,
-          zipErr,
-        );
+        console.error(`[Main] ZIP 파일 처리 중 오류 ${zipPath}:`, zipErr);
         zipfile.close(); // 오류 발생 시 파일 닫기
         reject(zipErr);
       });
@@ -104,19 +99,16 @@ export async function extractInfoTxtFromZip(
   return new Promise((resolve) => {
     yauzl.open(zipPath, { lazyEntries: true }, (err, zipfile) => {
       if (err) {
-        console.error(
-          `[메인] info.txt용 ZIP 파일 열기 오류 ${zipPath}:`,
-          err,
-        );
+        console.error(`[Main] info.txt용 ZIP 파일 열기 오류 ${zipPath}:`, err);
         return resolve(null);
       }
       zipfile.on("entry", (entry) => {
         if (entry.fileName === "info.txt") {
-          console.log(`[메인] ZIP에서 info.txt 발견: ${zipPath}`);
+          console.log(`[Main] ZIP에서 info.txt 발견: ${zipPath}`);
           zipfile.openReadStream(entry, (err, readStream) => {
             if (err) {
               console.error(
-                `[메인] ZIP에서 info.txt 읽기 오류 ${zipPath}:`,
+                `[Main] ZIP에서 info.txt 읽기 오류 ${zipPath}:`,
                 err,
               );
               return resolve(null);
@@ -124,14 +116,12 @@ export async function extractInfoTxtFromZip(
             let fileContent = "";
             readStream.on("data", (chunk) => (fileContent += chunk.toString()));
             readStream.on("end", () => {
-              console.log(
-                `[메인] ZIP에서 info.txt 내용 추출 성공: ${zipPath}`,
-              );
+              console.log(`[Main] ZIP에서 info.txt 내용 추출 성공: ${zipPath}`);
               resolve(fileContent);
             });
             readStream.on("error", (readErr) => {
               console.error(
-                `[메인] ZIP에서 info.txt 스트림 읽기 오류 ${zipPath}:`,
+                `[Main] ZIP에서 info.txt 스트림 읽기 오류 ${zipPath}:`,
                 readErr,
               );
               resolve(null);
@@ -143,13 +133,13 @@ export async function extractInfoTxtFromZip(
       });
       zipfile.on("end", () => {
         console.log(
-          `[메인] ${zipPath}에서 info.txt에 대한 ZIP 엔트리 스캔 완료. info.txt를 찾지 못했습니다.`,
+          `[Main] ${zipPath}에서 info.txt에 대한 ZIP 엔트리 스캔 완료. info.txt를 찾지 못했습니다.`,
         );
         resolve(null);
       });
       zipfile.on("error", (zipErr) => {
         console.error(
-          `[메인] ${zipPath}의 info.txt에 대한 ZIP 파일 처리 중 오류:`,
+          `[Main] ${zipPath}의 info.txt에 대한 ZIP 파일 처리 중 오류:`,
           zipErr,
         );
         resolve(null);
@@ -165,7 +155,7 @@ export async function getImageCountInZip(zipPath: string): Promise<number> {
     yauzl.open(zipPath, { lazyEntries: true }, (err, zipfile) => {
       if (err) {
         console.error(
-          `[메인] 이미지 개수용 ZIP 파일 열기 오류 ${zipPath}:`,
+          `[Main] 이미지 개수용 ZIP 파일 열기 오류 ${zipPath}:`,
           err,
         );
         return resolve(0);
@@ -181,7 +171,7 @@ export async function getImageCountInZip(zipPath: string): Promise<number> {
       });
       zipfile.on("error", (zipErr) => {
         console.error(
-          `[메인] 이미지 개수를 위한 ZIP 파일 처리 중 오류 ${zipPath}:`,
+          `[Main] 이미지 개수를 위한 ZIP 파일 처리 중 오류 ${zipPath}:`,
           zipErr,
         );
         resolve(0);
@@ -203,7 +193,7 @@ export const handleAddBooksFromDirectory = async () => {
   const directoryPath = filePaths[0];
   const { added, updated, deleted } = await scanDirectory(directoryPath);
   console.log(
-    `[메인] ${directoryPath}에 대한 초기 스캔 완료: 추가 ${added}, 업데이트 ${updated}, 삭제 ${deleted}`,
+    `[Main] ${directoryPath}에 대한 초기 스캔 완료: 추가 ${added}, 업데이트 ${updated}, 삭제 ${deleted}`,
   );
 };
 
@@ -228,7 +218,7 @@ async function processBookItem(
   }: { isDirectory: boolean; isFile: boolean; name: string },
 ) {
   console.log(
-    `[메인] 다음 항목에 대해 processBookItem 호출됨: ${itemPath}, isDirectory: ${isDirectory}, isFile: ${isFile}`,
+    `[Main] 다음 항목에 대해 processBookItem 호출됨: ${itemPath}, isDirectory: ${isDirectory}, isFile: ${isFile}`,
   );
   let bookData: Book | null = null;
   let coverPath: string | null = null;
@@ -245,7 +235,7 @@ async function processBookItem(
     if (stats.isFile()) {
       infoMetadata = parseInfoTxt(await fs.readFile(infoTxtPath, "utf-8"));
       console.log(
-        `[메인] ${name}에 대한 info.txt를 찾아 파싱했습니다:`,
+        `[Main] ${name}에 대한 info.txt를 찾아 파싱했습니다:`,
         infoMetadata,
       );
     }
@@ -261,7 +251,7 @@ async function processBookItem(
           await fs.readFile(parentInfoTxtPath, "utf-8"),
         );
         console.log(
-          `[메인] ${name}에 대한 외부 info.txt를 찾아 파싱했습니다:`,
+          `[Main] ${name}에 대한 외부 info.txt를 찾아 파싱했습니다:`,
           infoMetadata,
         );
       }
@@ -273,12 +263,12 @@ async function processBookItem(
   if (isFile) {
     const ext = path.extname(name).toLowerCase();
     if (ext === ".cbz" || ext === ".zip") {
-      console.log(`[메인] ZIP 파일 처리 중: ${itemPath}`);
+      console.log(`[Main] ZIP 파일 처리 중: ${itemPath}`);
       const infoTxtContent = await extractInfoTxtFromZip(itemPath);
       if (infoTxtContent) {
         infoMetadata = parseInfoTxt(infoTxtContent);
         console.log(
-          `[메인] ${name}에 대한 ZIP 내부의 info.txt를 찾아 파싱했습니다:`,
+          `[Main] ${name}에 대한 ZIP 내부의 info.txt를 찾아 파싱했습니다:`,
           infoMetadata,
         );
       }
@@ -324,9 +314,7 @@ async function processBookItem(
         );
         coverPath = await extractCoverFromZip(itemPath, tempCoverPath);
       } else {
-        console.log(
-          `[메인] 이미지가 없어 ZIP 파일을 건너뜁니다: ${itemPath}`,
-        );
+        console.log(`[Main] 이미지가 없어 ZIP 파일을 건너뜁니다: ${itemPath}`);
       }
     }
   }
@@ -347,7 +335,9 @@ async function processBookItem(
       coverPath,
     };
   }
-  console.log(`[메인] processBookItem이 다음 항목에 대해 null을 반환합니다: ${itemPath}`);
+  console.log(
+    `[Main] processBookItem이 다음 항목에 대해 null을 반환합니다: ${itemPath}`,
+  );
   return null;
 }
 
@@ -360,12 +350,16 @@ export async function scanDirectory(
   deleted: number;
   foundPaths: Set<string>;
   bookIdsToGenerateThumbnails: number[];
-  processedBooks: { bookData: Book; infoMetadata: ParsedMetadata; coverPath: string | null; }[]; // 추가된 반환 값
+  processedBooks: {
+    bookData: Book;
+    infoMetadata: ParsedMetadata;
+    coverPath: string | null;
+  }[]; // 추가된 반환 값
 }> {
   const MAX_SCAN_DEPTH = 100;
   if (currentDepth > MAX_SCAN_DEPTH) {
     console.warn(
-      `[메인] 최대 스캔 깊이(${MAX_SCAN_DEPTH}) 초과: ${directoryPath}`,
+      `[Main] 최대 스캔 깊이(${MAX_SCAN_DEPTH}) 초과: ${directoryPath}`,
     );
     return {
       added: 0,
@@ -376,9 +370,9 @@ export async function scanDirectory(
       processedBooks: [], // 추가된 반환 값
     };
   }
-  console.log(`[메인] 디렉토리 스캔 중: ${directoryPath}`);
+  console.log(`[Main] 디렉토리 스캔 중: ${directoryPath}`);
 
-  let processedBooks: {
+  const processedBooks: {
     bookData: Book;
     infoMetadata: ParsedMetadata;
     coverPath: string | null;
@@ -442,7 +436,7 @@ export async function scanDirectory(
         );
 
         for (const book of booksToDelete) {
-          console.log(`[메인] DB에서 책 삭제 중: ${book.path}`);
+          console.log(`[Main] DB에서 책 삭제 중: ${book.path}`);
           await trx("BookArtist").where("book_id", book.id).del();
           await trx("BookTag").where("book_id", book.id).del();
           await trx("BookSeries").where("book_id", book.id).del();
@@ -454,10 +448,10 @@ export async function scanDirectory(
           if (book.cover_path) {
             try {
               await fs.unlink(book.cover_path);
-              console.log(`[메인] 썸네일 파일 삭제: ${book.cover_path}`);
+              console.log(`[Main] 썸네일 파일 삭제: ${book.cover_path}`);
             } catch (e) {
               console.error(
-                `[메인] 썸네일 파일 삭제 실패 ${book.cover_path}:`,
+                `[Main] 썸네일 파일 삭제 실패 ${book.cover_path}:`,
                 e,
               );
             }
@@ -469,7 +463,7 @@ export async function scanDirectory(
       for (let i = 0; i < processedBooks.length; i += batchSize) {
         const batch = processedBooks.slice(i, i + batchSize);
         console.log(
-          `[메인] 배치 처리 중 ${i / batchSize + 1} / ${Math.ceil(
+          `[Main] 배치 처리 중 ${i / batchSize + 1} / ${Math.ceil(
             processedBooks.length / batchSize,
           )}...`,
         );
@@ -499,12 +493,10 @@ export async function scanDirectory(
                   language_name_english: cleanValue(
                     bookData.language_name_english,
                   ),
-                  language_name_local: cleanValue(
-                    bookData.language_name_local,
-                  ),
+                  language_name_local: cleanValue(bookData.language_name_local),
                 });
               console.log(
-                `[메인] 기존 책 정보 업데이트. ID: ${bookId}, 제목: ${bookData.title}`,
+                `[Main] 기존 책 정보 업데이트. ID: ${bookId}, 제목: ${bookData.title}`,
               );
               totalUpdatedCount++;
 
@@ -525,14 +517,12 @@ export async function scanDirectory(
                 language_name_english: cleanValue(
                   bookData.language_name_english,
                 ),
-                language_name_local: cleanValue(
-                  bookData.language_name_local,
-                ),
+                language_name_local: cleanValue(bookData.language_name_local),
               };
               const result = await trx("Book").insert(bookToInsert);
               bookId = result[0];
               console.log(
-                `[메인] 새 책 추가. ID: ${bookId}, 제목: ${bookData.title}`,
+                `[Main] 새 책 추가. ID: ${bookId}, 제목: ${bookData.title}`,
               );
               totalAddedCount++;
             }
@@ -640,7 +630,7 @@ export async function scanDirectory(
                 } catch {
                   shouldGenerateThumbnail = true;
                   console.warn(
-                    `[메인] 기존 썸네일 파일을 찾을 수 없어 재생성합니다: Book ID ${bookId}`,
+                    `[Main] 기존 썸네일 파일을 찾을 수 없어 재생성합니다: Book ID ${bookId}`,
                   );
                 }
               }
@@ -655,7 +645,7 @@ export async function scanDirectory(
       // 스캔 완료 후 썸네일 생성 일괄 트리거
       if (bookIdsToGenerateThumbnails.length > 0) {
         console.log(
-          `[메인] 스캔 후 ${bookIdsToGenerateThumbnails.length}권의 책에 대한 썸네일 생성 중...`,
+          `[Main] 스캔 후 ${bookIdsToGenerateThumbnails.length}권의 책에 대한 썸네일 생성 중...`,
         );
         const queue = new PQueue({ concurrency: os.cpus().length });
         const updatedThumbnails: { bookId: number; thumbnailPath: string }[] =
@@ -679,9 +669,7 @@ export async function scanDirectory(
               .update({ cover_path: thumbnailPath });
           }
         });
-        console.log(
-          `[메인] 스캔 후 썸네일 생성 및 업데이트 완료.`,
-        );
+        console.log(`[Main] 스캔 후 썸네일 생성 및 업데이트 완료.`);
       }
 
       return {
@@ -694,10 +682,7 @@ export async function scanDirectory(
       };
     }
   } catch (error) {
-    console.error(
-      `[메인] 디렉토리 스캔 중 오류: ${directoryPath}`,
-      error,
-    );
+    console.error(`[Main] 디렉토리 스캔 중 오류: ${directoryPath}`, error);
     throw error; // 에러를 다시 던져 상위 호출자에게 알림
   }
 
@@ -712,7 +697,7 @@ export async function scanDirectory(
 }
 
 export async function scanFile(filePath: string) {
-  console.log(`[메인] 파일 스캔 중: ${filePath}`);
+  console.log(`[Main] 파일 스캔 중: ${filePath}`);
   let addedCount = 0;
   let updatedCount = 0;
 
@@ -747,7 +732,7 @@ export async function scanFile(filePath: string) {
               language_name_local: cleanValue(bookData.language_name_local),
             });
           console.log(
-            `[메인] 기존 책 정보 업데이트. ID: ${bookId}, 제목: ${bookData.title}`,
+            `[Main] 기존 책 정보 업데이트. ID: ${bookId}, 제목: ${bookData.title}`,
           );
           updatedCount++;
 
@@ -771,7 +756,7 @@ export async function scanFile(filePath: string) {
           const result = await trx("Book").insert(bookToInsert);
           bookId = result[0];
           console.log(
-            `[메인] 새 책 추가. ID: ${bookId}, 제목: ${bookData.title}`,
+            `[Main] 새 책 추가. ID: ${bookId}, 제목: ${bookData.title}`,
           );
           addedCount++;
         }
@@ -870,7 +855,7 @@ export async function scanFile(filePath: string) {
             } catch {
               shouldGenerateThumbnail = true;
               console.warn(
-                `[메인] 기존 썸네일 파일을 찾을 수 없어 재생성합니다: Book ID ${bookId}`,
+                `[Main] 기존 썸네일 파일을 찾을 수 없어 재생성합니다: Book ID ${bookId}`,
               );
             }
           }
@@ -889,14 +874,14 @@ export async function scanFile(filePath: string) {
     }
 
     console.log(
-      `[메인] ${filePath}에 대한 스캔 완료: 추가 ${addedCount}, 업데이트 ${updatedCount}`,
+      `[Main] ${filePath}에 대한 스캔 완료: 추가 ${addedCount}, 업데이트 ${updatedCount}`,
     );
 
     BrowserWindow.getAllWindows().forEach((window) => {
       window.webContents.send("books-updated");
     });
   } catch (error) {
-    console.error(`[메인] 파일 스캔 오류 ${filePath}:`, error);
+    console.error(`[Main] 파일 스캔 오류 ${filePath}:`, error);
   }
 }
 
@@ -904,7 +889,7 @@ export const handleRescanLibraryFolder = async (folderPath: string) => {
   try {
     const { added, updated, deleted } = await scanDirectory(folderPath, 0);
     console.log(
-      `[메인] ${folderPath}에 대한 재스캔 완료: 추가 ${added}, 업데이트 ${updated}, 삭제 ${deleted}`,
+      `[Main] ${folderPath}에 대한 재스캔 완료: 추가 ${added}, 업데이트 ${updated}, 삭제 ${deleted}`,
     );
     return { success: true, added, updated, deleted };
   } catch (error) {
