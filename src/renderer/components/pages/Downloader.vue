@@ -378,7 +378,7 @@ const goToSettings = () => {
               <div class="flex flex-col">
                 <Label for="offset-input">시작 오프셋</Label>
                 <p class="text-sm text-muted-foreground">
-                  검색 결과를 시작할 갤러리 번호를 지정합니다.
+                  검색 결과를 시작할 검색 인덱스를 지정합니다.
                 </p>
               </div>
               <div class="flex gap-2 flex-wrap">
