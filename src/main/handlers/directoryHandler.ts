@@ -11,6 +11,9 @@ import { console } from "../main.js";
 import { ParsedMetadata, parseInfoTxt } from "../parsers/infoTxtParser.js";
 import { generateThumbnailForBook } from "./thumbnailHandler.js"; // 썸네일 생성 함수 임포트
 
+// Windows MAX_PATH 제한
+const MAX_PATH_LENGTH = 260;
+
 function cleanValue(value: string | null | undefined): string | null {
   if (value === "N/A" || value === undefined || value === null) {
     return null;
@@ -384,36 +387,51 @@ export async function scanDirectory(
 
     for (const item of items) {
       const itemPath = path.join(directoryPath, item.name);
-      const ext = path.extname(item.name).toLowerCase();
 
-      if (item.isDirectory()) {
-        const bookResult = await processBookItem(itemPath, {
-          isDirectory: true,
-          isFile: false,
-          name: item.name,
-        });
+      // 파일 경로 길이 제한 확인
+      if (itemPath.length >= MAX_PATH_LENGTH) {
+        console.warn(
+          `[Main] 긴 경로로 인해 파일 건너뛰기 (>${MAX_PATH_LENGTH}자): ${itemPath}`,
+        );
+        continue; // 이 파일은 건너뛰고 다음 파일로 진행
+      }
 
-        if (bookResult) {
-          processedBooks.push(bookResult);
-          totalFoundBookPathsInScan.add(bookResult.bookData.path);
-        } else {
-          const subScanResult = await scanDirectory(itemPath, currentDepth + 1);
-          subScanResult.foundPaths.forEach((p) =>
-            totalFoundBookPathsInScan.add(p),
-          );
-          processedBooks.push(...subScanResult.processedBooks); // 하위 스캔 결과 병합
+      try {
+        const ext = path.extname(item.name).toLowerCase();
+
+        if (item.isDirectory()) {
+          const bookResult = await processBookItem(itemPath, {
+            isDirectory: true,
+            isFile: false,
+            name: item.name,
+          });
+
+          if (bookResult) {
+            processedBooks.push(bookResult);
+            totalFoundBookPathsInScan.add(bookResult.bookData.path);
+          } else {
+            const subScanResult = await scanDirectory(itemPath, currentDepth + 1);
+            subScanResult.foundPaths.forEach((p) =>
+              totalFoundBookPathsInScan.add(p),
+            );
+            processedBooks.push(...subScanResult.processedBooks);
+          }
+        } else if (item.isFile() && (ext === ".cbz" || ext === ".zip")) {
+          const bookResult = await processBookItem(itemPath, {
+            isDirectory: false,
+            isFile: true,
+            name: item.name,
+          });
+
+          if (bookResult) {
+            processedBooks.push(bookResult);
+            totalFoundBookPathsInScan.add(bookResult.bookData.path);
+          }
         }
-      } else if (item.isFile() && (ext === ".cbz" || ext === ".zip")) {
-        const bookResult = await processBookItem(itemPath, {
-          isDirectory: false,
-          isFile: true,
-          name: item.name,
-        });
-
-        if (bookResult) {
-          processedBooks.push(bookResult);
-          totalFoundBookPathsInScan.add(bookResult.bookData.path);
-        }
+      } catch (fileProcessError) {
+        console.error(`[Main] 파일 처리 오류 ${itemPath}:`, fileProcessError);
+        // 개별 파일 처리 중 에러가 발생해도 다음 파일로 진행
+        continue;
       }
     }
 
