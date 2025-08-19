@@ -19,8 +19,9 @@ if (parentPort) {
         // 썸네일 디렉토리가 없으면 생성 (워커 스레드에서 직접 처리)
         await fs.mkdir(thumbnailDirPath, { recursive: true });
 
-        // sharp를 사용하여 썸네일 생성
-        await sharp(sourcePath).resize(512).webp().toFile(thumbnailPath);
+        // 원본 이미지를 버퍼로 읽어 sharp에 전달하여 파일 핸들 문제를 방지
+        const imageBuffer = await fs.readFile(sourcePath);
+        await sharp(imageBuffer).resize(512).webp().toFile(thumbnailPath);
 
         // 임시 파일이 있다면 삭제 (ZIP 파일에서 추출된 경우)
         if (sourcePath.startsWith(tempPath) && sourcePath !== thumbnailPath) {
