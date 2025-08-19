@@ -11,6 +11,9 @@ import { console } from "../main.js";
 import { ParsedMetadata, parseInfoTxt } from "../parsers/infoTxtParser.js";
 import { generateThumbnailForBook } from "./thumbnailHandler.js"; // 썸네일 생성 함수 임포트
 
+// Windows MAX_PATH 제한
+const MAX_PATH_LENGTH = 260;
+
 function cleanValue(value: string | null | undefined): string | null {
   if (value === "N/A" || value === undefined || value === null) {
     return null;

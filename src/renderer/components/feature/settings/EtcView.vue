@@ -9,6 +9,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Progress } from "@/components/ui/progress";
 import { Icon } from "@iconify/vue";
@@ -28,12 +29,16 @@ const generationProgress = ref({
   total: 0,
   message: "",
 });
+const infoFilePattern = ref("\\((\\d+)\\)$");
 
 const generateMissingInfoFiles = async () => {
   isGeneratingInfoFiles.value = true;
   generationProgress.value = { current: 0, total: 0, message: "" }; // 상태 초기화
   try {
-    const result = await ipcRenderer.invoke("generate-missing-info-files");
+    const result = await ipcRenderer.invoke(
+      "generate-missing-info-files",
+      infoFilePattern.value,
+    );
     // 최종 결과는 이제 progress 핸들러가 아닌 토스트로 표시
     if (result.success) {
       toast.success(result.message);
@@ -267,11 +272,23 @@ onMounted(async () => {
         <CardDescription>라이브러리 데이터를 관리합니다.</CardDescription>
       </CardHeader>
       <CardContent class="space-y-6">
+        <div class="space-y-2">
+          <Label for="info-file-pattern">폴더명 분석 정규식</Label>
+          <Input
+            id="info-file-pattern"
+            v-model="infoFilePattern"
+            placeholder="예: \((\d+)\)$"
+          />
+          <p class="text-sm text-muted-foreground">
+            폴더명에서 갤러리 ID를 추출할 정규식을 입력합니다. 첫 번째 캡처
+            그룹이 ID로 사용됩니다.
+          </p>
+        </div>
         <div class="grid grid-cols-3 items-center gap-4">
           <div class="col-span-2">
             <Label for="generate-info-files">info.txt 생성</Label>
             <p class="text-sm text-muted-foreground">
-              info.txt 파일이 없는 폴더를 찾아 폴더명을 기반으로 파일을
+              info.txt 파일이 없는 폴더를 찾아 위 정규식을 기반으로 파일을
               생성합니다.
             </p>
           </div>
@@ -297,7 +314,8 @@ onMounted(async () => {
           <div class="flex justify-between text-sm text-muted-foreground">
             <span>진행률</span>
             <span
-              >{{ generationProgress.current }} / {{ generationProgress.total }}</span
+              >{{ generationProgress.current }} /
+              {{ generationProgress.total }}</span
             >
           </div>
           <Progress

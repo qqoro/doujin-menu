@@ -5,13 +5,27 @@ import hitomi from "node-hitomi";
 import path from "path";
 import { store as configStore } from "./configHandler.js";
 
-async function handleGenerateMissingInfoFiles(event: IpcMainInvokeEvent) {
+async function handleGenerateMissingInfoFiles(
+  event: IpcMainInvokeEvent,
+  pattern: string,
+) {
   const libraryFolders = configStore.get("libraryFolders", []);
   if (!libraryFolders.length) {
     return {
       success: true,
       data: { createdCount: 0, skippedCount: 0, errorCount: 0 },
       message: "라이브러리 폴더가 설정되지 않았습니다.",
+    };
+  }
+
+  let regex: RegExp;
+  try {
+    regex = new RegExp(pattern);
+  } catch (e) {
+    return {
+      success: false,
+      message: `잘못된 정규식입니다: ${(e as Error).message}`,
+      data: { createdCount: 0, skippedCount: 0, errorCount: 0 },
     };
   }
 
@@ -27,7 +41,10 @@ async function handleGenerateMissingInfoFiles(event: IpcMainInvokeEvent) {
       const entries = await fs.readdir(folderPath, { withFileTypes: true });
       totalFolders += entries.filter((entry) => entry.isDirectory()).length;
     } catch (error) {
-      console.error(`Error reading library folder for counting ${folderPath}:`, error);
+      console.error(
+        `Error reading library folder for counting ${folderPath}`,
+        error,
+      );
     }
   }
 
@@ -55,8 +72,8 @@ async function handleGenerateMissingInfoFiles(event: IpcMainInvokeEvent) {
           skippedCount++;
         } catch {
           // info.txt가 없는 경우
-          const match = subfolder.name.match(/\((\d+)\)$/);
-          if (match && match[1]) {
+          const match = RegExp(regex).exec(subfolder.name);
+          if (match?.[1]) {
             const galleryId = parseInt(match[1], 10);
             try {
               const gallery = await hitomi.getGallery(galleryId);
@@ -69,7 +86,7 @@ async function handleGenerateMissingInfoFiles(event: IpcMainInvokeEvent) {
                   `타입: ${gallery.type || "N/A"}`,
                   `시리즈: ${gallery.series?.join(", ") || "N/A"}`,
                   `캐릭터: ${gallery.characters?.join(", ") || "N/A"}`,
-                  `태그: ${ 
+                  `태그: ${
                     gallery.tags
                       ?.map((t) =>
                         t.type === "male" || t.type === "female"
@@ -79,7 +96,7 @@ async function handleGenerateMissingInfoFiles(event: IpcMainInvokeEvent) {
                       .join(", ") || "N/A"
                   }`,
                   `언어: ${gallery.languageName?.english || "N/A"}`,
-                ].join("\n");
+                ].join("\n\n");
 
                 await fs.writeFile(infoFilePath, infoContent);
                 statusMessage = `생성 완료: ${subfolder.name}`;
@@ -90,14 +107,14 @@ async function handleGenerateMissingInfoFiles(event: IpcMainInvokeEvent) {
               }
             } catch (error) {
               console.error(
-                `Error fetching gallery info for ID ${galleryId}:`,
+                `Error fetching gallery info for ID ${galleryId}`,
                 error,
               );
               statusMessage = `오류 (정보 조회 실패): ${subfolder.name}`;
               errorCount++;
             }
           } else {
-            statusMessage = `건너뜀 (ID 없음): ${subfolder.name}`;
+            statusMessage = `건너뜀 (패턴 불일치): ${subfolder.name}`;
             skippedCount++;
           }
         }
@@ -168,8 +185,7 @@ export function registerEtcHandlers(win: BrowserWindow) {
     },
   );
 
-  // info.txt 없는 폴더에 파일 생성
-  ipcMain.handle("generate-missing-info-files", (event) =>
-    handleGenerateMissingInfoFiles(event),
+  ipcMain.handle("generate-missing-info-files", (event, pattern: string) =>
+    handleGenerateMissingInfoFiles(event, pattern),
   );
 }
