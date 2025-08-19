@@ -701,6 +701,69 @@ export const handleCheckBookExistsByHitomiId = async (hitomiId: number) => {
   }
 };
 
+export const handleDeleteBook = async (bookId: number) => {
+  try {
+    const book = await db("Book").where("id", bookId).first();
+
+    if (!book) {
+      return { success: false, error: "Book not found." };
+    }
+
+    await db.transaction(async (trx) => {
+      // Delete from related tables first
+      await trx("BookArtist").where("book_id", bookId).del();
+      await trx("BookTag").where("book_id", bookId).del();
+      await trx("BookSeries").where("book_id", bookId).del();
+      await trx("BookGroup").where("book_id", bookId).del();
+      await trx("BookCharacter").where("book_id", bookId).del();
+      await trx("BookHistory").where("book_id", bookId).del();
+
+      // Finally, delete the book itself
+      await trx("Book").where("id", bookId).del();
+    });
+
+    // Delete physical file/folder
+    if (book.path) {
+      try {
+        const stats = await fs.stat(book.path);
+        if (stats.isDirectory()) {
+          await fs.rm(book.path, { recursive: true, force: true });
+          console.log(`[Main] Deleted directory: ${book.path}`);
+        } else if (stats.isFile()) {
+          await fs.unlink(book.path);
+          console.log(`[Main] Deleted file: ${book.path}`);
+        }
+      } catch (fileError: any) {
+        if (fileError.code === 'ENOENT') {
+          console.warn(`[Main] Book file/folder not found, skipping deletion: ${book.path}`);
+        } else {
+          console.error(`[Main] Failed to delete physical file/folder ${book.path}:`, fileError);
+          // Do not re-throw, as DB deletion was successful
+        }
+      }
+    }
+
+    // Delete thumbnail file if it exists and is not a placeholder
+    if (book.cover_path && !book.cover_path.startsWith("https://via.placeholder.com")) {
+      try {
+        await fs.unlink(book.cover_path);
+        console.log(`[Main] Deleted thumbnail: ${book.cover_path}`);
+      } catch (thumbError: any) {
+        if (thumbError.code === 'ENOENT') {
+          console.warn(`[Main] Thumbnail file not found, skipping deletion: ${book.cover_path}`);
+        }
+      } finally {
+        // Do not re-throw
+      }
+    }
+
+    return { success: true };
+  } catch (error: any) {
+    console.error(`[Main] Failed to delete book ${bookId}:`, error);
+    return { success: false, error: error.message || "Unknown error" };
+  }
+};
+
 export function registerBookHandlers() {
   ipcMain.handle("get-books", (_event, params) => handleGetBooks(params));
   ipcMain.handle("get-tags", (_event) => handleGetTags());
@@ -741,4 +804,5 @@ export function registerBookHandlers() {
   ipcMain.handle("check-book-exists-by-hitomi-id", (_event, hitomiId) =>
     handleCheckBookExistsByHitomiId(hitomiId),
   );
+  ipcMain.handle("delete-book", (_event, bookId) => handleDeleteBook(bookId));
 }

@@ -40,6 +40,15 @@ export async function openBookFolder(bookPath: string) {
   }
 }
 
+export async function deleteBook(bookId: number) {
+  const result = await ipcRenderer.invoke("delete-book", bookId);
+  if (result.success) {
+    return true;
+  } else {
+    throw new Error(result.error || "Failed to delete book");
+  }
+}
+
 export async function addBookHistory(bookId: number) {
   const result = await ipcRenderer.invoke("add-book-history", bookId);
   if (!result.success) {

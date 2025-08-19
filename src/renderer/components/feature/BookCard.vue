@@ -1,4 +1,15 @@
 <script setup lang="ts">
+import * as api from "@/api";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardFooter } from "@/components/ui/card";
 import {
@@ -14,8 +25,11 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { Icon } from "@iconify/vue";
-import { computed, toRaw } from "vue";
+import { useQueryClient } from "@tanstack/vue-query";
+import { computed, ref, toRaw } from "vue";
 import { RouterLink } from "vue-router";
+import { toast } from "vue-sonner";
+import ContextMenuSeparator from "../ui/context-menu/ContextMenuSeparator.vue";
 
 interface Tag {
   name: string;
@@ -35,7 +49,7 @@ interface Book {
   path: string;
 }
 
-const props = defineProps<{ book: Book; queryKey: unknown[] }>();
+const props = defineProps<{ book: Book; queryKey: readonly unknown[] }>();
 const emit = defineEmits([
   "selectTag",
   "selectArtist",
@@ -105,6 +119,32 @@ const toggleFavorite = () => {
 const openBookFolder = () => {
   emit("open-book-folder", props.book.path);
 };
+
+const isDeleteDialogOpen = ref(false);
+
+const queryClient = useQueryClient();
+
+const handleDeleteBook = async () => {
+  isDeleteDialogOpen.value = true;
+};
+
+const confirmDeleteBook = async () => {
+  try {
+    // Call the main process to delete the book
+    await api.deleteBook(props.book.id);
+    toast.success("책 삭제 완료", {
+      description: `${props.book.title}이(가) 삭제되었습니다.`,
+    });
+    queryClient.invalidateQueries({ queryKey: ["books"] }); // Invalidate the query
+  } catch (error) {
+    console.error("책 삭제 실패:", error);
+    toast.error("책 삭제 실패", {
+      description: "책을 삭제하는 중 오류가 발생했습니다.",
+    });
+  } finally {
+    isDeleteDialogOpen.value = false;
+  }
+};
 </script>
 
 <template>
@@ -140,7 +180,7 @@ const openBookFolder = () => {
             <div class="flex flex-wrap items-start gap-1 w-full min-h-[42px]">
               <Badge
                 v-for="tag in visibleTags"
-                :key="tag"
+                :key="tag.name"
                 :class="getTagDisplayInfo(tag).className"
                 @click.prevent.stop="handleTagClick(tag)"
               >
@@ -201,6 +241,29 @@ const openBookFolder = () => {
         <Icon icon="solar:info-circle-bold-duotone" class="w-4 h-4" />
         상세 정보
       </ContextMenuItem>
+      <ContextMenuSeparator />
+      <ContextMenuItem @click="handleDeleteBook">
+        <Icon icon="solar:trash-bin-trash-bold-duotone" class="w-4 h-4" />
+        삭제
+      </ContextMenuItem>
     </ContextMenuContent>
   </ContextMenu>
+  <AlertDialog
+    :open="isDeleteDialogOpen"
+    @update:open="isDeleteDialogOpen = $event"
+  >
+    <AlertDialogContent>
+      <AlertDialogHeader>
+        <AlertDialogTitle>책을 삭제하시겠습니까?</AlertDialogTitle>
+        <AlertDialogDescription>
+          이 작업은 되돌릴 수 없습니다. 데이터베이스에서 책 정보가 삭제되고,
+          물리 파일도 영구적으로 삭제됩니다.
+        </AlertDialogDescription>
+      </AlertDialogHeader>
+      <AlertDialogFooter>
+        <AlertDialogCancel>취소</AlertDialogCancel>
+        <AlertDialogAction @click="confirmDeleteBook">삭제</AlertDialogAction>
+      </AlertDialogFooter>
+    </AlertDialogContent>
+  </AlertDialog>
 </template>
