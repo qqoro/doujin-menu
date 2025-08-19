@@ -1,4 +1,4 @@
-              zipfile.close(); // 오류 발생 시 파일 닫기
+-              zipfile.close(); // 오류 발생 시 파일 닫기
               return reject(err);
             }
             const writeStream = fsSync.createWriteStream(outputPath);
