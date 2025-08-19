@@ -13,6 +13,7 @@ import { Label } from "@/components/ui/label";
 import { Progress } from "@/components/ui/progress";
 import { Icon } from "@iconify/vue";
 import { onMounted, ref } from "vue";
+import { toast } from "vue-sonner";
 
 const appVersion = ref("로딩 중...");
 const updateStatus = ref("idle"); // idle, checking, update-available, downloading, download-progress, update-downloaded, error, update-not-available, update-available-portable
@@ -21,6 +22,30 @@ const downloadProgress = ref(0);
 const updateError = ref("");
 const githubReleasesUrl = ref(""); // GitHub 릴리즈 URL 추가
 const isPortableVersion = ref(false); // 포터블 버전 여부 추가
+const isGeneratingInfoFiles = ref(false);
+const generationProgress = ref({
+  current: 0,
+  total: 0,
+  message: "",
+});
+
+const generateMissingInfoFiles = async () => {
+  isGeneratingInfoFiles.value = true;
+  generationProgress.value = { current: 0, total: 0, message: "" }; // 상태 초기화
+  try {
+    const result = await ipcRenderer.invoke("generate-missing-info-files");
+    // 최종 결과는 이제 progress 핸들러가 아닌 토스트로 표시
+    if (result.success) {
+      toast.success(result.message);
+    } else {
+      toast.error(result.message || "알 수 없는 오류가 발생했습니다.");
+    }
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    toast.error(`오류가 발생했습니다: ${message}`);
+    isGeneratingInfoFiles.value = false; // 에러 발생 시 명시적으로 상태 종료
+  }
+};
 
 const checkForUpdates = async () => {
   updateStatus.value = "checking";
@@ -98,7 +123,13 @@ onMounted(async () => {
     } else if (data.status === "error") {
       updateError.value = data.error;
     }
-    // update-available-portable 상태는 checkForUpdates에서 직접 처리하므로 여기서는 필요 없음
+  });
+
+  ipcRenderer.on("info-generation-progress", (_event, progress) => {
+    generationProgress.value = progress;
+    if (progress.current >= progress.total) {
+      isGeneratingInfoFiles.value = false;
+    }
   });
 });
 </script>
@@ -226,6 +257,60 @@ onMounted(async () => {
             <Icon icon="mdi:github" class="h-4 w-4" />
             열기
           </Button>
+        </div>
+      </CardContent>
+    </Card>
+
+    <Card>
+      <CardHeader>
+        <CardTitle>데이터 관리</CardTitle>
+        <CardDescription>라이브러리 데이터를 관리합니다.</CardDescription>
+      </CardHeader>
+      <CardContent class="space-y-6">
+        <div class="grid grid-cols-3 items-center gap-4">
+          <div class="col-span-2">
+            <Label for="generate-info-files">info.txt 생성</Label>
+            <p class="text-sm text-muted-foreground">
+              info.txt 파일이 없는 폴더를 찾아 폴더명을 기반으로 파일을
+              생성합니다.
+            </p>
+          </div>
+          <Button
+            id="generate-info-files"
+            variant="outline"
+            class="justify-self-end"
+            :disabled="isGeneratingInfoFiles"
+            @click="generateMissingInfoFiles"
+          >
+            <Icon
+              v-if="isGeneratingInfoFiles"
+              icon="svg-spinners:ring-resize"
+              class="w-4 h-4 mr-2"
+            />
+            생성 시작
+          </Button>
+        </div>
+        <div
+          v-if="isGeneratingInfoFiles || generationProgress.total > 0"
+          class="space-y-2 pt-4"
+        >
+          <div class="flex justify-between text-sm text-muted-foreground">
+            <span>진행률</span>
+            <span
+              >{{ generationProgress.current }} / {{ generationProgress.total }}</span
+            >
+          </div>
+          <Progress
+            :model-value="
+              generationProgress.total > 0
+                ? (generationProgress.current / generationProgress.total) * 100
+                : 0
+            "
+            class="w-full"
+          />
+          <p class="text-sm text-muted-foreground truncate">
+            {{ generationProgress.message }}
+          </p>
         </div>
       </CardContent>
     </Card>
