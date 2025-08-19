@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import * as api from "@/api";
 import { ipcRenderer } from "@/api";
+import ChangelogDialog from "@/components/common/ChangelogDialog.vue";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -30,6 +31,7 @@ const generationProgress = ref({
   message: "",
 });
 const infoFilePattern = ref("\\((\\d+)\\)$");
+const openChangelog = ref(false);
 
 const generateMissingInfoFiles = async () => {
   isGeneratingInfoFiles.value = true;
@@ -112,6 +114,10 @@ const toggleDevTools = () => {
 
 const openLogFolder = () => {
   api.openLogFolder();
+};
+
+const showChangelog = () => {
+  openChangelog.value = true;
 };
 
 onMounted(async () => {
@@ -245,6 +251,23 @@ onMounted(async () => {
           >
             <p class="text-sm font-medium">최신 버전입니다.</p>
           </div>
+        </div>
+        <div class="grid grid-cols-3 items-center gap-4">
+          <div class="col-span-2">
+            <Label for="changelog">업데이트 내역</Label>
+            <p class="text-sm text-muted-foreground">
+              최신 버전의 변경 내역을 확인합니다.
+            </p>
+          </div>
+          <Button
+            id="changelog"
+            variant="outline"
+            class="justify-self-end"
+            @click="showChangelog"
+          >
+            <Icon icon="solar:document-text-bold-duotone" class="h-4 w-4" />
+            내역 보기
+          </Button>
         </div>
         <div class="grid grid-cols-3 items-center gap-4">
           <div class="col-span-2">
@@ -403,5 +426,6 @@ onMounted(async () => {
         </div>
       </CardContent>
     </Card>
+    <ChangelogDialog v-model:open="openChangelog" />
   </div>
 </template>

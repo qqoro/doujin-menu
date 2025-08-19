@@ -1,14 +1,18 @@
 <script setup lang="ts">
-import { ipcRenderer } from "@/api";
+import { getAppVersion, ipcRenderer } from "@/api";
 import { useWindowEvent } from "@/composable/useWindowEvent";
 import { cn } from "@/lib/utils";
 import { useUiStore } from "@/store/uiStore";
 import { storeToRefs } from "pinia";
+import { onMounted, ref } from "vue";
+import ChangelogDialog from "../common/ChangelogDialog.vue";
 import Header from "./Header.vue";
 import Sidebar from "./Sidebar.vue";
 
 const uiStore = useUiStore();
 const { isSidebarCollapsed } = storeToRefs(uiStore);
+
+const open = ref(false);
 
 const handleKeyDown = (event: KeyboardEvent) => {
   if (event.key === "Escape") {
@@ -17,6 +21,14 @@ const handleKeyDown = (event: KeyboardEvent) => {
 };
 
 useWindowEvent("keydown", handleKeyDown);
+
+onMounted(async () => {
+  const config = await ipcRenderer.invoke("get-config");
+  const version = await getAppVersion();
+  if (config.lastSeenChangelog !== version) {
+    open.value = true;
+  }
+});
 </script>
 
 <template>
@@ -33,5 +45,6 @@ useWindowEvent("keydown", handleKeyDown);
     <main class="row-start-2 col-start-2 overflow-y-auto p-6 bg-background">
       <router-view />
     </main>
+    <ChangelogDialog v-model:open="open" />
   </div>
 </template>
