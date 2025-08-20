@@ -47,6 +47,9 @@ importers:
       electron-window-state:
         specifier: ^5.0.3
         version: 5.0.3
+      fast-glob:
+        specifier: ^3.3.3
+        version: 3.3.3
       knex:
         specifier: ^3.1.0
         version: 3.1.0(better-sqlite3@12.2.0)

@@ -1,4 +1,5 @@
 import { BrowserWindow, app, dialog, ipcMain } from "electron";
+import fg from "fast-glob";
 import * as fsSync from "fs";
 import fs from "fs/promises";
 import os from "os"; // os 모듈 임포트
@@ -344,10 +345,7 @@ async function processBookItem(
   return null;
 }
 
-export async function scanDirectory(
-  directoryPath: string,
-  currentDepth = 0,
-): Promise<{
+export async function scanDirectory(directoryPath: string): Promise<{
   added: number;
   updated: number;
   deleted: number;
@@ -357,361 +355,321 @@ export async function scanDirectory(
     bookData: Book;
     infoMetadata: ParsedMetadata;
     coverPath: string | null;
-  }[]; // 추가된 반환 값
+  }[];
 }> {
   const MAX_SCAN_DEPTH = 100;
-  if (currentDepth > MAX_SCAN_DEPTH) {
-    console.warn(
-      `[Main] 최대 스캔 깊이(${MAX_SCAN_DEPTH}) 초과: ${directoryPath}`,
-    );
-    return {
-      added: 0,
-      updated: 0,
-      deleted: 0,
-      foundPaths: new Set(),
-      bookIdsToGenerateThumbnails: [],
-      processedBooks: [], // 추가된 반환 값
-    };
-  }
-  console.log(`[Main] 디렉토리 스캔 중: ${directoryPath}`);
+  console.log(`[Main] 디렉토리 스캔 중 (fast-glob 사용): ${directoryPath}`);
 
   const processedBooks: {
     bookData: Book;
     infoMetadata: ParsedMetadata;
     coverPath: string | null;
-  }[] = []; // let으로 변경 및 초기화
+  }[] = [];
   const totalFoundBookPathsInScan = new Set<string>();
 
   try {
-    const items = await fs.readdir(directoryPath, { withFileTypes: true });
+    const itemPaths = await fg(["**/*"], {
+      cwd: directoryPath,
+      absolute: true,
+      deep: MAX_SCAN_DEPTH,
+      stats: true,
+      onlyFiles: false,
+    });
 
-    for (const item of items) {
-      const itemPath = path.join(directoryPath, item.name);
+    for (const item of itemPaths) {
+      const itemPath = item.path.replaceAll("/", "\\");
 
-      // 파일 경로 길이 제한 확인
       if (itemPath.length >= MAX_PATH_LENGTH) {
         console.warn(
           `[Main] 긴 경로로 인해 파일 건너뛰기 (>${MAX_PATH_LENGTH}자): ${itemPath}`,
         );
-        continue; // 이 파일은 건너뛰고 다음 파일로 진행
+        continue;
       }
 
       try {
         const ext = path.extname(item.name).toLowerCase();
+        const isDirectory = item.dirent.isDirectory();
+        const isFile = item.dirent.isFile();
+        const isZip = isFile && (ext === ".cbz" || ext === ".zip");
 
-        if (item.isDirectory()) {
-          const bookResult = await processBookItem(itemPath, {
-            isDirectory: true,
-            isFile: false,
-            name: item.name,
-          });
+        if (!isDirectory && !isZip) {
+          continue;
+        }
 
-          if (bookResult) {
-            processedBooks.push(bookResult);
-            totalFoundBookPathsInScan.add(bookResult.bookData.path);
-          } else {
-            const subScanResult = await scanDirectory(itemPath, currentDepth + 1);
-            subScanResult.foundPaths.forEach((p) =>
-              totalFoundBookPathsInScan.add(p),
-            );
-            processedBooks.push(...subScanResult.processedBooks);
-          }
-        } else if (item.isFile() && (ext === ".cbz" || ext === ".zip")) {
-          const bookResult = await processBookItem(itemPath, {
-            isDirectory: false,
-            isFile: true,
-            name: item.name,
-          });
+        const bookResult = await processBookItem(itemPath, {
+          isDirectory,
+          isFile,
+          name: item.name,
+        });
 
-          if (bookResult) {
-            processedBooks.push(bookResult);
-            totalFoundBookPathsInScan.add(bookResult.bookData.path);
-          }
+        if (bookResult) {
+          processedBooks.push(bookResult);
+          totalFoundBookPathsInScan.add(bookResult.bookData.path);
         }
       } catch (fileProcessError) {
         console.error(`[Main] 파일 처리 오류 ${itemPath}:`, fileProcessError);
-        // 개별 파일 처리 중 에러가 발생해도 다음 파일로 진행
         continue;
       }
     }
 
-    // 최상위 스캔(currentDepth === 0)에서만 DB 작업을 수행
-    if (currentDepth === 0) {
-      const batchSize = 200;
-      let totalAddedCount = 0;
-      let totalUpdatedCount = 0;
-      let totalDeletedCount = 0;
-      const bookIdsToGenerateThumbnails: number[] = [];
+    // DB 작업을 수행
+    const batchSize = 200;
+    let totalAddedCount = 0;
+    let totalUpdatedCount = 0;
+    let totalDeletedCount = 0;
+    const bookIdsToGenerateThumbnails: number[] = [];
 
-      // 먼저, 단일 트랜잭션으로 삭제 처리
-      await db.transaction(async (trx) => {
-        const existingBooksInDb = await trx("Book")
-          .select("id", "path", "cover_path")
-          .where("path", "like", `${directoryPath}%`);
+    // 먼저, 단일 트랜잭션으로 삭제 처리
+    await db.transaction(async (trx) => {
+      const existingBooksInDb = await trx("Book")
+        .select("id", "path", "cover_path")
+        .where("path", "like", `${directoryPath}%`);
 
-        const booksToDelete = existingBooksInDb.filter(
-          (book) => !totalFoundBookPathsInScan.has(book.path),
-        );
+      const booksToDelete = existingBooksInDb.filter(
+        (book) => !totalFoundBookPathsInScan.has(book.path),
+      );
 
-        for (const book of booksToDelete) {
-          console.log(`[Main] DB에서 책 삭제 중: ${book.path}`);
-          await trx("BookArtist").where("book_id", book.id).del();
-          await trx("BookTag").where("book_id", book.id).del();
-          await trx("BookSeries").where("book_id", book.id).del();
-          await trx("BookGroup").where("book_id", book.id).del();
-          await trx("BookCharacter").where("book_id", book.id).del();
-          await trx("Book").where("id", book.id).del();
-          totalDeletedCount++;
+      for (const book of booksToDelete) {
+        console.log(`[Main] DB에서 책 삭제 중: ${book.path}`);
+        await trx("BookArtist").where("book_id", book.id).del();
+        await trx("BookTag").where("book_id", book.id).del();
+        await trx("BookSeries").where("book_id", book.id).del();
+        await trx("BookGroup").where("book_id", book.id).del();
+        await trx("BookCharacter").where("book_id", book.id).del();
+        await trx("Book").where("id", book.id).del();
+        totalDeletedCount++;
 
-          if (book.cover_path) {
-            try {
-              await fs.unlink(book.cover_path);
-              console.log(`[Main] 썸네일 파일 삭제: ${book.cover_path}`);
-            } catch (e) {
-              console.error(
-                `[Main] 썸네일 파일 삭제 실패 ${book.cover_path}:`,
-                e,
-              );
-            }
+        if (book.cover_path) {
+          try {
+            await fs.unlink(book.cover_path);
+            console.log(`[Main] 썸네일 파일 삭제: ${book.cover_path}`);
+          } catch (e) {
+            console.error(
+              `[Main] 썸네일 파일 삭제 실패 ${book.cover_path}:`,
+              e,
+            );
           }
         }
-      });
+      }
+    });
 
-      // 이제, 삽입과 업데이트를 배치로 처리
-      for (let i = 0; i < processedBooks.length; i += batchSize) {
-        const batch = processedBooks.slice(i, i + batchSize);
-        console.log(
-          `[Main] 배치 처리 중 ${i / batchSize + 1} / ${Math.ceil(
-            processedBooks.length / batchSize,
-          )}...`,
-        );
+    // 이제, 삽입과 업데이트를 배치로 처리
+    for (let i = 0; i < processedBooks.length; i += batchSize) {
+      const batch = processedBooks.slice(i, i + batchSize);
+      console.log(
+        `[Main] 배치 처리 중 ${i / batchSize + 1} / ${Math.ceil(
+          processedBooks.length / batchSize,
+        )}...`,
+      );
 
-        await db.transaction(async (trx) => {
-          const batchPaths = batch.map((p) => p.bookData.path);
-          const existingBooksInBatch = await trx("Book")
-            .select("id", "path", "cover_path")
-            .whereIn("path", batchPaths);
+      await db.transaction(async (trx) => {
+        const batchPaths = batch.map((p) => p.bookData.path);
+        const existingBooksInBatch = await trx("Book")
+          .select("id", "path", "cover_path")
+          .whereIn("path", batchPaths);
 
-          for (const processedBook of batch) {
-            const { bookData, infoMetadata, coverPath } = processedBook;
-            const existingBook = existingBooksInBatch.find(
-              (b) => b.path === bookData.path,
-            );
+        for (const processedBook of batch) {
+          const { bookData, infoMetadata, coverPath } = processedBook;
+          const existingBook = existingBooksInBatch.find(
+            (b) => b.path === bookData.path,
+          );
 
-            let bookId: number;
-            if (existingBook) {
-              bookId = existingBook.id;
-              await trx("Book")
-                .where("id", bookId)
-                .update({
-                  title: cleanValue(bookData.title),
-                  page_count: bookData.page_count,
-                  hitomi_id: cleanValue(bookData.hitomi_id),
-                  type: cleanValue(bookData.type),
-                  language_name_english: cleanValue(
-                    bookData.language_name_english,
-                  ),
-                  language_name_local: cleanValue(bookData.language_name_local),
-                });
-              console.log(
-                `[Main] 기존 책 정보 업데이트. ID: ${bookId}, 제목: ${bookData.title}`,
-              );
-              totalUpdatedCount++;
-
-              // 업데이트를 위해 기존 연결 제거
-              await trx("BookArtist").where("book_id", bookId).del();
-              await trx("BookTag").where("book_id", bookId).del();
-              await trx("BookSeries").where("book_id", bookId).del();
-              await trx("BookGroup").where("book_id", bookId).del();
-              await trx("BookCharacter").where("book_id", bookId).del();
-            } else {
-              const bookToInsert = {
+          let bookId: number;
+          if (existingBook) {
+            bookId = existingBook.id;
+            await trx("Book")
+              .where("id", bookId)
+              .update({
                 title: cleanValue(bookData.title),
-                path: bookData.path,
-                page_count: bookData.page_count || 0,
-                added_at: bookData.added_at,
+                page_count: bookData.page_count,
                 hitomi_id: cleanValue(bookData.hitomi_id),
                 type: cleanValue(bookData.type),
                 language_name_english: cleanValue(
                   bookData.language_name_english,
                 ),
                 language_name_local: cleanValue(bookData.language_name_local),
-              };
-              const result = await trx("Book").insert(bookToInsert);
-              bookId = result[0];
-              console.log(
-                `[Main] 새 책 추가. ID: ${bookId}, 제목: ${bookData.title}`,
-              );
-              totalAddedCount++;
-            }
-
-            // 아티스트, 그룹, 캐릭터, 태그, 시리즈 처리
-            const artistsToProcess =
-              infoMetadata.artists
-                ?.map((a) => cleanValue(a.name))
-                .filter(Boolean) || [];
-            for (const artistName of artistsToProcess) {
-              let artist = await trx("Artist")
-                .where("name", artistName)
-                .first();
-              if (!artist) {
-                const [newArtistId] = await trx("Artist").insert({
-                  name: artistName,
-                });
-                artist = { id: newArtistId, name: artistName };
-              }
-              await trx("BookArtist").insert({
-                book_id: bookId,
-                artist_id: artist.id,
               });
-            }
-
-            const groupsToProcess =
-              infoMetadata.groups
-                ?.map((g) => cleanValue(g.name))
-                .filter(Boolean) || [];
-            for (const groupName of groupsToProcess) {
-              let group = await trx("Group").where("name", groupName).first();
-              if (!group) {
-                const [newGroupId] = await trx("Group").insert({
-                  name: groupName,
-                });
-                group = { id: newGroupId, name: groupName };
-              }
-              await trx("BookGroup").insert({
-                book_id: bookId,
-                group_id: group.id,
-              });
-            }
-
-            const charactersToProcess =
-              infoMetadata.characters
-                ?.map((c) => cleanValue(c.name))
-                .filter(Boolean) || [];
-            for (const characterName of charactersToProcess) {
-              let character = await trx("Character")
-                .where("name", characterName)
-                .first();
-              if (!character) {
-                const [newCharacterId] = await trx("Character").insert({
-                  name: characterName,
-                });
-                character = { id: newCharacterId, name: characterName };
-              }
-              await trx("BookCharacter").insert({
-                book_id: bookId,
-                character_id: character.id,
-              });
-            }
-
-            const tagsToProcess =
-              infoMetadata.tags
-                ?.map((t) => cleanValue(t.name))
-                .filter(Boolean) || [];
-            for (const tagName of tagsToProcess) {
-              let tag = await trx("Tag").where("name", tagName).first();
-              if (!tag) {
-                const [newTagId] = await trx("Tag").insert({ name: tagName });
-                tag = { id: newTagId, name: tagName };
-              }
-              await trx("BookTag").insert({ book_id: bookId, tag_id: tag.id });
-            }
-
-            if (infoMetadata.series && infoMetadata.series.length > 0) {
-              const seriesName = infoMetadata.series[0].name;
-              let series = await trx("Series")
-                .where("name", seriesName)
-                .first();
-              if (!series) {
-                const [newSeriesId] = await trx("Series").insert({
-                  name: seriesName,
-                });
-                series = { id: newSeriesId, name: seriesName };
-              }
-              await trx("BookSeries").insert({
-                book_id: bookId,
-                series_id: series.id,
-              });
-            }
-
-            // 썸네일 생성 필요 여부 결정
-            const currentBookInDb = existingBooksInBatch.find(
-              (b) => b.id === bookId,
+            console.log(
+              `[Main] 기존 책 정보 업데이트. ID: ${bookId}, 제목: ${bookData.title}`,
             );
-            let shouldGenerateThumbnail = false;
-            if (coverPath) {
-              if (!currentBookInDb?.cover_path) {
-                shouldGenerateThumbnail = true;
-              } else {
-                try {
-                  await fs.access(currentBookInDb.cover_path);
-                } catch {
-                  shouldGenerateThumbnail = true;
-                  console.warn(
-                    `[Main] 기존 썸네일 파일을 찾을 수 없어 재생성합니다: Book ID ${bookId}`,
-                  );
-                }
-              }
+            totalUpdatedCount++;
+
+            // 업데이트를 위해 기존 연결 제거
+            await trx("BookArtist").where("book_id", bookId).del();
+            await trx("BookTag").where("book_id", bookId).del();
+            await trx("BookSeries").where("book_id", bookId).del();
+            await trx("BookGroup").where("book_id", bookId).del();
+            await trx("BookCharacter").where("book_id", bookId).del();
+          } else {
+            const bookToInsert = {
+              title: cleanValue(bookData.title),
+              path: bookData.path,
+              page_count: bookData.page_count || 0,
+              added_at: bookData.added_at,
+              hitomi_id: cleanValue(bookData.hitomi_id),
+              type: cleanValue(bookData.type),
+              language_name_english: cleanValue(bookData.language_name_english),
+              language_name_local: cleanValue(bookData.language_name_local),
+            };
+            const result = await trx("Book").insert(bookToInsert);
+            bookId = result[0];
+            console.log(
+              `[Main] 새 책 추가. ID: ${bookId}, 제목: ${bookData.title}`,
+            );
+            totalAddedCount++;
+          }
+
+          // 아티스트, 그룹, 캐릭터, 태그, 시리즈 처리
+          const artistsToProcess =
+            infoMetadata.artists
+              ?.map((a) => cleanValue(a.name))
+              .filter(Boolean) || [];
+          for (const artistName of artistsToProcess) {
+            let artist = await trx("Artist").where("name", artistName).first();
+            if (!artist) {
+              const [newArtistId] = await trx("Artist").insert({
+                name: artistName,
+              });
+              artist = { id: newArtistId, name: artistName };
             }
-            if (shouldGenerateThumbnail) {
-              bookIdsToGenerateThumbnails.push(bookId);
+            await trx("BookArtist").insert({
+              book_id: bookId,
+              artist_id: artist.id,
+            });
+          }
+
+          const groupsToProcess =
+            infoMetadata.groups
+              ?.map((g) => cleanValue(g.name))
+              .filter(Boolean) || [];
+          for (const groupName of groupsToProcess) {
+            let group = await trx("Group").where("name", groupName).first();
+            if (!group) {
+              const [newGroupId] = await trx("Group").insert({
+                name: groupName,
+              });
+              group = { id: newGroupId, name: groupName };
+            }
+            await trx("BookGroup").insert({
+              book_id: bookId,
+              group_id: group.id,
+            });
+          }
+
+          const charactersToProcess =
+            infoMetadata.characters
+              ?.map((c) => cleanValue(c.name))
+              .filter(Boolean) || [];
+          for (const characterName of charactersToProcess) {
+            let character = await trx("Character")
+              .where("name", characterName)
+              .first();
+            if (!character) {
+              const [newCharacterId] = await trx("Character").insert({
+                name: characterName,
+              });
+              character = { id: newCharacterId, name: characterName };
+            }
+            await trx("BookCharacter").insert({
+              book_id: bookId,
+              character_id: character.id,
+            });
+          }
+
+          const tagsToProcess =
+            infoMetadata.tags?.map((t) => cleanValue(t.name)).filter(Boolean) ||
+            [];
+          for (const tagName of tagsToProcess) {
+            let tag = await trx("Tag").where("name", tagName).first();
+            if (!tag) {
+              const [newTagId] = await trx("Tag").insert({ name: tagName });
+              tag = { id: newTagId, name: tagName };
+            }
+            await trx("BookTag").insert({ book_id: bookId, tag_id: tag.id });
+          }
+
+          if (infoMetadata.series && infoMetadata.series.length > 0) {
+            const seriesName = infoMetadata.series[0].name;
+            let series = await trx("Series").where("name", seriesName).first();
+            if (!series) {
+              const [newSeriesId] = await trx("Series").insert({
+                name: seriesName,
+              });
+              series = { id: newSeriesId, name: seriesName };
+            }
+            await trx("BookSeries").insert({
+              book_id: bookId,
+              series_id: series.id,
+            });
+          }
+
+          // 썸네일 생성 필요 여부 결정
+          const currentBookInDb = existingBooksInBatch.find(
+            (b) => b.id === bookId,
+          );
+          let shouldGenerateThumbnail = false;
+          if (coverPath) {
+            if (!currentBookInDb?.cover_path) {
+              shouldGenerateThumbnail = true;
+            } else {
+              try {
+                await fs.access(currentBookInDb.cover_path);
+              } catch {
+                shouldGenerateThumbnail = true;
+                console.warn(
+                  `[Main] 기존 썸네일 파일을 찾을 수 없어 재생성합니다: Book ID ${bookId}`,
+                );
+              }
             }
           }
-        }); // 배치 트랜잭션 종료
-      }
-
-      // 스캔 완료 후 썸네일 생성 일괄 트리거
-      if (bookIdsToGenerateThumbnails.length > 0) {
-        console.log(
-          `[Main] 스캔 후 ${bookIdsToGenerateThumbnails.length}권의 책에 대한 썸네일 생성 중...`,
-        );
-        const queue = new PQueue({ concurrency: os.cpus().length });
-        const updatedThumbnails: { bookId: number; thumbnailPath: string }[] =
-          [];
-
-        for (const bookId of bookIdsToGenerateThumbnails) {
-          queue.add(async () => {
-            const result = await generateThumbnailForBook(bookId);
-            if (result) {
-              updatedThumbnails.push(result);
-            }
-          });
+          if (shouldGenerateThumbnail) {
+            bookIdsToGenerateThumbnails.push(bookId);
+          }
         }
-        await queue.onIdle();
+      }); // 배치 트랜잭션 종료
+    }
 
-        // 썸네일 경로 일괄 업데이트
-        await db.transaction(async (updateTrx) => {
-          for (const { bookId, thumbnailPath } of updatedThumbnails) {
-            await updateTrx("Book")
-              .where("id", bookId)
-              .update({ cover_path: thumbnailPath });
+    // 스캔 완료 후 썸네일 생성 일괄 트리거
+    if (bookIdsToGenerateThumbnails.length > 0) {
+      console.log(
+        `[Main] 스캔 후 ${bookIdsToGenerateThumbnails.length}권의 책에 대한 썸네일 생성 중...`,
+      );
+      const queue = new PQueue({ concurrency: os.cpus().length });
+      const updatedThumbnails: { bookId: number; thumbnailPath: string }[] = [];
+
+      for (const bookId of bookIdsToGenerateThumbnails) {
+        queue.add(async () => {
+          const result = await generateThumbnailForBook(bookId);
+          if (result) {
+            updatedThumbnails.push(result);
           }
         });
-        console.log(`[Main] 스캔 후 썸네일 생성 및 업데이트 완료.`);
       }
+      await queue.onIdle();
 
-      return {
-        added: totalAddedCount,
-        updated: totalUpdatedCount,
-        deleted: totalDeletedCount,
-        foundPaths: totalFoundBookPathsInScan,
-        bookIdsToGenerateThumbnails,
-        processedBooks: processedBooks, // 추가된 반환 값
-      };
+      // 썸네일 경로 일괄 업데이트
+      await db.transaction(async (updateTrx) => {
+        for (const { bookId, thumbnailPath } of updatedThumbnails) {
+          await updateTrx("Book")
+            .where("id", bookId)
+            .update({ cover_path: thumbnailPath });
+        }
+      });
+      console.log(`[Main] 스캔 후 썸네일 생성 및 업데이트 완료.`);
     }
+
+    return {
+      added: totalAddedCount,
+      updated: totalUpdatedCount,
+      deleted: totalDeletedCount,
+      foundPaths: totalFoundBookPathsInScan,
+      bookIdsToGenerateThumbnails,
+      processedBooks: processedBooks,
+    };
   } catch (error) {
     console.error(`[Main] 디렉토리 스캔 중 오류: ${directoryPath}`, error);
-    throw error; // 에러를 다시 던져 상위 호출자에게 알림
+    throw error;
   }
-
-  return {
-    added: 0,
-    updated: 0,
-    deleted: 0,
-    foundPaths: totalFoundBookPathsInScan,
-    bookIdsToGenerateThumbnails: [],
-    processedBooks: processedBooks, // 추가된 반환 값
-  };
 }
 
 export async function scanFile(filePath: string) {
@@ -905,7 +863,7 @@ export async function scanFile(filePath: string) {
 
 export const handleRescanLibraryFolder = async (folderPath: string) => {
   try {
-    const { added, updated, deleted } = await scanDirectory(folderPath, 0);
+    const { added, updated, deleted } = await scanDirectory(folderPath);
     console.log(
       `[Main] ${folderPath}에 대한 재스캔 완료: 추가 ${added}, 업데이트 ${updated}, 삭제 ${deleted}`,
     );

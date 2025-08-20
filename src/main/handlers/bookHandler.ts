@@ -733,24 +733,36 @@ export const handleDeleteBook = async (bookId: number) => {
           await fs.unlink(book.path);
           console.log(`[Main] Deleted file: ${book.path}`);
         }
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
       } catch (fileError: any) {
-        if (fileError.code === 'ENOENT') {
-          console.warn(`[Main] Book file/folder not found, skipping deletion: ${book.path}`);
+        if (fileError.code === "ENOENT") {
+          console.warn(
+            `[Main] Book file/folder not found, skipping deletion: ${book.path}`,
+          );
         } else {
-          console.error(`[Main] Failed to delete physical file/folder ${book.path}:`, fileError);
+          console.error(
+            `[Main] Failed to delete physical file/folder ${book.path}:`,
+            fileError,
+          );
           // Do not re-throw, as DB deletion was successful
         }
       }
     }
 
     // Delete thumbnail file if it exists and is not a placeholder
-    if (book.cover_path && !book.cover_path.startsWith("https://via.placeholder.com")) {
+    if (
+      book.cover_path &&
+      !book.cover_path.startsWith("https://via.placeholder.com")
+    ) {
       try {
         await fs.unlink(book.cover_path);
         console.log(`[Main] Deleted thumbnail: ${book.cover_path}`);
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
       } catch (thumbError: any) {
-        if (thumbError.code === 'ENOENT') {
-          console.warn(`[Main] Thumbnail file not found, skipping deletion: ${book.cover_path}`);
+        if (thumbError.code === "ENOENT") {
+          console.warn(
+            `[Main] Thumbnail file not found, skipping deletion: ${book.cover_path}`,
+          );
         }
       } finally {
         // Do not re-throw
@@ -758,9 +770,12 @@ export const handleDeleteBook = async (bookId: number) => {
     }
 
     return { success: true };
-  } catch (error: any) {
+  } catch (error) {
     console.error(`[Main] Failed to delete book ${bookId}:`, error);
-    return { success: false, error: error.message || "Unknown error" };
+    return {
+      success: false,
+      error: (error as Error).message || "Unknown error",
+    };
   }
 };
 

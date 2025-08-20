@@ -1,4 +1,3 @@
-import { registerUpdaterHandlers } from "./updater.js";
 import {
   app,
   BrowserWindow,
@@ -28,6 +27,7 @@ import { registerEtcHandlers } from "./handlers/etcHandler.js";
 import { registerPresetHandlers } from "./handlers/presetHandler.js";
 import { registerStatisticsHandlers } from "./handlers/statisticsHandler.js";
 import { registerThumbnailHandlers } from "./handlers/thumbnailHandler.js";
+import { registerUpdaterHandlers } from "./updater.js";
 import { naturalSort } from "./utils/index.js";
 
 log.initialize();
