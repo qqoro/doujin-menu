@@ -26,6 +26,7 @@ import {
   useQuery,
   useQueryClient,
 } from "@tanstack/vue-query";
+import { debouncedWatch } from "@vueuse/core";
 import { computed, onMounted, ref, shallowRef, watch } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import { toast } from "vue-sonner";
@@ -106,10 +107,53 @@ const { schWord: searchQuery } = useQueryAndParams({
   },
 });
 
-const { data: config } = useQuery({
+const { data: config, isSuccess: isConfigLoaded } = useQuery({
   queryKey: ["config"],
   queryFn: () => ipcRenderer.invoke("get-config"),
 });
+
+// Load settings when config is loaded
+watch(
+  isConfigLoaded,
+  (loaded) => {
+    const query = route.query;
+    if (query.sortBy || query.sortOrder || query.readStatus) {
+      return;
+    }
+
+    if (loaded && config.value && config.value.libraryViewSettings) {
+      const {
+        sortBy: savedSortBy,
+        sortOrder: savedSortOrder,
+        readStatus: savedReadStatus,
+      } = config.value.libraryViewSettings;
+      sortBy.value = savedSortBy;
+      sortOrder.value = savedSortOrder;
+      readStatus.value = savedReadStatus;
+    }
+  },
+  { immediate: true },
+);
+
+// Watch for filter/sort changes and save them
+debouncedWatch(
+  [sortBy, sortOrder, readStatus],
+  () => {
+    if (!isConfigLoaded.value) return;
+
+    const settings = {
+      sortBy: sortBy.value,
+      sortOrder: sortOrder.value,
+      readStatus: readStatus.value,
+    };
+    ipcRenderer.invoke("set-config", {
+      key: "libraryViewSettings",
+      value: settings,
+    });
+  },
+  { debounce: 1000 },
+);
+
 const libraryDirectories = computed(() => config.value?.libraryFolders || []);
 
 const queryKey = computed(

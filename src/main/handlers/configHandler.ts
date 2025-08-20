@@ -6,6 +6,13 @@ import path from "path";
 import db, { closeDbConnection } from "../db/index.js";
 import { scanDirectory } from "./directoryHandler.js";
 
+// 라이브러리 뷰 설정 타입
+interface LibraryViewSettings {
+  sortBy: string;
+  sortOrder: "asc" | "desc";
+  readStatus: "all" | "read" | "unread";
+}
+
 // 설정 파일의 타입을 정의합니다.
 interface Config {
   theme?: "light" | "dark" | "auto";
@@ -18,7 +25,8 @@ interface Config {
   downloadPath?: string;
   downloaderLanguage?: string;
   downloadPattern?: string;
-  createInfoTxtFile?: boolean; // New setting
+  createInfoTxtFile?: boolean;
+  libraryViewSettings?: LibraryViewSettings;
 }
 
 const defaults: Config = {
@@ -32,7 +40,12 @@ const defaults: Config = {
   downloadPath: "",
   downloaderLanguage: "all",
   downloadPattern: "%artist% - %title%",
-  createInfoTxtFile: true, // Default value for createInfoTxtFile
+  createInfoTxtFile: true,
+  libraryViewSettings: {
+    sortBy: "added_at",
+    sortOrder: "desc",
+    readStatus: "all",
+  },
 };
 
 export const store = new Store<Config>({
