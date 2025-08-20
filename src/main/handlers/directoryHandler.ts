@@ -10,6 +10,7 @@ import db from "../db/index.js";
 import { Book } from "../db/types.js";
 import { console } from "../main.js";
 import { ParsedMetadata, parseInfoTxt } from "../parsers/infoTxtParser.js";
+import { naturalSort } from "../utils/index.js";
 import { generateThumbnailForBook } from "./thumbnailHandler.js"; // 썸네일 생성 함수 임포트
 
 // Windows MAX_PATH 제한
@@ -282,7 +283,7 @@ async function processBookItem(
   if (isDirectory) {
     const imageFiles = (await fs.readdir(itemPath))
       .filter((f) => RegExp(/\.(jpg|jpeg|png|webp)$/i).exec(f))
-      .sort();
+      .sort(naturalSort);
     if (imageFiles.length > 0) {
       bookData = {
         title: cleanValue(infoMetadata.title) || name,

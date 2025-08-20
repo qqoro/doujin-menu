@@ -153,7 +153,7 @@ app.whenReady().then(async () => {
         const files = await fs.readdir(bookPath);
         const imageFiles = files
           .filter((file) => file.match(/\.(jpg|jpeg|png|webp|gif|bmp)$/i))
-          .sort();
+          .sort(naturalSort);
 
         if (pageIndex >= 0 && pageIndex < imageFiles.length) {
           const imagePath = path.join(bookPath, imageFiles[pageIndex]);
