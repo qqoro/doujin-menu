@@ -126,18 +126,25 @@ const handleKeyDown = async (e: KeyboardEvent) => {
   if (e.key === "Home") {
     store.goToPage(1);
     return;
-  } else if (e.key === "End") {
+  }
+  if (e.key === "End") {
     store.goToPage(totalPages.value);
     return;
-  } else if (e.key === "[") {
+  }
+  if (e.key === "[") {
     store.loadPrevBook();
     return;
-  } else if (e.key === "]") {
+  }
+  if (e.key === "]") {
     store.loadNextBook("next"); // Always sequential for shortcut
     return;
-  } else if (e.key === " ") {
+  }
+  if (e.key === " ") {
     store.nextPage();
-  } else if (readingMode.value === "rtl") {
+    return;
+  }
+
+  if (readingMode.value === "rtl") {
     if (e.key === "ArrowRight") store.prevPage();
     else if (e.key === "ArrowLeft") store.nextPage();
   } else {
@@ -253,7 +260,7 @@ useWindowEvent("mouseup", handleMouseUp);
               variant="ghost"
               size="icon"
               style="-webkit-app-region: no-drag"
-              @click="router.push('/library')"
+              @click="router.back"
             >
               <Icon icon="solar:alt-arrow-left-line-duotone" class="size-6" />
             </Button>
@@ -482,7 +489,10 @@ useWindowEvent("mouseup", handleMouseUp);
                         variant="outline"
                         @update:model-value="
                           (mode) => {
-                            if (mode) store.setReadingMode(mode);
+                            if (mode)
+                              store.setReadingMode(
+                                mode as 'ltr' | 'rtl' | 'webtoon',
+                              );
                           }
                         "
                       >
@@ -585,7 +595,8 @@ useWindowEvent("mouseup", handleMouseUp);
                       :disabled="!isAutoNextBook"
                       @update:model-value="
                         (mode) => {
-                          if (mode) store.setNextBookMode(mode);
+                          if (mode)
+                            store.setNextBookMode(mode as 'next' | 'random');
                         }
                       "
                     >
