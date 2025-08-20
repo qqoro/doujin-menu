@@ -169,9 +169,10 @@ export const handleDownloadGallery = async (
     const totalFiles = gallery.files.length;
     for (let i = 0; i < totalFiles; i++) {
       const file = gallery.files[i];
-      const imageUrl = hitomi.ImageUriResolver.getImageUri(file, "avif"); // avif 우선
+      const fileExt = file.hasWebp ? "webp" : "avif";
+      const imageUrl = hitomi.ImageUriResolver.getImageUri(file, fileExt);
       const fullImageUrl = `https://${imageUrl}`;
-      const fileName = `${String(file.index + 1).padStart(3, "0")}.${file.name.split(".").pop()}`;
+      const fileName = `${String(file.index + 1).padStart(3, "0")}.${fileExt}`;
       const filePath = path.join(galleryDownloadPath, fileName);
 
       const res = await fetch(fullImageUrl, {
