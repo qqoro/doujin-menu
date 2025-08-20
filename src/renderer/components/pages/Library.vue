@@ -27,7 +27,7 @@ import {
   useQueryClient,
 } from "@tanstack/vue-query";
 import { debouncedWatch } from "@vueuse/core";
-import { computed, onMounted, ref, shallowRef, watch } from "vue";
+import { computed, onMounted, ref, shallowRef, toRaw, watch } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import { toast } from "vue-sonner";
 import { ipcRenderer, openBookFolder, toggleBookFavorite } from "../../api";
@@ -249,14 +249,20 @@ const toggleSortOrder = () => {
   sortOrder.value = sortOrder.value === "asc" ? "desc" : "asc";
 };
 
-const openRandomBook = async () => {
-  const result = await ipcRenderer.invoke("get-random-book");
-  if (result.success && result.bookId) {
-    router.push({ name: "Viewer", params: { id: result.bookId } });
-  } else {
-    console.error("Failed to get random book:", result.error);
-    toast.error("랜덤 책을 불러오는데 실패했습니다.");
+const openRandomBookFromCurrentView = async () => {
+  const randomIndex = Math.floor(Math.random() * books.value.length);
+  const randomBook = books.value[randomIndex];
+  if (!randomBook) {
+    return;
   }
+
+  router.push({
+    name: "Viewer",
+    params: { id: randomBook.id },
+    query: {
+      filter: JSON.stringify(toRaw(queryKey.value[1])),
+    },
+  });
 };
 
 const handleToggleFavorite = async (
@@ -431,7 +437,7 @@ useWindowEvent("keydown", (e: KeyboardEvent) => {
           </DropdownMenuRadioGroup>
         </DropdownMenuContent>
       </DropdownMenu>
-      <div class="inline-flex rounded-md shadow-sm" role="group">
+      <div class="inline-flex">
         <DropdownMenu>
           <DropdownMenuTrigger as-child>
             <Button variant="outline" class="rounded-r-none">
@@ -509,7 +515,11 @@ useWindowEvent("keydown", (e: KeyboardEvent) => {
           />
         </Button>
       </div>
-      <Button variant="outline" @click="openRandomBook">
+      <Button
+        variant="outline"
+        :disabled="books.length === 0"
+        @click="openRandomBookFromCurrentView"
+      >
         <Icon icon="solar:rocket-bold-duotone" class="w-4 h-4" />
         랜덤
       </Button>
