@@ -42,6 +42,7 @@ export default db;
 
 export async function closeDbConnection() {
   if (db) {
+    await db.raw(`PRAGMA wal_checkpoint(TRUNCATE);`);
     await db.destroy();
     console.log("[Main] Database connection closed.");
   }

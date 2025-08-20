@@ -11,7 +11,7 @@ import windowStateKeeper from "electron-window-state";
 import fs from "fs/promises";
 import path from "path"; // path 모듈 전체 임포트
 import * as yauzl from "yauzl";
-import db from "./db/index.js"; // db 모듈 추가
+import db, { closeDbConnection } from "./db/index.js"; // db 모듈 추가
 import "./handlers/bookHandler.js";
 import { registerBookHandlers } from "./handlers/bookHandler.js";
 import {
@@ -349,7 +349,8 @@ app.whenReady().then(async () => {
   }
 });
 
-app.on("window-all-closed", function () {
+app.on("window-all-closed", async function () {
+  await closeDbConnection();
   if (process.platform !== "darwin") {
     app.quit();
   }

@@ -219,6 +219,9 @@ export const handleBackupDatabase = async (
 
   const backupDir = filePaths[0];
   try {
+    // wal 파일 커밋
+    await db.raw(`PRAGMA wal_checkpoint(TRUNCATE);`);
+
     const dbPath = getDbPath();
     const dbFileName = isDevelopment ? "dev.sqlite3" : "database.db";
     const backupDbPath = path.join(backupDir, dbFileName);
