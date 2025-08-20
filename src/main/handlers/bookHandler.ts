@@ -352,7 +352,7 @@ export const handleGetBookPagePaths = async (bookId: number) => {
             });
 
             zipfile.on("end", () => {
-              imageEntries.sort((a, b) => a.fileName.localeCompare(b.fileName)); // 파일명으로 정렬
+              imageEntries.sort((a, b) => naturalSort(a.fileName, b.fileName)); // 파일명으로 정렬
               for (let i = 0; i < imageEntries.length; i++) {
                 pagePaths.push(`doujin-menu://${bookId}/${i}`);
               }

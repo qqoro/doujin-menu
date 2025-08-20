@@ -1,4 +1,4 @@
-import { describe, it, expect } from "vitest";
+import { describe, expect, it } from "vitest";
 import { parseInfoTxt } from "../../src/main/parsers/infoTxtParser";
 
 describe("parseInfoTxt", () => {
@@ -19,7 +19,7 @@ describe("parseInfoTxt", () => {
       hitomi_id: "12345",
       title: "테스트 제목",
       artists: [{ name: "작가1" }],
-      group: "그룹1",
+      groups: [{ name: "그룹1" }],
       type: "만화",
       series: [{ name: "시리즈1" }],
       characters: [{ name: "캐릭터1" }],
