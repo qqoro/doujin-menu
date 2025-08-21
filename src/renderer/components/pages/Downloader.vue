@@ -25,6 +25,7 @@ import { useInfiniteQuery } from "@tanstack/vue-query";
 import type { Gallery } from "node-hitomi";
 import { AcceptableValue } from "reka-ui";
 import { computed, onMounted, onUnmounted, reactive, ref, watch } from "vue";
+import { toast } from "vue-sonner";
 import { useRouter } from "vue-router";
 import PresetDropdown from "../common/PresetDropdown.vue";
 import GalleryPreviewDialog from "../feature/downloader/GalleryPreviewDialog.vue";
@@ -151,6 +152,15 @@ onMounted(() => {
     "download-progress",
     (_event, { galleryId, status, progress, error }) => {
       downloadStatuses[galleryId] = { status, progress, error };
+
+      if (status === "completed") {
+        const completedGallery = allGalleries.value.find(
+          (gallery) => gallery.id === galleryId,
+        );
+        if (completedGallery) {
+          toast.success(`${completedGallery.title.display}이(가) 다운로드되었습니다.`);
+        }
+      }
     },
   );
 
