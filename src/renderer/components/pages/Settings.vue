@@ -19,7 +19,6 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { Label } from "@/components/ui/label";
 import {
   Select,
   SelectContent,
@@ -56,6 +55,7 @@ import {
 import EtcView from "../feature/settings/EtcView.vue";
 import LicenseViewDialog from "../feature/settings/LicenseViewDialog.vue"; // New import
 import PresetFormDialog from "../feature/settings/PresetFormDialog.vue";
+import SettingItem from "../feature/settings/SettingItem.vue";
 import { Input } from "../ui/input";
 
 const route = useRoute();
@@ -138,7 +138,7 @@ const theme = useColorMode();
 const autoLoadLibrary = ref(true);
 const libraryFolders = ref<LibraryFolder[]>([]);
 const createInfoTxtFile = ref(true);
-const downloadPattern = ref("%artist% - %title%"); // New ref // New ref
+const downloadPattern = ref("%artist% - %title%");
 
 // 뷰어 설정 상태
 const viewerReadingDirection = ref<"ltr" | "rtl" | "webtoon">("ltr");
@@ -406,19 +406,17 @@ const resetAllData = async () => {
                 >
               </CardHeader>
               <CardContent class="space-y-6">
-                <div class="grid grid-cols-3 items-center gap-4">
-                  <div class="col-span-2">
-                    <Label for="theme-select">앱 테마</Label>
-                    <p class="text-sm text-muted-foreground">
-                      앱의 전체적인 색상 테마를 선택합니다.
-                    </p>
-                  </div>
+                <SettingItem
+                  label-for="theme-select"
+                  title="앱 테마"
+                  subtitle="앱의 전체적인 색상 테마를 선택합니다."
+                >
                   <Select
                     id="theme-select"
                     :model-value="theme"
                     @update:model-value="onThemeChange"
                   >
-                    <SelectTrigger class="w-full">
+                    <SelectTrigger>
                       <SelectValue placeholder="테마 선택" />
                     </SelectTrigger>
                     <SelectContent>
@@ -427,23 +425,19 @@ const resetAllData = async () => {
                       <SelectItem value="auto">시스템 설정</SelectItem>
                     </SelectContent>
                   </Select>
-                </div>
-                <div class="grid grid-cols-3 items-center gap-4">
-                  <div class="col-span-2">
-                    <Label for="auto-load-library"
-                      >시작 시 라이브러리 자동 스캔</Label
-                    >
-                    <p class="text-sm text-muted-foreground">
-                      앱 시작 시 라이브러리 폴더를 자동으로 스캔합니다.
-                    </p>
-                  </div>
+                </SettingItem>
+                <SettingItem
+                  label-for="auto-load-library"
+                  title="시작 시 라이브러리 자동 스캔"
+                  subtitle="앱 시작 시 라이브러리 폴더를 자동으로 스캔합니다."
+                >
                   <Switch
                     id="auto-load-library"
                     :model-value="autoLoadLibrary"
                     class="justify-self-end"
                     @update:model-value="onAutoLoadChange"
                   />
-                </div>
+                </SettingItem>
               </CardContent>
             </Card>
           </TabsContent>
@@ -536,18 +530,16 @@ const resetAllData = async () => {
                   >
                 </CardHeader>
                 <CardContent class="space-y-4">
-                  <div class="flex items-center justify-between">
-                    <p class="text-sm font-medium">전체 썸네일 재생성</p>
+                  <SettingItem title="전체 썸네일 재생성">
                     <Button variant="outline" @click="regenerateAllThumbnails"
                       >재생성</Button
                     >
-                  </div>
-                  <div class="flex items-center justify-between">
-                    <p class="text-sm font-medium">전체 메타데이터 재스캔</p>
+                  </SettingItem>
+                  <SettingItem title="전체 메타데이터 재스캔">
                     <Button variant="outline" @click="rescanAllMetadata"
                       >재스캔</Button
                     >
-                  </div>
+                  </SettingItem>
                 </CardContent>
               </Card>
             </div>
@@ -562,19 +554,17 @@ const resetAllData = async () => {
                 >
               </CardHeader>
               <CardContent class="space-y-6">
-                <div class="grid grid-cols-3 items-center gap-4">
-                  <div class="col-span-2">
-                    <Label for="reading-direction">읽기 방향</Label>
-                    <p class="text-sm text-muted-foreground">
-                      만화책 페이지의 읽기 방향을 설정합니다.
-                    </p>
-                  </div>
+                <SettingItem
+                  label-for="reading-direction"
+                  title="읽기 방향"
+                  subtitle="만화책 페이지의 읽기 방향을 설정합니다."
+                >
                   <Select
                     id="reading-direction"
                     :model-value="viewerReadingDirection"
                     @update:model-value="onViewerReadingDirectionChange"
                   >
-                    <SelectTrigger class="w-full">
+                    <SelectTrigger>
                       <SelectValue placeholder="읽기 방향 선택" />
                     </SelectTrigger>
                     <SelectContent>
@@ -583,30 +573,26 @@ const resetAllData = async () => {
                       <SelectItem value="webtoon">웹툰 스크롤</SelectItem>
                     </SelectContent>
                   </Select>
-                </div>
+                </SettingItem>
 
-                <div class="grid grid-cols-3 items-center gap-4">
-                  <div class="col-span-2">
-                    <Label for="double-page-view">더블 페이지 뷰</Label>
-                    <p class="text-sm text-muted-foreground">
-                      두 페이지를 동시에 표시할지 설정합니다.
-                    </p>
-                  </div>
+                <SettingItem
+                  label-for="double-page-view"
+                  title="더블 페이지 뷰"
+                  subtitle="두 페이지를 동시에 표시할지 설정합니다."
+                >
                   <Switch
                     id="double-page-view"
                     :model-value="viewerDoublePageView"
                     class="justify-self-end"
                     @update:model-value="onViewerDoublePageViewChange"
                   />
-                </div>
+                </SettingItem>
 
-                <div class="grid grid-cols-3 items-center gap-4">
-                  <div class="col-span-2">
-                    <Label for="show-cover-alone">표지 따로 보기</Label>
-                    <p class="text-sm text-muted-foreground">
-                      더블 페이지 모드에서 표지를 단독으로 표시합니다.
-                    </p>
-                  </div>
+                <SettingItem
+                  label-for="show-cover-alone"
+                  title="표지 따로 보기"
+                  subtitle="더블 페이지 모드에서 표지를 단독으로 표시합니다."
+                >
                   <Switch
                     id="show-cover-alone"
                     :model-value="viewerShowCoverAlone"
@@ -614,40 +600,33 @@ const resetAllData = async () => {
                     :disabled="!viewerDoublePageView"
                     @update:model-value="onViewerShowCoverAloneChange"
                   />
-                </div>
+                </SettingItem>
 
-                <div class="grid grid-cols-3 items-center gap-4">
-                  <div class="col-span-2">
-                    <Label for="auto-fit-zoom">자동 맞춤 확대</Label>
-                    <p class="text-sm text-muted-foreground">
-                      페이지를 화면에 자동으로 맞게 확대합니다.
-                    </p>
-                  </div>
+                <SettingItem
+                  label-for="auto-fit-zoom"
+                  title="자동 맞춤 확대"
+                  subtitle="페이지를 화면에 자동으로 맞게 확대합니다."
+                >
                   <Switch
                     id="auto-fit-zoom"
                     :model-value="viewerAutoFitZoom"
                     class="justify-self-end"
                     @update:model-value="onViewerAutoFitZoomChange"
                   />
-                </div>
+                </SettingItem>
 
-                <div class="grid grid-cols-3 items-center gap-4">
-                  <div class="col-span-2">
-                    <Label for="restore-last-session"
-                      >마지막 열람 위치 자동 복원</Label
-                    >
-                    <p class="text-sm text-muted-foreground">
-                      만화책을 다시 열 때 마지막으로 보던 페이지를 자동으로
-                      엽니다.
-                    </p>
-                  </div>
+                <SettingItem
+                  label-for="restore-last-session"
+                  title="마지막 열람 위치 자동 복원"
+                  subtitle="만화책을 다시 열 때 마지막으로 보던 페이지를 자동으로 엽니다."
+                >
                   <Switch
                     id="restore-last-session"
                     :model-value="viewerRestoreLastSession"
                     class="justify-self-end"
                     @update:model-value="onViewerRestoreLastSessionChange"
                   />
-                </div>
+                </SettingItem>
               </CardContent>
             </Card>
           </TabsContent>
@@ -661,32 +640,23 @@ const resetAllData = async () => {
                 >
               </CardHeader>
               <CardContent class="space-y-6">
-                <div class="grid grid-cols-3 items-center gap-4">
-                  <div class="col-span-2">
-                    <Label for="create-info-txt-file"
-                      >다운로드 후 info.txt 파일 생성</Label
-                    >
-                    <p class="text-sm text-muted-foreground">
-                      다운로드 완료 후 작품 정보가 담긴 info.txt 파일을
-                      생성합니다.
-                    </p>
-                  </div>
+                <SettingItem
+                  label-for="create-info-txt-file"
+                  title="다운로드 후 info.txt 파일 생성"
+                  subtitle="다운로드 완료 후 작품 정보가 담긴 info.txt 파일을 생성합니다."
+                >
                   <Switch
                     id="create-info-txt-file"
                     :model-value="createInfoTxtFile"
                     class="justify-self-end"
                     @update:model-value="onCreateInfoTxtFileChange"
                   />
-                </div>
-                <div class="grid grid-cols-3 items-center gap-4">
-                  <div class="col-span-2">
-                    <Label for="download-pattern-input"
-                      >다운로드 폴더명 패턴</Label
-                    >
-                    <p class="text-sm text-muted-foreground">
-                      다운로드될 폴더의 이름을 지정하는 패턴입니다.
-                    </p>
-                  </div>
+                </SettingItem>
+                <SettingItem
+                  label-for="download-pattern-input"
+                  title="다운로드 폴더명 패턴"
+                  subtitle="다운로드될 폴더의 이름을 지정하는 패턴입니다."
+                >
                   <Input
                     id="download-pattern-input"
                     placeholder="%artist% - %title%"
@@ -696,18 +666,18 @@ const resetAllData = async () => {
                       onDownloadPatternChange($event as string)
                     "
                   />
-                  <div class="col-span-3 text-sm text-muted-foreground">
-                    <p class="font-semibold">사용 가능한 변수</p>
-                    <ul class="list-disc list-inside ml-4">
-                      <li><code>%artist%</code>: 작가명</li>
-                      <li><code>%title%</code>: 작품 제목</li>
-                      <li><code>%id%</code>: 갤러리 ID</li>
-                      <li><code>%language%</code>: 언어</li>
-                    </ul>
-                    <p class="mt-2">
-                      예시: <code>%artist% - %title% (%id%)</code>
-                    </p>
-                  </div>
+                </SettingItem>
+                <div class="col-span-3 text-sm text-muted-foreground">
+                  <p class="font-semibold">사용 가능한 변수</p>
+                  <ul class="list-disc list-inside ml-4">
+                    <li><code>%artist%</code>: 작가명</li>
+                    <li><code>%title%</code>: 작품 제목</li>
+                    <li><code>%id%</code>: 갤러리 ID</li>
+                    <li><code>%language%</code>: 언어</li>
+                  </ul>
+                  <p class="mt-2">
+                    예시: <code>%artist% - %title% (%id%)</code>
+                  </p>
                 </div>
               </CardContent>
             </Card>
@@ -724,8 +694,7 @@ const resetAllData = async () => {
                   >
                 </CardHeader>
                 <CardContent class="space-y-4">
-                  <div class="flex items-center justify-between">
-                    <p class="text-sm font-medium">데이터베이스</p>
+                  <SettingItem title="데이터베이스">
                     <div class="flex gap-2">
                       <Button variant="outline" @click="backupDatabase"
                         >백업</Button
@@ -734,7 +703,7 @@ const resetAllData = async () => {
                         >복원</Button
                       >
                     </div>
-                  </div>
+                  </SettingItem>
                 </CardContent>
               </Card>
               <!-- New Card for Open Source Licenses -->
@@ -747,8 +716,7 @@ const resetAllData = async () => {
                   </CardDescription>
                 </CardHeader>
                 <CardContent>
-                  <div class="flex items-center justify-between">
-                    <p class="text-sm font-medium">라이선스 목록</p>
+                  <SettingItem title="라이선스 목록">
                     <Button
                       variant="outline"
                       @click="isLicenseViewDialogOpen = true"
@@ -756,7 +724,7 @@ const resetAllData = async () => {
                       <Icon icon="solar:document-text-linear" class="w-5 h-5" />
                       라이선스 보기
                     </Button>
-                  </div>
+                  </SettingItem>
                 </CardContent>
               </Card>
               <Card>
@@ -769,16 +737,10 @@ const resetAllData = async () => {
                   >
                 </CardHeader>
                 <CardContent>
-                  <div
-                    class="flex items-center justify-between rounded-lg border border-destructive/50 bg-destructive/5 p-4 gap-2"
+                  <SettingItem
+                    title="모든 데이터 초기화"
+                    subtitle="라이브러리, 설정, 썸네일 등 모든 데이터를 삭제하고 앱을 초기 상태로 되돌립니다."
                   >
-                    <div>
-                      <h3 class="font-semibold">모든 데이터 초기화</h3>
-                      <p class="text-sm text-muted-foreground">
-                        라이브러리, 설정, 썸네일 등 모든 데이터를 삭제하고 앱을
-                        초기 상태로 되돌립니다.
-                      </p>
-                    </div>
                     <AlertDialog>
                       <AlertDialogTrigger as-child>
                         <Button variant="destructive">초기화</Button>
@@ -803,7 +765,7 @@ const resetAllData = async () => {
                         </AlertDialogFooter>
                       </AlertDialogContent>
                     </AlertDialog>
-                  </div>
+                  </SettingItem>
                 </CardContent>
               </Card>
             </div>
