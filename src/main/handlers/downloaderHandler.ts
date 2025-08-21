@@ -175,34 +175,67 @@ export const handleDownloadGallery = async (
       const fileName = `${String(file.index + 1).padStart(3, "0")}.${fileExt}`;
       const filePath = path.join(galleryDownloadPath, fileName);
 
-      const res = await fetch(fullImageUrl, {
-        headers: {
-          accept:
-            "image/avif,image/webp,image/apng,image/svg+xml,image/*,*/*;q=0.8",
-          "accept-language": "ko-KR,ko;q=0.9,en-US;q=0.8,en;q=0.7",
-          priority: "i",
-          "sec-ch-ua":
-            '"Chromium";v="136", "Whale";v="4", "Not.A/Brand";v="99"',
-          "sec-ch-ua-mobile": "?0",
-          "sec-ch-ua-platform": '"Windows"',
-          "sec-fetch-dest": "image",
-          "sec-fetch-mode": "no-cors",
-          "sec-fetch-site": "cross-site",
-          "sec-fetch-storage-access": "active",
-          "sec-gpc": "1",
-          Referer: `https://hitomi.la/reader/${gallery.id}.html`,
-          "Referrer-Policy": "no-referrer-when-downgrade",
-          "User-Agent":
-            "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_9_3) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/35.0.1916.47 Safari/537.36",
-        },
-      });
+      const maxRetries = 5;
+      let success = false;
 
-      if (!res.ok) {
-        throw new Error(`Failed to download ${fileName}: ${res.statusText}`);
+      for (let attempt = 1; attempt <= maxRetries; attempt++) {
+        try {
+          const res = await fetch(fullImageUrl, {
+            headers: {
+              accept:
+                "image/avif,image/webp,image/apng,image/svg+xml,image/*,*/*;q=0.8",
+              "accept-language": "ko-KR,ko;q=0.9,en-US;q=0.8,en;q=0.7",
+              priority: "i",
+              "sec-ch-ua":
+                '"Chromium";v="136", "Whale";v="4", "Not.A/Brand";v="99"',
+              "sec-ch-ua-mobile": "?0",
+              "sec-ch-ua-platform": '"Windows"',
+              "sec-fetch-dest": "image",
+              "sec-fetch-mode": "no-cors",
+              "sec-fetch-site": "cross-site",
+              "sec-fetch-storage-access": "active",
+              "sec-gpc": "1",
+              Referer: `https://hitomi.la/reader/${gallery.id}.html`,
+              "Referrer-Policy": "no-referrer-when-downgrade",
+              "User-Agent":
+                "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_9_3) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/35.0.1916.47 Safari/537.36",
+            },
+          });
+
+          if (res.ok) {
+            const arrayBuffer = await res.arrayBuffer();
+            await fs.writeFile(filePath, Buffer.from(arrayBuffer));
+            success = true;
+            break; // 다운로드 성공, 재시도 루프 탈출
+          } else {
+            console.warn(
+              `[Downloader] 파일 다운로드 실패. 재시도 (${attempt}/${maxRetries}): ${fileName} - ${res.statusText}`,
+            );
+            if (attempt < maxRetries) {
+              // 재시도 전 잠시 대기 (점진적 증가)
+              await new Promise((resolve) =>
+                setTimeout(resolve, 1000 * attempt),
+              );
+            }
+          }
+        } catch (error) {
+          console.warn(
+            `[Downloader] 파일 다운로드 중 오류 발생. 재시도 (${attempt}/${maxRetries}): ${fileName}`,
+            error,
+          );
+          if (attempt < maxRetries) {
+            await new Promise((resolve) =>
+              setTimeout(resolve, 1000 * attempt),
+            );
+          }
+        }
       }
 
-      const arrayBuffer = await res.arrayBuffer();
-      await fs.writeFile(filePath, Buffer.from(arrayBuffer));
+      if (!success) {
+        throw new Error(
+          `파일 다운로드 실패: ${fileName} (${maxRetries}회 재시도 후에도 실패)`,
+        );
+      }
 
       const progress = Math.round(((i + 1) / totalFiles) * 100);
       webContents.send("download-progress", {
