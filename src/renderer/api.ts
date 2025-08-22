@@ -9,12 +9,30 @@ export interface Preset {
   query: string;
 }
 
+export interface FilterParams {
+  searchQuery?: string;
+  libraryPath?: string;
+  readStatus?: "all" | "read" | "unread";
+  sortBy?: string;
+  sortOrder?: "asc" | "desc";
+  isFavorite?: boolean;
+}
+
 export async function getStatistics() {
   return ipcRenderer.invoke("get-statistics");
 }
 
 export async function getLibrarySize() {
   return ipcRenderer.invoke("get-library-size");
+}
+
+export async function getRandomBook(filter: FilterParams) {
+  const result = await ipcRenderer.invoke("get-random-book", filter);
+  if (result.success) {
+    return { id: result.bookId, title: result.bookTitle };
+  } else {
+    throw new Error(result.error || "Failed to get random book");
+  }
 }
 
 // Book Card Context Menu API

@@ -30,7 +30,13 @@ import { debouncedWatch } from "@vueuse/core";
 import { computed, onMounted, ref, shallowRef, toRaw, watch } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import { toast } from "vue-sonner";
-import { ipcRenderer, openBookFolder, toggleBookFavorite } from "../../api";
+import {
+  FilterParams,
+  getRandomBook,
+  ipcRenderer,
+  openBookFolder,
+  toggleBookFavorite,
+} from "../../api";
 import PresetDropdown from "../common/PresetDropdown.vue";
 import SmartSearchInput from "../common/SmartSearchInput.vue";
 import BookCard from "../feature/BookCard.vue";
@@ -250,19 +256,26 @@ const toggleSortOrder = () => {
 };
 
 const openRandomBookFromCurrentView = async () => {
-  const randomIndex = Math.floor(Math.random() * books.value.length);
-  const randomBook = books.value[randomIndex];
-  if (!randomBook) {
-    return;
-  }
+  try {
+    const randomBook = await getRandomBook(
+      toRaw(queryKey.value[1]) as FilterParams,
+    );
+    if (!randomBook || !randomBook.id) {
+      toast.info("현재 검색 조건에 맞는 랜덤 책을 찾을 수 없습니다.");
+      return;
+    }
 
-  router.push({
-    name: "Viewer",
-    params: { id: randomBook.id },
-    query: {
-      filter: JSON.stringify(toRaw(queryKey.value[1])),
-    },
-  });
+    router.push({
+      name: "Viewer",
+      params: { id: randomBook.id },
+      query: {
+        filter: JSON.stringify(toRaw(queryKey.value[1])),
+      },
+    });
+  } catch (error) {
+    console.error("Failed to get random book:", error);
+    toast.error("랜덤 책을 불러오는 데 실패했습니다.");
+  }
 };
 
 const handleToggleFavorite = async (

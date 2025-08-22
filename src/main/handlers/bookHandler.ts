@@ -631,11 +631,16 @@ export const handleGetPrevBook = async ({
   }
 };
 
-export const handleGetRandomBook = async () => {
+export const handleGetRandomBook = async (filter: FilterParams | null) => {
   try {
-    const randomBook = await db("Book").orderByRaw("RANDOM()").first();
+    const mainQuery = buildFilteredQuery(filter);
+    const randomBook = await mainQuery.orderByRaw("RANDOM()").first();
     if (randomBook) {
-      return { success: true, bookId: randomBook.id };
+      return {
+        success: true,
+        bookId: randomBook.id,
+        bookTitle: randomBook.title,
+      };
     }
     return { success: false, error: "No books found in the library." };
   } catch (error) {
@@ -806,7 +811,7 @@ export function registerBookHandlers() {
   ipcMain.handle("get-prev-book", (_event, params) =>
     handleGetPrevBook(params),
   );
-  ipcMain.handle("get-random-book", (_event) => handleGetRandomBook());
+  ipcMain.handle("get-random-book", (_event, filter) => handleGetRandomBook(filter));
   ipcMain.handle("toggle-book-favorite", (_event, bookId, isFavorite) =>
     handleToggleBookFavorite(bookId, isFavorite),
   );
