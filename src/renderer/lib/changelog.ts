@@ -15,6 +15,27 @@ export interface Changelog {
  */
 export const changelogData: Changelog[] = [
   {
+    version: "1.0.7",
+    changes: [
+      {
+        type: "feature",
+        title: "✨ 새로운 기능",
+        items: [
+          "다운로드 완료 시 알림이 표시됩니다.",
+          "다운로드 실패 시 자동으로 다시 시도합니다.",
+        ],
+      },
+      {
+        type: "fix",
+        title: "🐛 버그 수정",
+        items: [
+          "라이브러리에서 랜덤으로 책을 선택할 때, 검색 조건에 맞는 모든 책 중에서 선택되도록 수정되었습니다.",
+          "압축파일의 썸네일 처리 시 발생하던 문제가 수정되었습니다.",
+        ],
+      },
+    ],
+  },
+  {
     version: "1.0.6",
     changes: [
       {
