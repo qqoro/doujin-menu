@@ -315,7 +315,7 @@ async function processBookItem(
         };
         const tempCoverPath = path.join(
           app.getPath("temp"),
-          `${bookData!.title}.webp`,
+          `${name + Date.now().toString()}.webp`,
         );
         coverPath = await extractCoverFromZip(itemPath, tempCoverPath);
       } else {

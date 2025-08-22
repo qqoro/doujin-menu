@@ -172,7 +172,7 @@ export const handleDownloadGallery = async (
       const fileExt = file.hasWebp ? "webp" : "avif";
       const imageUrl = hitomi.ImageUriResolver.getImageUri(file, fileExt);
       const fullImageUrl = `https://${imageUrl}`;
-      const fileName = `${String(file.index + 1).padStart(3, "0")}.${fileExt}`;
+      const fileName = `${String(file.index + 1).padStart(6, "0")}.${fileExt}`;
       const filePath = path.join(galleryDownloadPath, fileName);
 
       const maxRetries = 5;
@@ -224,9 +224,7 @@ export const handleDownloadGallery = async (
             error,
           );
           if (attempt < maxRetries) {
-            await new Promise((resolve) =>
-              setTimeout(resolve, 1000 * attempt),
-            );
+            await new Promise((resolve) => setTimeout(resolve, 1000 * attempt));
           }
         }
       }
