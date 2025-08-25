@@ -4,6 +4,7 @@ import path from "path";
 import * as yauzl from "yauzl";
 import db from "../db/index.js";
 import { naturalSort } from "../utils/index.js";
+import { store as configStore } from "./configHandler.js";
 
 interface FilterParams {
   searchQuery?: string;
@@ -211,24 +212,40 @@ export const handleGetBooks = async (
 
   const books = await mainQuery;
 
-  const formattedBooks = books.map((book) => ({
-    ...book,
-    artists: book.artists
-      ? book.artists.split(",").map((name: string) => ({ name }))
-      : [],
-    tags: book.tags
-      ? book.tags.split(",").map((name: string) => ({ name }))
-      : [],
-    series: book.series
-      ? book.series.split(",").map((name: string) => ({ name }))
-      : [],
-    groups: book.groups
-      ? book.groups.split(",").map((name: string) => ({ name }))
-      : [],
-    characters: book.characters
-      ? book.characters.split(",").map((name: string) => ({ name }))
-      : [],
-  }));
+  const prioritizeKoreanTitles = configStore.get(
+    "prioritizeKoreanTitles",
+    false,
+  );
+
+  const formattedBooks = books.map((book) => {
+    let displayTitle = book.title;
+    if (prioritizeKoreanTitles) {
+      const koreanPart = /^.+\|\s?([가-힇a-z\d\s]+)$/i.exec(book.title);
+      if (koreanPart?.[1]) {
+        displayTitle = koreanPart[1].trim();
+      }
+    }
+
+    return {
+      ...book,
+      title: displayTitle,
+      artists: book.artists
+        ? book.artists.split(",").map((name: string) => ({ name }))
+        : [],
+      tags: book.tags
+        ? book.tags.split(",").map((name: string) => ({ name }))
+        : [],
+      series: book.series
+        ? book.series.split(",").map((name: string) => ({ name }))
+        : [],
+      groups: book.groups
+        ? book.groups.split(",").map((name: string) => ({ name }))
+        : [],
+      characters: book.characters
+        ? book.characters.split(",").map((name: string) => ({ name }))
+        : [],
+    };
+  });
 
   return {
     data: formattedBooks,

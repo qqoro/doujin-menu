@@ -139,6 +139,7 @@ const autoLoadLibrary = ref(true);
 const libraryFolders = ref<LibraryFolder[]>([]);
 const createInfoTxtFile = ref(true);
 const downloadPattern = ref("%artist% - %title%");
+const prioritizeKoreanTitles = ref(false);
 
 // 뷰어 설정 상태
 const viewerReadingDirection = ref<"ltr" | "rtl" | "webtoon">("ltr");
@@ -169,6 +170,7 @@ onMounted(async () => {
   autoLoadLibrary.value = config.autoLoadLibrary !== false;
   createInfoTxtFile.value = config.createInfoTxtFile !== false;
   downloadPattern.value = config.downloadPattern || "%artist% - %title%"; // Load new setting // Load new setting
+  prioritizeKoreanTitles.value = config.prioritizeKoreanTitles === true;
 
   // 뷰어 설정 불러오기
   viewerReadingDirection.value = config.viewerReadingDirection || "ltr";
@@ -209,6 +211,11 @@ const onCreateInfoTxtFileChange = (value: boolean) => {
 const onDownloadPatternChange = (value: string) => {
   downloadPattern.value = value;
   saveConfig("downloadPattern", value);
+};
+
+const onPrioritizeKoreanTitlesChange = (value: boolean) => {
+  prioritizeKoreanTitles.value = value;
+  saveConfig("prioritizeKoreanTitles", value);
 };
 
 // 뷰어 설정 변경 시 저장
@@ -520,6 +527,45 @@ const resetAllData = async () => {
                     라이브러리 폴더 추가
                   </Button>
                 </CardFooter>
+              </Card>
+              <Card>
+                <CardHeader>
+                  <CardTitle>라이브러리 표시 설정</CardTitle>
+                  <CardDescription
+                    >라이브러리 화면에 표시되는 내용을
+                    설정합니다.</CardDescription
+                  >
+                </CardHeader>
+                <CardContent class="space-y-6">
+                  <SettingItem
+                    label-for="prioritize-korean-titles"
+                    title="한국어 제목 우선 표시"
+                  >
+                    <template #subtitle>
+                      <p class="text-sm text-muted-foreground">
+                        제목에 한국어와 다른 언어가 함께 있을 경우 한국어를
+                        우선적으로 표시합니다. (예: 'Original Title | 한국어
+                        제목' -> '한국어 제목')
+                      </p>
+                      <p
+                        class="text-xs text-amber-600 dark:text-amber-400 mt-1"
+                      >
+                        <Icon
+                          icon="solar:danger-triangle-bold-duotone"
+                          class="inline-block w-4 h-4"
+                        />
+                        이 기능은 파일명의 형식이 일관되지 않은 경우 제목이
+                        예상대로 나타나지 않을 수 있습니다.
+                      </p>
+                    </template>
+                    <Switch
+                      id="prioritize-korean-titles"
+                      :model-value="prioritizeKoreanTitles"
+                      class="justify-self-end"
+                      @update:model-value="onPrioritizeKoreanTitlesChange"
+                    />
+                  </SettingItem>
+                </CardContent>
               </Card>
               <Card>
                 <CardHeader>

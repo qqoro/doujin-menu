@@ -27,6 +27,7 @@ interface Config {
   downloadPattern?: string;
   createInfoTxtFile?: boolean;
   libraryViewSettings?: LibraryViewSettings;
+  prioritizeKoreanTitles?: boolean;
 }
 
 const defaults: Config = {
@@ -46,6 +47,7 @@ const defaults: Config = {
     sortOrder: "desc",
     readStatus: "all",
   },
+  prioritizeKoreanTitles: false,
 };
 
 export const store = new Store<Config>({
