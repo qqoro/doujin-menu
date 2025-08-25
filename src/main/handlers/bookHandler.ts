@@ -319,7 +319,7 @@ export const handleGetBookPagePaths = async (bookId: number) => {
         title: book.title,
         is_favorite: book.is_favorite,
       };
-    } else if (bookPath.toLowerCase().endsWith(".zip")) {
+    } else if (/.(cbz|zip)$/i.exec(bookPath)) {
       // ZIP 파일 처리
       return new Promise((resolve, reject) => {
         yauzl.open(
@@ -811,7 +811,9 @@ export function registerBookHandlers() {
   ipcMain.handle("get-prev-book", (_event, params) =>
     handleGetPrevBook(params),
   );
-  ipcMain.handle("get-random-book", (_event, filter) => handleGetRandomBook(filter));
+  ipcMain.handle("get-random-book", (_event, filter) =>
+    handleGetRandomBook(filter),
+  );
   ipcMain.handle("toggle-book-favorite", (_event, bookId, isFavorite) =>
     handleToggleBookFavorite(bookId, isFavorite),
   );

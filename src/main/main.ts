@@ -166,7 +166,7 @@ app.whenReady().then(async () => {
         } else {
           return new Response("Page not found", { status: 404 });
         }
-      } else if (bookPath.toLowerCase().endsWith(".zip")) {
+      } else if (/.(cbz|zip)$/i.exec(bookPath)) {
         // ZIP 파일인 경우
         return new Promise((resolve, reject) => {
           yauzl.open(
