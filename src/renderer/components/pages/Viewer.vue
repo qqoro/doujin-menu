@@ -57,8 +57,10 @@ const imageClasses = computed(() => {
 });
 
 const doublePageImageClasses = computed(() => {
-  if (viewerAutoFitZoom.value) {
+  if (viewerAutoFitZoom.value && currentPage.value === 1) {
     return "h-full object-contain";
+  } else if (viewerAutoFitZoom.value) {
+    return "max-w-1/2 h-full object-contain";
   } else {
     return "max-w-1/2 max-h-full object-contain";
   }
