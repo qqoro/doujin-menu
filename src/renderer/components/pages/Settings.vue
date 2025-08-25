@@ -674,6 +674,7 @@ const resetAllData = async () => {
                     <li><code>%title%</code>: 작품 제목</li>
                     <li><code>%id%</code>: 갤러리 ID</li>
                     <li><code>%language%</code>: 언어</li>
+                    <li><code>%groups%</code>: 그룹</li>
                   </ul>
                   <p class="mt-2">
                     예시: <code>%artist% - %title% (%id%)</code>
