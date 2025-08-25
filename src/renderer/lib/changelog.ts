@@ -15,6 +15,27 @@ export interface Changelog {
  */
 export const changelogData: Changelog[] = [
   {
+    version: "1.0.8",
+    changes: [
+      {
+        type: "feature",
+        title: "✨ 새로운 기능",
+        items: [
+          "다운로더 파일 이름 패턴에 `%groups%`를 추가했습니다.",
+          "라이브러리에서 한국어 제목을 우선으로 표시하는 옵션을 추가했습니다.",
+        ],
+      },
+      {
+        type: "fix",
+        title: "🐛 버그 수정",
+        items: [
+          "더블 페이지 모드에서 페이지가 올바르게 표시되지 않던 문제를 수정했습니다.",
+          "CBZ 형식의 파일을 지원합니다.",
+        ],
+      },
+    ],
+  },
+  {
     version: "1.0.7",
     changes: [
       {
