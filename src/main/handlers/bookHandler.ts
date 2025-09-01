@@ -254,6 +254,47 @@ export const handleGetBooks = async (
   };
 };
 
+export const handleGetBook = async (bookId: number) => {
+  const book = await buildFilteredQuery({}).where("sub.id", bookId).first();
+
+  if (!book) {
+    return null;
+  }
+
+  const prioritizeKoreanTitles = configStore.get(
+    "prioritizeKoreanTitles",
+    false,
+  );
+
+  let displayTitle = book.title;
+  if (prioritizeKoreanTitles) {
+    const koreanPart = /^.+\|\s?([가-힇a-z\d\s]+)$/i.exec(book.title);
+    if (koreanPart?.[1]) {
+      displayTitle = koreanPart[1].trim();
+    }
+  }
+
+  return {
+    ...book,
+    title: displayTitle,
+    artists: book.artists
+      ? book.artists.split(",").map((name: string) => ({ name }))
+      : [],
+    tags: book.tags
+      ? book.tags.split(",").map((name: string) => ({ name }))
+      : [],
+    series: book.series
+      ? book.series.split(",").map((name: string) => ({ name }))
+      : [],
+    groups: book.groups
+      ? book.groups.split(",").map((name: string) => ({ name }))
+      : [],
+    characters: book.characters
+      ? book.characters.split(",").map((name: string) => ({ name }))
+      : [],
+  };
+};
+
 export const handleGetTags = async () => {
   return await db("Tag").select("*");
 };
@@ -803,6 +844,7 @@ export const handleDeleteBook = async (bookId: number) => {
 
 export function registerBookHandlers() {
   ipcMain.handle("get-books", (_event, params) => handleGetBooks(params));
+  ipcMain.handle("get-book", (_event, bookId) => handleGetBook(bookId));
   ipcMain.handle("get-tags", (_event) => handleGetTags());
   ipcMain.handle("get-artists", (_event) => handleGetArtists());
   ipcMain.handle("get-series", (_event) => handleGetSeries());

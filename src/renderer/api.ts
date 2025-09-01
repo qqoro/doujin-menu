@@ -18,6 +18,10 @@ export interface FilterParams {
   isFavorite?: boolean;
 }
 
+export async function getBook(bookId: number) {
+  return ipcRenderer.invoke("get-book", bookId);
+}
+
 export async function getStatistics() {
   return ipcRenderer.invoke("get-statistics");
 }

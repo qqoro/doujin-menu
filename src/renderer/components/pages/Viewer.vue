@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import { addBookHistory, ipcRenderer } from "@/api";
+import { addBookHistory, getBook, ipcRenderer } from "@/api";
+import BookDetailDialog from "@/components/feature/BookDetailDialog.vue";
 import ViewerHelpDialog from "@/components/feature/viewer/ViewerHelpDialog.vue";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
@@ -11,10 +12,10 @@ import {
 import { Slider } from "@/components/ui/slider";
 import { Switch } from "@/components/ui/switch";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
-
 import { useWindowEvent } from "@/composable/useWindowEvent";
 import { useViewerStore } from "@/store/viewerStore";
 import { Icon } from "@iconify/vue";
+import { useQuery } from "@tanstack/vue-query";
 import { useThrottleFn } from "@vueuse/core";
 import { storeToRefs } from "pinia";
 import { computed, onMounted, onUnmounted, ref, watch } from "vue";
@@ -25,6 +26,7 @@ const router = useRouter();
 const store = useViewerStore();
 
 const {
+  bookId,
   currentPage,
   totalPages,
   currentImageUrl,
@@ -47,6 +49,12 @@ const {
   toastMessage,
   images,
 } = storeToRefs(store);
+
+const { data: book } = useQuery({
+  queryKey: [bookId, is_favorite],
+  enabled: () => !!bookId.value,
+  queryFn: () => getBook(bookId.value!),
+});
 
 const imageClasses = computed(() => {
   if (viewerAutoFitZoom.value) {
@@ -74,6 +82,7 @@ const webtoonImageRef = ref<HTMLElement[] | null>(null);
 const showControls = ref(true);
 const openSetting = ref(false);
 const isHelpOpen = ref(false);
+const isDetailOpen = ref(false);
 
 const handleMouseMove = (e: MouseEvent) => {
   const mouseY = e.clientY;
@@ -126,18 +135,22 @@ const handleKeyDown = async (e: KeyboardEvent) => {
   }
 
   if (e.key === "Home") {
+    e.preventDefault();
     store.goToPage(1);
     return;
   }
   if (e.key === "End") {
+    e.preventDefault();
     store.goToPage(totalPages.value);
     return;
   }
   if (e.key === "[") {
+    e.preventDefault();
     store.loadPrevBook();
     return;
   }
   if (e.key === "]") {
+    e.preventDefault();
     store.loadNextBook("next"); // Always sequential for shortcut
     return;
   }
@@ -145,13 +158,26 @@ const handleKeyDown = async (e: KeyboardEvent) => {
     store.nextPage();
     return;
   }
+  if (e.key === "`") {
+    e.preventDefault();
+    isDetailOpen.value = !isDetailOpen.value;
+    return;
+  }
 
-  if (readingMode.value === "rtl") {
-    if (e.key === "ArrowRight") store.prevPage();
-    else if (e.key === "ArrowLeft") store.nextPage();
-  } else {
-    if (e.key === "ArrowRight") store.nextPage();
-    else if (e.key === "ArrowLeft") store.prevPage();
+  if (e.key === "ArrowRight") {
+    e.preventDefault();
+    if (readingMode.value === "rtl") {
+      store.prevPage();
+    } else {
+      store.nextPage();
+    }
+  } else if (e.key === "ArrowLeft") {
+    e.preventDefault();
+    if (readingMode.value === "rtl") {
+      store.nextPage();
+    } else {
+      store.prevPage();
+    }
   }
 };
 
@@ -620,9 +646,14 @@ useWindowEvent("mouseup", handleMouseUp);
               <Icon icon="solar:question-circle-bold-duotone" class="w-5 h-5" />
             </Button>
           </ViewerHelpDialog>
+          <Button variant="outline" size="icon" @click="isDetailOpen = true">
+            <Icon icon="solar:info-circle-bold-duotone" class="w-5 h-5" />
+          </Button>
         </div>
       </div>
     </Transition>
+
+    <BookDetailDialog v-model="isDetailOpen" :book="book" />
   </div>
 </template>
 
