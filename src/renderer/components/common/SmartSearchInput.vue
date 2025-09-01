@@ -239,6 +239,7 @@ defineExpose({ focus });
         :key="suggestion"
         class="px-4 py-2 cursor-pointer hover:bg-accent"
         :class="{ 'bg-accent': index === activeSuggestionIndex }"
+        @mousedown.prevent
         @click="applySuggestion(suggestion)"
       >
         {{ suggestion }}
