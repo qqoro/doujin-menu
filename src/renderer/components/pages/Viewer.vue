@@ -12,6 +12,12 @@ import {
 import { Slider } from "@/components/ui/slider";
 import { Switch } from "@/components/ui/switch";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { useWindowEvent } from "@/composable/useWindowEvent";
 import { useViewerStore } from "@/store/viewerStore";
 import { Icon } from "@iconify/vue";
@@ -282,67 +288,126 @@ useWindowEvent("mouseup", handleMouseUp);
         class="fixed top-0 left-0 right-0 bg-muted-foreground/50 p-4 z-10 transition-opacity duration-300"
         style="-webkit-app-region: drag"
       >
-        <div class="flex items-center justify-between gap-2">
-          <div class="flex items-center gap-2 flex-1 min-w-0">
-            <Button
-              variant="ghost"
-              size="icon"
-              style="-webkit-app-region: no-drag"
-              @click="router.back"
-            >
-              <Icon icon="solar:alt-arrow-left-line-duotone" class="size-6" />
-            </Button>
-            <h1 class="text-xl font-bold truncate">
-              {{ bookTitle || "만화책 뷰어" }}
-            </h1>
+        <TooltipProvider>
+          <div class="flex items-center justify-between gap-2">
+            <div class="flex items-center gap-2 flex-1 min-w-0">
+              <Tooltip>
+                <TooltipTrigger as-child>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    style="-webkit-app-region: no-drag"
+                    @click="router.back"
+                  >
+                    <Icon
+                      icon="solar:alt-arrow-left-line-duotone"
+                      class="size-6"
+                    />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p class="flex items-center gap-1">
+                    라이브러리로 돌아가기 <kbd>Esc</kbd>
+                  </p>
+                </TooltipContent>
+              </Tooltip>
+              <h1 class="text-xl font-bold truncate">
+                {{ bookTitle || "만화책 뷰어" }}
+              </h1>
+            </div>
+            <div class="flex items-center gap-2">
+              <Tooltip>
+                <TooltipTrigger as-child>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    style="-webkit-app-region: no-drag"
+                    @click="store.loadPrevBook()"
+                  >
+                    <Icon
+                      icon="solar:rewind-back-bold-duotone"
+                      class="w-6 h-6"
+                    />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p class="flex items-center gap-1">이전 책 <kbd>[</kbd></p>
+                </TooltipContent>
+              </Tooltip>
+              <Tooltip>
+                <TooltipTrigger as-child>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    style="-webkit-app-region: no-drag"
+                    @click="store.toggleAutoPlay"
+                  >
+                    <Icon
+                      :icon="
+                        isAutoPlay
+                          ? 'solar:pause-bold-duotone'
+                          : 'solar:play-bold-duotone'
+                      "
+                      class="w-6 h-6"
+                    />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <div class="grid grid-cols-2 gap-x-2 gap-y-1">
+                    <span>자동 재생</span>
+                    <div class="flex items-center gap-1">
+                      <kbd>Ctrl</kbd>+<kbd>1-9</kbd>
+                    </div>
+                    <span>정지</span>
+                    <div class="flex items-center gap-1">
+                      <kbd>Ctrl</kbd>+<kbd>0</kbd>
+                    </div>
+                  </div>
+                </TooltipContent>
+              </Tooltip>
+              <Tooltip>
+                <TooltipTrigger as-child>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    style="-webkit-app-region: no-drag"
+                    @click="store.loadNextBook()"
+                  >
+                    <Icon
+                      icon="solar:rewind-forward-bold-duotone"
+                      class="w-6 h-6"
+                    />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p class="flex items-center gap-1">다음 책 <kbd>]</kbd></p>
+                </TooltipContent>
+              </Tooltip>
+              <Tooltip>
+                <TooltipTrigger as-child>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    style="-webkit-app-region: no-drag"
+                    @click="store.toggleFavorite()"
+                  >
+                    <Icon
+                      :icon="
+                        is_favorite
+                          ? 'solar:star-bold-duotone'
+                          : 'solar:star-outline'
+                      "
+                      class="w-6 h-6"
+                    />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>즐겨찾기</p>
+                </TooltipContent>
+              </Tooltip>
+            </div>
           </div>
-          <div class="flex items-center gap-2">
-            <Button
-              variant="ghost"
-              size="icon"
-              style="-webkit-app-region: no-drag"
-              @click="store.loadPrevBook()"
-            >
-              <Icon icon="solar:rewind-back-bold-duotone" class="w-6 h-6" />
-            </Button>
-            <Button
-              variant="ghost"
-              size="icon"
-              style="-webkit-app-region: no-drag"
-              @click="store.toggleAutoPlay"
-            >
-              <Icon
-                :icon="
-                  isAutoPlay
-                    ? 'solar:pause-bold-duotone'
-                    : 'solar:play-bold-duotone'
-                "
-                class="w-6 h-6"
-              />
-            </Button>
-            <Button
-              variant="ghost"
-              size="icon"
-              style="-webkit-app-region: no-drag"
-              @click="store.loadNextBook()"
-            >
-              <Icon icon="solar:rewind-forward-bold-duotone" class="w-6 h-6" />
-            </Button>
-            <Button
-              variant="ghost"
-              size="icon"
-              style="-webkit-app-region: no-drag"
-              @click="store.toggleFavorite()"
-            >
-              <Icon
-                :icon="
-                  is_favorite ? 'solar:star-bold-duotone' : 'solar:star-outline'
-                "
-                class="w-6 h-6"
-              />
-            </Button>
-          </div>
-        </div>
+        </TooltipProvider>
       </div>
     </Transition>
 
@@ -459,196 +524,241 @@ useWindowEvent("mouseup", handleMouseUp);
         style="-webkit-app-region: no-drag"
       >
         <!-- 페이지 이동 -->
-        <div class="flex items-center gap-4 flex-1">
-          <Button
-            :disabled="currentPage <= 1 && readingMode !== 'webtoon'"
-            variant="ghost"
-            size="icon"
-            @click="store.prevPage()"
-          >
-            <Icon icon="solar:arrow-left-bold" class="size-6" />
-          </Button>
-          <div class="flex-1 flex items-center gap-4">
-            <Slider
-              :model-value="[currentPage]"
-              :min="1"
-              :max="totalPages"
-              :step="1"
-              class="flex-1"
-              @update:model-value="(v) => store.goToPage(v![0])"
-            />
+        <TooltipProvider>
+          <div class="flex items-center gap-4 flex-1">
+            <Tooltip>
+              <TooltipTrigger as-child>
+                <Button
+                  :disabled="currentPage <= 1 && readingMode !== 'webtoon'"
+                  variant="ghost"
+                  size="icon"
+                  @click="store.prevPage()"
+                >
+                  <Icon icon="solar:arrow-left-bold" class="size-6" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>
+                <p class="flex items-center gap-1">이전 페이지 <kbd>←</kbd></p>
+              </TooltipContent>
+            </Tooltip>
+            <div class="flex-1 flex items-center gap-4">
+              <Slider
+                :model-value="[currentPage]"
+                :min="1"
+                :max="totalPages"
+                :step="1"
+                class="flex-1"
+                @update:model-value="(v) => store.goToPage(v![0])"
+              />
+            </div>
+            <Tooltip>
+              <TooltipTrigger as-child>
+                <Button
+                  :disabled="
+                    currentPage >= totalPages && readingMode !== 'webtoon'
+                  "
+                  variant="ghost"
+                  size="icon"
+                  @click="store.nextPage()"
+                >
+                  <Icon icon="solar:arrow-right-bold" class="size-6" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>
+                <p class="flex items-center gap-1">
+                  다음 페이지 <kbd>→</kbd> or <kbd>Space</kbd>
+                </p>
+              </TooltipContent>
+            </Tooltip>
+            <span class="text-center min-w-20"
+              >{{ currentPage }} / {{ totalPages }}</span
+            >
           </div>
-          <Button
-            :disabled="currentPage >= totalPages && readingMode !== 'webtoon'"
-            variant="ghost"
-            size="icon"
-            @click="store.nextPage()"
-          >
-            <Icon icon="solar:arrow-right-bold" class="size-6" />
-          </Button>
-          <span class="text-center min-w-20"
-            >{{ currentPage }} / {{ totalPages }}</span
-          >
-        </div>
-
+        </TooltipProvider>
         <!-- 읽기 & 자동넘김 설정 -->
         <div class="flex items-center gap-2">
-          <Popover :open="openSetting" @update:open="openSetting = $event">
-            <PopoverTrigger as-child>
-              <Button variant="outline" size="icon">
-                <Icon icon="solar:settings-bold-duotone" class="w-5 h-5" />
-              </Button>
-            </PopoverTrigger>
-            <PopoverContent class="w-80">
-              <div class="grid gap-4">
-                <div class="space-y-2">
-                  <h4 class="font-medium leading-none">보기 설정</h4>
-                  <p class="text-sm text-muted-foreground">
-                    페이지를 보는 방식을 설정합니다.
-                  </p>
-                </div>
-                <div class="grid gap-2">
-                  <div class="grid grid-cols-3 items-center gap-4">
-                    <Label>읽기 방향</Label>
-                    <div class="col-span-2">
-                      <ToggleGroup
-                        type="single"
-                        :model-value="readingMode"
-                        variant="outline"
-                        @update:model-value="
-                          (mode) => {
-                            if (mode)
-                              store.setReadingMode(
-                                mode as 'ltr' | 'rtl' | 'webtoon',
-                              );
-                          }
-                        "
-                      >
-                        <ToggleGroupItem
-                          value="ltr"
-                          aria-label="Left-to-right"
-                          class="flex-1"
-                        >
-                          <Icon
-                            icon="solar:arrow-right-bold-duotone"
-                            class="w-5 h-5"
-                          />
-                        </ToggleGroupItem>
-                        <ToggleGroupItem
-                          value="rtl"
-                          aria-label="Right-to-left"
-                          class="flex-1"
-                        >
-                          <Icon
-                            icon="solar:arrow-left-bold-duotone"
-                            class="w-5 h-5"
-                          />
-                        </ToggleGroupItem>
-                        <ToggleGroupItem
-                          value="webtoon"
-                          aria-label="Webtoon mode"
-                          class="flex-1"
-                        >
-                          <Icon
-                            icon="solar:arrow-down-bold-duotone"
-                            class="w-5 h-5"
-                          />
-                        </ToggleGroupItem>
-                      </ToggleGroup>
-                    </div>
-                  </div>
-                  <div class="grid grid-cols-3 items-center gap-4">
-                    <Label>더블 페이지</Label>
-                    <Switch
-                      :model-value="viewerDoublePageView"
-                      class="col-span-2"
-                      :disabled="readingMode === 'webtoon'"
-                      @update:model-value="store.setDoublePage"
-                    />
-                  </div>
-                  <div class="grid grid-cols-3 items-center gap-4">
-                    <Label>표지 따로 보기</Label>
-                    <Switch
-                      :model-value="viewerShowCoverAlone"
-                      class="col-span-2"
-                      :disabled="
-                        !viewerDoublePageView || readingMode === 'webtoon'
-                      "
-                      @update:model-value="store.setShowCoverAlone"
-                    />
-                  </div>
-                </div>
-              </div>
-              <div class="grid gap-4 pt-4 mt-4 border-t">
-                <div class="space-y-2">
-                  <h4 class="font-medium leading-none">자동 넘김 설정</h4>
-                  <p class="text-sm text-muted-foreground">
-                    자동으로 페이지를 넘기는 기능에 대한 설정입니다.
-                  </p>
-                </div>
-                <div class="grid gap-2">
-                  <div class="grid grid-cols-3 items-center gap-4">
-                    <Label>넘김 간격</Label>
-                    <div class="col-span-2 flex items-center gap-2">
-                      <Slider
-                        :model-value="[autoPlayInterval]"
-                        :min="1"
-                        :max="30"
-                        :step="1"
-                        :disabled="isAutoPlay"
-                        @update:model-value="
-                          (v) => store.setAutoPlayInterval(v![0])
-                        "
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger as-child>
+                <Button
+                  variant="outline"
+                  size="icon"
+                  @click="isDetailOpen = true"
+                >
+                  <Icon icon="solar:info-circle-bold-duotone" class="w-5 h-5" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>
+                <p class="flex items-center gap-1">책 정보 <kbd>`</kbd></p>
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
+          <TooltipProvider>
+            <Tooltip>
+              <Popover :open="openSetting" @update:open="openSetting = $event">
+                <TooltipTrigger as-child>
+                  <PopoverTrigger as-child>
+                    <Button variant="outline" size="icon">
+                      <Icon
+                        icon="solar:settings-bold-duotone"
+                        class="w-5 h-5"
                       />
-                      <span class="text-sm font-mono"
-                        >{{ autoPlayInterval }}s</span
-                      >
+                    </Button>
+                  </PopoverTrigger>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>뷰어 설정</p>
+                </TooltipContent>
+                <PopoverContent class="w-80">
+                  <div class="grid gap-4">
+                    <div class="space-y-2">
+                      <h4 class="font-medium leading-none">보기 설정</h4>
+                      <p class="text-sm text-muted-foreground">
+                        페이지를 보는 방식을 설정합니다.
+                      </p>
+                    </div>
+                    <div class="grid gap-2">
+                      <div class="grid grid-cols-3 items-center gap-4">
+                        <Label>읽기 방향</Label>
+                        <div class="col-span-2">
+                          <ToggleGroup
+                            type="single"
+                            :model-value="readingMode"
+                            variant="outline"
+                            @update:model-value="
+                              (mode) => {
+                                if (mode)
+                                  store.setReadingMode(
+                                    mode as 'ltr' | 'rtl' | 'webtoon',
+                                  );
+                              }
+                            "
+                          >
+                            <ToggleGroupItem
+                              value="ltr"
+                              aria-label="Left-to-right"
+                              class="flex-1"
+                            >
+                              <Icon
+                                icon="solar:arrow-right-bold-duotone"
+                                class="w-5 h-5"
+                              />
+                            </ToggleGroupItem>
+                            <ToggleGroupItem
+                              value="rtl"
+                              aria-label="Right-to-left"
+                              class="flex-1"
+                            >
+                              <Icon
+                                icon="solar:arrow-left-bold-duotone"
+                                class="w-5 h-5"
+                              />
+                            </ToggleGroupItem>
+                            <ToggleGroupItem
+                              value="webtoon"
+                              aria-label="Webtoon mode"
+                              class="flex-1"
+                            >
+                              <Icon
+                                icon="solar:arrow-down-bold-duotone"
+                                class="w-5 h-5"
+                              />
+                            </ToggleGroupItem>
+                          </ToggleGroup>
+                        </div>
+                      </div>
+                      <div class="grid grid-cols-3 items-center gap-4">
+                        <Label>더블 페이지</Label>
+                        <Switch
+                          :model-value="viewerDoublePageView"
+                          class="col-span-2"
+                          :disabled="readingMode === 'webtoon'"
+                          @update:model-value="store.setDoublePage"
+                        />
+                      </div>
+                      <div class="grid grid-cols-3 items-center gap-4">
+                        <Label>표지 따로 보기</Label>
+                        <Switch
+                          :model-value="viewerShowCoverAlone"
+                          class="col-span-2"
+                          :disabled="
+                            !viewerDoublePageView || readingMode === 'webtoon'
+                          "
+                          @update:model-value="store.setShowCoverAlone"
+                        />
+                      </div>
                     </div>
                   </div>
-                  <div class="grid grid-cols-3 items-center gap-4">
-                    <Label>다음 책 자동 재생</Label>
-                    <Switch
-                      :model-value="isAutoNextBook"
-                      class="col-span-2"
-                      @update:model-value="store.toggleAutoNextBook"
-                    />
+                  <div class="grid gap-4 pt-4 mt-4 border-t">
+                    <div class="space-y-2">
+                      <h4 class="font-medium leading-none">자동 넘김 설정</h4>
+                      <p class="text-sm text-muted-foreground">
+                        자동으로 페이지를 넘기는 기능에 대한 설정입니다.
+                      </p>
+                    </div>
+                    <div class="grid gap-2">
+                      <div class="grid grid-cols-3 items-center gap-4">
+                        <Label>넘김 간격</Label>
+                        <div class="col-span-2 flex items-center gap-2">
+                          <Slider
+                            :model-value="[autoPlayInterval]"
+                            :min="1"
+                            :max="30"
+                            :step="1"
+                            :disabled="isAutoPlay"
+                            @update:model-value="
+                              (v) => store.setAutoPlayInterval(v![0])
+                            "
+                          />
+                          <span class="text-sm font-mono"
+                            >{{ autoPlayInterval }}s</span
+                          >
+                        </div>
+                      </div>
+                      <div class="grid grid-cols-3 items-center gap-4">
+                        <Label>다음 책 자동 재생</Label>
+                        <Switch
+                          :model-value="isAutoNextBook"
+                          class="col-span-2"
+                          @update:model-value="store.toggleAutoNextBook"
+                        />
+                      </div>
+                      <div class="grid grid-cols-3 items-center gap-4">
+                        <Label>재생 순서</Label>
+                        <ToggleGroup
+                          type="single"
+                          :model-value="autoNextBookMode"
+                          variant="outline"
+                          class="col-span-2"
+                          :disabled="!isAutoNextBook"
+                          @update:model-value="
+                            (mode) => {
+                              if (mode)
+                                store.setNextBookMode(
+                                  mode as 'next' | 'random',
+                                );
+                            }
+                          "
+                        >
+                          <ToggleGroupItem value="next" class="text-xs"
+                            >순차</ToggleGroupItem
+                          >
+                          <ToggleGroupItem value="random" class="text-xs"
+                            >랜덤</ToggleGroupItem
+                          >
+                        </ToggleGroup>
+                      </div>
+                    </div>
                   </div>
-                  <div class="grid grid-cols-3 items-center gap-4">
-                    <Label>재생 순서</Label>
-                    <ToggleGroup
-                      type="single"
-                      :model-value="autoNextBookMode"
-                      variant="outline"
-                      class="col-span-2"
-                      :disabled="!isAutoNextBook"
-                      @update:model-value="
-                        (mode) => {
-                          if (mode)
-                            store.setNextBookMode(mode as 'next' | 'random');
-                        }
-                      "
-                    >
-                      <ToggleGroupItem value="next" class="text-xs"
-                        >순차</ToggleGroupItem
-                      >
-                      <ToggleGroupItem value="random" class="text-xs"
-                        >랜덤</ToggleGroupItem
-                      >
-                    </ToggleGroup>
-                  </div>
-                </div>
-              </div>
-            </PopoverContent>
-          </Popover>
-
+                </PopoverContent>
+              </Popover>
+            </Tooltip>
+          </TooltipProvider>
           <ViewerHelpDialog @update:open="isHelpOpen = $event">
             <Button variant="outline" size="icon">
               <Icon icon="solar:question-circle-bold-duotone" class="w-5 h-5" />
             </Button>
           </ViewerHelpDialog>
-          <Button variant="outline" size="icon" @click="isDetailOpen = true">
-            <Icon icon="solar:info-circle-bold-duotone" class="w-5 h-5" />
-          </Button>
         </div>
       </div>
     </Transition>
