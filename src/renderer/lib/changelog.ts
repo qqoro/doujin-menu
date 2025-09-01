@@ -15,6 +15,27 @@ export interface Changelog {
  */
 export const changelogData: Changelog[] = [
   {
+    version: "1.0.9",
+    changes: [
+      {
+        type: "feature",
+        title: "✨ 새로운 기능",
+        items: [
+          "뷰어에 단축키 안내를 추가했습니다.",
+          "뷰어에서 책의 상세 정보를 볼 수 있는 기능을 추가했습니다.",
+        ],
+      },
+      {
+        type: "fix",
+        title: "🐛 버그 수정",
+        items: [
+          "검색창 자동완성 목록에서 항목을 클릭해도 적용이 되지 않던 문제를 수정했습니다.",
+          "작가를 기준으로 정렬했을 때 다음책으로 넘길 수 없던 문제를 수정했습니다.",
+        ],
+      },
+    ],
+  },
+  {
     version: "1.0.8",
     changes: [
       {
