@@ -524,7 +524,9 @@ export const handleGetNextBook = async ({
 
     // Sequential mode
     const { sortBy = "added_at", sortOrder = "desc" } = filter || {};
-    const currentBook = await db("Book").where("id", currentBookId).first();
+    const currentBook = await buildFilteredQuery(null)
+      .where("sub.id", currentBookId)
+      .first();
     if (!currentBook) {
       return { success: false, error: "Current book not found" };
     }
@@ -612,7 +614,9 @@ export const handleGetPrevBook = async ({
     const mainQuery = buildFilteredQuery(filter);
     const { sortBy = "added_at", sortOrder = "desc" } = filter || {};
 
-    const currentBook = await db("Book").where("id", currentBookId).first();
+    const currentBook = await buildFilteredQuery(null)
+      .where("sub.id", currentBookId)
+      .first();
     if (!currentBook) {
       return { success: false, error: "Current book not found" };
     }
