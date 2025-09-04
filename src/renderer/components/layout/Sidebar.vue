@@ -27,6 +27,11 @@ const navItems = [
     icon: "solar:download-square-bold-duotone",
     label: "다운로더",
   },
+  {
+    to: "/history",
+    icon: "solar:clock-circle-bold-duotone",
+    label: "읽음 기록",
+  },
   { to: "/statistics", icon: "solar:chart-square-bold-duotone", label: "통계" },
   { to: "/settings", icon: "solar:settings-bold-duotone", label: "설정" },
 ];

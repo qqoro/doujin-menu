@@ -768,6 +768,98 @@ export const handleCheckBookExistsByHitomiId = async (hitomiId: number) => {
   }
 };
 
+export const handleGetBookHistory = async ({
+  pageParam = 0,
+  pageSize = 50,
+}: {
+  pageParam?: number;
+  pageSize?: number;
+}) => {
+  try {
+    const historyQuery = db("BookHistory")
+      .select(
+        "BookHistory.id as history_id",
+        "BookHistory.viewed_at",
+        "Book.id",
+        "Book.title",
+        "Book.cover_path",
+      )
+      .join("Book", "BookHistory.book_id", "Book.id")
+      .orderBy("BookHistory.viewed_at", "desc");
+
+    const totalCountQuery = db("BookHistory").count("* as count").first();
+    const totalHistory = await totalCountQuery;
+
+    historyQuery.offset(pageParam * pageSize).limit(pageSize);
+
+    const history = await historyQuery;
+
+    return {
+      data: history,
+      hasNextPage:
+        (pageParam + 1) * pageSize < Number(totalHistory?.count || 0),
+      nextPage: pageParam + 1,
+    };
+  } catch (error) {
+    console.error("[Main] Failed to get book history:", error);
+    return {
+      success: false,
+      error: (error as Error).message || "Unknown error",
+    };
+  }
+};
+
+export const handleDeleteBookHistory = async (historyId: number) => {
+  try {
+    await db.transaction(async (trx) => {
+      const historyEntry = await trx("BookHistory").where("id", historyId).first();
+      if (!historyEntry) {
+        return; // Or throw an error
+      }
+
+      const bookId = historyEntry.book_id;
+
+      // Delete the specific history entry
+      await trx("BookHistory").where("id", historyId).del();
+
+      // Find the new latest history entry for the book
+      const latestHistory = await trx("BookHistory")
+        .where("book_id", bookId)
+        .orderBy("viewed_at", "desc")
+        .first();
+
+      // Update the book's last_read_at
+      await trx("Book")
+        .where("id", bookId)
+        .update({ last_read_at: latestHistory ? latestHistory.viewed_at : null });
+    });
+
+    return { success: true };
+  } catch (error) {
+    console.error(`[Main] Failed to delete book history ${historyId}:`, error);
+    return {
+      success: false,
+      error: (error as Error).message || "Unknown error",
+    };
+  }
+};
+
+export const handleClearBookHistory = async () => {
+  try {
+    await db.transaction(async (trx) => {
+      await trx("BookHistory").del();
+      await trx("Book").update({ last_read_at: null });
+    });
+    return { success: true };
+  } catch (error) {
+    console.error("[Main] Failed to clear book history:", error);
+    return {
+      success: false,
+      error: (error as Error).message || "Unknown error",
+    };
+  }
+};
+
 export const handleDeleteBook = async (bookId: number) => {
   try {
     const book = await db("Book").where("id", bookId).first();
@@ -890,4 +982,11 @@ export function registerBookHandlers() {
     handleCheckBookExistsByHitomiId(hitomiId),
   );
   ipcMain.handle("delete-book", (_event, bookId) => handleDeleteBook(bookId));
+  ipcMain.handle("get-book-history", (_event, params) =>
+    handleGetBookHistory(params),
+  );
+  ipcMain.handle("delete-book-history", (_event, historyId) =>
+    handleDeleteBookHistory(historyId),
+  );
+  ipcMain.handle("clear-book-history", () => handleClearBookHistory());
 }

@@ -71,6 +71,34 @@ export async function deleteBook(bookId: number) {
   }
 }
 
+export async function getBookHistory({
+  pageParam = 0,
+  pageSize = 50,
+}: {
+  pageParam?: number;
+  pageSize?: number;
+}) {
+  return ipcRenderer.invoke("get-book-history", { pageParam, pageSize });
+}
+
+export async function deleteBookHistory(historyId: number) {
+  const result = await ipcRenderer.invoke("delete-book-history", historyId);
+  if (result.success) {
+    return true;
+  } else {
+    throw new Error(result.error || "Failed to delete book history");
+  }
+}
+
+export async function clearBookHistory() {
+  const result = await ipcRenderer.invoke("clear-book-history");
+  if (result.success) {
+    return true;
+  } else {
+    throw new Error(result.error || "Failed to clear book history");
+  }
+}
+
 export async function addBookHistory(bookId: number) {
   const result = await ipcRenderer.invoke("add-book-history", bookId);
   if (!result.success) {
