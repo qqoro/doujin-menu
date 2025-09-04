@@ -135,12 +135,12 @@ const confirmClearAll = async () => {
 </script>
 
 <template>
-  <div class="h-full flex flex-col">
-    <header class="flex items-center justify-between gap-2 mb-4">
-      <div class="flex items-center gap-2">
-        <Icon icon="solar:clock-circle-bold-duotone" class="w-6 h-6" />
-        <h2 class="text-2xl font-bold">읽음 기록</h2>
-      </div>
+  <div class="h-full flex flex-col gap-6">
+    <div class="flex items-center justify-between">
+      <h1 class="text-2xl font-bold flex items-center gap-2">
+        <Icon icon="solar:clock-circle-bold-duotone" class="w-7 h-7" />
+        읽음 기록
+      </h1>
       <Button
         variant="destructive"
         size="icon"
@@ -152,8 +152,7 @@ const confirmClearAll = async () => {
           class="w-5 h-5"
         />
       </Button>
-    </header>
-
+    </div>
     <div
       ref="scrollContainerRef"
       class="flex-grow overflow-y-auto pr-4"

@@ -25,8 +25,8 @@ import { useInfiniteQuery } from "@tanstack/vue-query";
 import type { Gallery } from "node-hitomi";
 import { AcceptableValue } from "reka-ui";
 import { computed, onMounted, onUnmounted, reactive, ref, watch } from "vue";
-import { toast } from "vue-sonner";
 import { useRouter } from "vue-router";
+import { toast } from "vue-sonner";
 import PresetDropdown from "../common/PresetDropdown.vue";
 import GalleryPreviewDialog from "../feature/downloader/GalleryPreviewDialog.vue";
 import GalleryRowCard from "../feature/downloader/GalleryRowCard.vue";
@@ -158,7 +158,9 @@ onMounted(() => {
           (gallery) => gallery.id === galleryId,
         );
         if (completedGallery) {
-          toast.success(`${completedGallery.title.display}이(가) 다운로드되었습니다.`);
+          toast.success(
+            `${completedGallery.title.display}이(가) 다운로드되었습니다.`,
+          );
         }
       }
     },
