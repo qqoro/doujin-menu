@@ -15,6 +15,32 @@ export interface Changelog {
  */
 export const changelogData: Changelog[] = [
   {
+    version: "1.0.10",
+    changes: [
+      {
+        type: "feature",
+        title: "✨ 새로운 기능",
+        items: [
+          "앱 잠금 기능이 추가되었습니다. (설정 > 일반 > 보안)",
+          "읽음 기록 기능이 추가되었습니다. (메인 메뉴 > 열람 기록)",
+          "뷰어에서 휠 클릭 시, 작업 표시줄까지 숨겨지는 전체 화면으로 전환됩니다. (엔터키는 기존과 동일)",
+        ],
+      },
+      {
+        type: "fix",
+        title: "🐛 버그 수정",
+        items: [
+          "라이브러리에서 한국어 제목이 올바르게 표시되지 않던 문제를 수정했습니다.",
+        ],
+      },
+      {
+        type: "etc",
+        title: "기타",
+        items: ["다운로더 화면에 태그 검색에 대한 안내 문구를 추가했습니다."],
+      },
+    ],
+  },
+  {
     version: "1.0.9",
     changes: [
       {
