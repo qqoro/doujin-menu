@@ -452,6 +452,12 @@ const goToSettings = () => {
                 />
               </div>
             </div>
+            <p class="text-xs text-muted-foreground pt-2">
+              검색은 히토미 검색과 동일한 문법을 지원합니다. (예:
+              <code class="font-mono"
+                >female:sole_female female:very_long_hair</code
+              >)
+            </p>
           </CardContent>
           <CardFooter class="flex items-center gap-2">
             <PresetDropdown
