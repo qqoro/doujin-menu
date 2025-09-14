@@ -3,6 +3,7 @@ import Store from "electron-store";
 import { existsSync } from "fs";
 import fs from "fs/promises";
 import path from "path";
+import crypto from "crypto";
 import db, { closeDbConnection } from "../db/index.js";
 import { scanDirectory } from "./directoryHandler.js";
 
@@ -28,6 +29,8 @@ interface Config {
   createInfoTxtFile?: boolean;
   libraryViewSettings?: LibraryViewSettings;
   prioritizeKoreanTitles?: boolean;
+  useAppLock?: boolean;
+  appLockPassword?: string; // salt:hash
 }
 
 const defaults: Config = {
@@ -48,6 +51,8 @@ const defaults: Config = {
     readStatus: "all",
   },
   prioritizeKoreanTitles: false,
+  useAppLock: false,
+  appLockPassword: "",
 };
 
 export const store = new Store<Config>({
@@ -86,6 +91,53 @@ export const handleSetConfig = async <T extends keyof Config>({
       `[ConfigHandler] Failed to set config for key "${key}":`,
       error,
     );
+    return { success: false, error: (error as Error).message };
+  }
+};
+
+export const handleSetLockPassword = async (password: string) => {
+  try {
+    const salt = crypto.randomBytes(16).toString("hex");
+    const hash = crypto
+      .pbkdf2Sync(password, salt, 1000, 64, "sha512")
+      .toString("hex");
+    store.set("appLockPassword", `${salt}:${hash}`);
+    return { success: true };
+  } catch (error) {
+    console.error(`[ConfigHandler] Failed to set lock password:`, error);
+    return { success: false, error: (error as Error).message };
+  }
+};
+
+export const handleClearLockPassword = async () => {
+  try {
+    store.delete("appLockPassword");
+    return { success: true };
+  } catch (error) {
+    console.error(`[ConfigHandler] Failed to clear lock password:`, error);
+    return { success: false, error: (error as Error).message };
+  }
+};
+
+export const handleVerifyLockPassword = async (password: string) => {
+  try {
+    const storedPassword = store.get("appLockPassword");
+    if (!storedPassword) {
+      return { success: false, error: "Password not set." };
+    }
+
+    const [salt, hash] = storedPassword.split(":");
+    const verifyHash = crypto
+      .pbkdf2Sync(password, salt, 1000, 64, "sha512")
+      .toString("hex");
+
+    if (verifyHash === hash) {
+      return { success: true };
+    } else {
+      return { success: false, error: "Invalid password." };
+    }
+  } catch (error) {
+    console.error(`[ConfigHandler] Failed to verify lock password:`, error);
     return { success: false, error: (error as Error).message };
   }
 };
@@ -358,4 +410,16 @@ export function registerConfigHandlers() {
   ipcMain.handle("restore-database", (event) => handleRestoreDatabase(event));
   // 모든 데이터 초기화
   ipcMain.handle("reset-all-data", (_event) => handleResetAllData());
+  // 비밀번호 설정
+  ipcMain.handle("set-lock-password", (_event, password) =>
+    handleSetLockPassword(password),
+  );
+  // 비밀번호 초기화
+  ipcMain.handle("clear-lock-password", (_event) =>
+    handleClearLockPassword(),
+  );
+  // 비밀번호 검증
+  ipcMain.handle("verify-lock-password", (_event, password) =>
+    handleVerifyLockPassword(password),
+  );
 }

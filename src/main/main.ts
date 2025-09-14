@@ -331,6 +331,12 @@ app.whenReady().then(async () => {
     mainWindow?.close();
   });
 
+  ipcMain.handle("get-initial-lock-status", () => {
+    const useLock = configStore.get("useAppLock");
+    const passwordSet = !!configStore.get("appLockPassword");
+    return useLock && passwordSet;
+  });
+
   ipcMain.handle("open-folder", async (_event, folderPath: string) => {
     try {
       const result = await shell.openPath(folderPath);

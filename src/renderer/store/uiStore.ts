@@ -6,10 +6,15 @@ export const useUiStore = defineStore("ui", () => {
   const isSidebarCollapsed = ref(
     JSON.parse(localStorage.getItem("isSidebarCollapsed") || "false"),
   );
+  const isLocked = ref(false);
 
   // 상태를 토글하는 액션
   function toggleSidebar() {
     isSidebarCollapsed.value = !isSidebarCollapsed.value;
+  }
+
+  function setLocked(locked: boolean) {
+    isLocked.value = locked;
   }
 
   // 상태가 변경될 때마다 localStorage에 저장
@@ -20,5 +25,7 @@ export const useUiStore = defineStore("ui", () => {
   return {
     isSidebarCollapsed,
     toggleSidebar,
+    isLocked,
+    setLocked,
   };
 });

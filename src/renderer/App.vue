@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { Toaster } from "@/components/ui/sonner";
+import { useUiStore } from "@/store/uiStore";
 import { onMounted } from "vue";
 import { RouterView } from "vue-router";
 import { toast } from "vue-sonner";
@@ -18,7 +19,14 @@ const keyHandler = (event: KeyboardEvent) => {
 };
 useWindowEvent("keydown", keyHandler);
 
-onMounted(() => {
+const uiStore = useUiStore();
+
+onMounted(async () => {
+  const shouldBeLocked = await ipcRenderer.invoke("get-initial-lock-status");
+  if (shouldBeLocked) {
+    uiStore.setLocked(true);
+  }
+
   ipcRenderer.on("update-status", (_event, { status, info, error }) => {
     if (status === "update-available") {
       toast.info(`새로운 업데이트가 있습니다: ${info.version}`, {

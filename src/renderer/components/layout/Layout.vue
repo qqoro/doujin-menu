@@ -5,6 +5,7 @@ import { cn } from "@/lib/utils";
 import { useUiStore } from "@/store/uiStore";
 import { storeToRefs } from "pinia";
 import { onMounted, ref } from "vue";
+import AppLock from "../common/AppLock.vue";
 import ChangelogDialog from "../common/ChangelogDialog.vue";
 import Header from "./Header.vue";
 import Sidebar from "./Sidebar.vue";
@@ -42,7 +43,11 @@ onMounted(async () => {
   >
     <Header class="col-span-2" />
     <Sidebar class="row-start-2" />
-    <main class="row-start-2 col-start-2 overflow-y-auto p-6 bg-background">
+    <AppLock v-if="uiStore.isLocked" />
+    <main
+      v-else
+      class="row-start-2 col-start-2 overflow-y-auto p-6 bg-background"
+    >
       <router-view />
     </main>
     <ChangelogDialog v-model:open="open" />

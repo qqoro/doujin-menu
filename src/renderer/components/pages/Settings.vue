@@ -140,6 +140,9 @@ const libraryFolders = ref<LibraryFolder[]>([]);
 const createInfoTxtFile = ref(true);
 const downloadPattern = ref("%artist% - %title%");
 const prioritizeKoreanTitles = ref(false);
+const useAppLock = ref(false);
+const newPassword = ref("");
+const confirmPassword = ref("");
 
 // 뷰어 설정 상태
 const viewerReadingDirection = ref<"ltr" | "rtl" | "webtoon">("ltr");
@@ -171,6 +174,7 @@ onMounted(async () => {
   createInfoTxtFile.value = config.createInfoTxtFile !== false;
   downloadPattern.value = config.downloadPattern || "%artist% - %title%"; // Load new setting // Load new setting
   prioritizeKoreanTitles.value = config.prioritizeKoreanTitles === true;
+  useAppLock.value = config.useAppLock === true;
 
   // 뷰어 설정 불러오기
   viewerReadingDirection.value = config.viewerReadingDirection || "ltr";
@@ -216,6 +220,36 @@ const onDownloadPatternChange = (value: string) => {
 const onPrioritizeKoreanTitlesChange = (value: boolean) => {
   prioritizeKoreanTitles.value = value;
   saveConfig("prioritizeKoreanTitles", value);
+};
+
+const onUseAppLockChange = async (value: boolean) => {
+  useAppLock.value = value;
+  await saveConfig("useAppLock", value);
+  if (!value) {
+    newPassword.value = "";
+    confirmPassword.value = "";
+    await ipcRenderer.invoke("clear-lock-password");
+    toast.info("앱 잠금이 비활성화되었습니다. 저장된 비밀번호가 삭제됩니다.");
+  }
+};
+
+const handleSetPassword = async () => {
+  if (newPassword.value !== confirmPassword.value) {
+    toast.error("비밀번호가 일치하지 않습니다.");
+    return;
+  }
+
+  const result = await ipcRenderer.invoke(
+    "set-lock-password",
+    newPassword.value,
+  );
+  if (result.success) {
+    toast.success("비밀번호가 성공적으로 설정되었습니다.");
+    newPassword.value = "";
+    confirmPassword.value = "";
+  } else {
+    toast.error("비밀번호 설정에 실패했습니다.", { description: result.error });
+  }
 };
 
 // 뷰어 설정 변경 시 저장
@@ -446,6 +480,83 @@ const resetAllData = async () => {
                   />
                 </SettingItem>
               </CardContent>
+            </Card>
+
+            <Card class="mt-6">
+              <CardHeader>
+                <CardTitle>보안</CardTitle>
+                <CardDescription
+                  >앱 접근을 위한 잠금 기능을 설정합니다.</CardDescription
+                >
+              </CardHeader>
+              <CardContent class="space-y-6">
+                <SettingItem
+                  label-for="app-lock"
+                  title="앱 잠금 사용"
+                  subtitle="앱 시작 시 비밀번호를 요구하여 접근을 제어합니다."
+                >
+                  <Switch
+                    id="app-lock"
+                    :model-value="useAppLock"
+                    class="justify-self-end"
+                    @update:model-value="onUseAppLockChange"
+                  />
+                </SettingItem>
+                <div v-if="useAppLock" class="space-y-4 pt-4 border-t">
+                  <div
+                    class="p-3 rounded-md bg-destructive/10 border border-destructive/50 text-destructive-foreground"
+                  >
+                    <div class="flex items-start gap-2">
+                      <Icon
+                        icon="solar:danger-triangle-bold-duotone"
+                        class="w-5 h-5 text-destructive mt-0.5 flex-shrink-0"
+                      />
+                      <div class="flex-1">
+                        <h4 class="font-semibold">중요: 비밀번호 분실 주의</h4>
+                        <p class="text-xs">
+                          비밀번호를 분실할 경우, 암호화된 데이터를 복구할 수
+                          있는 방법이 없습니다. 앱을 초기화해야만 다시 사용할
+                          수 있으며, 이 경우 모든 라이브러리 정보와 설정이
+                          삭제됩니다.
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                  <SettingItem
+                    label-for="new-password"
+                    title="새 비밀번호"
+                    subtitle="잠금 해제에 사용할 비밀번호를 입력하세요."
+                  >
+                    <Input
+                      id="new-password"
+                      v-model="newPassword"
+                      type="password"
+                      placeholder="4자 이상"
+                    />
+                  </SettingItem>
+                  <SettingItem
+                    label-for="confirm-password"
+                    title="비밀번호 확인"
+                    subtitle="설정한 비밀번호를 다시 한번 입력하세요."
+                  >
+                    <Input
+                      id="confirm-password"
+                      v-model="confirmPassword"
+                      type="password"
+                      placeholder="비밀번호 확인"
+                    />
+                  </SettingItem>
+                </div>
+              </CardContent>
+              <CardFooter v-if="useAppLock">
+                <Button @click="handleSetPassword">
+                  <Icon
+                    icon="solar:lock-keyhole-minimalistic-bold-duotone"
+                    class="w-5 h-5 mr-2"
+                  />
+                  비밀번호 설정
+                </Button>
+              </CardFooter>
             </Card>
           </TabsContent>
 
