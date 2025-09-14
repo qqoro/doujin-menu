@@ -200,7 +200,7 @@ const handleWheel = (e: WheelEvent) => {
 const handleMouseUp = (e: MouseEvent) => {
   if (e.button === 1) {
     // 휠 클릭
-    ipcRenderer.send("maximize-toggle-window");
+    ipcRenderer.send("fullscreen-toggle-window");
   }
 };
 
@@ -271,6 +271,7 @@ onMounted(() => {
 
 onUnmounted(() => {
   store.cleanup();
+  ipcRenderer.send("set-fullscreen-window", false);
 });
 
 useWindowEvent("mousemove", useThrottleFn(handleMouseMove, 100, true));

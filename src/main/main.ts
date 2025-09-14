@@ -319,6 +319,14 @@ app.whenReady().then(async () => {
     }
   });
 
+  ipcMain.on("set-fullscreen-window", (_event, newState: boolean) => {
+    mainWindow.setSimpleFullScreen(newState);
+  });
+
+  ipcMain.on("fullscreen-toggle-window", () => {
+    mainWindow.setSimpleFullScreen(!mainWindow.isSimpleFullScreen());
+  });
+
   ipcMain.on("close-window", () => {
     mainWindow?.close();
   });
