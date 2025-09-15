@@ -71,6 +71,10 @@ export async function deleteBook(bookId: number) {
   }
 }
 
+export function openNewWindow(url: string) {
+  ipcRenderer.send("open-new-window", url);
+}
+
 export async function getBookHistory({
   pageParam = 0,
   pageSize = 50,
@@ -167,6 +171,14 @@ export function openExternalLink(url: string) {
 
 export function openLogFolder() {
   ipcRenderer.send("open-log-folder");
+}
+
+export function closeCurrentWindow() {
+  ipcRenderer.send("close-current-window");
+}
+
+export async function isNewWindow(): Promise<boolean> {
+  return ipcRenderer.invoke("is-new-window");
 }
 
 // Update API

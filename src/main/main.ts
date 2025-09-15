@@ -41,6 +41,53 @@ if (!gotTheLock) {
 }
 
 let mainWindow: BrowserWindow;
+const viewerWindows = new Set<BrowserWindow>();
+
+function createViewerWindow(fromUrl: string) {
+  const viewerWindowState = windowStateKeeper({
+    defaultWidth: 800,
+    defaultHeight: 1000,
+  });
+
+  const viewerWindow = new BrowserWindow({
+    x: viewerWindowState.x,
+    y: viewerWindowState.y,
+    width: viewerWindowState.width,
+    height: viewerWindowState.height,
+    icon: path.join(process.resourcesPath, "static", "icon.ico"),
+    titleBarStyle: "hidden",
+    webPreferences: {
+      sandbox: false,
+      nodeIntegration: true,
+      contextIsolation: false,
+      webSecurity: false,
+    },
+  });
+  viewerWindow.setMenu(null);
+  viewerWindowState.manage(viewerWindow);
+
+  const url =
+    process.env.NODE_ENV === "development"
+      ? `http://localhost:${process.argv[2]}/#${fromUrl}`
+      : `file://${path.join(
+          import.meta.dirname,
+          "..",
+          "renderer",
+          "index.html",
+        )}#${fromUrl}`;
+
+  viewerWindow.loadURL(url);
+
+  viewerWindow.webContents.setWindowOpenHandler((details) => {
+    shell.openExternal(details.url);
+    return { action: "deny" };
+  });
+
+  viewerWindows.add(viewerWindow);
+  viewerWindow.on("closed", () => {
+    viewerWindows.delete(viewerWindow);
+  });
+}
 
 function createWindow() {
   const mainWindowState = windowStateKeeper({
@@ -331,10 +378,24 @@ app.whenReady().then(async () => {
     mainWindow?.close();
   });
 
+  ipcMain.on("close-current-window", (event) => {
+    const win = BrowserWindow.fromWebContents(event.sender);
+    win?.close();
+  });
+
+  ipcMain.on("open-new-window", (_event, url: string) => {
+    createViewerWindow(url);
+  });
+
   ipcMain.handle("get-initial-lock-status", () => {
     const useLock = configStore.get("useAppLock");
     const passwordSet = !!configStore.get("appLockPassword");
     return useLock && passwordSet;
+  });
+
+  ipcMain.handle("is-new-window", (event) => {
+    const win = BrowserWindow.fromWebContents(event.sender);
+    return viewerWindows.has(win!);
   });
 
   ipcMain.handle("open-folder", async (_event, folderPath: string) => {

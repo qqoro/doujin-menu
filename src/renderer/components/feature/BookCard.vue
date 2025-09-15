@@ -27,7 +27,7 @@ import {
 import { Icon } from "@iconify/vue";
 import { useQueryClient } from "@tanstack/vue-query";
 import { computed, ref, toRaw } from "vue";
-import { RouterLink } from "vue-router";
+import { useRouter } from "vue-router";
 import { toast } from "vue-sonner";
 import ContextMenuSeparator from "../ui/context-menu/ContextMenuSeparator.vue";
 
@@ -58,6 +58,8 @@ const emit = defineEmits([
   "show-details", // 상세 정보 이벤트를 추가합니다.
 ]);
 
+const router = useRouter();
+
 const viewerLink = computed(() => ({
   name: "Viewer",
   params: { id: props.book.id },
@@ -66,12 +68,24 @@ const viewerLink = computed(() => ({
   },
 }));
 
+const openInNewWindow = () => {
+  const url = `/viewer/${viewerLink.value.params.id}?${new URLSearchParams(viewerLink.value.query).toString()}`;
+  api.openNewWindow(url);
+};
+
+const handleCardClick = (event: MouseEvent) => {
+  if (event.ctrlKey || event.metaKey) {
+    // metaKey for Command key on macOS
+    openInNewWindow();
+  } else {
+    router.push(viewerLink.value);
+  }
+};
+
 const MAX_VISIBLE_TAGS = 3;
 
 const coverUrl = computed(() => {
-  return props.book.cover_path
-    ? `file://${props.book.cover_path}`
-    : "https://via.placeholder.com/256x384";
+  return props.book.cover_path ? `file://${props.book.cover_path}` : "";
 });
 
 const visibleTags = computed(() => {
@@ -150,75 +164,71 @@ const confirmDeleteBook = async () => {
 <template>
   <ContextMenu>
     <ContextMenuTrigger>
-      <RouterLink :to="viewerLink">
-        <Card
-          class="overflow-hidden hover:shadow-lg transition-shadow flex flex-col h-full py-0 gap-0"
-        >
-          <CardContent class="p-0">
-            <img
-              :src="coverUrl"
-              :alt="book.title"
-              class="aspect-[2/3] w-full h-auto object-cover"
-            />
-          </CardContent>
-          <CardFooter class="p-2 flex-col items-start flex-grow gap-1">
-            <p
-              class="font-semibold text-sm truncate w-full"
-              :title="book.title"
+      <Card
+        class="overflow-hidden hover:shadow-lg transition-shadow flex flex-col h-full py-0 gap-0 cursor-pointer"
+        @click="handleCardClick"
+      >
+        <CardContent class="p-0">
+          <img
+            :src="coverUrl"
+            :alt="book.title"
+            class="aspect-[2/3] w-full h-auto object-cover"
+          />
+        </CardContent>
+        <CardFooter class="p-2 flex-col items-start flex-grow gap-1">
+          <p class="font-semibold text-sm truncate w-full" :title="book.title">
+            {{ book.title }}
+          </p>
+          <p
+            class="text-xs text-muted-foreground truncate w-full mb-1 cursor-pointer hover:underline"
+            :title="book.artists?.map((a) => a.name).join(', ')"
+            @click.prevent.stop="handleArtistClick(book.artists[0])"
+          >
+            {{
+              book.artists?.map((a) => a.name).join(", ") || "작가 정보 없음"
+            }}
+          </p>
+          <div class="flex flex-wrap items-start gap-1 w-full min-h-[42px]">
+            <Badge
+              v-for="tag in visibleTags"
+              :key="tag.name"
+              :class="getTagDisplayInfo(tag).className"
+              @click.prevent.stop="handleTagClick(tag)"
             >
-              {{ book.title }}
-            </p>
-            <p
-              class="text-xs text-muted-foreground truncate w-full mb-1 cursor-pointer hover:underline"
-              :title="book.artists?.map((a) => a.name).join(', ')"
-              @click.prevent.stop="handleArtistClick(book.artists[0])"
-            >
-              {{
-                book.artists?.map((a) => a.name).join(", ") || "작가 정보 없음"
-              }}
-            </p>
-            <div class="flex flex-wrap items-start gap-1 w-full min-h-[42px]">
-              <Badge
-                v-for="tag in visibleTags"
-                :key="tag.name"
-                :class="getTagDisplayInfo(tag).className"
-                @click.prevent.stop="handleTagClick(tag)"
-              >
-                {{ getTagDisplayInfo(tag).displayText }}
-              </Badge>
-              <TooltipProvider v-if="hiddenTagsCount > 0" :delay-duration="100">
-                <Tooltip>
-                  <TooltipTrigger as-child>
-                    <Badge
-                      variant="secondary"
-                      class="cursor-pointer"
-                      @click.prevent.stop
-                    >
-                      +{{ hiddenTagsCount }}
-                    </Badge>
-                  </TooltipTrigger>
-                  <TooltipContent
-                    side="bottom"
-                    class="max-w-[300px] p-2 bg-primary/50 backdrop-blur-md"
+              {{ getTagDisplayInfo(tag).displayText }}
+            </Badge>
+            <TooltipProvider v-if="hiddenTagsCount > 0" :delay-duration="100">
+              <Tooltip>
+                <TooltipTrigger as-child>
+                  <Badge
+                    variant="secondary"
+                    class="cursor-pointer"
                     @click.prevent.stop
                   >
-                    <div class="flex flex-wrap gap-1">
-                      <Badge
-                        v-for="tag in book.tags"
-                        :key="`tooltip-${tag}`"
-                        :class="getTagDisplayInfo(tag).className"
-                        @click.prevent.stop="handleTagClick(tag)"
-                      >
-                        {{ getTagDisplayInfo(tag).displayText }}
-                      </Badge>
-                    </div>
-                  </TooltipContent>
-                </Tooltip>
-              </TooltipProvider>
-            </div>
-          </CardFooter>
-        </Card>
-      </RouterLink>
+                    +{{ hiddenTagsCount }}
+                  </Badge>
+                </TooltipTrigger>
+                <TooltipContent
+                  side="bottom"
+                  class="max-w-[300px] p-2 bg-primary/50 backdrop-blur-md"
+                  @click.prevent.stop
+                >
+                  <div class="flex flex-wrap gap-1">
+                    <Badge
+                      v-for="tag in book.tags"
+                      :key="`tooltip-${tag}`"
+                      :class="getTagDisplayInfo(tag).className"
+                      @click.prevent.stop="handleTagClick(tag)"
+                    >
+                      {{ getTagDisplayInfo(tag).displayText }}
+                    </Badge>
+                  </div>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+          </div>
+        </CardFooter>
+      </Card>
     </ContextMenuTrigger>
 
     <ContextMenuContent>
@@ -236,6 +246,10 @@ const confirmDeleteBook = async () => {
       <ContextMenuItem @click="openBookFolder">
         <Icon icon="solar:folder-open-bold-duotone" class="w-4 h-4" />
         폴더 열기
+      </ContextMenuItem>
+      <ContextMenuItem @click="openInNewWindow">
+        <Icon icon="solar:square-top-down-bold-duotone" class="w-4 h-4" />
+        새 창으로 열기
       </ContextMenuItem>
       <ContextMenuItem @click="emit('show-details', book)">
         <Icon icon="solar:info-circle-bold-duotone" class="w-4 h-4" />

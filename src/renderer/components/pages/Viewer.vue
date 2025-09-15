@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { addBookHistory, getBook, ipcRenderer } from "@/api";
+import { addBookHistory, getBook, ipcRenderer, closeCurrentWindow, isNewWindow as apiIsNewWindow } from "@/api";
 import BookDetailDialog from "@/components/feature/BookDetailDialog.vue";
 import ViewerHelpDialog from "@/components/feature/viewer/ViewerHelpDialog.vue";
 import { Button } from "@/components/ui/button";
@@ -30,6 +30,8 @@ import { useRoute, useRouter } from "vue-router";
 const route = useRoute();
 const router = useRouter();
 const store = useViewerStore();
+
+const isNewWindow = ref(false);
 
 const {
   bookId,
@@ -109,7 +111,11 @@ const handleMouseMove = (e: MouseEvent) => {
 const handleKeyDown = async (e: KeyboardEvent) => {
   if (e.key === "Escape") {
     e.preventDefault();
-    router.back();
+    if (isNewWindow.value) {
+      closeCurrentWindow();
+    } else {
+      router.back();
+    }
     return;
   }
 
@@ -249,7 +255,8 @@ watch(webtoonImageRef, (newRef) => {
   images.value = newRef;
 });
 
-onMounted(() => {
+onMounted(async () => {
+  isNewWindow.value = await apiIsNewWindow();
   store.loadViewerSettings();
   const bookId = Number(route.params.id);
   const filter = route.query.filter;
@@ -298,7 +305,7 @@ useWindowEvent("mouseup", handleMouseUp);
                     variant="ghost"
                     size="icon"
                     style="-webkit-app-region: no-drag"
-                    @click="router.back"
+                    @click="isNewWindow ? closeCurrentWindow() : router.back()"
                   >
                     <Icon
                       icon="solar:alt-arrow-left-line-duotone"
@@ -307,7 +314,10 @@ useWindowEvent("mouseup", handleMouseUp);
                   </Button>
                 </TooltipTrigger>
                 <TooltipContent>
-                  <p class="flex items-center gap-1">
+                  <p v-if="isNewWindow" class="flex items-center gap-1">
+                    창 닫기 <kbd>Esc</kbd>
+                  </p>
+                  <p v-else class="flex items-center gap-1">
                     라이브러리로 돌아가기 <kbd>Esc</kbd>
                   </p>
                 </TooltipContent>
