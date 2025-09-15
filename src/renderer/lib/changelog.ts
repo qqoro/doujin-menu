@@ -15,6 +15,19 @@ export interface Changelog {
  */
 export const changelogData: Changelog[] = [
   {
+    version: "1.1.0",
+    changes: [
+      {
+        type: "feature",
+        title: "✨ 새로운 기능",
+        items: [
+          "라이브러리에서 책을 새 창으로 열 수 있는 기능이 추가되었습니다. (Ctrl+Click 또는 우클릭 메뉴)",
+          "뷰어 창의 제목이 현재 열람중인 책의 제목으로 표시됩니다.",
+        ],
+      },
+    ],
+  },
+  {
     version: "1.0.10",
     changes: [
       {
