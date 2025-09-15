@@ -23,7 +23,7 @@ const keybindings = [
   { keys: [["Ctrl", "+", "0"]], description: "자동 넘김 중지" },
   { keys: [["Esc"]], description: "라이브러리로 돌아가기" },
   { keys: [["Enter"]], description: "전체화면/창 모드 전환" },
-  { keys: [["마우스 휠 클릭"]], description: "완전 전체화면/창 모드 전환" },
+  { keys: [["휠 클릭"]], description: "완전 전체화면/창 모드 전환" },
 ];
 </script>
 

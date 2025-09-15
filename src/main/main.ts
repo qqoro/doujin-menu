@@ -44,16 +44,17 @@ let mainWindow: BrowserWindow;
 const viewerWindows = new Set<BrowserWindow>();
 
 function createViewerWindow(fromUrl: string) {
-  const viewerWindowState = windowStateKeeper({
-    defaultWidth: 800,
-    defaultHeight: 1000,
-  });
+  // 첫 창 생성 시 위치를 메인 창 기준으로 오프셋
+  const mainBounds = mainWindow.getBounds();
+  const offset = 20 * (viewerWindows.size + 1);
+  const x = mainBounds.x + offset;
+  const y = mainBounds.y + offset;
 
   const viewerWindow = new BrowserWindow({
-    x: viewerWindowState.x,
-    y: viewerWindowState.y,
-    width: viewerWindowState.width,
-    height: viewerWindowState.height,
+    x,
+    y,
+    width: 800,
+    height: 1000,
     icon: path.join(process.resourcesPath, "static", "icon.ico"),
     titleBarStyle: "hidden",
     webPreferences: {
@@ -64,7 +65,6 @@ function createViewerWindow(fromUrl: string) {
     },
   });
   viewerWindow.setMenu(null);
-  viewerWindowState.manage(viewerWindow);
 
   const url =
     process.env.NODE_ENV === "development"
@@ -358,20 +358,23 @@ app.whenReady().then(async () => {
     mainWindow?.minimize();
   });
 
-  ipcMain.on("maximize-toggle-window", () => {
-    if (mainWindow?.isMaximized()) {
-      mainWindow?.unmaximize();
+  ipcMain.on("maximize-toggle-window", (event) => {
+    const win = BrowserWindow.fromWebContents(event.sender);
+    if (win?.isMaximized()) {
+      win?.unmaximize();
     } else {
-      mainWindow?.maximize();
+      win?.maximize();
     }
   });
 
-  ipcMain.on("set-fullscreen-window", (_event, newState: boolean) => {
-    mainWindow.setSimpleFullScreen(newState);
+  ipcMain.on("set-fullscreen-window", (event, newState: boolean) => {
+    const win = BrowserWindow.fromWebContents(event.sender);
+    win?.setSimpleFullScreen(newState);
   });
 
-  ipcMain.on("fullscreen-toggle-window", () => {
-    mainWindow.setSimpleFullScreen(!mainWindow.isSimpleFullScreen());
+  ipcMain.on("fullscreen-toggle-window", (event) => {
+    const win = BrowserWindow.fromWebContents(event.sender);
+    win?.setSimpleFullScreen(!win.isSimpleFullScreen());
   });
 
   ipcMain.on("close-window", () => {
