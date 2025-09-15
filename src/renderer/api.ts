@@ -181,6 +181,10 @@ export async function isNewWindow(): Promise<boolean> {
   return ipcRenderer.invoke("is-new-window");
 }
 
+export function setWindowTitle(title: string) {
+  ipcRenderer.send("set-window-title", title);
+}
+
 // Update API
 export interface UpdateCheckResult {
   success: boolean;

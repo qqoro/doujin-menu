@@ -1,4 +1,4 @@
-import { ipcRenderer } from "@/api";
+import { ipcRenderer, setWindowTitle } from "@/api";
 import { watchDebounced } from "@vueuse/core";
 import { defineStore } from "pinia";
 import { computed, nextTick, ref, toRaw, watch } from "vue";
@@ -507,6 +507,12 @@ export const useViewerStore = defineStore("viewer", () => {
     },
     { debounce: 500 },
   );
+
+  watch(bookTitle, (newTitle) => {
+    if (newTitle) {
+      setWindowTitle(newTitle);
+    }
+  });
 
   watch(currentPage, () => {
     if (isAutoPlay.value) {

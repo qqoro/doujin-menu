@@ -383,6 +383,13 @@ app.whenReady().then(async () => {
     win?.close();
   });
 
+  ipcMain.on("set-window-title", (event, title) => {
+    const win = BrowserWindow.fromWebContents(event.sender);
+    if (win) {
+      win.setTitle(title);
+    }
+  });
+
   ipcMain.on("open-new-window", (_event, url: string) => {
     createViewerWindow(url);
   });
