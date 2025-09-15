@@ -511,6 +511,8 @@ export const useViewerStore = defineStore("viewer", () => {
   watch(bookTitle, (newTitle) => {
     if (newTitle) {
       setWindowTitle(newTitle);
+    } else {
+      setWindowTitle("동인메뉴판");
     }
   });
 

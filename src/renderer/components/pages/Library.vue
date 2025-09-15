@@ -385,7 +385,11 @@ useWindowEvent("keydown", (e: KeyboardEvent) => {
             <h3 class="font-semibold text-base text-foreground">책 관리</h3>
             <ul class="list-disc list-inside">
               <li>
-                책 카드를 클릭하여 상세 정보를 확인하고 열람할 수 있습니다.
+                책 카드를 클릭하여 뷰어를 열 수 있습니다.
+              </li>
+              <li>
+                책 카드를 <code>Ctrl</code>+클릭하거나 우클릭 메뉴의 '새 창으로
+                열기'를 선택하여 뷰어를 새 창에서 열 수 있습니다.
               </li>
               <li>
                 책 카드 우클릭 메뉴를 통해 폴더 열기, 즐겨찾기 추가/해제 등의
