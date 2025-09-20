@@ -15,6 +15,24 @@ export interface Changelog {
  */
 export const changelogData: Changelog[] = [
   {
+    version: "1.1.1",
+    changes: [
+      {
+        type: "fix",
+        title: "🐛 버그 수정",
+        items: [
+          "다운로더에서 제목으로 검색이 되지 않던 문제를 수정했습니다.",
+          "윈도우에서 폴더 이름이 이름 규칙에 적합하지 않게 생성되던 오류를 수정했습니다.",
+        ],
+      },
+      {
+        type: "etc",
+        title: "기타",
+        items: ["다운로더의 썸네일 모드에서 썸네일 크기를 키웠습니다."],
+      },
+    ],
+  },
+  {
     version: "1.1.0",
     changes: [
       {
