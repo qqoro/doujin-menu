@@ -44,10 +44,20 @@ export const handleSearchGalleries = async ({
     let ids: number[];
 
     if (trimmedQuery) {
-      const options: Parameters<typeof hitomi.getGalleryIds>[0] = {
-        tags: hitomi.getParsedTags(trimmedQuery),
-      };
-      ids = await hitomi.getGalleryIds(options);
+      const title: string[] = [];
+      const tags: string[] = [];
+      trimmedQuery.split(" ").forEach((text) => {
+        if (text.includes(":")) {
+          tags.push(text);
+        } else {
+          title.push(text);
+        }
+      });
+      ids = await hitomi.getGalleryIds({
+        title: title.length > 0 ? title.join(" ") : undefined,
+        tags:
+          tags.length > 0 ? hitomi.getParsedTags(tags.join(" ")) : undefined,
+      });
     } else {
       ids = await hitomi.getGalleryIds();
     }
