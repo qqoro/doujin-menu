@@ -1,4 +1,5 @@
 import { app, ipcMain } from "electron";
+import { filenamifyPath } from "filenamify";
 import fs from "fs/promises";
 import hitomi, { Gallery } from "node-hitomi";
 import path from "path";
@@ -157,14 +158,10 @@ export const handleDownloadGallery = async (
       downloadPattern,
     );
 
-    let galleryDownloadPath = path.join(downloadPath, galleryFolderName);
-    // 윈도우 파일명 길이제한
-    if (galleryDownloadPath.length > 256) {
-      galleryDownloadPath = path.join(
-        downloadPath,
-        galleryFolderName.substring(0, 256 - downloadPath.length),
-      );
-    }
+    const galleryDownloadPath = filenamifyPath(
+      path.join(downloadPath, galleryFolderName),
+      { maxLength: 255, replacement: "_" },
+    );
 
     await fs.mkdir(galleryDownloadPath, { recursive: true });
 
