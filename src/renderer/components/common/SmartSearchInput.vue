@@ -1,7 +1,9 @@
 <script setup lang="ts">
 import { Input } from "@/components/ui/input";
 import { useLookupData } from "@/composable/useLookupData";
+import { Icon } from "@iconify/vue";
 import { computed, nextTick, ref, useTemplateRef, watch } from "vue";
+import { toast } from "vue-sonner";
 
 const props = defineProps({
   modelValue: { type: String, default: "" },
@@ -9,6 +11,17 @@ const props = defineProps({
 });
 
 const emit = defineEmits(["update:modelValue"]);
+
+const clearInput = () => {
+  emit("update:modelValue", "");
+};
+
+const copyToClipboard = () => {
+  if (props.modelValue) {
+    navigator.clipboard.writeText(props.modelValue);
+    toast.success("복사 되었습니다.");
+  }
+};
 
 const isFocused = ref(false);
 const suggestions = ref<string[]>([]);
@@ -224,12 +237,31 @@ defineExpose({ focus });
       ref="input"
       :model-value="props.modelValue"
       :placeholder="placeholder"
-      class="w-full"
+      class="w-full pr-20"
       @update:model-value="emit('update:modelValue', $event)"
       @keydown="handleKeyDown"
       @focus="isFocused = true"
       @blur="isFocused = false"
     />
+    <div
+      v-if="props.modelValue.length > 0"
+      class="absolute inset-y-0 right-0 flex items-center gap-1 pr-3"
+    >
+      <button
+        type="button"
+        class="p-1 text-muted-foreground transition-colors hover:text-foreground"
+        @click="clearInput"
+      >
+        <Icon icon="solar:close-circle-bold-duotone" class="h-5 w-5" />
+      </button>
+      <button
+        type="button"
+        class="p-1 text-muted-foreground transition-colors hover:text-foreground"
+        @click="copyToClipboard"
+      >
+        <Icon icon="solar:copy-bold-duotone" class="h-5 w-5" />
+      </button>
+    </div>
     <ul
       v-if="suggestions.length > 0 && isFocused"
       class="absolute z-10 w-full bg-popover border rounded-md shadow-lg mt-1"
