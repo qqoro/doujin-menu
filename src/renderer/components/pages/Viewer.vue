@@ -191,14 +191,14 @@ const handleKeyDown = async (e: KeyboardEvent) => {
     return;
   }
 
-  if (e.key === "ArrowRight") {
+  if (e.key === "ArrowRight" || e.key === "ArrowDown") {
     e.preventDefault();
     if (readingMode.value === "rtl") {
       store.prevPage();
     } else {
       store.nextPage();
     }
-  } else if (e.key === "ArrowLeft") {
+  } else if (e.key === "ArrowLeft" || e.key === "ArrowUp") {
     e.preventDefault();
     if (readingMode.value === "rtl") {
       store.nextPage();
