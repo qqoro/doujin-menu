@@ -1,5 +1,11 @@
 <script setup lang="ts">
-import { addBookHistory, getBook, ipcRenderer, closeCurrentWindow, isNewWindow as apiIsNewWindow } from "@/api";
+import {
+  addBookHistory,
+  isNewWindow as apiIsNewWindow,
+  closeCurrentWindow,
+  getBook,
+  ipcRenderer,
+} from "@/api";
 import BookDetailDialog from "@/components/feature/BookDetailDialog.vue";
 import ViewerHelpDialog from "@/components/feature/viewer/ViewerHelpDialog.vue";
 import { Button } from "@/components/ui/button";
@@ -87,12 +93,21 @@ const screenRef = ref<HTMLElement | null>(null);
 const webtoonRef = ref<HTMLElement | null>(null);
 const webtoonImageRef = ref<HTMLElement[] | null>(null);
 
+const showCursor = ref(true);
 const showControls = ref(true);
 const openSetting = ref(false);
 const isHelpOpen = ref(false);
 const isDetailOpen = ref(false);
 
+let cursorHideTimer: number;
 const handleMouseMove = (e: MouseEvent) => {
+  showCursor.value = true;
+  clearTimeout(cursorHideTimer);
+  cursorHideTimer = window.setTimeout(() => {
+    showCursor.value = false;
+  }, 3000);
+
+  showControls.value = true;
   const mouseY = e.clientY;
   const threshold = Math.max(60, window.innerHeight * 0.15); // 상단/하단 15% 임계값 + 최소값 60px
 
@@ -288,7 +303,11 @@ useWindowEvent("mouseup", handleMouseUp);
 </script>
 
 <template>
-  <div ref="screenRef" class="h-screen flex flex-col">
+  <div
+    ref="screenRef"
+    class="h-screen flex flex-col"
+    :class="{ 'cursor-none': !showCursor }"
+  >
     <!-- 헤더 -->
     <Transition name="fade">
       <div
