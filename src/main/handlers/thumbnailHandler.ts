@@ -145,8 +145,10 @@ export async function generateThumbnailForBook(bookId: number) {
     } else if (ext === ".cbz" || ext === ".zip") {
       // 3-2. ZIP/CBZ 파일인 경우: 압축을 풀어 커버 이미지를 임시 폴더에 저장 후 사용
       console.log(`[Main] Book path is a ZIP file: ${book.path}`);
+      await fs.mkdir(path.join(app.getPath("userData"), "temp_cover"));
       const tempCoverPath = path.join(
-        app.getPath("temp"),
+        app.getPath("userData"),
+        "temp_cover",
         `${book.id}_temp_cover.webp`,
       );
       sourcePath = await extractCoverFromZip(book.path, tempCoverPath);

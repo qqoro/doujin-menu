@@ -171,6 +171,9 @@ app.whenReady().then(async () => {
   registerStatisticsHandlers();
   registerThumbnailHandlers();
 
+  fs.mkdir(path.join(app.getPath("userData"), "downloader_temp_thumbnails"));
+  fs.mkdir(path.join(app.getPath("userData"), "temp_cover"));
+
   // 커스텀 프로토콜 등록
   protocol.handle("doujin-menu", async (request) => {
     const url = new URL(request.url);

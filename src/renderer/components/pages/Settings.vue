@@ -144,6 +144,9 @@ const useAppLock = ref(false);
 const newPassword = ref("");
 const confirmPassword = ref("");
 
+// 임시 파일 관리 상태
+const tempFilesSize = ref("0 Bytes");
+
 // 뷰어 설정 상태
 const viewerReadingDirection = ref<"ltr" | "rtl" | "webtoon">("ltr");
 const viewerDoublePageView = ref(false);
@@ -183,7 +186,32 @@ onMounted(async () => {
   viewerAutoFitZoom.value = config.viewerAutoFitZoom !== false;
   viewerRestoreLastSession.value = config.viewerRestoreLastSession !== false;
   await loadLibraryFolders();
+  await getTempFilesSize();
 });
+
+// 임시 파일 크기 가져오기
+const getTempFilesSize = async () => {
+  const result = await ipcRenderer.invoke("get-temp-files-size");
+  if (result.success) {
+    tempFilesSize.value = result.data;
+  } else {
+    toast.error("임시 파일 크기 조회에 실패했습니다.", {
+      description: result.error,
+    });
+  }
+};
+
+// 임시 파일 삭제
+const clearTempFiles = async () => {
+  toast.info("임시 파일을 삭제하는 중...");
+  const result = await ipcRenderer.invoke("clear-temp-files");
+  if (result.success) {
+    toast.success("임시 파일이 성공적으로 삭제되었습니다.");
+    await getTempFilesSize(); // 크기 다시고침
+  } else {
+    toast.error("임시 파일 삭제에 실패했습니다.", { description: result.error });
+  }
+};
 
 // 설정 저장 함수
 const saveConfig = async (key: string, value: unknown) => {
@@ -478,6 +506,47 @@ const resetAllData = async () => {
                     class="justify-self-end"
                     @update:model-value="onAutoLoadChange"
                   />
+                </SettingItem>
+              </CardContent>
+            </Card>
+
+            <Card class="mt-6">
+              <CardHeader>
+                <CardTitle>임시 파일</CardTitle>
+                <CardDescription
+                  >앱 사용 중 생성된 임시 파일을 관리합니다.</CardDescription
+                >
+              </CardHeader>
+              <CardContent>
+                <SettingItem
+                  title="임시 파일 정리"
+                  subtitle="다운로더 썸네일 캐시 및 기타 임시 파일을 삭제하여 디스크 공간을 확보합니다."
+                >
+                  <div class="flex items-center gap-2">
+                    <span class="text-sm text-muted-foreground">{{ tempFilesSize }}</span>
+                    <AlertDialog>
+                      <AlertDialogTrigger as-child>
+                        <Button variant="destructive">정리</Button>
+                      </AlertDialogTrigger>
+                      <AlertDialogContent>
+                        <AlertDialogHeader>
+                          <AlertDialogTitle
+                            >정말로 임시 파일을 삭제하시겠습니까?</AlertDialogTitle
+                          >
+                          <AlertDialogDescription>
+                            이 작업은 되돌릴 수 없습니다. 다운로더 미리보기 캐시
+                            및 기타 임시 파일이 영구적으로 삭제됩니다.
+                          </AlertDialogDescription>
+                        </AlertDialogHeader>
+                        <AlertDialogFooter>
+                          <AlertDialogCancel>취소</AlertDialogCancel>
+                          <AlertDialogAction @click="clearTempFiles"
+                            >네, 삭제합니다</AlertDialogAction
+                          >
+                        </AlertDialogFooter>
+                      </AlertDialogContent>
+                    </AlertDialog>
+                  </div>
                 </SettingItem>
               </CardContent>
             </Card>

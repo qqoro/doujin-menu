@@ -5,6 +5,42 @@ import hitomi from "node-hitomi";
 import path from "path";
 import { store as configStore } from "./configHandler.js";
 
+async function getDirSize(dirPath: string): Promise<number> {
+  try {
+    const stats = await fs.lstat(dirPath).catch(() => null);
+    if (!stats) {
+      return 0;
+    }
+    if (!stats.isDirectory()) {
+      return stats.size;
+    }
+
+    const entries = await fs.readdir(dirPath, { withFileTypes: true });
+    const sizes = await Promise.all(
+      entries.map((entry) => {
+        const fullPath = path.join(dirPath, entry.name);
+        return getDirSize(fullPath);
+      }),
+    );
+
+    return sizes.reduce((acc, size) => acc + size, 0);
+  } catch (error) {
+    console.error(`Error calculating size for ${dirPath}:`, error);
+    return 0;
+  }
+}
+
+function formatBytes(bytes: number, decimals = 2) {
+  if (bytes === 0) {
+    return "0 Bytes";
+  }
+  const k = 1024;
+  const dm = decimals < 0 ? 0 : decimals;
+  const sizes = ["Bytes", "KB", "MB", "GB", "TB"];
+  const i = Math.floor(Math.log(bytes) / Math.log(k));
+  return `${parseFloat((bytes / Math.pow(k, i)).toFixed(dm))} ${sizes[i]}`;
+}
+
 async function handleGenerateMissingInfoFiles(
   event: IpcMainInvokeEvent,
   pattern: string,
@@ -184,6 +220,46 @@ export function registerEtcHandlers(win: BrowserWindow) {
       }
     },
   );
+
+  ipcMain.handle("get-temp-files-size", async () => {
+    try {
+      const tempPath = [
+        path.join(app.getPath("userData"), "downloader_temp_thumbnails"),
+        path.join(app.getPath("userData"), "temp_cover"),
+      ];
+      const totalSize = (
+        await Promise.all(tempPath.map((path) => getDirSize(path)))
+      ).reduce((p, c) => p + c, 0);
+      return { success: true, data: formatBytes(totalSize) };
+    } catch (error) {
+      return { success: false, error: (error as Error).message };
+    }
+  });
+
+  ipcMain.handle("clear-temp-files", async () => {
+    try {
+      const tempPath = [
+        path.join(app.getPath("userData"), "downloader_temp_thumbnails"),
+        path.join(app.getPath("userData"), "temp_cover"),
+      ];
+
+      for (const temp of tempPath) {
+        const list = await fs.readdir(temp);
+        await Promise.allSettled(
+          list.map(async (file) => {
+            await fs.rm(path.join(temp, file), {
+              force: true,
+              recursive: true,
+            });
+          }),
+        );
+      }
+
+      return { success: true };
+    } catch (error) {
+      return { success: false, error: (error as Error).message };
+    }
+  });
 
   ipcMain.handle("generate-missing-info-files", (event, pattern: string) =>
     handleGenerateMissingInfoFiles(event, pattern),
