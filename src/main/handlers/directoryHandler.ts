@@ -1,4 +1,4 @@
-import { BrowserWindow, app, dialog, ipcMain } from "electron";
+import { BrowserWindow, dialog, ipcMain } from "electron";
 import fg from "fast-glob";
 import * as fsSync from "fs";
 import fs from "fs/promises";
@@ -11,7 +11,10 @@ import { Book } from "../db/types.js";
 import { console } from "../main.js";
 import { ParsedMetadata, parseInfoTxt } from "../parsers/infoTxtParser.js";
 import { naturalSort } from "../utils/index.js";
-import { generateThumbnailForBook } from "./thumbnailHandler.js"; // 썸네일 생성 함수 임포트
+import {
+  generateThumbnailForBook,
+  handleGenerateThumbnail,
+} from "./thumbnailHandler.js"; // 썸네일 생성 함수 임포트
 
 // Windows MAX_PATH 제한
 const MAX_PATH_LENGTH = 260;
@@ -197,6 +200,11 @@ export const handleAddBooksFromDirectory = async () => {
 
   const directoryPath = filePaths[0];
   const { added, updated, deleted } = await scanDirectory(directoryPath);
+  const books = await db("Book")
+    .select("id")
+    .whereLike("path", `${directoryPath}%`)
+    .and.where("cover_path", null);
+  await Promise.all(books.map((book) => handleGenerateThumbnail(book.id)));
   console.log(
     `[Main] ${directoryPath}에 대한 초기 스캔 완료: 추가 ${added}, 업데이트 ${updated}, 삭제 ${deleted}`,
   );
@@ -225,11 +233,15 @@ async function processBookItem(
   console.log(
     `[Main] 다음 항목에 대해 processBookItem 호출됨: ${itemPath}, isDirectory: ${isDirectory}, isFile: ${isFile}`,
   );
+  // 1. 반환할 책 데이터, 커버 경로, 메타데이터 객체를 초기화합니다.
   let bookData: Book | null = null;
-  let coverPath: string | null = null;
+  const coverPath: string | null = null;
   let infoMetadata: ParsedMetadata = {};
 
+  // 2. info.txt 메타데이터를 찾고 파싱합니다.
+  // 2-1. 폴더 내부에 있는 info.txt를 먼저 시도합니다.
   const infoTxtPath = path.join(itemPath, "info.txt");
+  // 2-2. 폴더와 동일한 이름으로 부모 폴더에 있는 info.txt를 다음으로 시도합니다. (예: 'MyBook/' 폴더 -> '../MyBook.info.txt')
   const parentInfoTxtPath = path.join(
     path.dirname(itemPath),
     `${name}.info.txt`,
@@ -245,9 +257,10 @@ async function processBookItem(
       );
     }
   } catch {
-    // info.txt 파일이 없거나 읽을 수 없는 경우 무시
+    // info.txt 파일이 없거나 읽을 수 없는 경우 무시하고 다음 단계로 진행합니다.
   }
 
+  // 2-3. 폴더 내 info.txt가 없었을 경우, 부모 폴더의 info.txt를 확인합니다.
   if (Object.keys(infoMetadata).length === 0) {
     try {
       const stats = await fs.stat(parentInfoTxtPath);
@@ -261,10 +274,11 @@ async function processBookItem(
         );
       }
     } catch {
-      // 외부 info.txt 파일이 없거나 읽을 수 없는 경우 무시
+      // 외부 info.txt 파일이 없거나 읽을 수 없는 경우 무시합니다.
     }
   }
 
+  // 2-4. 만약 항목이 ZIP 파일이라면, 파일 내부의 info.txt를 추출하여 파싱합니다.
   if (isFile) {
     const ext = path.extname(name).toLowerCase();
     if (ext === ".cbz" || ext === ".zip") {
@@ -280,51 +294,60 @@ async function processBookItem(
     }
   }
 
+  // 3. 항목 유형(폴더 또는 파일)에 따라 책 데이터를 구성합니다.
   if (isDirectory) {
+    // 3-1. 항목이 폴더일 경우
     const imageFiles = (await fs.readdir(itemPath))
       .filter((f) => RegExp(/\.(jpg|jpeg|png|webp)$/i).exec(f))
-      .sort(naturalSort);
+      .sort(naturalSort); // 이미지 파일 목록을 자연어 정렬합니다.
     if (imageFiles.length > 0) {
+      // 이미지가 하나 이상 있을 경우에만 책으로 간주합니다.
       bookData = {
-        title: cleanValue(infoMetadata.title) || name,
+        title: cleanValue(infoMetadata.title) || name, // 메타데이터 제목이 있으면 사용, 없으면 폴더명을 제목으로 사용
         path: itemPath,
         page_count: imageFiles.length,
         // @ts-expect-error string은 아니나 DB 삽입 시 정상 데이터
-        added_at: db.fn.now(),
+        added_at: db.fn.now(), // 추가된 시간 기록
         hitomi_id: cleanValue(infoMetadata.hitomi_id) || null,
         type: cleanValue(infoMetadata.type) || null,
         language_name_local: cleanValue(infoMetadata.language) || null,
       };
-      coverPath = path.join(itemPath, imageFiles[0]);
+      // coverPath = path.join(itemPath, imageFiles[0]); // 첫 번째 이미지를 커버로 지정
     }
   } else if (isFile) {
+    // 3-2. 항목이 파일일 경우 (ZIP/CBZ)
     const ext = path.extname(name).toLowerCase();
     if (ext === ".cbz" || ext === ".zip") {
-      const pageCount = await getImageCountInZip(itemPath); // 이미지 개수 먼저 가져옴
+      const pageCount = await getImageCountInZip(itemPath); // ZIP 내부의 이미지 개수를 먼저 셉니다.
       if (pageCount > 0) {
-        // 이미지가 1개 이상일 때만 bookData 할당
+        // 이미지가 하나 이상 있을 경우에만 책으로 간주합니다.
         bookData = {
-          title: cleanValue(infoMetadata.title) || path.basename(name, ext),
+          title: cleanValue(infoMetadata.title) || path.basename(name, ext), // 메타데이터 제목이 있으면 사용, 없으면 파일명을 제목으로 사용
           path: itemPath,
-          page_count: pageCount, // 가져온 pageCount 사용
+          page_count: pageCount, // 계산된 페이지 수 사용
           // @ts-expect-error string은 아니나 DB 삽입 시 정상 데이터
           added_at: db.fn.now(),
           hitomi_id: cleanValue(infoMetadata.hitomi_id) || null,
           type: cleanValue(infoMetadata.type) || null,
           language_name_local: cleanValue(infoMetadata.language) || null,
         };
-        const tempCoverPath = path.join(
-          app.getPath("temp"),
-          `${name + Date.now().toString()}.webp`,
-        );
-        coverPath = await extractCoverFromZip(itemPath, tempCoverPath);
+        // // 커버 이미지를 ZIP에서 추출하여 임시 경로에 저장합니다.
+        // const tempCoverPath = path.join(
+        //   app.getPath("temp"),
+        //   `${name + Date.now().toString()}.webp`,
+        // );
+        // coverPath = await extractCoverFromZip(itemPath, tempCoverPath);
       } else {
+        // 이미지가 없는 ZIP 파일은 건너뜁니다.
         console.log(`[Main] 이미지가 없어 ZIP 파일을 건너뜁니다: ${itemPath}`);
       }
     }
   }
 
+  // 4. 책 데이터가 성공적으로 생성되었는지 확인합니다.
   if (bookData) {
+    // 4-1. info.txt에서 파싱한 메타데이터가 있다면, bookData를 최종적으로 업데이트합니다.
+    // (폴더명/파일명 기반으로 생성된 기본 제목을 덮어쓸 수 있음)
     if (Object.keys(infoMetadata).length > 0) {
       bookData.title = cleanValue(infoMetadata.title) || bookData.title;
       bookData.hitomi_id =
@@ -334,12 +357,15 @@ async function processBookItem(
         cleanValue(infoMetadata.language) || bookData.language_name_local;
     }
 
+    // 5. 처리된 책 데이터, 메타데이터, 커버 경로를 반환합니다.
     return {
       bookData,
       infoMetadata,
       coverPath,
     };
   }
+
+  // 6. 책으로 처리할 수 없는 항목인 경우 null을 반환합니다.
   console.log(
     `[Main] processBookItem이 다음 항목에 대해 null을 반환합니다: ${itemPath}`,
   );
@@ -865,6 +891,11 @@ export async function scanFile(filePath: string) {
 export const handleRescanLibraryFolder = async (folderPath: string) => {
   try {
     const { added, updated, deleted } = await scanDirectory(folderPath);
+    const books = await db("Book")
+      .select("id")
+      .whereLike("path", `${folderPath}%`)
+      .and.where("cover_path", null);
+    await Promise.all(books.map((book) => handleGenerateThumbnail(book.id)));
     console.log(
       `[Main] ${folderPath}에 대한 재스캔 완료: 추가 ${added}, 업데이트 ${updated}, 삭제 ${deleted}`,
     );

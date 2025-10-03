@@ -110,11 +110,13 @@ const thumbnailDir = path.join(app.getPath("userData"), "thumbnails");
  * @param bookId 썸네일을 생성할 책의 ID
  */
 export async function generateThumbnailForBook(bookId: number) {
+  // 1. DB에서 책 정보 조회
   const book = await db("Book").where("id", bookId).first();
   console.log(
     `[Main] Generating thumbnail for bookId: ${bookId}, path: ${book?.path}`,
   );
 
+  // 2. 책 정보나 경로가 없으면 중단
   if (!book || !book.path) {
     console.log(`[Main] Book not found or path missing for bookId: ${bookId}`);
     return null;
@@ -124,12 +126,14 @@ export async function generateThumbnailForBook(bookId: number) {
   const ext = path.extname(book.path).toLowerCase();
 
   try {
+    // 3. 책 경로 유형에 따라 썸네일 소스 이미지 경로를 결정
     if (
       await fs
         .stat(book.path)
         .then((stat) => stat.isDirectory())
         .catch(() => false)
     ) {
+      // 3-1. 폴더인 경우: 정렬 후 첫 번째 이미지 파일을 소스로 사용
       console.log(`[Main] Book path is a directory: ${book.path}`);
       const imageFiles = (await fs.readdir(book.path))
         .filter((f) => f.match(/\.(jpg|jpeg|png|webp)$/i))
@@ -139,6 +143,7 @@ export async function generateThumbnailForBook(bookId: number) {
         console.log(`[Main] Found image file in directory: ${sourcePath}`);
       }
     } else if (ext === ".cbz" || ext === ".zip") {
+      // 3-2. ZIP/CBZ 파일인 경우: 압축을 풀어 커버 이미지를 임시 폴더에 저장 후 사용
       console.log(`[Main] Book path is a ZIP file: ${book.path}`);
       const tempCoverPath = path.join(
         app.getPath("temp"),
@@ -151,10 +156,12 @@ export async function generateThumbnailForBook(bookId: number) {
         console.log(`[Main] Failed to extract cover from ZIP: ${book.path}`);
       }
     } else if (ext.match(/\.(jpg|jpeg|png|webp)$/i)) {
+      // 3-3. 단일 이미지 파일인 경우: 해당 파일을 직접 소스로 사용
       console.log(`[Main] Book path is an image file: ${book.path}`);
       sourcePath = book.path;
     }
 
+    // 4. 소스 이미지를 찾지 못하면 오류 처리 후 중단
     if (!sourcePath) {
       console.error(
         `[Main] Could not determine source image for bookId: ${bookId}, path: ${book.path}`,
@@ -162,11 +169,13 @@ export async function generateThumbnailForBook(bookId: number) {
       return null;
     }
 
+    // 5. 최종 썸네일이 저장될 경로 설정
     const thumbnailPath = path.join(thumbnailDir, `${bookId}.webp`);
 
     // 워커 스레드 풀에서 워커를 가져와 썸네일 생성 작업 위임
     const worker = await getWorker();
     await new Promise<void>((resolve, reject) => {
+      // 6. 워커로부터 작업 완료/실패 메시지를 수신하는 일회성 핸들러
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const messageHandler = (msg: any) => {
         if (msg.status === "success") {
@@ -180,12 +189,14 @@ export async function generateThumbnailForBook(bookId: number) {
           );
           reject(new Error(msg.error));
         }
+        // 7. 메시지 핸들러를 제거하고 워커를 풀에 반환하여 다른 작업에 사용될 수 있도록 함
         worker.off("message", messageHandler);
         releaseWorker(worker);
       };
 
       worker.on("message", messageHandler);
 
+      // 8. 워커에게 썸네일 생성에 필요한 정보를 전달하며 작업을 시작시킴
       worker.postMessage({
         sourcePath,
         thumbnailPath,
@@ -197,6 +208,7 @@ export async function generateThumbnailForBook(bookId: number) {
 
     return { bookId, thumbnailPath }; // 썸네일 경로 반환
   } catch (error) {
+    // 9. 전체 썸네일 생성 과정에서 발생한 예외를 처리
     console.error(
       `[Main] Failed to generate thumbnail for book ${bookId} from path ${book.path}:`,
       error,

@@ -1,11 +1,12 @@
+import crypto from "crypto";
 import { app, BrowserWindow, dialog, ipcMain } from "electron";
 import Store from "electron-store";
 import { existsSync } from "fs";
 import fs from "fs/promises";
 import path from "path";
-import crypto from "crypto";
 import db, { closeDbConnection } from "../db/index.js";
 import { scanDirectory } from "./directoryHandler.js";
+import { handleGenerateThumbnail } from "./thumbnailHandler.js";
 
 // 라이브러리 뷰 설정 타입
 interface LibraryViewSettings {
@@ -147,6 +148,11 @@ export const handleRescanAllMetadata = async () => {
     const libraryFolders = store.get("libraryFolders", []);
     for (const folderPath of libraryFolders) {
       await scanDirectory(folderPath);
+      const books = await db("Book")
+        .select("id")
+        .whereLike("path", `${folderPath}%`)
+        .and.where("cover_path", null);
+      await Promise.all(books.map((book) => handleGenerateThumbnail(book.id)));
     }
     return { success: true };
   } catch (error) {
@@ -415,9 +421,7 @@ export function registerConfigHandlers() {
     handleSetLockPassword(password),
   );
   // 비밀번호 초기화
-  ipcMain.handle("clear-lock-password", (_event) =>
-    handleClearLockPassword(),
-  );
+  ipcMain.handle("clear-lock-password", (_event) => handleClearLockPassword());
   // 비밀번호 검증
   ipcMain.handle("verify-lock-password", (_event, password) =>
     handleVerifyLockPassword(password),

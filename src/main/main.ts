@@ -26,7 +26,10 @@ import { registerDownloaderHandlers } from "./handlers/downloaderHandler.js";
 import { registerEtcHandlers } from "./handlers/etcHandler.js";
 import { registerPresetHandlers } from "./handlers/presetHandler.js";
 import { registerStatisticsHandlers } from "./handlers/statisticsHandler.js";
-import { registerThumbnailHandlers } from "./handlers/thumbnailHandler.js";
+import {
+  handleGenerateThumbnail,
+  registerThumbnailHandlers,
+} from "./handlers/thumbnailHandler.js";
 import { registerUpdaterHandlers } from "./updater.js";
 import { naturalSort } from "./utils/index.js";
 
@@ -430,6 +433,11 @@ app.whenReady().then(async () => {
     for (const folderPath of libraryFolders) {
       console.log(`[Main] Auto-scanning library folder: ${folderPath}`);
       await scanDirectory(folderPath);
+      const books = await db("Book")
+        .select("id")
+        .whereLike("path", `${folderPath}%`)
+        .and.where("cover_path", null);
+      await Promise.all(books.map((book) => handleGenerateThumbnail(book.id)));
     }
   }
 });
