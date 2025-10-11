@@ -328,9 +328,11 @@ const goToSettings = () => {
       </Button>
     </div>
 
-    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 flex-1 overflow-y-auto">
       <!-- Left Column: Search & Settings -->
-      <div class="lg:col-span-1 flex flex-col gap-6">
+      <div
+        class="lg:col-span-1 flex flex-col gap-6 lg:sticky lg:top-0 lg:h-fit"
+      >
         <Card>
           <CardHeader>
             <CardTitle>다운로드 위치</CardTitle>
