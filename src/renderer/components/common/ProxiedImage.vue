@@ -151,21 +151,10 @@ onUnmounted(() => {
 </script>
 
 <template>
-  <div class="proxied-image-wrapper w-full h-full">
-    <!-- 재시도 대기 중 UI -->
+  <div class="proxied-image-wrapper w-full h-full min-w-40">
+    <!-- 로딩 중 스켈레톤 UI -->
     <div
-      v-if="isRetrying"
-      class="w-full h-full bg-yellow-100 dark:bg-yellow-900/20 flex items-center justify-center rounded"
-    >
-      <p class="text-yellow-600 text-xs text-center">
-        이미지 로드 실패<br />
-        {{ RETRY_DELAYS[retryCount - 1] / 1000 }}초 후 재시도...
-      </p>
-    </div>
-
-    <!-- 로딩 중 스켈레톤 UI (재시도 중이 아니고, 이미지가 아직 없을 때) -->
-    <div
-      v-else-if="isLoading && !localSrc"
+      v-if="(isLoading && !localSrc) || isRetrying"
       class="w-full h-full bg-gray-200 dark:bg-gray-700 animate-pulse rounded"
     ></div>
 
