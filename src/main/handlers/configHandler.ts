@@ -32,6 +32,7 @@ interface Config {
   prioritizeKoreanTitles?: boolean;
   useAppLock?: boolean;
   appLockPassword?: string; // salt:hash
+  viewerExcludeCompleted?: boolean;
 }
 
 const defaults: Config = {
@@ -42,6 +43,7 @@ const defaults: Config = {
   viewerDoublePageView: true,
   viewerAutoFitZoom: true,
   viewerRestoreLastSession: true,
+  viewerExcludeCompleted: false,
   downloadPath: "",
   downloaderLanguage: "all",
   downloadPattern: "%artist% - %title%",

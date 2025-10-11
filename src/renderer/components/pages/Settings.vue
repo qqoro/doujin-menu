@@ -153,6 +153,7 @@ const viewerDoublePageView = ref(false);
 const viewerShowCoverAlone = ref(true);
 const viewerAutoFitZoom = ref(true);
 const viewerRestoreLastSession = ref(true);
+const viewerExcludeCompleted = ref(false);
 
 // 라이브러리 폴더 정보 불러오기
 const loadLibraryFolders = async () => {
@@ -185,6 +186,7 @@ onMounted(async () => {
   viewerShowCoverAlone.value = config.viewerShowCoverAlone !== false;
   viewerAutoFitZoom.value = config.viewerAutoFitZoom !== false;
   viewerRestoreLastSession.value = config.viewerRestoreLastSession !== false;
+  viewerExcludeCompleted.value = config.viewerExcludeCompleted === true;
   await loadLibraryFolders();
   await getTempFilesSize();
 });
@@ -209,7 +211,9 @@ const clearTempFiles = async () => {
     toast.success("임시 파일이 성공적으로 삭제되었습니다.");
     await getTempFilesSize(); // 크기 다시고침
   } else {
-    toast.error("임시 파일 삭제에 실패했습니다.", { description: result.error });
+    toast.error("임시 파일 삭제에 실패했습니다.", {
+      description: result.error,
+    });
   }
 };
 
@@ -304,6 +308,11 @@ const onViewerAutoFitZoomChange = (value: boolean) => {
 const onViewerRestoreLastSessionChange = (value: boolean) => {
   viewerRestoreLastSession.value = value;
   saveConfig("viewerRestoreLastSession", value);
+};
+
+const onViewerExcludeCompletedChange = (value: boolean) => {
+  viewerExcludeCompleted.value = value;
+  saveConfig("viewerExcludeCompleted", value);
 };
 
 // 데이터베이스 백업
@@ -523,7 +532,9 @@ const resetAllData = async () => {
                   subtitle="다운로더 썸네일 캐시 및 기타 임시 파일을 삭제하여 디스크 공간을 확보합니다."
                 >
                   <div class="flex items-center gap-2">
-                    <span class="text-sm text-muted-foreground">{{ tempFilesSize }}</span>
+                    <span class="text-sm text-muted-foreground">{{
+                      tempFilesSize
+                    }}</span>
                     <AlertDialog>
                       <AlertDialogTrigger as-child>
                         <Button variant="destructive">정리</Button>
@@ -531,7 +542,8 @@ const resetAllData = async () => {
                       <AlertDialogContent>
                         <AlertDialogHeader>
                           <AlertDialogTitle
-                            >정말로 임시 파일을 삭제하시겠습니까?</AlertDialogTitle
+                            >정말로 임시 파일을
+                            삭제하시겠습니까?</AlertDialogTitle
                           >
                           <AlertDialogDescription>
                             이 작업은 되돌릴 수 없습니다. 다운로더 미리보기 캐시
@@ -584,8 +596,8 @@ const resetAllData = async () => {
                         <h4 class="font-semibold">중요: 비밀번호 분실 주의</h4>
                         <p class="text-xs">
                           비밀번호를 분실할 경우, 암호화된 데이터를 복구할 수
-                          있는 방법이 없습니다. 앱을 초기화해야만 다시 사용할
-                          수 있으며, 이 경우 모든 라이브러리 정보와 설정이
+                          있는 방법이 없습니다. 앱을 초기화해야만 다시 사용할 수
+                          있으며, 이 경우 모든 라이브러리 정보와 설정이
                           삭제됩니다.
                         </p>
                       </div>
@@ -851,6 +863,18 @@ const resetAllData = async () => {
                     :model-value="viewerRestoreLastSession"
                     class="justify-self-end"
                     @update:model-value="onViewerRestoreLastSessionChange"
+                  />
+                </SettingItem>
+                <SettingItem
+                  label-for="exclude-completed"
+                  title="완독한 책 제외하고 넘기기"
+                  subtitle="뷰어에서 다음/랜덤 책으로 이동 시, 완독한 책은 건너뜁니다."
+                >
+                  <Switch
+                    id="exclude-completed"
+                    :model-value="viewerExcludeCompleted"
+                    class="justify-self-end"
+                    @update:model-value="onViewerExcludeCompletedChange"
                   />
                 </SettingItem>
               </CardContent>

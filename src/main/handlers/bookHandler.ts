@@ -507,6 +507,17 @@ export const handleGetNextBook = async ({
   try {
     const mainQuery = buildFilteredQuery(filter);
 
+    const viewerExcludeCompleted = configStore.get("viewerExcludeCompleted");
+    if (viewerExcludeCompleted) {
+      mainQuery.where((builder) =>
+        builder
+          .whereNull("sub.page_count")
+          .orWhere("sub.page_count", 0)
+          .orWhereNull("sub.current_page")
+          .orWhereRaw("sub.current_page < sub.page_count"),
+      );
+    }
+
     if (mode === "random") {
       const randomBook = await mainQuery
         .whereNot("sub.id", currentBookId)
@@ -696,6 +707,18 @@ export const handleGetPrevBook = async ({
 export const handleGetRandomBook = async (filter: FilterParams | null) => {
   try {
     const mainQuery = buildFilteredQuery(filter);
+
+    const viewerExcludeCompleted = configStore.get("viewerExcludeCompleted");
+    if (viewerExcludeCompleted) {
+      mainQuery.where((builder) =>
+        builder
+          .whereNull("sub.page_count")
+          .orWhere("sub.page_count", 0)
+          .orWhereNull("sub.current_page")
+          .orWhereRaw("sub.current_page < sub.page_count"),
+      );
+    }
+
     const randomBook = await mainQuery.orderByRaw("RANDOM()").first();
     if (randomBook) {
       return {
