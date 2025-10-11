@@ -5,6 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Icon } from "@iconify/vue";
 import { computed, onMounted, ref } from "vue";
+import { toast } from "vue-sonner";
 
 const props = defineProps({
   gallery: {
@@ -27,6 +28,14 @@ const props = defineProps({
 
 const emit = defineEmits(["select-gallery", "preview-gallery"]);
 const isBookExists = ref(false);
+
+const copyToClipboard = async (text: string) => {
+  const formattedText = text.replaceAll(" ", "_"); // Replace spaces with underscores
+  await navigator.clipboard.writeText(formattedText);
+  toast.success(`${formattedText}가 클립보드에 복사되었습니다.`, {
+    duration: 750,
+  });
+};
 
 onMounted(async () => {
   if (props.gallery.id) {
@@ -126,7 +135,24 @@ const isDownloadFailed = computed(() => {
             icon="solar:pen-new-round-linear"
             class="w-4 h-4 inline-block align-text-bottom"
           />
-          작가: {{ props.gallery.artists?.join(", ") || "알 수 없음" }}
+          작가:
+          <template
+            v-if="props.gallery.artists && props.gallery.artists.length > 0"
+          >
+            <template
+              v-for="(artist, index) in props.gallery.artists"
+              :key="artist"
+            >
+              <button
+                class="inline-block text-left p-0 m-0 border-none bg-transparent cursor-pointer hover:underline text-current"
+                @click.stop="copyToClipboard(`artist:${artist}`)"
+              >
+                {{ artist }}
+              </button>
+              <span v-if="index < props.gallery.artists.length - 1">, </span>
+            </template>
+          </template>
+          <template v-else> 알 수 없음 </template>
         </p>
         <!-- Add Series here -->
         <p v-if="props.gallery.series && props.gallery.series.length > 0">
@@ -134,7 +160,19 @@ const isDownloadFailed = computed(() => {
             icon="solar:bookmark-linear"
             class="w-4 h-4 inline-block align-text-bottom"
           />
-          시리즈: {{ props.gallery.series.join(", ") }}
+          시리즈:
+          <template
+            v-for="(series, index) in props.gallery.series"
+            :key="series"
+          >
+            <button
+              class="inline-block text-left p-0 m-0 border-none bg-transparent cursor-pointer hover:underline text-current"
+              @click.stop="copyToClipboard(`series:${series}`)"
+            >
+              {{ series }}
+            </button>
+            <span v-if="index < props.gallery.series.length - 1">, </span>
+          </template>
         </p>
         <!-- Add Characters here -->
         <p
@@ -144,7 +182,19 @@ const isDownloadFailed = computed(() => {
             icon="solar:user-linear"
             class="w-4 h-4 inline-block align-text-bottom"
           />
-          캐릭터: {{ props.gallery.characters.join(", ") }}
+          캐릭터:
+          <template
+            v-for="(character, index) in props.gallery.characters"
+            :key="character"
+          >
+            <button
+              class="inline-block text-left p-0 m-0 border-none bg-transparent cursor-pointer hover:underline text-current"
+              @click.stop="copyToClipboard(`character:${character}`)"
+            >
+              {{ character }}
+            </button>
+            <span v-if="index < props.gallery.characters.length - 1">, </span>
+          </template>
         </p>
         <p>
           <Icon
@@ -160,6 +210,12 @@ const isDownloadFailed = computed(() => {
           v-for="tag in props.gallery.tags"
           :key="tag.name"
           variant="secondary"
+          class="cursor-pointer hover:underline"
+          @click.stop="
+            copyToClipboard(
+              `${tag.type === 'male' || tag.type === 'female' ? tag.type : 'tag'}:${tag.name}`,
+            )
+          "
           >{{ tag.name }}</Badge
         >
       </div>
