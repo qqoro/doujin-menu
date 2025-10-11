@@ -3,7 +3,49 @@ import { ipcRenderer } from "@/api";
 import ProxiedImage from "@/components/common/ProxiedImage.vue";
 import { Button } from "@/components/ui/button";
 import { Icon } from "@iconify/vue";
-import { computed, onMounted, ref } from "vue";
+import { computed, onMounted, ref, toRaw } from "vue";
+import { useRouter } from "vue-router";
+import * as api from "@/api";
+import { toast } from "vue-sonner";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+
+const isDeleteDialogOpen = ref(false);
+
+const handleDeleteGallery = () => {
+  isDeleteDialogOpen.value = true;
+};
+
+const confirmDeleteGallery = async () => {
+  if (!bookId.value) {
+    toast.error("삭제할 책 정보를 찾을 수 없습니다.");
+    isDeleteDialogOpen.value = false;
+    return;
+  }
+
+  try {
+    await api.deleteBook(bookId.value);
+    toast.success("책 삭제 완료", {
+      description: `${props.gallery.title.display}이(가) 삭제되었습니다.`, 
+    });
+    bookId.value = null; // 책 삭제 후 bookId 초기화
+  } catch (error) {
+    console.error("책 삭제 실패:", error);
+    toast.error("책 삭제 실패", {
+      description: "책을 삭제하는 중 오류가 발생했습니다.",
+    });
+  } finally {
+    isDeleteDialogOpen.value = false;
+  }
+};
 
 const props = defineProps({
   gallery: {
@@ -25,7 +67,30 @@ const props = defineProps({
 });
 
 const emit = defineEmits(["select-gallery", "preview-gallery"]);
-const isBookExists = ref(false);
+const bookId = ref<number | null>(null);
+const router = useRouter();
+
+const viewerLink = computed(() => ({
+  name: "Viewer",
+  params: { id: bookId.value },
+  query: {
+    filter: JSON.stringify(toRaw({ hitomi_id: props.gallery.id })),
+  },
+}));
+
+const openBookInNewWindow = () => {
+  const url = `/viewer/${viewerLink.value.params.id}?${new URLSearchParams(viewerLink.value.query).toString()}`;
+  api.openNewWindow(url);
+};
+
+const handleOpenBook = (event: MouseEvent) => {
+  if (!bookId.value) return;
+  if (event.ctrlKey || event.metaKey) {
+    openBookInNewWindow();
+  } else {
+    router.push(viewerLink.value);
+  }
+};
 
 onMounted(async () => {
   if (props.gallery.id) {
@@ -39,8 +104,8 @@ onMounted(async () => {
       props.gallery.id,
       props.gallery,
     );
-    if (result.success) {
-      isBookExists.value = result.exists;
+    if (result.success && result.exists) {
+      bookId.value = result.bookId;
     }
   }
 });
@@ -58,6 +123,9 @@ const handleDownload = () => {
 };
 
 const buttonText = computed(() => {
+  if (bookId.value) {
+    return "완료";
+  }
   switch (props.downloadStatus.status) {
     case "starting":
       return "시작 중...";
@@ -74,13 +142,14 @@ const buttonText = computed(() => {
 
 const isDownloading = computed(() => {
   return (
-    props.downloadStatus.status === "starting" ||
-    props.downloadStatus.status === "progress"
+    !bookId.value && // 책이 이미 존재하면 다운로드 중이 아님
+    (props.downloadStatus.status === "starting" ||
+      props.downloadStatus.status === "progress")
   );
 });
 
 const isDownloadCompleted = computed(() => {
-  return props.downloadStatus.status === "completed";
+  return bookId.value || props.downloadStatus.status === "completed";
 });
 
 const isDownloadFailed = computed(() => {
@@ -108,7 +177,7 @@ const isDownloadFailed = computed(() => {
         class="w-full h-full object-contain transition-transform duration-300 group-hover:scale-110"
       />
       <div
-        v-if="isBookExists"
+        v-if="bookId"
         class="absolute top-2 right-2 bg-green-500 text-white rounded-full p-1"
       >
         <Icon icon="solar:check-circle-bold" class="w-5 h-5" />
@@ -140,6 +209,40 @@ const isDownloadFailed = computed(() => {
       >
         {{ buttonText }}
       </Button>
+      <Button
+        v-if="isDownloadCompleted"
+        size="sm"
+        @click.stop="handleOpenBook"
+      >
+        <Icon icon="solar:book-bold-duotone" class="w-5 h-5" />
+        열기
+      </Button>
+      <Button
+        v-if="isDownloadCompleted"
+        size="sm"
+        variant="destructive"
+        @click.stop="handleDeleteGallery"
+      >
+        <Icon icon="solar:trash-bin-minimalistic-bold-duotone" class="w-5 h-5" />
+        삭제
+      </Button>
     </div>
   </div>
+
+  <!-- 삭제 확인 다이얼로그 -->
+  <AlertDialog :open="isDeleteDialogOpen" @update:open="isDeleteDialogOpen = $event">
+    <AlertDialogContent>
+      <AlertDialogHeader>
+        <AlertDialogTitle>책을 삭제하시겠습니까?</AlertDialogTitle>
+        <AlertDialogDescription>
+          이 작업은 되돌릴 수 없습니다. 데이터베이스에서 책 정보가 삭제되고,
+          물리 파일도 영구적으로 삭제됩니다.
+        </AlertDialogDescription>
+      </AlertDialogHeader>
+      <AlertDialogFooter>
+        <AlertDialogCancel>취소</AlertDialogCancel>
+        <AlertDialogAction @click="confirmDeleteGallery">삭제</AlertDialogAction>
+      </AlertDialogFooter>
+    </AlertDialogContent>
+  </AlertDialog>
 </template>

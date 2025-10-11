@@ -781,7 +781,7 @@ export const handleCheckBookExistsByHitomiId = async (hitomiId: number) => {
     const book = await db("Book")
       .where("hitomi_id", hitomiId.toString())
       .first();
-    return { success: true, exists: !!book };
+    return { success: true, exists: !!book, bookId: book ? book.id : null };
   } catch (error) {
     console.error(
       `Failed to check book existence for hitomi_id ${hitomiId}:`,

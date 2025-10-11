@@ -235,7 +235,6 @@ async function processBookItem(
   );
   // 1. 반환할 책 데이터, 커버 경로, 메타데이터 객체를 초기화합니다.
   let bookData: Book | null = null;
-  const coverPath: string | null = null;
   let infoMetadata: ParsedMetadata = {};
 
   // 2. info.txt 메타데이터를 찾고 파싱합니다.
@@ -312,7 +311,6 @@ async function processBookItem(
         type: cleanValue(infoMetadata.type) || null,
         language_name_local: cleanValue(infoMetadata.language) || null,
       };
-      // coverPath = path.join(itemPath, imageFiles[0]); // 첫 번째 이미지를 커버로 지정
     }
   } else if (isFile) {
     // 3-2. 항목이 파일일 경우 (ZIP/CBZ)
@@ -331,12 +329,6 @@ async function processBookItem(
           type: cleanValue(infoMetadata.type) || null,
           language_name_local: cleanValue(infoMetadata.language) || null,
         };
-        // // 커버 이미지를 ZIP에서 추출하여 임시 경로에 저장합니다.
-        // const tempCoverPath = path.join(
-        //   app.getPath("temp"),
-        //   `${name + Date.now().toString()}.webp`,
-        // );
-        // coverPath = await extractCoverFromZip(itemPath, tempCoverPath);
       } else {
         // 이미지가 없는 ZIP 파일은 건너뜁니다.
         console.log(`[Main] 이미지가 없어 ZIP 파일을 건너뜁니다: ${itemPath}`);
@@ -361,7 +353,6 @@ async function processBookItem(
     return {
       bookData,
       infoMetadata,
-      coverPath,
     };
   }
 
@@ -381,7 +372,6 @@ export async function scanDirectory(directoryPath: string): Promise<{
   processedBooks: {
     bookData: Book;
     infoMetadata: ParsedMetadata;
-    coverPath: string | null;
   }[];
 }> {
   const MAX_SCAN_DEPTH = 100;
@@ -390,7 +380,6 @@ export async function scanDirectory(directoryPath: string): Promise<{
   const processedBooks: {
     bookData: Book;
     infoMetadata: ParsedMetadata;
-    coverPath: string | null;
   }[] = [];
   const totalFoundBookPathsInScan = new Set<string>();
 
@@ -496,7 +485,7 @@ export async function scanDirectory(directoryPath: string): Promise<{
           .whereIn("path", batchPaths);
 
         for (const processedBook of batch) {
-          const { bookData, infoMetadata, coverPath } = processedBook;
+          const { bookData, infoMetadata } = processedBook;
           const existingBook = existingBooksInBatch.find(
             (b) => b.path === bookData.path,
           );
@@ -635,20 +624,19 @@ export async function scanDirectory(directoryPath: string): Promise<{
             (b) => b.id === bookId,
           );
           let shouldGenerateThumbnail = false;
-          if (coverPath) {
-            if (!currentBookInDb?.cover_path) {
+          if (!currentBookInDb?.cover_path) {
+            shouldGenerateThumbnail = true;
+          } else {
+            try {
+              await fs.access(currentBookInDb.cover_path);
+            } catch {
               shouldGenerateThumbnail = true;
-            } else {
-              try {
-                await fs.access(currentBookInDb.cover_path);
-              } catch {
-                shouldGenerateThumbnail = true;
-                console.warn(
-                  `[Main] 기존 썸네일 파일을 찾을 수 없어 재생성합니다: Book ID ${bookId}`,
-                );
-              }
+              console.warn(
+                `[Main] 기존 썸네일 파일을 찾을 수 없어 재생성합니다: Book ID ${bookId}`,
+              );
             }
           }
+
           if (shouldGenerateThumbnail) {
             bookIdsToGenerateThumbnails.push(bookId);
           }
@@ -713,7 +701,7 @@ export async function scanFile(filePath: string) {
     });
 
     if (processedBook) {
-      const { bookData, infoMetadata, coverPath } = processedBook;
+      const { bookData, infoMetadata } = processedBook;
       let bookId: number | undefined;
       let shouldGenerateThumbnail = false;
 
@@ -849,18 +837,16 @@ export async function scanFile(filePath: string) {
 
         // 썸네일 생성 필요 여부 결정
         const currentBookInDb = await trx("Book").where("id", bookId).first();
-        if (coverPath) {
-          if (!currentBookInDb?.cover_path) {
+        if (!currentBookInDb?.cover_path) {
+          shouldGenerateThumbnail = true;
+        } else {
+          try {
+            await fs.access(currentBookInDb.cover_path);
+          } catch {
             shouldGenerateThumbnail = true;
-          } else {
-            try {
-              await fs.access(currentBookInDb.cover_path);
-            } catch {
-              shouldGenerateThumbnail = true;
-              console.warn(
-                `[Main] 기존 썸네일 파일을 찾을 수 없어 재생성합니다: Book ID ${bookId}`,
-              );
-            }
+            console.warn(
+              `[Main] 기존 썸네일 파일을 찾을 수 없어 재생성합니다: Book ID ${bookId}`,
+            );
           }
         }
       }); // 배치 트랜잭션 종료
