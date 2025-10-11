@@ -24,7 +24,7 @@ const props = defineProps({
   },
 });
 
-const emit = defineEmits(["select-gallery"]);
+const emit = defineEmits(["select-gallery", "preview-gallery"]);
 const isBookExists = ref(false);
 
 onMounted(async () => {
@@ -124,8 +124,15 @@ const isDownloadFailed = computed(() => {
       </p>
     </div>
     <div
-      class="absolute inset-0 bg-black/50 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+      class="absolute inset-0 bg-black/50 flex items-center justify-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity"
     >
+      <Button
+        size="icon"
+        variant="secondary"
+        @click.stop="emit('preview-gallery', gallery)"
+      >
+        <Icon icon="solar:eye-bold-duotone" class="w-5 h-5" />
+      </Button>
       <Button
         size="sm"
         :disabled="isDownloading || isDownloadCompleted"

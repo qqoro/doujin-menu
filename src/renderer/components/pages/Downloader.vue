@@ -506,6 +506,12 @@ const goToSettings = () => {
                 :download-path="downloadPath"
                 :selected="selectedGallery?.id === item.id"
                 @select-gallery="handleSelectGallery"
+                @preview-gallery="
+                  (gallery) => {
+                    handleSelectGallery(gallery);
+                    isPreviewDialogOpen = true;
+                  }
+                "
               />
             </div>
             <div v-else class="flex flex-col gap-2">
@@ -517,6 +523,12 @@ const goToSettings = () => {
                 :download-path="downloadPath"
                 :selected="selectedGallery?.id === item.id"
                 @select-gallery="handleSelectGallery"
+                @preview-gallery="
+                  (gallery) => {
+                    handleSelectGallery(gallery);
+                    isPreviewDialogOpen = true;
+                  }
+                "
               />
             </div>
             <div ref="observerTarget" class="h-10 w-full"></div>

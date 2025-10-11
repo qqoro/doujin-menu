@@ -25,7 +25,7 @@ const props = defineProps({
   },
 });
 
-const emit = defineEmits(["select-gallery"]);
+const emit = defineEmits(["select-gallery", "preview-gallery"]);
 const isBookExists = ref(false);
 
 onMounted(async () => {
@@ -164,12 +164,23 @@ const isDownloadFailed = computed(() => {
         >
       </div>
     </div>
-    <Button
-      size="sm"
-      :disabled="isDownloading || isDownloadCompleted"
-      @click.stop="handleDownload"
-    >
-      {{ buttonText }}
-    </Button>
+    <div class="flex flex-col gap-2">
+      <Button
+        size="sm"
+        variant="outline"
+        @click.stop="emit('preview-gallery', gallery)"
+      >
+        <Icon icon="solar:eye-bold-duotone" class="w-4 h-4" />
+        미리보기
+      </Button>
+      <Button
+        size="sm"
+        :disabled="isDownloading || isDownloadCompleted"
+        @click.stop="handleDownload"
+      >
+        <Icon icon="solar:download-bold-duotone" class="w-4 h-4" />
+        {{ buttonText }}
+      </Button>
+    </div>
   </div>
 </template>
