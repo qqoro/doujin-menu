@@ -15,6 +15,16 @@ export interface Changelog {
  */
 export const changelogData: Changelog[] = [
   {
+    version: "1.2.1",
+    changes: [
+      {
+        type: "fix",
+        title: "🐛 버그 수정",
+        items: ["압축파일의 썸네일 생성 시 발생하던 문제가 수정되었습니다."],
+      },
+    ],
+  },
+  {
     version: "1.2.0",
     changes: [
       {
