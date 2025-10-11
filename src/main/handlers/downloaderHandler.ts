@@ -184,10 +184,11 @@ export const handleDownloadGallery = async (
       const fileName = `${String(file.index + 1).padStart(6, "0")}.${fileExt}`;
       const filePath = path.join(galleryDownloadPath, fileName);
 
-      const maxRetries = 5;
       let success = false;
+      let attempt = 0;
 
-      for (let attempt = 1; attempt <= maxRetries; attempt++) {
+      while (!success) {
+        attempt++;
         try {
           const res = await fetch(fullImageUrl, {
             headers: {
@@ -218,30 +219,18 @@ export const handleDownloadGallery = async (
             break; // 다운로드 성공, 재시도 루프 탈출
           } else {
             console.warn(
-              `[Downloader] 파일 다운로드 실패. 재시도 (${attempt}/${maxRetries}): ${fileName} - ${res.statusText}`,
+              `[Downloader] 파일 다운로드 실패. 재시도 (${attempt}회): ${fileName} - ${res.statusText}`,
             );
-            if (attempt < maxRetries) {
-              // 재시도 전 잠시 대기 (점진적 증가)
-              await new Promise((resolve) =>
-                setTimeout(resolve, 1000 * attempt),
-              );
-            }
+            // 재시도 전 잠시 대기 (점진적 증가)
+            await new Promise<void>((resolve) => setTimeout(resolve, 1000));
           }
         } catch (error) {
           console.warn(
-            `[Downloader] 파일 다운로드 중 오류 발생. 재시도 (${attempt}/${maxRetries}): ${fileName}`,
+            `[Downloader] 파일 다운로드 중 오류 발생. 재시도 (${attempt}회): ${fileName}`,
             error,
           );
-          if (attempt < maxRetries) {
-            await new Promise((resolve) => setTimeout(resolve, 1000 * attempt));
-          }
+          await new Promise<void>((resolve) => setTimeout(resolve, 1000));
         }
-      }
-
-      if (!success) {
-        throw new Error(
-          `파일 다운로드 실패: ${fileName} (${maxRetries}회 재시도 후에도 실패)`,
-        );
       }
 
       const progress = Math.round(((i + 1) / totalFiles) * 100);
