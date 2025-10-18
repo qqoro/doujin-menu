@@ -28,6 +28,8 @@ interface Config {
   downloaderLanguage?: string;
   downloadPattern?: string;
   createInfoTxtFile?: boolean;
+  compressDownload?: boolean;
+  compressFormat?: "cbz" | "zip";
   libraryViewSettings?: LibraryViewSettings;
   prioritizeKoreanTitles?: boolean;
   useAppLock?: boolean;
@@ -48,6 +50,8 @@ const defaults: Config = {
   downloaderLanguage: "all",
   downloadPattern: "%artist% - %title%",
   createInfoTxtFile: true,
+  compressDownload: false,
+  compressFormat: "cbz",
   libraryViewSettings: {
     sortBy: "added_at",
     sortOrder: "desc",

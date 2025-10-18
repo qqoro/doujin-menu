@@ -139,6 +139,8 @@ const autoLoadLibrary = ref(true);
 const libraryFolders = ref<LibraryFolder[]>([]);
 const createInfoTxtFile = ref(true);
 const downloadPattern = ref("%artist% - %title%");
+const compressDownload = ref(false);
+const compressFormat = ref<"cbz" | "zip">("cbz");
 const prioritizeKoreanTitles = ref(false);
 const useAppLock = ref(false);
 const newPassword = ref("");
@@ -176,7 +178,9 @@ onMounted(async () => {
   theme.value = config.theme || "auto";
   autoLoadLibrary.value = config.autoLoadLibrary !== false;
   createInfoTxtFile.value = config.createInfoTxtFile !== false;
-  downloadPattern.value = config.downloadPattern || "%artist% - %title%"; // Load new setting // Load new setting
+  downloadPattern.value = config.downloadPattern || "%artist% - %title%";
+  compressDownload.value = config.compressDownload === true;
+  compressFormat.value = config.compressFormat || "cbz";
   prioritizeKoreanTitles.value = config.prioritizeKoreanTitles === true;
   useAppLock.value = config.useAppLock === true;
 
@@ -247,6 +251,16 @@ const onCreateInfoTxtFileChange = (value: boolean) => {
 const onDownloadPatternChange = (value: string) => {
   downloadPattern.value = value;
   saveConfig("downloadPattern", value);
+};
+
+const onCompressDownloadChange = (value: boolean) => {
+  compressDownload.value = value;
+  saveConfig("compressDownload", value);
+};
+
+const onCompressFormatChange = (value: AcceptableValue) => {
+  compressFormat.value = value as "cbz" | "zip";
+  saveConfig("compressFormat", value);
 };
 
 const onPrioritizeKoreanTitlesChange = (value: boolean) => {
@@ -930,6 +944,38 @@ const resetAllData = async () => {
                     예시: <code>%artist% - %title% (%id%)</code>
                   </p>
                 </div>
+                <SettingItem
+                  label-for="compress-download"
+                  title="다운로드 후 압축"
+                  subtitle="다운로드 완료 후 이미지 파일을 압축합니다. 압축하면 원본 이미지 폴더는 자동으로 삭제됩니다."
+                >
+                  <Switch
+                    id="compress-download"
+                    :model-value="compressDownload"
+                    class="justify-self-end"
+                    @update:model-value="onCompressDownloadChange"
+                  />
+                </SettingItem>
+                <SettingItem
+                  label-for="compress-format-select"
+                  title="압축 형식"
+                  subtitle="압축 파일의 형식을 선택합니다. CBZ는 만화책 전용 포맷입니다."
+                >
+                  <Select
+                    id="compress-format-select"
+                    :model-value="compressFormat"
+                    :disabled="!compressDownload"
+                    @update:model-value="onCompressFormatChange"
+                  >
+                    <SelectTrigger class="w-[180px]">
+                      <SelectValue placeholder="압축 형식 선택" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="cbz">CBZ (권장)</SelectItem>
+                      <SelectItem value="zip">ZIP</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </SettingItem>
               </CardContent>
             </Card>
           </TabsContent>

@@ -1,6 +1,8 @@
 import { app, ipcMain } from "electron";
+import archiver from "archiver";
 import { filenamifyPath } from "filenamify";
 import fs from "fs/promises";
+import { createWriteStream } from "fs";
 import hitomi, { Gallery } from "node-hitomi";
 import path from "path";
 import { pathToFileURL } from "url";
@@ -260,22 +262,70 @@ export const handleDownloadGallery = async (
       await fs.writeFile(infoFilePath, infoContent);
     }
 
+    // 압축 설정 확인 및 처리
+    const compressDownload = configStore.get("compressDownload", false);
+    const compressFormat = configStore.get("compressFormat", "cbz");
+
+    if (compressDownload) {
+      // 압축 파일 경로 생성
+      const archiveFilePath = `${galleryDownloadPath}.${compressFormat}`;
+
+      // 압축 스트림 생성
+      const output = createWriteStream(archiveFilePath);
+      const archive = archiver("zip", {
+        zlib: { level: 0 }, // 압축률 0 (무압축, 속도 우선)
+      });
+
+      // 에러 핸들링
+      archive.on("error", (err) => {
+        throw err;
+      });
+
+      // 스트림 연결
+      archive.pipe(output);
+
+      // 폴더 내 모든 파일 추가
+      archive.directory(galleryDownloadPath, false);
+
+      // 압축 완료
+      await archive.finalize();
+
+      // 압축 완료 대기
+      await new Promise<void>((resolve, reject) => {
+        output.on("close", () => resolve());
+        output.on("error", (err) => reject(err));
+      });
+
+      // 원본 폴더 삭제
+      await fs.rm(galleryDownloadPath, { recursive: true, force: true });
+
+      console.log(
+        `[Downloader] Archive created: ${archiveFilePath} (${archive.pointer()} bytes)`,
+      );
+    }
+
     webContents.send("download-progress", {
       galleryId,
       status: "completed",
     });
 
-    // 다운로드된 폴더가 라이브러리 폴더에 포함되는지 확인
+    // 다운로드된 폴더/파일이 라이브러리 폴더에 포함되는지 확인
     const libraryFolders = configStore.get("libraryFolders", []);
+
+    // 압축된 경우 압축 파일 경로로, 아닌 경우 폴더 경로로 스캔
+    const scanPath = compressDownload
+      ? `${galleryDownloadPath}.${compressFormat}`
+      : galleryDownloadPath;
+
     const isDownloadedToLibrary = libraryFolders.some((folder) =>
-      galleryDownloadPath.startsWith(folder),
+      scanPath.startsWith(folder),
     );
 
     if (isDownloadedToLibrary) {
       console.log(
-        `[Main] Downloaded gallery ${galleryId} is in a library folder. Scanning: ${galleryDownloadPath}`,
+        `[Main] Downloaded gallery ${galleryId} is in a library folder. Scanning: ${scanPath}`,
       );
-      await scanFile(galleryDownloadPath);
+      await scanFile(scanPath);
     } else {
       console.log(
         `[Main] Downloaded gallery ${galleryId} is not in a configured library folder. Skipping scan.`,
