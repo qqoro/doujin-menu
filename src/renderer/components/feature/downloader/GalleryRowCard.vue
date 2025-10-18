@@ -196,7 +196,7 @@ const isDownloadFailed = computed(() => {
         }}
       </p>
       <h3 class="font-bold text-lg">{{ props.gallery.title.display }}</h3>
-      <!-- 작가/시리즈/캐릭터/페이지 -->
+      <!-- 작가/그룹/시리즈/캐릭터/페이지 -->
       <div class="flex flex-col gap-0.5 text-sm text-muted-foreground">
         <p>
           <Icon
@@ -221,6 +221,26 @@ const isDownloadFailed = computed(() => {
             </template>
           </template>
           <template v-else> 알 수 없음 </template>
+        </p>
+        <!-- 그룹 추가 -->
+        <p v-if="props.gallery.groups && props.gallery.groups.length > 0">
+          <Icon
+            icon="solar:users-group-rounded-linear"
+            class="w-4 h-4 inline-block align-text-bottom"
+          />
+          그룹:
+          <template
+            v-for="(group, index) in props.gallery.groups"
+            :key="group"
+          >
+            <button
+              class="inline-block text-left p-0 m-0 border-none bg-transparent cursor-pointer hover:underline text-current"
+              @click.stop="copyToClipboard(`group:${group}`)"
+            >
+              {{ group }}
+            </button>
+            <span v-if="index < props.gallery.groups.length - 1">, </span>
+          </template>
         </p>
         <!-- Add Series here -->
         <p v-if="props.gallery.series && props.gallery.series.length > 0">
