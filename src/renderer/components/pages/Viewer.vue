@@ -62,6 +62,9 @@ const {
   showToast,
   toastMessage,
   images,
+  zoomLevel,
+  panX,
+  panY,
 } = storeToRefs(store);
 
 const { data: book } = useQuery({
@@ -88,6 +91,19 @@ const doublePageImageClasses = computed(() => {
   }
 });
 
+const imageStyle = computed(() => {
+  if (readingMode.value === "webtoon") return {};
+  const cursor = zoomLevel.value > 100
+    ? (isDragging.value ? "grabbing" : "grab")
+    : "default";
+  return {
+    transform: `scale(${zoomLevel.value / 100}) translate(${panX.value}px, ${panY.value}px)`,
+    cursor,
+  };
+});
+
+const isZoomed = computed(() => zoomLevel.value !== 100);
+
 const viewerArea = ref<HTMLElement | null>(null);
 const screenRef = ref<HTMLElement | null>(null);
 const webtoonRef = ref<HTMLElement | null>(null);
@@ -98,6 +114,13 @@ const showControls = ref(true);
 const openSetting = ref(false);
 const isHelpOpen = ref(false);
 const isDetailOpen = ref(false);
+
+// 이미지 드래그 상태
+const isDragging = ref(false);
+const dragStartX = ref(0);
+const dragStartY = ref(0);
+const dragStartPanX = ref(0);
+const dragStartPanY = ref(0);
 
 let cursorHideTimer: number;
 const handleMouseMove = (e: MouseEvent) => {
@@ -148,6 +171,23 @@ const handleKeyDown = async (e: KeyboardEvent) => {
 
   if (e.key.toLowerCase() === "a") {
     store.toggleAutoNextBook();
+  }
+
+  // 확대/축소 단축키
+  if (e.key === "+" || e.key === "=") {
+    e.preventDefault();
+    store.zoomIn();
+    return;
+  }
+  if (e.key === "-" || e.key === "_") {
+    e.preventDefault();
+    store.zoomOut();
+    return;
+  }
+  if (e.key === "0" && !e.ctrlKey) {
+    e.preventDefault();
+    store.resetZoom();
+    return;
   }
 
   if (e.ctrlKey && e.key >= "1" && e.key <= "9") {
@@ -211,6 +251,18 @@ const handleKeyDown = async (e: KeyboardEvent) => {
 const handleWheel = (e: WheelEvent) => {
   if (readingMode.value === "webtoon") return;
 
+  // Ctrl + 휠로 확대/축소
+  if (e.ctrlKey) {
+    e.preventDefault();
+    if (e.deltaY < 0) {
+      store.zoomIn();
+    } else if (e.deltaY > 0) {
+      store.zoomOut();
+    }
+    return;
+  }
+
+  // 기본 휠 동작: 페이지 이동
   if (e.deltaY > 0) {
     store.nextPage();
   } else if (e.deltaY < 0) {
@@ -223,6 +275,34 @@ const handleMouseUp = (e: MouseEvent) => {
     // 휠 클릭
     ipcRenderer.send("fullscreen-toggle-window");
   }
+  // 드래그 종료
+  if (e.button === 0) {
+    isDragging.value = false;
+  }
+};
+
+const handleMouseDown = (e: MouseEvent) => {
+  // 이미지가 확대되어 있고, 왼쪽 클릭인 경우에만 드래그 시작
+  if (e.button === 0 && zoomLevel.value > 100 && readingMode.value !== "webtoon") {
+    e.preventDefault();
+    isDragging.value = true;
+    dragStartX.value = e.clientX;
+    dragStartY.value = e.clientY;
+    dragStartPanX.value = panX.value;
+    dragStartPanY.value = panY.value;
+  }
+};
+
+const handleMouseMoveForDrag = (e: MouseEvent) => {
+  if (!isDragging.value) return;
+
+  const deltaX = e.clientX - dragStartX.value;
+  const deltaY = e.clientY - dragStartY.value;
+
+  store.setPan(
+    dragStartPanX.value + deltaX,
+    dragStartPanY.value + deltaY
+  );
 };
 
 // 웹툰 모드 스크롤 위치 추적 및 페이지 업데이트
@@ -296,10 +376,14 @@ onUnmounted(() => {
   ipcRenderer.send("set-fullscreen-window", false);
 });
 
-useWindowEvent("mousemove", useThrottleFn(handleMouseMove, 100, true));
+useWindowEvent("mousemove", (e: MouseEvent) => {
+  handleMouseMove(e);
+  handleMouseMoveForDrag(e);
+});
 useWindowEvent("keydown", useThrottleFn(handleKeyDown, 100, true));
 useWindowEvent("wheel", useThrottleFn(handleWheel, 100, true));
 useWindowEvent("mouseup", handleMouseUp);
+useWindowEvent("mousedown", handleMouseDown);
 </script>
 
 <template>
@@ -478,7 +562,7 @@ useWindowEvent("mouseup", handleMouseUp);
       <Transition name="fade">
         <div
           v-if="showToast && toastMessage"
-          class="fixed top-27 right-12 text-foreground bg-secondary/75 border-secondary/75 border backdrop-blur-sm font-semibold text-lg px-4 py-2 flex justify-center items-center rounded-lg gap-2"
+          class="fixed top-27 right-12 text-foreground bg-secondary/75 border-secondary/75 border backdrop-blur-sm font-semibold text-lg px-4 py-2 flex justify-center items-center rounded-lg gap-2 z-20"
         >
           <Icon icon="solar:info-circle-bold-duotone" class="text-xl" />
           {{ toastMessage }}
@@ -508,11 +592,13 @@ useWindowEvent("mouseup", handleMouseUp);
         :src="currentImageUrl"
         :alt="`Page ${currentPage}`"
         :class="imageClasses"
+        :style="imageStyle"
       />
 
       <div
         v-if="viewerDoublePageView && readingMode !== 'webtoon'"
         class="flex items-center justify-center w-full h-full"
+        :style="imageStyle"
       >
         <img
           v-if="leftPageUrl"

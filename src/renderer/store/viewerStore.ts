@@ -32,6 +32,11 @@ export const useViewerStore = defineStore("viewer", () => {
   const viewerAutoFitZoom = ref(true);
   const images = ref<HTMLElement[] | null>(null);
 
+  // Zoom state
+  const zoomLevel = ref(100); // 10 ~ 500
+  const panX = ref(0);
+  const panY = ref(0);
+
   // Auto-play state
   const isAutoPlay = ref(false);
   const autoPlayInterval = ref(5); // seconds
@@ -364,6 +369,38 @@ export const useViewerStore = defineStore("viewer", () => {
     });
   }
 
+  function zoomIn() {
+    if (readingMode.value === "webtoon") return;
+    const newZoom = Math.min(500, zoomLevel.value + 10);
+    zoomLevel.value = newZoom;
+    showToastMessage(`확대: ${newZoom}%`);
+  }
+
+  function zoomOut() {
+    if (readingMode.value === "webtoon") return;
+    const newZoom = Math.max(10, zoomLevel.value - 10);
+    zoomLevel.value = newZoom;
+    showToastMessage(`축소: ${newZoom}%`);
+  }
+
+  function resetZoom() {
+    if (readingMode.value === "webtoon") return;
+    zoomLevel.value = 100;
+    panX.value = 0;
+    panY.value = 0;
+    showToastMessage("확대/축소 초기화");
+  }
+
+  function setZoom(level: number) {
+    if (readingMode.value === "webtoon") return;
+    zoomLevel.value = Math.max(10, Math.min(500, level));
+  }
+
+  function setPan(x: number, y: number) {
+    panX.value = x;
+    panY.value = y;
+  }
+
   function cleanup() {
     _stopAutoPlayCore();
     bookId.value = null;
@@ -380,6 +417,9 @@ export const useViewerStore = defineStore("viewer", () => {
     is_favorite.value = false; // 즐겨찾기 상태 초기화
     viewerDoublePageView.value = false;
     viewerShowCoverAlone.value = true;
+    zoomLevel.value = 100; // 줌 레벨 초기화
+    panX.value = 0; // 팬 X 초기화
+    panY.value = 0; // 팬 Y 초기화
     if (toastTimeoutId.value) {
       clearTimeout(toastTimeoutId.value);
     }
@@ -520,6 +560,10 @@ export const useViewerStore = defineStore("viewer", () => {
     if (isAutoPlay.value) {
       _startAutoPlayCore();
     }
+    // 페이지 변경 시 줌 레벨 및 팬 위치 초기화
+    zoomLevel.value = 100;
+    panX.value = 0;
+    panY.value = 0;
   });
 
   return {
@@ -547,8 +591,8 @@ export const useViewerStore = defineStore("viewer", () => {
     stopAutoPlay,
     toggleAutoNextBook,
     setNextBookMode,
-    loadNextBook, // 추가
-    loadPrevBook, // 추가
+    loadNextBook,
+    loadPrevBook,
     cleanup,
     loadViewerSettings,
     viewerRestoreLastSession,
@@ -567,5 +611,13 @@ export const useViewerStore = defineStore("viewer", () => {
     toastMessage,
     showToastMessage,
     images,
+    zoomLevel,
+    panX,
+    panY,
+    zoomIn,
+    zoomOut,
+    resetZoom,
+    setZoom,
+    setPan,
   };
 });

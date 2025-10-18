@@ -19,6 +19,10 @@ const keybindings = [
   { keys: [["End"]], description: "마지막 페이지로 이동" },
   { keys: [["]"]], description: "다음 책으로 이동" },
   { keys: [["["]], description: "이전 책으로 이동" },
+  { keys: [["+"], ["="]], description: "이미지 확대" },
+  { keys: [["-"], ["_"]], description: "이미지 축소" },
+  { keys: [["0"]], description: "확대/축소 초기화" },
+  { keys: [["Ctrl", "+", "휠"]], description: "이미지 확대/축소" },
   { keys: [["Ctrl", "+", "1-9"]], description: "자동 넘김 시작 (1-9초 간격)" },
   { keys: [["Ctrl", "+", "0"]], description: "자동 넘김 중지" },
   { keys: [["Esc"]], description: "라이브러리로 돌아가기" },
@@ -53,6 +57,8 @@ const keybindings = [
               컨트롤 바의 슬라이더를 이용해 원하는 페이지로 빠르게 이동할 수
               있습니다.
             </li>
+            <li>확대된 이미지를 마우스로 드래그하여 이동할 수 있습니다.</li>
+            <li>페이지를 이동하면 확대/축소 상태가 자동으로 초기화됩니다.</li>
           </ul>
         </div>
 
