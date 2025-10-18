@@ -41,7 +41,7 @@ onUnmounted(() => {
       <DialogHeader>
         <DialogTitle>새로운 변경 사항</DialogTitle>
         <DialogDescription>
-          Comiq Mate가 업데이트되었습니다. 다음은 새로운 기능 및 변경
+          동인메뉴판이 업데이트되었습니다. 다음은 새로운 기능 및 변경
           사항입니다.
         </DialogDescription>
       </DialogHeader>

@@ -39,12 +39,17 @@ interface Artist {
   name: string;
 }
 
+interface Group {
+  name: string;
+}
+
 interface Book {
   id: number;
   title: string;
   cover_path: string | null;
   tags: Tag[];
   artists: Artist[];
+  groups: Group[];
   is_favorite: boolean;
   path: string;
 }
@@ -53,6 +58,7 @@ const props = defineProps<{ book: Book; queryKey: readonly unknown[] }>();
 const emit = defineEmits([
   "selectTag",
   "selectArtist",
+  "selectGroup",
   "toggle-favorite",
   "open-book-folder",
   "show-details", // 상세 정보 이벤트를 추가합니다.
@@ -105,6 +111,29 @@ const handleTagClick = (tag: { name: string }) => {
 const handleArtistClick = (artist: { name: string }) => {
   emit("selectArtist", artist.name);
 };
+
+const handleGroupClick = (group: { name: string }) => {
+  emit("selectGroup", group.name);
+};
+
+// 유효한 작가 목록 (빈 문자열, null, undefined 제외)
+const validArtists = computed(() => {
+  return props.book.artists?.filter(
+    (a) => a.name && a.name.trim() !== ""
+  ) || [];
+});
+
+// 유효한 그룹 목록 (빈 문자열, null, undefined 제외)
+const validGroups = computed(() => {
+  return props.book.groups?.filter(
+    (g) => g.name && g.name.trim() !== ""
+  ) || [];
+});
+
+// 작가 또는 그룹 정보가 있는지 확인
+const hasCreatorInfo = computed(() => {
+  return validArtists.value.length > 0 || validGroups.value.length > 0;
+});
 
 const getTagDisplayInfo = (tag: { name: string }) => {
   let className = "text-xs px-1.5 py-0.5 rounded-full cursor-pointer";
@@ -179,15 +208,41 @@ const confirmDeleteBook = async () => {
           <p class="font-semibold text-sm truncate w-full" :title="book.title">
             {{ book.title }}
           </p>
+          <!-- 작가 정보가 없는 경우 -->
           <p
-            class="text-xs text-muted-foreground truncate w-full mb-1 cursor-pointer hover:underline"
-            :title="book.artists?.map((a) => a.name).join(', ')"
-            @click.prevent.stop="handleArtistClick(book.artists[0])"
+            v-if="!hasCreatorInfo"
+            class="text-xs text-muted-foreground truncate w-full"
           >
-            {{
-              book.artists?.map((a) => a.name).join(", ") || "작가 정보 없음"
-            }}
+            작가 정보 없음
           </p>
+          <!-- 작가 정보 -->
+          <div
+            v-if="validArtists.length > 0"
+            class="flex items-center gap-1 w-full text-xs text-muted-foreground"
+          >
+            <Icon icon="solar:user-bold-duotone" class="w-3 h-3 flex-shrink-0" />
+            <span
+              class="truncate cursor-pointer hover:underline"
+              :title="validArtists.map((a) => a.name).join(', ')"
+              @click.prevent.stop="handleArtistClick(validArtists[0])"
+            >
+              {{ validArtists.map((a) => a.name).join(", ") }}
+            </span>
+          </div>
+          <!-- 그룹 정보 -->
+          <div
+            v-if="validGroups.length > 0"
+            class="flex items-center gap-1 w-full text-xs text-muted-foreground"
+          >
+            <Icon icon="solar:users-group-rounded-bold-duotone" class="w-3 h-3 flex-shrink-0" />
+            <span
+              class="truncate cursor-pointer hover:underline"
+              :title="validGroups.map((g) => g.name).join(', ')"
+              @click.prevent.stop="handleGroupClick(validGroups[0])"
+            >
+              {{ validGroups.map((g) => g.name).join(", ") }}
+            </span>
+          </div>
           <div class="flex flex-wrap items-start gap-1 w-full min-h-[42px]">
             <Badge
               v-for="tag in visibleTags"

@@ -247,6 +247,19 @@ const toggleArtist = (artist: string) => {
   searchQuery.value = currentQuery.join(" ");
 };
 
+const toggleGroup = (group: string) => {
+  const groupTerm = `group:${group}`;
+  const currentQuery = searchQuery.value.split(" ").filter((s) => s !== "");
+  const index = currentQuery.indexOf(groupTerm);
+
+  if (index > -1) {
+    currentQuery.splice(index, 1);
+  } else {
+    currentQuery.push(groupTerm);
+  }
+  searchQuery.value = currentQuery.join(" ");
+};
+
 const setSortBy = (column: string) => {
   sortBy.value = column;
 };
@@ -564,6 +577,7 @@ useWindowEvent("keydown", (e: KeyboardEvent) => {
         :query-key="queryKey"
         @select-tag="toggleTag"
         @select-artist="toggleArtist"
+        @select-group="toggleGroup"
         @toggle-favorite="handleToggleFavorite"
         @open-book-folder="handleOpenFolder"
         @show-details="handleShowDetails"
