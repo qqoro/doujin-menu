@@ -3,6 +3,7 @@ import { ipcRenderer } from "@/api";
 import HelpDialog from "@/components/common/HelpDialog.vue"; // HelpDialog 임포트
 import SmartSearchInput from "@/components/common/SmartSearchInput.vue";
 import { useScrollRestoration } from "@/composable/useScrollRestoration";
+import { useSearchPersistence } from "@/composable/useSearchPersistence";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -259,6 +260,9 @@ const goToSettings = () => {
 
 // 스크롤 위치 복원 (다운로더는 flex-1 사용)
 useScrollRestoration(".flex-1.overflow-y-auto");
+
+// 검색어 저장/복원
+useSearchPersistence(searchQuery, "downloader-search-query");
 </script>
 
 <template>
