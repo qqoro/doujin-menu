@@ -114,6 +114,83 @@ export const handleGetStatistics = async () => {
       byHitomiId: duplicateBooksByHitomiId,
     };
 
+    // 읽기 진행 상황
+    const readBooks = await db("Book")
+      .where("current_page", ">", 0)
+      .whereRaw("current_page >= page_count")
+      .count("* as count")
+      .first();
+    const readingBooks = await db("Book")
+      .where("current_page", ">", 0)
+      .whereRaw("current_page < page_count")
+      .count("* as count")
+      .first();
+    const unreadBooks = await db("Book")
+      .where("current_page", 0)
+      .orWhereNull("current_page")
+      .count("* as count")
+      .first();
+    const favoriteBooks = await db("Book")
+      .where("is_favorite", true)
+      .count("* as count")
+      .first();
+
+    const readingProgress = {
+      read: readBooks ? (readBooks.count as number) : 0,
+      reading: readingBooks ? (readingBooks.count as number) : 0,
+      unread: unreadBooks ? (unreadBooks.count as number) : 0,
+      favorites: favoriteBooks ? (favoriteBooks.count as number) : 0,
+    };
+
+    // 총 페이지 수 및 평균
+    const pageStats = await db("Book")
+      .sum("page_count as totalPages")
+      .avg("page_count as averagePages")
+      .whereNotNull("page_count")
+      .first();
+
+    const totalPages = pageStats?.totalPages
+      ? Math.floor(pageStats.totalPages as number)
+      : 0;
+    const averagePages = pageStats?.averagePages
+      ? Math.floor(pageStats.averagePages as number)
+      : 0;
+
+    // 가장 많이 등장하는 그룹 (상위 10개)
+    const topGroups = await db("Group as G")
+      .select("G.name")
+      .count("BG.book_id as count")
+      .join("BookGroup as BG", "G.id", "BG.group_id")
+      .groupBy("G.name")
+      .orderBy("count", "desc")
+      .limit(10);
+
+    // 가장 많이 등장하는 캐릭터 (상위 10개)
+    const topCharacters = await db("Character as C")
+      .select("C.name")
+      .count("BC.book_id as count")
+      .join("BookCharacter as BC", "C.id", "BC.character_id")
+      .groupBy("C.name")
+      .orderBy("count", "desc")
+      .limit(10);
+
+    // 가장 많은 책이 있는 시리즈 (상위 5개)
+    const topSeries = await db("Series as S")
+      .select("S.name")
+      .count("BS.book_id as count")
+      .join("BookSeries as BS", "S.id", "BS.series_id")
+      .groupBy("S.name")
+      .orderBy("count", "desc")
+      .limit(5);
+
+    // 타입별 분포
+    const typeDistribution = await db("Book")
+      .select("type")
+      .count("* as count")
+      .whereNotNull("type")
+      .groupBy("type")
+      .orderBy("count", "desc");
+
     return {
       totalBooks,
       topTags,
@@ -124,7 +201,14 @@ export const handleGetStatistics = async () => {
       totalTags,
       totalArtists,
       totalSeries,
-      duplicateBooks, // 반환 객체에 추가
+      duplicateBooks,
+      readingProgress,
+      totalPages,
+      averagePages,
+      topGroups,
+      topCharacters,
+      topSeries,
+      typeDistribution,
     };
   } catch (error) {
     console.error("Failed to get statistics:", error);

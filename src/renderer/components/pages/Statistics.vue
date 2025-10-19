@@ -91,6 +91,98 @@ const goToViewer = (bookId: number) => {
           </CardContent>
         </Card>
 
+        <!-- [읽기 관련] -->
+        <!-- 읽기 진행 상황 -->
+        <Card>
+          <CardHeader>
+            <CardTitle class="flex items-center gap-2">
+              <Icon icon="solar:book-bookmark-bold-duotone" class="w-6 h-6" />
+              읽기 진행 상황
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div class="space-y-3">
+              <div class="flex items-center justify-between">
+                <span class="text-sm">완독</span>
+                <span class="font-semibold">
+                  {{ formatNumberWithCommas(statistics.readingProgress.read) }}권
+                  <span class="text-xs text-gray-500">
+                    ({{ ((statistics.readingProgress.read / statistics.totalBooks) * 100).toFixed(1) }}%)
+                  </span>
+                </span>
+              </div>
+              <div class="flex items-center justify-between">
+                <span class="text-sm">읽는 중</span>
+                <span class="font-semibold">
+                  {{ formatNumberWithCommas(statistics.readingProgress.reading) }}권
+                  <span class="text-xs text-gray-500">
+                    ({{ ((statistics.readingProgress.reading / statistics.totalBooks) * 100).toFixed(1) }}%)
+                  </span>
+                </span>
+              </div>
+              <div class="flex items-center justify-between">
+                <span class="text-sm">안 읽음</span>
+                <span class="font-semibold">
+                  {{ formatNumberWithCommas(statistics.readingProgress.unread) }}권
+                  <span class="text-xs text-gray-500">
+                    ({{ ((statistics.readingProgress.unread / statistics.totalBooks) * 100).toFixed(1) }}%)
+                  </span>
+                </span>
+              </div>
+              <div class="h-px bg-border my-2"></div>
+              <div class="flex items-center justify-between">
+                <span class="text-sm">즐겨찾기</span>
+                <span class="font-semibold text-yellow-600 dark:text-yellow-500">
+                  {{ formatNumberWithCommas(statistics.readingProgress.favorites) }}권
+                  <span class="text-xs text-gray-500">
+                    ({{ ((statistics.readingProgress.favorites / statistics.totalBooks) * 100).toFixed(1) }}%)
+                  </span>
+                </span>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        <!-- 가장 자주 본 책 -->
+        <Card>
+          <CardHeader>
+            <CardTitle class="flex items-center gap-2">
+              <Icon icon="solar:eye-bold-duotone" class="w-6 h-6" />
+              가장 자주 본 책
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <ScrollArea class="h-48 w-full rounded-md border p-4">
+              <div
+                v-if="
+                  statistics.mostViewedBooks &&
+                  statistics.mostViewedBooks.length > 0
+                "
+              >
+                <div
+                  v-for="book in statistics.mostViewedBooks"
+                  :key="book.id"
+                  class="flex items-center justify-between py-2 px-3 rounded-md hover:bg-accent transition-colors cursor-pointer"
+                  @click="goToViewer(book.id)"
+                >
+                  <div class="flex items-center gap-2 min-w-0">
+                    <span class="text-sm font-medium truncate">{{
+                      book.title
+                    }}</span>
+                  </div>
+                  <div class="text-sm text-gray-500 flex-shrink-0">
+                    {{ book.view_count }}회
+                  </div>
+                </div>
+              </div>
+              <div v-else class="text-center text-gray-500">
+                아직 조회 기록이 없습니다.
+              </div>
+            </ScrollArea>
+          </CardContent>
+        </Card>
+
+        <!-- [컬렉션 분석] -->
         <!-- 가장 좋아하는 태그 -->
         <Card>
           <CardHeader>
@@ -167,42 +259,240 @@ const goToViewer = (bookId: number) => {
           </CardContent>
         </Card>
 
-        <!-- 가장 자주 본 책 -->
+        <!-- 가장 좋아하는 그룹 -->
         <Card>
           <CardHeader>
             <CardTitle class="flex items-center gap-2">
-              <Icon icon="solar:eye-bold-duotone" class="w-6 h-6" />
-              가장 자주 본 책
+              <Icon icon="solar:users-group-two-rounded-bold-duotone" class="w-6 h-6" />
+              가장 좋아하는 그룹
             </CardTitle>
           </CardHeader>
           <CardContent>
             <ScrollArea class="h-48 w-full rounded-md border p-4">
-              <div
-                v-if="
-                  statistics.mostViewedBooks &&
-                  statistics.mostViewedBooks.length > 0
-                "
-              >
+              <div v-if="statistics.topGroups && statistics.topGroups.length > 0">
                 <div
-                  v-for="book in statistics.mostViewedBooks"
-                  :key="book.id"
+                  v-for="group in statistics.topGroups"
+                  :key="group.name"
                   class="flex items-center justify-between py-2 px-3 rounded-md hover:bg-accent transition-colors cursor-pointer"
-                  @click="goToViewer(book.id)"
+                  @click="goToLibraryWithSearch('group:' + group.name)"
                 >
-                  <div class="flex items-center gap-2 min-w-0">
-                    <span class="text-sm font-medium truncate">{{
-                      book.title
-                    }}</span>
+                  <div class="flex items-center gap-2">
+                    <Badge variant="secondary">{{ group.name }}</Badge>
+                    <span class="text-sm text-gray-500"
+                      >({{ group.count }}권)</span
+                    >
                   </div>
-                  <div class="text-sm text-gray-500 flex-shrink-0">
-                    {{ book.view_count }}회
+                  <div class="text-sm font-semibold">
+                    {{
+                      ((group.count / statistics.totalBooks) * 100).toFixed(1)
+                    }}%
                   </div>
                 </div>
               </div>
               <div v-else class="text-center text-gray-500">
-                아직 조회 기록이 없습니다.
+                데이터가 없습니다.
               </div>
             </ScrollArea>
+          </CardContent>
+        </Card>
+
+        <!-- 가장 많이 등장하는 캐릭터 -->
+        <Card>
+          <CardHeader>
+            <CardTitle class="flex items-center gap-2">
+              <Icon icon="solar:user-bold-duotone" class="w-6 h-6" />
+              가장 많이 등장하는 캐릭터
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <ScrollArea class="h-48 w-full rounded-md border p-4">
+              <div v-if="statistics.topCharacters && statistics.topCharacters.length > 0">
+                <div
+                  v-for="character in statistics.topCharacters"
+                  :key="character.name"
+                  class="flex items-center justify-between py-2 px-3 rounded-md hover:bg-accent transition-colors cursor-pointer"
+                  @click="goToLibraryWithSearch('character:' + character.name)"
+                >
+                  <div class="flex items-center gap-2">
+                    <Badge variant="secondary">{{ character.name }}</Badge>
+                    <span class="text-sm text-gray-500"
+                      >({{ character.count }}권)</span
+                    >
+                  </div>
+                  <div class="text-sm font-semibold">
+                    {{
+                      ((character.count / statistics.totalBooks) * 100).toFixed(1)
+                    }}%
+                  </div>
+                </div>
+              </div>
+              <div v-else class="text-center text-gray-500">
+                데이터가 없습니다.
+              </div>
+            </ScrollArea>
+          </CardContent>
+        </Card>
+
+        <!-- 가장 많은 책이 있는 시리즈 -->
+        <Card>
+          <CardHeader>
+            <CardTitle class="flex items-center gap-2">
+              <Icon icon="solar:library-bold-duotone" class="w-6 h-6" />
+              가장 많은 책이 있는 시리즈
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <ScrollArea class="h-48 w-full rounded-md border p-4">
+              <div v-if="statistics.topSeries && statistics.topSeries.length > 0">
+                <div
+                  v-for="series in statistics.topSeries"
+                  :key="series.name"
+                  class="flex items-center justify-between py-2 px-3 rounded-md hover:bg-accent transition-colors cursor-pointer"
+                  @click="goToLibraryWithSearch('series:' + series.name)"
+                >
+                  <div class="flex items-center gap-2 min-w-0">
+                    <span class="text-sm font-medium truncate">{{ series.name }}</span>
+                  </div>
+                  <div class="text-sm text-gray-500 flex-shrink-0">
+                    {{ series.count }}권
+                  </div>
+                </div>
+              </div>
+              <div v-else class="text-center text-gray-500">
+                데이터가 없습니다.
+              </div>
+            </ScrollArea>
+          </CardContent>
+        </Card>
+
+        <!-- [통계 정보] -->
+        <!-- 총 페이지 수 -->
+        <Card>
+          <CardHeader>
+            <CardTitle class="flex items-center gap-2">
+              <Icon icon="solar:document-bold-duotone" class="w-6 h-6" />
+              페이지 통계
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div class="space-y-3">
+              <div>
+                <p class="text-sm text-gray-500 mb-1">총 페이지 수</p>
+                <p class="text-3xl font-bold text-primary">
+                  {{ formatNumberWithCommas(statistics.totalPages) }}
+                </p>
+              </div>
+              <div class="h-px bg-border my-2"></div>
+              <div>
+                <p class="text-sm text-gray-500 mb-1">평균 페이지 수</p>
+                <p class="text-2xl font-semibold">
+                  {{ formatNumberWithCommas(statistics.averagePages) }}
+                </p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        <!-- 라이브러리 크기 -->
+        <Card>
+          <CardHeader>
+            <CardTitle class="flex items-center gap-2">
+              <Icon icon="solar:folder-bold-duotone" class="w-6 h-6" />
+              라이브러리 크기
+            </CardTitle>
+          </CardHeader>
+          <CardContent
+            class="text-4xl font-bold text-center py-4 flex justify-center items-center h-full"
+          >
+            <div v-if="isLibrarySizeLoading" class="text-sm text-gray-500">
+              계산 중...
+            </div>
+            <div v-else-if="isLibrarySizeError" class="text-sm text-red-500">
+              오류
+            </div>
+            <div v-else>
+              {{ formatBytes(librarySize) }}
+            </div>
+          </CardContent>
+        </Card>
+
+        <!-- 타입별 분포 -->
+        <Card>
+          <CardHeader>
+            <CardTitle class="flex items-center gap-2">
+              <Icon icon="solar:layers-bold-duotone" class="w-6 h-6" />
+              타입별 분포
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div v-if="statistics.typeDistribution && statistics.typeDistribution.length > 0" class="space-y-2">
+              <div
+                v-for="type in statistics.typeDistribution"
+                :key="type.type"
+                class="flex items-center justify-between"
+              >
+                <span class="text-sm">{{ type.type || '미지정' }}</span>
+                <span class="font-semibold">
+                  {{ formatNumberWithCommas(type.count) }}권
+                  <span class="text-xs text-gray-500">
+                    ({{ ((type.count / statistics.totalBooks) * 100).toFixed(1) }}%)
+                  </span>
+                </span>
+              </div>
+            </div>
+            <div v-else class="text-center text-gray-500">
+              데이터가 없습니다.
+            </div>
+          </CardContent>
+        </Card>
+
+        <!-- [관리 도구] -->
+        <!-- 가장 긴/짧은 책 -->
+        <Card>
+          <CardHeader>
+            <CardTitle class="flex items-center gap-2">
+              <Icon icon="solar:bookmark-bold-duotone" class="w-6 h-6" />
+              가장 긴/짧은 책
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div class="space-y-2">
+              <div
+                v-if="statistics.longestBook"
+                class="py-2 px-3 rounded-md hover:bg-accent transition-colors"
+              >
+                <p
+                  class="text-sm font-medium cursor-pointer"
+                  @click="goToViewer(statistics.longestBook.id)"
+                >
+                  가장 긴 책: {{ statistics.longestBook.title }} ({{
+                    statistics.longestBook.page_count
+                  }}
+                  페이지)
+                </p>
+              </div>
+              <div v-else class="text-sm text-gray-500">
+                가장 긴 책 데이터가 없습니다.
+              </div>
+
+              <div
+                v-if="statistics.shortestBook"
+                class="py-2 px-3 rounded-md hover:bg-accent transition-colors"
+              >
+                <p
+                  class="text-sm font-medium cursor-pointer"
+                  @click="goToViewer(statistics.shortestBook.id)"
+                >
+                  가장 짧은 책: {{ statistics.shortestBook.title }} ({{
+                    statistics.shortestBook.page_count
+                  }}
+                  페이지)
+                </p>
+              </div>
+              <div v-else class="text-sm text-gray-500">
+                가장 짧은 책 데이터가 없습니다.
+              </div>
+            </div>
           </CardContent>
         </Card>
 
@@ -280,78 +570,6 @@ const goToViewer = (bookId: number) => {
                 </ScrollArea>
               </TabsContent>
             </Tabs>
-          </CardContent>
-        </Card>
-
-        <!-- 가장 긴/짧은 책 -->
-        <Card>
-          <CardHeader>
-            <CardTitle class="flex items-center gap-2">
-              <Icon icon="solar:bookmark-bold-duotone" class="w-6 h-6" />
-              가장 긴/짧은 책
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div class="space-y-2">
-              <div
-                v-if="statistics.longestBook"
-                class="py-2 px-3 rounded-md hover:bg-accent transition-colors"
-              >
-                <p
-                  class="text-sm font-medium cursor-pointer"
-                  @click="goToViewer(statistics.longestBook.id)"
-                >
-                  가장 긴 책: {{ statistics.longestBook.title }} ({{
-                    statistics.longestBook.page_count
-                  }}
-                  페이지)
-                </p>
-              </div>
-              <div v-else class="text-sm text-gray-500">
-                가장 긴 책 데이터가 없습니다.
-              </div>
-
-              <div
-                v-if="statistics.shortestBook"
-                class="py-2 px-3 rounded-md hover:bg-accent transition-colors"
-              >
-                <p
-                  class="text-sm font-medium cursor-pointer"
-                  @click="goToViewer(statistics.shortestBook.id)"
-                >
-                  가장 짧은 책: {{ statistics.shortestBook.title }} ({{
-                    statistics.shortestBook.page_count
-                  }}
-                  페이지)
-                </p>
-              </div>
-              <div v-else class="text-sm text-gray-500">
-                가장 짧은 책 데이터가 없습니다.
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        <!-- 라이브러리 크기 -->
-        <Card>
-          <CardHeader>
-            <CardTitle class="flex items-center gap-2">
-              <Icon icon="solar:folder-bold-duotone" class="w-6 h-6" />
-              라이브러리 크기
-            </CardTitle>
-          </CardHeader>
-          <CardContent
-            class="text-4xl font-bold text-center py-4 flex justify-center items-center h-full"
-          >
-            <div v-if="isLibrarySizeLoading" class="text-sm text-gray-500">
-              계산 중...
-            </div>
-            <div v-else-if="isLibrarySizeError" class="text-sm text-red-500">
-              오류
-            </div>
-            <div v-else>
-              {{ formatBytes(librarySize) }}
-            </div>
           </CardContent>
         </Card>
       </div>
