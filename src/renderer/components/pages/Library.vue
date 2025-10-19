@@ -18,6 +18,10 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import {
+  ToggleGroup,
+  ToggleGroupItem,
+} from "@/components/ui/toggle-group";
 import { useQueryAndParams } from "@/composable/useQueryAndParams";
 import { useWindowEvent } from "@/composable/useWindowEvent";
 import { Icon } from "@iconify/vue";
@@ -40,6 +44,7 @@ import {
 import PresetDropdown from "../common/PresetDropdown.vue";
 import SmartSearchInput from "../common/SmartSearchInput.vue";
 import BookCard from "../feature/BookCard.vue";
+import BookRowCard from "../feature/BookRowCard.vue";
 import BookDetailDialog from "../feature/BookDetailDialog.vue";
 
 interface Tag {
@@ -96,6 +101,7 @@ const readStatus = ref((route.query.readStatus as string) || "all");
 const isFavorite = ref((route.query.isFavorite as string) || "all");
 const sortBy = ref((route.query.sortBy as string) || "added_at");
 const sortOrder = ref((route.query.sortOrder as string) || "desc");
+const viewMode = ref<"grid" | "list">("grid");
 const { schWord: searchQuery } = useQueryAndParams({
   queries: {
     libraryPath,
@@ -132,10 +138,12 @@ watch(
         sortBy: savedSortBy,
         sortOrder: savedSortOrder,
         readStatus: savedReadStatus,
+        viewMode: savedViewMode,
       } = config.value.libraryViewSettings;
       sortBy.value = savedSortBy;
       sortOrder.value = savedSortOrder;
       readStatus.value = savedReadStatus;
+      viewMode.value = savedViewMode || "grid";
     }
   },
   { immediate: true },
@@ -143,7 +151,7 @@ watch(
 
 // Watch for filter/sort changes and save them
 debouncedWatch(
-  [sortBy, sortOrder, readStatus],
+  [sortBy, sortOrder, readStatus, viewMode],
   () => {
     if (!isConfigLoaded.value) return;
 
@@ -151,6 +159,7 @@ debouncedWatch(
       sortBy: sortBy.value,
       sortOrder: sortOrder.value,
       readStatus: readStatus.value,
+      viewMode: viewMode.value,
     };
     ipcRenderer.invoke("set-config", {
       key: "libraryViewSettings",
@@ -553,6 +562,14 @@ useWindowEvent("keydown", (e: KeyboardEvent) => {
         <Icon icon="solar:rocket-bold-duotone" class="w-4 h-4" />
         랜덤
       </Button>
+      <ToggleGroup v-model="viewMode" type="single">
+        <ToggleGroupItem value="grid" aria-label="그리드 뷰">
+          <Icon icon="solar:widget-4-bold-duotone" class="w-4 h-4" />
+        </ToggleGroupItem>
+        <ToggleGroupItem value="list" aria-label="리스트 뷰">
+          <Icon icon="solar:list-bold-duotone" class="w-4 h-4" />
+        </ToggleGroupItem>
+      </ToggleGroup>
     </div>
 
     <div
@@ -566,8 +583,9 @@ useWindowEvent("keydown", (e: KeyboardEvent) => {
         <p>로딩중...</p>
       </div>
     </div>
+    <!-- Grid View -->
     <div
-      v-else-if="books.length > 0"
+      v-else-if="books.length > 0 && viewMode === 'grid'"
       class="flex-grow overflow-y-auto grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-6 gap-4 items-start"
     >
       <BookCard
@@ -587,6 +605,30 @@ useWindowEvent("keydown", (e: KeyboardEvent) => {
         ref="loader"
         class="text-center p-4 col-span-full"
       >
+        <Button :disabled="isFetchingNextPage" @click="fetchNextPage">
+          <Icon v-if="isFetchingNextPage" icon="svg-spinners:ring-resize" />
+          <span>더 불러오기</span>
+        </Button>
+      </div>
+    </div>
+    <!-- List View -->
+    <div
+      v-else-if="books.length > 0 && viewMode === 'list'"
+      class="flex-grow overflow-y-auto flex flex-col"
+    >
+      <BookRowCard
+        v-for="book in books"
+        :key="book.id"
+        :book="book"
+        :query-key="queryKey"
+        @select-tag="toggleTag"
+        @select-artist="toggleArtist"
+        @select-group="toggleGroup"
+        @toggle-favorite="handleToggleFavorite"
+        @open-book-folder="handleOpenFolder"
+        @show-details="handleShowDetails"
+      />
+      <div v-if="hasNextPage" ref="loader" class="text-center p-4">
         <Button :disabled="isFetchingNextPage" @click="fetchNextPage">
           <Icon v-if="isFetchingNextPage" icon="svg-spinners:ring-resize" />
           <span>더 불러오기</span>

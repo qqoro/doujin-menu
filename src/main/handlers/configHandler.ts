@@ -13,6 +13,7 @@ interface LibraryViewSettings {
   sortBy: string;
   sortOrder: "asc" | "desc";
   readStatus: "all" | "read" | "unread";
+  viewMode: "grid" | "list";
 }
 
 // 설정 파일의 타입을 정의합니다.
@@ -56,6 +57,7 @@ const defaults: Config = {
     sortBy: "added_at",
     sortOrder: "desc",
     readStatus: "all",
+    viewMode: "grid",
   },
   prioritizeKoreanTitles: false,
   useAppLock: false,
