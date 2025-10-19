@@ -12,8 +12,12 @@ import { Icon } from "@iconify/vue";
 const emit = defineEmits<{ (e: "update:open", value: boolean): void }>();
 
 const keybindings = [
-  { keys: [["→"], ["Space"]], description: "다음 페이지" },
-  { keys: [["←"]], description: "이전 페이지" },
+  {
+    keys: [["→"], ["↓"], ["PageDown"], ["Space"]],
+    description: "다음 페이지",
+    line: true,
+  },
+  { keys: [["←"], ["↑"], ["PageUp"]], description: "이전 페이지", line: true },
   { keys: [["↑"], ["↓"]], description: "(웹툰 모드) 스크롤" },
   { keys: [["Home"]], description: "첫 페이지로 이동" },
   { keys: [["End"]], description: "마지막 페이지로 이동" },
@@ -22,9 +26,9 @@ const keybindings = [
   { keys: [["+"], ["="]], description: "이미지 확대" },
   { keys: [["-"], ["_"]], description: "이미지 축소" },
   { keys: [["0"]], description: "확대/축소 초기화" },
-  { keys: [["Ctrl", "+", "휠"]], description: "이미지 확대/축소" },
-  { keys: [["Ctrl", "+", "1-9"]], description: "자동 넘김 시작 (1-9초 간격)" },
-  { keys: [["Ctrl", "+", "0"]], description: "자동 넘김 중지" },
+  { keys: [["Ctrl", "휠"]], description: "이미지 확대/축소" },
+  { keys: [["Ctrl", "1-9"]], description: "자동 넘김 시작 (1-9초 간격)" },
+  { keys: [["Ctrl", "0"]], description: "자동 넘김 중지" },
   { keys: [["Esc"]], description: "라이브러리로 돌아가기" },
   { keys: [["Enter"]], description: "전체화면/창 모드 전환" },
   { keys: [["휠 클릭"]], description: "완전 전체화면/창 모드 전환" },
@@ -69,17 +73,23 @@ const keybindings = [
               v-for="kb in keybindings"
               :key="kb.description"
               class="flex items-center justify-between"
+              :class="{ 'col-span-full': kb.line }"
             >
               <span class="text-muted-foreground">{{ kb.description }}</span>
-              <div class="flex items-center gap-1">
+              <div class="flex items-center gap-1 flex-wrap">
                 <template
                   v-for="(keyGroup, groupIndex) in kb.keys"
                   :key="groupIndex"
                 >
                   <span class="flex items-center gap-1">
-                    <template v-for="key in keyGroup" :key="key">
-                      <kbd v-if="key !== '+'">{{ key }}</kbd>
-                      <span v-else>+</span>
+                    <template v-for="(key, index) in keyGroup" :key="key">
+                      <kbd>{{ key }}</kbd>
+                      <span
+                        v-if="
+                          keyGroup.length !== 1 && index !== keyGroup.length - 1
+                        "
+                        >+</span
+                      >
                     </template>
                   </span>
                   <span v-if="groupIndex < kb.keys.length - 1" class="mx-1"

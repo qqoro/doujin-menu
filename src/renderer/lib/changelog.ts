@@ -30,6 +30,11 @@ export const changelogData: Changelog[] = [
           "통계 항목이 추가되었습니다.",
         ],
       },
+      {
+        type: "etc",
+        title: "기타",
+        items: ["뷰어에서 PageUp, PageDown 단축키를 추가했습니다."],
+      },
     ],
   },
   {

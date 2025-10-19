@@ -93,9 +93,12 @@ const doublePageImageClasses = computed(() => {
 
 const imageStyle = computed(() => {
   if (readingMode.value === "webtoon") return {};
-  const cursor = zoomLevel.value > 100
-    ? (isDragging.value ? "grabbing" : "grab")
-    : "default";
+  const cursor =
+    zoomLevel.value > 100
+      ? isDragging.value
+        ? "grabbing"
+        : "grab"
+      : "default";
   return {
     transform: `scale(${zoomLevel.value / 100}) translate(${panX.value}px, ${panY.value}px)`,
     cursor,
@@ -231,20 +234,16 @@ const handleKeyDown = async (e: KeyboardEvent) => {
     return;
   }
 
-  if (e.key === "ArrowRight" || e.key === "ArrowDown") {
+  if (e.key === "ArrowRight" || e.key === "ArrowDown" || e.key === "PageDown") {
     e.preventDefault();
-    if (readingMode.value === "rtl") {
-      store.prevPage();
-    } else {
-      store.nextPage();
-    }
-  } else if (e.key === "ArrowLeft" || e.key === "ArrowUp") {
+    store.nextPage();
+  } else if (
+    e.key === "ArrowLeft" ||
+    e.key === "ArrowUp" ||
+    e.key === "PageUp"
+  ) {
     e.preventDefault();
-    if (readingMode.value === "rtl") {
-      store.nextPage();
-    } else {
-      store.prevPage();
-    }
+    store.prevPage();
   }
 };
 
@@ -283,7 +282,11 @@ const handleMouseUp = (e: MouseEvent) => {
 
 const handleMouseDown = (e: MouseEvent) => {
   // 이미지가 확대되어 있고, 왼쪽 클릭인 경우에만 드래그 시작
-  if (e.button === 0 && zoomLevel.value > 100 && readingMode.value !== "webtoon") {
+  if (
+    e.button === 0 &&
+    zoomLevel.value > 100 &&
+    readingMode.value !== "webtoon"
+  ) {
     e.preventDefault();
     isDragging.value = true;
     dragStartX.value = e.clientX;
@@ -299,10 +302,7 @@ const handleMouseMoveForDrag = (e: MouseEvent) => {
   const deltaX = e.clientX - dragStartX.value;
   const deltaY = e.clientY - dragStartY.value;
 
-  store.setPan(
-    dragStartPanX.value + deltaX,
-    dragStartPanY.value + deltaY
-  );
+  store.setPan(dragStartPanX.value + deltaX, dragStartPanY.value + deltaY);
 };
 
 // 웹툰 모드 스크롤 위치 추적 및 페이지 업데이트
