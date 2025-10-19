@@ -6,35 +6,78 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+import { clearScrollPosition } from "@/composable/useScrollRestoration";
 import { cn } from "@/lib/utils";
 import { useUiStore } from "@/store/uiStore";
 import { Icon } from "@iconify/vue";
 import { storeToRefs } from "pinia";
-import { RouterLink } from "vue-router";
+import { useRoute, useRouter } from "vue-router";
 
 const uiStore = useUiStore();
 const { isSidebarCollapsed } = storeToRefs(uiStore);
 const { toggleSidebar } = uiStore;
 
+const route = useRoute();
+const router = useRouter();
+
 const navItems = [
   {
     to: "/library",
+    name: "Library",
     icon: "solar:folder-with-files-bold-duotone",
     label: "라이브러리",
   },
   {
     to: "/downloader",
+    name: "Downloader",
     icon: "solar:download-square-bold-duotone",
     label: "다운로더",
   },
   {
     to: "/history",
+    name: "History",
     icon: "solar:clock-circle-bold-duotone",
     label: "읽음 기록",
   },
-  { to: "/statistics", icon: "solar:chart-square-bold-duotone", label: "통계" },
-  { to: "/settings", icon: "solar:settings-bold-duotone", label: "설정" },
+  {
+    to: "/statistics",
+    name: "Statistics",
+    icon: "solar:chart-square-bold-duotone",
+    label: "통계",
+  },
+  {
+    to: "/settings",
+    name: "Settings",
+    icon: "solar:settings-bold-duotone",
+    label: "설정",
+  },
 ];
+
+// 네비게이션 클릭 핸들러
+const handleNavClick = (item: typeof navItems[0]) => {
+  // 현재 라우트와 같은 경로를 클릭한 경우
+  if (route.path === item.to) {
+    // 스크롤 위치 초기화
+    clearScrollPosition(item.name);
+
+    // 스크롤을 직접 맨 위로 올림
+    const scrollContainers = [
+      ".flex-grow.overflow-y-auto",
+      ".flex-1.overflow-y-auto",
+    ];
+
+    for (const selector of scrollContainers) {
+      const element = document.querySelector(selector) as HTMLElement;
+      if (element) {
+        element.scrollTop = 0;
+        break;
+      }
+    }
+  } else {
+    // 다른 경로로 이동
+    router.push(item.to);
+  }
+};
 </script>
 
 <template>
@@ -52,22 +95,22 @@ const navItems = [
         <template v-for="item in navItems" :key="item.to">
           <Tooltip>
             <TooltipTrigger as-child>
-              <RouterLink
-                :to="item.to"
+              <button
                 style="-webkit-app-region: no-drag"
                 :class="
                   cn(
                     'flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium text-muted-foreground hover:bg-accent hover:text-accent-foreground transition-colors',
                     isSidebarCollapsed ? 'justify-center w-14 h-14' : '',
+                    route.path === item.to ? 'bg-accent text-accent-foreground' : '',
                   )
                 "
-                active-class="bg-accent text-accent-foreground"
+                @click="handleNavClick(item)"
               >
                 <Icon :icon="item.icon" class="w-6 h-6" />
                 <span v-if="!isSidebarCollapsed" class="whitespace-nowrap">
                   {{ item.label }}
                 </span>
-              </RouterLink>
+              </button>
             </TooltipTrigger>
             <TooltipContent v-if="isSidebarCollapsed" side="right">
               <p>{{ item.label }}</p>

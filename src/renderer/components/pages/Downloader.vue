@@ -2,6 +2,7 @@
 import { ipcRenderer } from "@/api";
 import HelpDialog from "@/components/common/HelpDialog.vue"; // HelpDialog 임포트
 import SmartSearchInput from "@/components/common/SmartSearchInput.vue";
+import { useScrollRestoration } from "@/composable/useScrollRestoration";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -255,6 +256,9 @@ const router = useRouter();
 const goToSettings = () => {
   router.push({ path: "/settings", query: { tab: "downloader" } });
 };
+
+// 스크롤 위치 복원 (다운로더는 flex-1 사용)
+useScrollRestoration(".flex-1.overflow-y-auto");
 </script>
 
 <template>

@@ -23,6 +23,7 @@ import {
   ToggleGroupItem,
 } from "@/components/ui/toggle-group";
 import { useQueryAndParams } from "@/composable/useQueryAndParams";
+import { useScrollRestoration } from "@/composable/useScrollRestoration";
 import { useWindowEvent } from "@/composable/useWindowEvent";
 import { Icon } from "@iconify/vue";
 import {
@@ -340,6 +341,9 @@ useWindowEvent("keydown", (e: KeyboardEvent) => {
     searchInputRef.value?.focus();
   }
 });
+
+// 스크롤 위치 복원
+useScrollRestoration(".flex-grow.overflow-y-auto");
 </script>
 
 <template>
