@@ -89,7 +89,7 @@ const {
       page: pageParam,
     });
 
-    if (result.success) {
+    if (result.success && result.data) {
       const galleryDetailsPromises = result.data.map((id: number) =>
         ipcRenderer.invoke("get-gallery-details", id),
       );
@@ -152,7 +152,8 @@ onMounted(() => {
   // 다운로드 진행 상황 수신
   ipcRenderer.on(
     "download-progress",
-    (_event, { galleryId, status, progress, error }) => {
+    (_event, ...args) => {
+      const { galleryId, status, progress, error } = args[0] as { galleryId: number; status: string; progress?: number; error?: string };
       downloadStatuses[galleryId] = { status, progress, error };
 
       if (status === "completed") {
@@ -171,14 +172,14 @@ onMounted(() => {
   // 저장된 다운로드 경로 불러오기
   ipcRenderer.invoke("get-config-value", "downloadPath").then((path) => {
     if (path) {
-      downloadPath.value = path;
+      downloadPath.value = path as string;
     }
   });
 
   // 저장된 언어 설정 불러오기
   ipcRenderer.invoke("get-config-value", "downloaderLanguage").then((lang) => {
     if (lang) {
-      downloaderLanguage.value = lang;
+      downloaderLanguage.value = lang as string;
     }
   });
 
@@ -224,7 +225,7 @@ const handleNextPage = () => {
 
 const openFolderDialog = async () => {
   const result = await ipcRenderer.invoke("select-folder");
-  if (result.success) {
+  if (result.success && result.path) {
     downloadPath.value = result.path;
     await ipcRenderer.invoke("set-config", {
       key: "downloadPath",
@@ -248,7 +249,7 @@ const handleLanguageChange = async (lang: AcceptableValue) => {
 
 const openDownloadFolder = async () => {
   if (downloadPath.value) {
-    await ipcRenderer.invoke("open-folder-in-explorer", downloadPath.value);
+    await ipcRenderer.invoke("open-folder", downloadPath.value);
   }
 };
 

@@ -61,9 +61,3 @@ export interface BookSeries {
   book_id: number;
   series_id: number;
 }
-
-export interface Preset {
-  id: number;
-  name: string;
-  query: string;
-}

@@ -7,7 +7,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import type { Book } from "@/main/db/types";
+import type { Book } from "../../../types/ipc";
 import { computed } from "vue";
 
 const props = defineProps<{

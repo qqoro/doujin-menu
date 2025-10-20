@@ -43,9 +43,9 @@ const generateMissingInfoFiles = async () => {
     );
     // 최종 결과는 이제 progress 핸들러가 아닌 토스트로 표시
     if (result.success) {
-      toast.success(result.message);
+      toast.success("info.txt 파일 생성이 완료되었습니다.");
     } else {
-      toast.error(result.message || "알 수 없는 오류가 발생했습니다.");
+      toast.error(result.error || "알 수 없는 오류가 발생했습니다.");
     }
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
@@ -60,10 +60,10 @@ const checkForUpdates = async () => {
   if (result.success) {
     isPortableVersion.value = result.portable; // 포터블 버전 여부 저장
     if (result.portable) {
-      if (result.updateAvailable) {
+      if (result.result?.updateAvailable) {
         updateStatus.value = "update-available-portable";
-        latestVersion.value = result.latestVersion;
-        githubReleasesUrl.value = result.githubReleasesUrl;
+        latestVersion.value = result.result.version || "";
+        githubReleasesUrl.value = result.githubReleasesUrl || "";
       } else {
         updateStatus.value = "update-not-available";
       }
@@ -73,7 +73,7 @@ const checkForUpdates = async () => {
     }
   } else {
     updateStatus.value = "error";
-    updateError.value = result.error;
+    updateError.value = result.error || "";
   }
 };
 
@@ -87,7 +87,7 @@ const downloadUpdate = async () => {
   const result = await ipcRenderer.invoke("download-update");
   if (!result.success) {
     updateStatus.value = "error";
-    updateError.value = result.error;
+    updateError.value = result.error || "";
   }
 };
 
@@ -123,20 +123,22 @@ const showChangelog = () => {
 onMounted(async () => {
   appVersion.value = await api.getAppVersion();
 
-  ipcRenderer.on("update-status", (_event, data) => {
+  ipcRenderer.on("update-status", (_event, ...args) => {
+    const data = args[0] as { status: string; info?: { version: string }; progressObj?: { percent: number }; error?: string };
     updateStatus.value = data.status;
-    if (data.status === "update-available") {
+    if (data.status === "update-available" && data.info) {
       latestVersion.value = data.info.version;
-    } else if (data.status === "download-progress") {
+    } else if (data.status === "download-progress" && data.progressObj) {
       downloadProgress.value = Math.round(data.progressObj.percent);
-    } else if (data.status === "update-downloaded") {
+    } else if (data.status === "update-downloaded" && data.info) {
       latestVersion.value = data.info.version;
-    } else if (data.status === "error") {
+    } else if (data.status === "error" && data.error) {
       updateError.value = data.error;
     }
   });
 
-  ipcRenderer.on("info-generation-progress", (_event, progress) => {
+  ipcRenderer.on("info-generation-progress", (_event, ...args) => {
+    const progress = args[0] as { current: number; total: number; message: string };
     generationProgress.value = progress;
     if (progress.current >= progress.total) {
       isGeneratingInfoFiles.value = false;

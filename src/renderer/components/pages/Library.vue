@@ -47,44 +47,7 @@ import SmartSearchInput from "../common/SmartSearchInput.vue";
 import BookCard from "../feature/BookCard.vue";
 import BookRowCard from "../feature/BookRowCard.vue";
 import BookDetailDialog from "../feature/BookDetailDialog.vue";
-
-interface Tag {
-  name: string;
-}
-
-interface Artist {
-  name: string;
-}
-
-interface Group {
-  name: string;
-}
-
-interface Character {
-  name: string;
-}
-
-interface Book {
-  id: number;
-  title: string;
-  volume: number | null;
-  path: string;
-  cover_path: string | null;
-  page_count: number;
-  added_at: string;
-  last_read_at: string | null;
-  current_page: number | null;
-  is_favorite: boolean;
-  hitomi_id?: string | null;
-  series_name?: string;
-  artists?: Artist[];
-  tags?: Tag[];
-  groups?: Group[];
-  characters?: Character[];
-  type?: string | null;
-  language_name_english?: string | null;
-  language_name_local?: string | null;
-}
+import type { Book } from "../../../types/ipc";
 
 const queryClient = useQueryClient();
 
@@ -98,10 +61,10 @@ const selectedBook = ref<Book | null>(null);
 
 // Filter and Sort State
 const libraryPath = ref((route.query.libraryPath as string) || "all");
-const readStatus = ref((route.query.readStatus as string) || "all");
+const readStatus = ref<"all" | "read" | "unread">((route.query.readStatus as "all" | "read" | "unread") || "all");
 const isFavorite = ref((route.query.isFavorite as string) || "all");
 const sortBy = ref((route.query.sortBy as string) || "added_at");
-const sortOrder = ref((route.query.sortOrder as string) || "desc");
+const sortOrder = ref<"asc" | "desc">((route.query.sortOrder as "asc" | "desc") || "desc");
 const viewMode = ref<"grid" | "list">("grid");
 const { schWord: searchQuery } = useQueryAndParams({
   queries: {
@@ -135,16 +98,16 @@ watch(
     }
 
     if (loaded && config.value && config.value.libraryViewSettings) {
-      const {
-        sortBy: savedSortBy,
-        sortOrder: savedSortOrder,
-        readStatus: savedReadStatus,
-        viewMode: savedViewMode,
-      } = config.value.libraryViewSettings;
-      sortBy.value = savedSortBy;
-      sortOrder.value = savedSortOrder;
-      readStatus.value = savedReadStatus;
-      viewMode.value = savedViewMode || "grid";
+      const settings = config.value.libraryViewSettings as {
+        sortBy: string;
+        sortOrder: "asc" | "desc";
+        readStatus: "all" | "read" | "unread";
+        viewMode: "grid" | "list";
+      };
+      sortBy.value = settings.sortBy;
+      sortOrder.value = settings.sortOrder;
+      readStatus.value = settings.readStatus;
+      viewMode.value = settings.viewMode || "grid";
     }
   },
   { immediate: true },

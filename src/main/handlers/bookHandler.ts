@@ -2,18 +2,10 @@ import { ipcMain, shell } from "electron";
 import fs from "fs/promises";
 import path from "path";
 import * as yauzl from "yauzl";
+import type { FilterParams } from "../../types/ipc.js";
 import db from "../db/index.js";
 import { naturalSort } from "../utils/index.js";
 import { store as configStore } from "./configHandler.js";
-
-interface FilterParams {
-  searchQuery?: string;
-  libraryPath?: string;
-  readStatus?: "all" | "read" | "unread";
-  sortBy?: string;
-  sortOrder?: "asc" | "desc";
-  isFavorite?: boolean;
-}
 
 const createKoreanRegexp = () => /^.+\|\s?(.+)$/;
 

@@ -1,22 +1,11 @@
-import type { ipcRenderer as invoke } from "electron";
+import type { TypedIpcRenderer, Preset, FilterParams, LicenseInfo, UpdateCheckResult } from "../types/ipc";
 
+// 타입이 지정된 IPC Renderer
 export const ipcRenderer = window.require("electron")
-  .ipcRenderer as typeof invoke;
+  .ipcRenderer as TypedIpcRenderer;
 
-export interface Preset {
-  id: number;
-  name: string;
-  query: string;
-}
-
-export interface FilterParams {
-  searchQuery?: string;
-  libraryPath?: string;
-  readStatus?: "all" | "read" | "unread";
-  sortBy?: string;
-  sortOrder?: "asc" | "desc";
-  isFavorite?: boolean;
-}
+// 재사용을 위해 export
+export type { Preset, FilterParams, LicenseInfo, UpdateCheckResult };
 
 export async function getBook(bookId: number) {
   return ipcRenderer.invoke("get-book", bookId);
@@ -35,21 +24,25 @@ export async function getRandomBook(filter: FilterParams) {
   if (result.success) {
     return { id: result.bookId, title: result.bookTitle };
   } else {
-    throw new Error(result.error || "Failed to get random book");
+    throw new Error(
+      (typeof result.error === "string" ? result.error : String(result.error)) ||
+        "Failed to get random book",
+    );
   }
 }
 
 // Book Card Context Menu API
 export async function toggleBookFavorite(bookId: number, isFavorite: boolean) {
-  const result = await ipcRenderer.invoke(
-    "toggle-book-favorite",
+  const result = await ipcRenderer.invoke("toggle-book-favorite", [
     bookId,
     isFavorite,
-  );
+  ]);
   if (result.success) {
     return result.is_favorite;
   } else {
-    throw new Error(result.error || "Failed to toggle book favorite status");
+    throw new Error(
+      (result.error as string) || "Failed to toggle book favorite status",
+    );
   }
 }
 
@@ -113,7 +106,7 @@ export async function addBookHistory(bookId: number) {
 // Preset API
 export async function getPresets(): Promise<Preset[]> {
   const result = await ipcRenderer.invoke("get-presets");
-  if (result.success) {
+  if (result.success && result.data) {
     return result.data;
   } else {
     throw new Error(result.error || "Failed to get presets");
@@ -122,7 +115,7 @@ export async function getPresets(): Promise<Preset[]> {
 
 export async function addPreset(preset: Omit<Preset, "id">): Promise<Preset> {
   const result = await ipcRenderer.invoke("add-preset", preset);
-  if (result.success) {
+  if (result.success && result.data) {
     return result.data;
   } else {
     throw new Error(result.error || "Failed to add preset");
@@ -131,7 +124,7 @@ export async function addPreset(preset: Omit<Preset, "id">): Promise<Preset> {
 
 export async function updatePreset(preset: Preset): Promise<Preset> {
   const result = await ipcRenderer.invoke("update-preset", preset);
-  if (result.success) {
+  if (result.success && result.data) {
     return result.data;
   } else {
     throw new Error(result.error || "Failed to update preset");
@@ -140,20 +133,11 @@ export async function updatePreset(preset: Preset): Promise<Preset> {
 
 export async function deletePreset(id: number): Promise<{ id: number }> {
   const result = await ipcRenderer.invoke("delete-preset", id);
-  if (result.success) {
+  if (result.success && result.data) {
     return result.data;
   } else {
     throw new Error(result.error || "Failed to delete preset");
   }
-}
-
-export interface LicenseInfo {
-  name: string;
-  version: string;
-  licenses: string;
-  repository?: string;
-  publisher?: string;
-  licenseText?: string;
 }
 
 // Etc API
@@ -186,20 +170,6 @@ export function setWindowTitle(title: string) {
 }
 
 // Update API
-export interface UpdateCheckResult {
-  success: boolean;
-  portable: boolean;
-  githubReleasesUrl?: string;
-  result?: {
-    updateAvailable: boolean;
-    version: string;
-    releaseName: string;
-    releaseDate: string;
-    // 기타 electron-updater 결과 필드
-  };
-  error?: string;
-}
-
 export async function checkUpdates(): Promise<UpdateCheckResult> {
   return ipcRenderer.invoke("check-for-updates");
 }

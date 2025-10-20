@@ -76,10 +76,10 @@ const loadImage = async () => {
     const result = await ipcRenderer.invoke("download-temp-thumbnail", {
       url: props.url,
       referer: props.referer,
-      galleryId: props.id,
+      galleryId: typeof props.id === "number" ? props.id : parseInt(props.id, 10),
     });
 
-    if (result.success) {
+    if (result.success && result.data) {
       localSrc.value = result.data;
       hasError.value = false;
       retryCount.value = 0; // 성공 시 재시도 카운트 초기화

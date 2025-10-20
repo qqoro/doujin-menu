@@ -27,8 +27,9 @@ onMounted(async () => {
     uiStore.setLocked(true);
   }
 
-  ipcRenderer.on("update-status", (_event, { status, info, error }) => {
-    if (status === "update-available") {
+  ipcRenderer.on("update-status", (_event, ...args) => {
+    const { status, info, error } = args[0] as { status: string; info?: { version: string }; error?: string };
+    if (status === "update-available" && info) {
       toast.info(`새로운 업데이트가 있습니다: ${info.version}`, {
         action: {
           label: "다운로드",
@@ -38,7 +39,7 @@ onMounted(async () => {
           },
         },
       });
-    } else if (status === "update-downloaded") {
+    } else if (status === "update-downloaded" && info) {
       toast.success(`업데이트 다운로드가 완료되었습니다: ${info.version}`, {
         action: {
           label: "설치 및 재시작",
@@ -47,7 +48,7 @@ onMounted(async () => {
           },
         },
       });
-    } else if (status === "error") {
+    } else if (status === "error" && error) {
       toast.error(`업데이트 오류: ${error}`);
     }
   });

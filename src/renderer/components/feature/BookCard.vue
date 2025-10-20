@@ -31,29 +31,7 @@ import { useRouter } from "vue-router";
 import { toast } from "vue-sonner";
 import ContextMenuSeparator from "../ui/context-menu/ContextMenuSeparator.vue";
 import { useTagDisplay } from "@/composable/useTagDisplay";
-
-interface Tag {
-  name: string;
-}
-
-interface Artist {
-  name: string;
-}
-
-interface Group {
-  name: string;
-}
-
-interface Book {
-  id: number;
-  title: string;
-  cover_path: string | null;
-  tags: Tag[];
-  artists: Artist[];
-  groups: Group[];
-  is_favorite: boolean;
-  path: string;
-}
+import type { Book } from "../../../types/ipc";
 
 const props = defineProps<{ book: Book; queryKey: readonly unknown[] }>();
 const emit = defineEmits([

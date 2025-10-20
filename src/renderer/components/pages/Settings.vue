@@ -160,10 +160,14 @@ const viewerExcludeCompleted = ref(false);
 // 라이브러리 폴더 정보 불러오기
 const loadLibraryFolders = async () => {
   const config = await ipcRenderer.invoke("get-config");
-  const folders = config.libraryFolders || [];
+  const folders = (config.libraryFolders || []) as string[];
   const folderPromises = folders.map(async (folder: string) => {
     const stats = await ipcRenderer.invoke("get-library-folder-stats", folder);
-    return { path: folder, ...stats.data };
+    return {
+      path: folder,
+      bookCount: stats.data?.bookCount || 0,
+      lastScanned: stats.data?.lastScanned || null
+    };
   });
   libraryFolders.value = await Promise.all(folderPromises);
 };
@@ -175,17 +179,17 @@ onMounted(async () => {
   }
 
   const config = await ipcRenderer.invoke("get-config");
-  theme.value = config.theme || "auto";
+  theme.value = (config.theme as "light" | "dark" | "auto") || "auto";
   autoLoadLibrary.value = config.autoLoadLibrary !== false;
   createInfoTxtFile.value = config.createInfoTxtFile !== false;
-  downloadPattern.value = config.downloadPattern || "%artist% - %title%";
+  downloadPattern.value = (config.downloadPattern as string) || "%artist% - %title%";
   compressDownload.value = config.compressDownload === true;
-  compressFormat.value = config.compressFormat || "cbz";
+  compressFormat.value = (config.compressFormat as "cbz" | "zip") || "cbz";
   prioritizeKoreanTitles.value = config.prioritizeKoreanTitles === true;
   useAppLock.value = config.useAppLock === true;
 
   // 뷰어 설정 불러오기
-  viewerReadingDirection.value = config.viewerReadingDirection || "ltr";
+  viewerReadingDirection.value = (config.viewerReadingDirection as "ltr" | "rtl" | "webtoon") || "ltr";
   viewerDoublePageView.value = config.viewerDoublePageView === true;
   viewerShowCoverAlone.value = config.viewerShowCoverAlone !== false;
   viewerAutoFitZoom.value = config.viewerAutoFitZoom !== false;
@@ -198,13 +202,22 @@ onMounted(async () => {
 // 임시 파일 크기 가져오기
 const getTempFilesSize = async () => {
   const result = await ipcRenderer.invoke("get-temp-files-size");
-  if (result.success) {
-    tempFilesSize.value = result.data;
+  if (result.success && result.size !== undefined) {
+    tempFilesSize.value = formatBytes(result.size);
   } else {
     toast.error("임시 파일 크기 조회에 실패했습니다.", {
       description: result.error,
     });
   }
+};
+
+// 바이트를 읽기 쉬운 형식으로 변환
+const formatBytes = (bytes: number): string => {
+  if (bytes === 0) return "0 Bytes";
+  const k = 1024;
+  const sizes = ["Bytes", "KB", "MB", "GB"];
+  const i = Math.floor(Math.log(bytes) / Math.log(k));
+  return Math.round(bytes / Math.pow(k, i) * 100) / 100 + " " + sizes[i];
 };
 
 // 임시 파일 삭제
@@ -224,10 +237,10 @@ const clearTempFiles = async () => {
 // 설정 저장 함수
 const saveConfig = async (key: string, value: unknown) => {
   const result = await ipcRenderer.invoke("set-config", { key, value });
-  if (result.success) {
-    toast.success("설정이 저장되었습니다.");
-  } else {
-    toast.error("설정 저장에 실패했습니다.", { description: result.error });
+  if (!result.success && result.error) {
+    toast.error("설정 저장에 실패했습니다.", {
+      description: result.error,
+    });
   }
 };
 

@@ -105,8 +105,6 @@ const imageStyle = computed(() => {
   };
 });
 
-const isZoomed = computed(() => zoomLevel.value !== 100);
-
 const viewerArea = ref<HTMLElement | null>(null);
 const screenRef = ref<HTMLElement | null>(null);
 const webtoonRef = ref<HTMLElement | null>(null);

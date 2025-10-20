@@ -108,7 +108,7 @@ onMounted(async () => {
       props.gallery.id,
     );
     if (result.success && result.exists) {
-      bookId.value = result.bookId;
+      bookId.value = result.bookId ?? null;
     }
   }
 });

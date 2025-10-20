@@ -16,7 +16,8 @@ const app = createApp(App);
 
 (async () => {
   const config = await ipcRenderer.invoke("get-config");
-  const initialTheme = config.theme || "auto";
+  const initialTheme =
+    (config.theme as string | undefined) || ("auto" as const);
   useColorMode({ initialValue: initialTheme });
 
   app.use(router).use(pinia).use(VueQueryPlugin).mount("#app");

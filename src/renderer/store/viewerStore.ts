@@ -431,28 +431,33 @@ export const useViewerStore = defineStore("viewer", () => {
   async function loadViewerSettings() {
     const config = await ipcRenderer.invoke("get-config");
     if (config.viewerAutoPlayInterval !== undefined) {
-      autoPlayInterval.value = config.viewerAutoPlayInterval;
+      autoPlayInterval.value = config.viewerAutoPlayInterval as number;
     }
     if (config.viewerAutoNextBook !== undefined) {
-      isAutoNextBook.value = config.viewerAutoNextBook;
+      isAutoNextBook.value = config.viewerAutoNextBook as boolean;
     }
     if (config.viewerAutoNextBookMode !== undefined) {
-      autoNextBookMode.value = config.viewerAutoNextBookMode;
+      autoNextBookMode.value = config.viewerAutoNextBookMode as
+        | "next"
+        | "random";
     }
     if (config.viewerRestoreLastSession !== undefined) {
-      viewerRestoreLastSession.value = config.viewerRestoreLastSession;
+      viewerRestoreLastSession.value = config.viewerRestoreLastSession as boolean;
     }
     if (config.viewerAutoFitZoom !== undefined) {
-      viewerAutoFitZoom.value = config.viewerAutoFitZoom;
+      viewerAutoFitZoom.value = config.viewerAutoFitZoom as boolean;
     }
     if (config.viewerDoublePageView !== undefined) {
-      viewerDoublePageView.value = config.viewerDoublePageView;
+      viewerDoublePageView.value = config.viewerDoublePageView as boolean;
     }
     if (config.viewerShowCoverAlone !== undefined) {
-      viewerShowCoverAlone.value = config.viewerShowCoverAlone;
+      viewerShowCoverAlone.value = config.viewerShowCoverAlone as boolean;
     }
     if (config.viewerReadingMode !== undefined) {
-      readingMode.value = config.viewerReadingMode;
+      readingMode.value = config.viewerReadingMode as
+        | "ltr"
+        | "rtl"
+        | "webtoon";
     }
   }
 
@@ -482,10 +487,10 @@ export const useViewerStore = defineStore("viewer", () => {
         "get-book-page-paths",
         _bookId,
       );
-      if (pathResult.success) {
+      if (pathResult.success && pathResult.data) {
         pagePaths.value = pathResult.data;
         totalPages.value = pagePaths.value.length;
-        bookTitle.value = pathResult.title;
+        bookTitle.value = pathResult.title || null;
         is_favorite.value = !!pathResult.is_favorite; // 즐겨찾기 상태 업데이트
       } else {
         throw new Error(pathResult.error);
@@ -496,7 +501,11 @@ export const useViewerStore = defineStore("viewer", () => {
           "get-book-current-page",
           _bookId,
         );
-        if (pageResult.success && pageResult.currentPage > 1) {
+        if (
+          pageResult.success &&
+          pageResult.currentPage &&
+          pageResult.currentPage > 1
+        ) {
           goToPage(pageResult.currentPage);
         } else {
           currentPage.value = 1;
@@ -522,11 +531,10 @@ export const useViewerStore = defineStore("viewer", () => {
     if (bookId.value === null) return;
 
     const newFavoriteStatus = !is_favorite.value; // 토글될 새로운 상태
-    const result = await ipcRenderer.invoke(
-      "toggle-book-favorite",
+    const result = await ipcRenderer.invoke("toggle-book-favorite", [
       bookId.value,
       newFavoriteStatus,
-    );
+    ]);
     if (result.success) {
       is_favorite.value = !!result.is_favorite; // 메인 프로세스에서 반환된 실제 상태로 UI 업데이트
       showToastMessage(
@@ -534,7 +542,7 @@ export const useViewerStore = defineStore("viewer", () => {
       );
     } else {
       showToastMessage(
-        `즐겨찾기 상태 변경에 실패했습니다: ${result.error}`,
+        `즐겨찾기 상태 변경에 실패했습니다: ${String(result.error)}`,
         5000,
       );
     }

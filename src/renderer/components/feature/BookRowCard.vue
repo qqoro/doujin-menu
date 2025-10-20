@@ -18,40 +18,7 @@ import { computed, ref, toRaw } from "vue";
 import { useRouter } from "vue-router";
 import { toast } from "vue-sonner";
 import { useTagDisplay } from "@/composable/useTagDisplay";
-
-interface Tag {
-  name: string;
-}
-
-interface Artist {
-  name: string;
-}
-
-interface Group {
-  name: string;
-}
-
-interface Series {
-  name: string;
-}
-
-interface Character {
-  name: string;
-}
-
-interface Book {
-  id: number;
-  title: string;
-  cover_path: string | null;
-  tags: Tag[];
-  artists: Artist[];
-  groups: Group[];
-  series: Series[];
-  characters: Character[];
-  is_favorite: boolean;
-  path: string;
-  page_count: number;
-}
+import type { Book } from "../../../types/ipc";
 
 const props = defineProps<{ book: Book; queryKey: readonly unknown[] }>();
 const emit = defineEmits([

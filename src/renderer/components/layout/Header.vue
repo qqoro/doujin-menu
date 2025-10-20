@@ -15,8 +15,8 @@ onMounted(async () => {
   isMaximized.value = await ipcRenderer.invoke("get-window-maximized-state");
 
   // 창 상태 변경 이벤트 리스너 등록
-  ipcRenderer.on("window-maximized", (_event, maximized: boolean) => {
-    isMaximized.value = maximized;
+  ipcRenderer.on("window-maximized", (_event, ...args) => {
+    isMaximized.value = args[0] as boolean;
   });
 });
 
