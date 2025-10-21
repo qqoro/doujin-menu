@@ -5,7 +5,7 @@ import hitomi from "node-hitomi";
 import path from "path";
 import { store as configStore } from "./configHandler.js";
 
-async function getDirSize(dirPath: string): Promise<number> {
+export async function getDirSize(dirPath: string): Promise<number> {
   try {
     const stats = await fs.lstat(dirPath).catch(() => null);
     if (!stats) {
@@ -30,7 +30,7 @@ async function getDirSize(dirPath: string): Promise<number> {
   }
 }
 
-function formatBytes(bytes: number, decimals = 2) {
+export function formatBytes(bytes: number, decimals = 2) {
   if (bytes === 0) {
     return "0 Bytes";
   }
@@ -38,7 +38,7 @@ function formatBytes(bytes: number, decimals = 2) {
   const dm = decimals < 0 ? 0 : decimals;
   const sizes = ["Bytes", "KB", "MB", "GB", "TB"];
   const i = Math.floor(Math.log(bytes) / Math.log(k));
-  return `${parseFloat((bytes / Math.pow(k, i)).toFixed(dm))} ${sizes[i]}`;
+  return `${(bytes / Math.pow(k, i)).toFixed(dm)} ${sizes[i]}`;
 }
 
 async function handleGenerateMissingInfoFiles(

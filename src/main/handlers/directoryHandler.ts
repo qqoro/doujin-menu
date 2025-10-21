@@ -19,7 +19,7 @@ import {
 // Windows MAX_PATH 제한
 const MAX_PATH_LENGTH = 260;
 
-function cleanValue(value: string | null | undefined): string | null {
+export function cleanValue(value: string | null | undefined): string | null {
   if (value === "N/A" || value === undefined || value === null) {
     return null;
   }
