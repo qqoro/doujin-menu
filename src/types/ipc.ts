@@ -102,6 +102,7 @@ export interface Statistics {
     favorites: number;
   };
   totalPages: number;
+  readPages: number;
   averagePages: number;
   topTags: { name: string; count: number }[];
   topArtists: { name: string; count: number }[];

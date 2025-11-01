@@ -115,19 +115,28 @@ export const handleGetStatistics = async () => {
     };
 
     // 읽기 진행 상황
+    // 다 읽은 책: current_page >= page_count
     const readBooks = await db("Book")
       .where("current_page", ">", 0)
       .whereRaw("current_page >= page_count")
       .count("* as count")
       .first();
+
+    // 읽는 중인 책: 1 < current_page < page_count (1페이지만 본 책 제외)
     const readingBooks = await db("Book")
-      .where("current_page", ">", 0)
+      .where("current_page", ">", 1)
       .whereRaw("current_page < page_count")
       .count("* as count")
       .first();
+
+    // 안읽은 책: current_page = 0 또는 null 또는 1 (1페이지만 본 책 포함)
     const unreadBooks = await db("Book")
-      .where("current_page", 0)
-      .orWhereNull("current_page")
+      .where((builder) => {
+        builder
+          .where("current_page", 0)
+          .orWhere("current_page", 1)
+          .orWhereNull("current_page");
+      })
       .count("* as count")
       .first();
     const favoriteBooks = await db("Book")
@@ -155,6 +164,31 @@ export const handleGetStatistics = async () => {
     const averagePages = pageStats?.averagePages
       ? Math.floor(pageStats.averagePages as number)
       : 0;
+
+    // 읽은 페이지 수 계산
+    // 1. 다 읽은 책들의 페이지 수 합계
+    const completedPagesStats = await db("Book")
+      .sum("page_count as completedPages")
+      .where("current_page", ">", 0)
+      .whereRaw("current_page >= page_count")
+      .whereNotNull("page_count")
+      .first();
+
+    // 2. 읽는 중인 책들의 현재 페이지 합계 (1페이지 초과한 책만)
+    const readingPagesStats = await db("Book")
+      .sum("current_page as readingPages")
+      .where("current_page", ">", 1)
+      .whereRaw("current_page < page_count")
+      .first();
+
+    const completedPages = completedPagesStats?.completedPages
+      ? Math.floor(completedPagesStats.completedPages as number)
+      : 0;
+    const readingPages = readingPagesStats?.readingPages
+      ? Math.floor(readingPagesStats.readingPages as number)
+      : 0;
+
+    const readPages = completedPages + readingPages;
 
     // 가장 많이 등장하는 그룹 (상위 10개)
     const topGroups = await db("Group as G")
@@ -204,6 +238,7 @@ export const handleGetStatistics = async () => {
       duplicateBooks,
       readingProgress,
       totalPages,
+      readPages,
       averagePages,
       topGroups,
       topCharacters,

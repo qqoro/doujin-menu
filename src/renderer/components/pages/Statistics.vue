@@ -384,8 +384,18 @@ const goToViewer = (bookId: number) => {
               </div>
               <div class="h-px bg-border my-2"></div>
               <div>
+                <p class="text-sm text-gray-500 mb-1">읽은 페이지 수</p>
+                <p class="text-2xl font-semibold text-green-600 dark:text-green-500">
+                  {{ formatNumberWithCommas(statistics.readPages) }}
+                  <span class="text-sm text-gray-500">
+                    ({{ ((statistics.readPages / statistics.totalPages) * 100).toFixed(1) }}%)
+                  </span>
+                </p>
+              </div>
+              <div class="h-px bg-border my-2"></div>
+              <div>
                 <p class="text-sm text-gray-500 mb-1">평균 페이지 수</p>
-                <p class="text-2xl font-semibold">
+                <p class="text-xl font-semibold">
                   {{ formatNumberWithCommas(statistics.averagePages) }}
                 </p>
               </div>
