@@ -106,7 +106,7 @@ watch(
           "get-gallery-image-urls", // 변경된 IPC 이벤트 이름
           props.gallery.id,
         );
-        if (result.success) {
+        if (result.success && result.data) {
           previewImageUrls.value = result.data;
           nextTick(() => {
             initIntersectionObserver();
@@ -116,7 +116,8 @@ watch(
             result.error || "미리보기 URL을 가져오지 못했습니다.";
         }
       } catch (error) {
-        imageLoadError.value = `미리보기 로드 중 오류 발생: ${error.message}`;
+        const message = error instanceof Error ? error.message : String(error);
+        imageLoadError.value = `미리보기 로드 중 오류 발생: ${message}`;
       } finally {
         isLoadingImages.value = false;
       }

@@ -157,7 +157,7 @@ const syncQueueToStatuses = () => {
   // 큐에 있는 항목들을 downloadStatuses에 업데이트
   downloadQueueStore.queue.forEach((queueItem) => {
     // 큐의 상태를 downloadStatuses에 매핑
-    let mappedStatus = queueItem.status;
+    let mappedStatus: string = queueItem.status;
 
     // downloading -> progress로 매핑
     if (queueItem.status === "downloading") {

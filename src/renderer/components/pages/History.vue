@@ -42,7 +42,7 @@ const { data, fetchNextPage, hasNextPage, isFetchingNextPage, status } =
   });
 
 const allItems = computed<HistoryItem[]>(
-  () => data.value?.pages.flatMap((page) => page.data) ?? [],
+  () => data.value?.pages.flatMap((page) => page.data).filter((item): item is HistoryItem => item !== undefined) ?? [],
 );
 
 const scrollContainerRef = ref<HTMLElement | null>(null);
