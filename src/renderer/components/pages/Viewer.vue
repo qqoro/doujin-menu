@@ -877,7 +877,7 @@ useWindowEvent("mousedown", handleMouseDown);
       </div>
     </Transition>
 
-    <BookDetailDialog v-model="isDetailOpen" :book="book" />
+    <BookDetailDialog v-if="book" v-model="isDetailOpen" :book="book" />
   </div>
 </template>
 

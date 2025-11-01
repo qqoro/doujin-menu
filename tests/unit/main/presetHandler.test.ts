@@ -46,18 +46,12 @@ describe("presetHandler", () => {
         {
           id: 1,
           name: "프리셋 A",
-          searchQuery: "artist:작가1",
-          libraryPath: "all",
-          readStatus: "all",
-          isFavorite: false,
+          query: "artist:작가1",
         },
         {
           id: 2,
           name: "프리셋 B",
-          searchQuery: "tag:태그1",
-          libraryPath: "all",
-          readStatus: "unread",
-          isFavorite: true,
+          query: "tag:태그1",
         },
       ];
 
@@ -91,10 +85,7 @@ describe("presetHandler", () => {
     it("새 프리셋을 추가하고 반환해야 함", async () => {
       const newPreset: Omit<Preset, "id"> = {
         name: "새 프리셋",
-        searchQuery: "type:만화",
-        libraryPath: "all",
-        readStatus: "all",
-        isFavorite: false,
+        query: "type:만화",
       };
 
       const addedPreset: Preset = { id: 3, ...newPreset };
@@ -115,10 +106,7 @@ describe("presetHandler", () => {
     it("DB 오류 시 에러를 반환해야 함", async () => {
       const newPreset: Omit<Preset, "id"> = {
         name: "새 프리셋",
-        searchQuery: "type:만화",
-        libraryPath: "all",
-        readStatus: "all",
-        isFavorite: false,
+        query: "type:만화",
       };
 
       const errorMessage = "Constraint violation";
@@ -137,10 +125,7 @@ describe("presetHandler", () => {
       const updatedPreset: Preset = {
         id: 1,
         name: "수정된 프리셋",
-        searchQuery: "artist:수정된작가",
-        libraryPath: "all",
-        readStatus: "read",
-        isFavorite: true,
+        query: "artist:수정된작가",
       };
 
       // 체이닝된 메서드 모킹
@@ -160,10 +145,7 @@ describe("presetHandler", () => {
       const updatedPreset: Preset = {
         id: 1,
         name: "수정된 프리셋",
-        searchQuery: "artist:수정된작가",
-        libraryPath: "all",
-        readStatus: "read",
-        isFavorite: true,
+        query: "artist:수정된작가",
       };
 
       const errorMessage = "Preset not found";

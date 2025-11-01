@@ -411,7 +411,7 @@ const goToViewer = (bookId: number) => {
               오류
             </div>
             <div v-else>
-              {{ formatBytes(librarySize) }}
+              {{ formatBytes(librarySize ?? 0) }}
             </div>
           </CardContent>
         </Card>

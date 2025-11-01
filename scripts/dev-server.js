@@ -45,7 +45,7 @@ async function startElectron() {
   }
 
   const args = [
-    join(import.meta.dirname, "..", "build", "main", "main.js"),
+    join(import.meta.dirname, "..", "build", "main", "main", "main.js"),
     rendererPort,
   ];
   electronProcess = spawn(Electron, args);
