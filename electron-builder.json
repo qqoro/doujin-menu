@@ -6,7 +6,7 @@
     "buildResources": "src/main/static"
   },
   "win": {
-    "target": ["nsis", "portable"]
+    "target": ["nsis"]
   },
   "nsis": {
     "oneClick": false,
