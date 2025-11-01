@@ -8,6 +8,7 @@ import path from "path";
 import { pathToFileURL } from "url";
 import { store as configStore } from "./configHandler.js";
 import { scanFile } from "./directoryHandler.js";
+import { formatDownloadFolderName } from "../utils/index.js";
 
 export const handleSearchGalleries = async ({
   query,
@@ -120,34 +121,19 @@ export const handleGetGalleryImageUrls = async (galleryId: number) => {
   }
 };
 
-function formatDownloadFolderName(gallery: Gallery, pattern: string): string {
-  const artist = gallery.artists?.[0] || "N/A";
-  const groups = gallery.groups?.join(", ") || "N/A";
-  const title = gallery.title.display || `ID_${gallery.id}`;
-  const id = gallery.id;
-  const language = gallery.languageName?.english || "N/A";
-
-  let folderName = pattern
-    .replace(/%artist%/g, artist)
-    .replace(/%groups%/g, groups)
-    .replace(/%title%/g, title)
-    .replace(/%id%/g, String(id))
-    .replace(/%language%/g, language);
-
-  // Windows에서 사용할 수 없는 문자 제거
-  folderName = folderName
-    .replace(/\|/g, "｜")
-    .replace(/\//g, "／")
-    .replace(/[<>:"\\?*]/g, "")
-    .replace(/\s+/g, " ") // 여러 공백을 하나로
-    .trim();
-
-  return folderName;
-}
-
 export const handleDownloadGallery = async (
   event: Electron.IpcMainInvokeEvent,
-  { galleryId, downloadPath }: { galleryId: number; downloadPath: string },
+  {
+    galleryId,
+    downloadPath,
+    queueId,
+    shouldCancel
+  }: {
+    galleryId: number;
+    downloadPath: string;
+    queueId?: number;
+    shouldCancel?: () => boolean; // 취소 확인 함수
+  },
 ) => {
   const webContents = event.sender;
   try {
@@ -178,7 +164,22 @@ export const handleDownloadGallery = async (
     await fs.mkdir(galleryDownloadPath, { recursive: true });
 
     const totalFiles = gallery.files.length;
+
+    // 큐 ID가 있으면 total_files 업데이트
+    if (queueId) {
+      const db = (await import("../db/index.js")).default;
+      await db("DownloadQueue").where("id", queueId).update({
+        total_files: totalFiles,
+      });
+    }
+
     for (let i = 0; i < totalFiles; i++) {
+      // 취소 확인
+      if (shouldCancel && shouldCancel()) {
+        console.log(`[Downloader] 다운로드 일시정지됨: ${galleryId}`);
+        return { success: false, error: "다운로드가 일시정지되었습니다.", paused: true };
+      }
+
       const file = gallery.files[i];
       const fileExt = file.hasWebp ? "webp" : "avif";
       const imageUrl = hitomi.ImageUriResolver.getImageUri(file, fileExt);
@@ -186,10 +187,49 @@ export const handleDownloadGallery = async (
       const fileName = `${String(file.index + 1).padStart(6, "0")}.${fileExt}`;
       const filePath = path.join(galleryDownloadPath, fileName);
 
+      // 파일이 이미 존재하면 건너뛰기 (이어받기)
+      try {
+        await fs.access(filePath);
+        console.log(`[Downloader] 파일이 이미 존재하여 건너뜀: ${fileName}`);
+
+        // 진행률 업데이트
+        const progress = Math.round(((i + 1) / totalFiles) * 100);
+        webContents.send("download-progress", {
+          galleryId,
+          status: "progress",
+          progress,
+        });
+
+        // 큐 ID가 있으면 DB 업데이트
+        if (queueId) {
+          const db = (await import("../db/index.js")).default;
+          await db("DownloadQueue").where("id", queueId).update({
+            progress,
+            downloaded_files: i + 1,
+          });
+
+          // 모든 윈도우에 큐 업데이트 알림
+          const { BrowserWindow } = await import("electron");
+          const windows = BrowserWindow.getAllWindows();
+          windows.forEach(window => {
+            window.webContents.send("download-queue-updated");
+          });
+        }
+
+        continue; // 다음 파일로
+      } catch {
+        // 파일이 없으면 다운로드 진행
+      }
+
       let success = false;
       let attempt = 0;
 
       while (!success) {
+        // 재시도 루프 내에서도 취소 확인
+        if (shouldCancel && shouldCancel()) {
+          console.log(`[Downloader] 다운로드 일시정지됨: ${galleryId}`);
+          return { success: false, error: "다운로드가 일시정지되었습니다.", paused: true };
+        }
         attempt++;
         try {
           const res = await fetch(fullImageUrl, {
@@ -241,6 +281,22 @@ export const handleDownloadGallery = async (
         status: "progress",
         progress,
       });
+
+      // 큐 ID가 있으면 DB 업데이트
+      if (queueId) {
+        const db = (await import("../db/index.js")).default;
+        await db("DownloadQueue").where("id", queueId).update({
+          progress,
+          downloaded_files: i + 1,
+        });
+
+        // 모든 윈도우에 큐 업데이트 알림
+        const { BrowserWindow } = await import("electron");
+        const windows = BrowserWindow.getAllWindows();
+        windows.forEach(window => {
+          window.webContents.send("download-queue-updated");
+        });
+      }
     }
 
     // info.txt 파일 생성 (설정에 따라)

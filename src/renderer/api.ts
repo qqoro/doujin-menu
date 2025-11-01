@@ -177,3 +177,73 @@ export async function checkUpdates(): Promise<UpdateCheckResult> {
 export async function openGithubReleases(url: string): Promise<void> {
   return ipcRenderer.invoke("open-github-releases", url);
 }
+
+// Download Queue API
+export async function getDownloadQueue() {
+  const result = await ipcRenderer.invoke("get-download-queue");
+  if (result.success && result.data) {
+    return result.data;
+  } else {
+    throw new Error(result.error || "Failed to get download queue");
+  }
+}
+
+export async function addToDownloadQueue(params: {
+  galleryId: number;
+  galleryTitle: string;
+  galleryArtist?: string;
+  thumbnailUrl?: string;
+  downloadPath: string;
+}) {
+  const result = await ipcRenderer.invoke("add-to-download-queue", params);
+  if (result.success && result.data) {
+    return result.data;
+  } else {
+    throw new Error(result.error || "Failed to add to download queue");
+  }
+}
+
+export async function removeFromDownloadQueue(queueId: number) {
+  const result = await ipcRenderer.invoke("remove-from-download-queue", queueId);
+  if (result.success) {
+    return true;
+  } else {
+    throw new Error(result.error || "Failed to remove from download queue");
+  }
+}
+
+export async function pauseDownload(queueId: number) {
+  const result = await ipcRenderer.invoke("pause-download", queueId);
+  if (result.success) {
+    return true;
+  } else {
+    throw new Error(result.error || "Failed to pause download");
+  }
+}
+
+export async function resumeDownload(queueId: number) {
+  const result = await ipcRenderer.invoke("resume-download", queueId);
+  if (result.success) {
+    return true;
+  } else {
+    throw new Error(result.error || "Failed to resume download");
+  }
+}
+
+export async function retryDownload(queueId: number) {
+  const result = await ipcRenderer.invoke("retry-download", queueId);
+  if (result.success) {
+    return true;
+  } else {
+    throw new Error(result.error || "Failed to retry download");
+  }
+}
+
+export async function clearCompletedDownloads() {
+  const result = await ipcRenderer.invoke("clear-completed-downloads");
+  if (result.success) {
+    return true;
+  } else {
+    throw new Error(result.error || "Failed to clear completed downloads");
+  }
+}

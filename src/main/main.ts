@@ -23,6 +23,10 @@ import {
   scanDirectory,
 } from "./handlers/directoryHandler.js";
 import { registerDownloaderHandlers } from "./handlers/downloaderHandler.js";
+import {
+  initializeDownloadQueue,
+  registerDownloadQueueHandlers,
+} from "./handlers/downloadQueueHandler.js";
 import { registerEtcHandlers } from "./handlers/etcHandler.js";
 import { registerPresetHandlers } from "./handlers/presetHandler.js";
 import { registerStatisticsHandlers } from "./handlers/statisticsHandler.js";
@@ -166,10 +170,14 @@ app.whenReady().then(async () => {
   registerConfigHandlers();
   registerDirectoryHandlers();
   registerDownloaderHandlers();
+  registerDownloadQueueHandlers();
   registerEtcHandlers(mainWindow);
   registerPresetHandlers();
   registerStatisticsHandlers();
   registerThumbnailHandlers();
+
+  // 다운로드 큐 초기화 (미완료 다운로드 복구)
+  await initializeDownloadQueue();
 
   fs.mkdir(path.join(app.getPath("userData"), "downloader_temp_thumbnails"), {
     recursive: true,

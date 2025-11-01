@@ -67,6 +67,32 @@ export interface BookHistory {
   cover_path?: string;
 }
 
+export type DownloadQueueStatus =
+  | "pending"
+  | "downloading"
+  | "completed"
+  | "failed"
+  | "paused";
+
+export interface DownloadQueueItem {
+  id: number;
+  gallery_id: number;
+  gallery_title: string;
+  gallery_artist?: string;
+  thumbnail_url?: string;
+  download_path: string;
+  status: DownloadQueueStatus;
+  progress: number;
+  total_files: number;
+  downloaded_files: number;
+  download_speed: number;
+  error_message?: string;
+  added_at: string;
+  started_at?: string;
+  completed_at?: string;
+  priority: number;
+}
+
 export interface Statistics {
   totalBooks: number;
   readingProgress: {
@@ -286,7 +312,13 @@ export interface IpcChannels {
   };
   "add-library-folder": {
     request: void;
-    response: { success: boolean; folders?: string[]; added?: string[]; alreadyExists?: string[]; error?: string };
+    response: {
+      success: boolean;
+      folders?: string[];
+      added?: string[];
+      alreadyExists?: string[];
+      error?: string;
+    };
   };
   "remove-library-folder": {
     request: string; // folderPath
@@ -372,11 +404,47 @@ export interface IpcChannels {
   };
   "download-gallery": {
     request: { galleryId: number; downloadPath: string };
-    response: { success: boolean; error?: string };
+    response: { success: boolean; error?: string; paused?: boolean };
   };
   "download-temp-thumbnail": {
     request: { url: string; referer: string; galleryId: number };
     response: { success: boolean; data?: string; error?: string };
+  };
+
+  // Download Queue handlers
+  "get-download-queue": {
+    request: void;
+    response: { success: boolean; data?: DownloadQueueItem[]; error?: string };
+  };
+  "add-to-download-queue": {
+    request: {
+      galleryId: number;
+      galleryTitle: string;
+      galleryArtist?: string;
+      thumbnailUrl?: string;
+      downloadPath: string;
+    };
+    response: { success: boolean; data?: DownloadQueueItem; error?: string };
+  };
+  "remove-from-download-queue": {
+    request: number; // queueId
+    response: { success: boolean; error?: string };
+  };
+  "pause-download": {
+    request: number; // queueId
+    response: { success: boolean; error?: string };
+  };
+  "resume-download": {
+    request: number; // queueId
+    response: { success: boolean; error?: string };
+  };
+  "retry-download": {
+    request: number; // queueId
+    response: { success: boolean; error?: string };
+  };
+  "clear-completed-downloads": {
+    request: void;
+    response: { success: boolean; error?: string };
   };
 
   // Etc handlers

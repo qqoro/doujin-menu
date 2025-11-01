@@ -7,6 +7,7 @@ import { computed, onMounted, ref, toRaw } from "vue";
 import { useRouter } from "vue-router";
 import * as api from "@/api";
 import { toast } from "vue-sonner";
+import { useDownloadQueueStore } from "@/store/downloadQueueStore";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -69,6 +70,7 @@ const props = defineProps({
 const emit = defineEmits(["select-gallery", "preview-gallery"]);
 const bookId = ref<number | null>(null);
 const router = useRouter();
+const downloadQueueStore = useDownloadQueueStore();
 
 const viewerLink = computed(() => ({
   name: "Viewer",
@@ -110,16 +112,28 @@ onMounted(async () => {
   }
 });
 
-const handleDownload = () => {
+const handleDownload = async () => {
   if (!props.downloadPath) {
-    alert("다운로드 폴더를 먼저 지정해주세요."); // TODO: 토스트 알림으로 변경
+    toast.error("다운로드 폴더를 먼저 지정해주세요.");
     return;
   }
-  ipcRenderer.invoke("download-gallery", {
-    galleryId: props.gallery.id,
-    downloadPath: props.downloadPath,
-  });
-  console.log("다운로드 요청:", props.gallery.id);
+
+  try {
+    await downloadQueueStore.addToQueue({
+      galleryId: props.gallery.id,
+      galleryTitle: props.gallery.title.display,
+      galleryArtist: props.gallery.artists?.[0],
+      thumbnailUrl: props.gallery.thumbnailUrl,
+      downloadPath: props.downloadPath,
+    });
+    toast.success("다운로드 큐에 추가되었습니다.", {
+      description: props.gallery.title.display,
+    });
+  } catch (error) {
+    toast.error("큐 추가 실패", {
+      description: error instanceof Error ? error.message : String(error),
+    });
+  }
 };
 
 const buttonText = computed(() => {
@@ -129,6 +143,10 @@ const buttonText = computed(() => {
   switch (props.downloadStatus.status) {
     case "starting":
       return "시작 중...";
+    case "pending":
+      return "대기 중";
+    case "paused":
+      return "일시정지";
     case "progress":
       return `${props.downloadStatus.progress || 0}%`;
     case "completed":
@@ -144,7 +162,9 @@ const isDownloading = computed(() => {
   return (
     !bookId.value && // 책이 이미 존재하면 다운로드 중이 아님
     (props.downloadStatus.status === "starting" ||
-      props.downloadStatus.status === "progress")
+      props.downloadStatus.status === "progress" ||
+      props.downloadStatus.status === "pending" ||
+      props.downloadStatus.status === "paused")
   );
 });
 

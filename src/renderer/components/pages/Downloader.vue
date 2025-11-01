@@ -4,6 +4,7 @@ import HelpDialog from "@/components/common/HelpDialog.vue"; // HelpDialog 임�
 import SmartSearchInput from "@/components/common/SmartSearchInput.vue";
 import { useScrollRestoration } from "@/composable/useScrollRestoration";
 import { useSearchPersistence } from "@/composable/useSearchPersistence";
+import { useDownloadQueueStore } from "@/store/downloadQueueStore";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -57,6 +58,9 @@ const downloadPath = ref(""); // 초기값은 비워둠
 const downloadStatuses = reactive<{
   [key: number]: { status: string; progress?: number; error?: string };
 }>({});
+
+// 다운로드 큐 store
+const downloadQueueStore = useDownloadQueueStore();
 
 const searchKey = ref(0); // 검색 트리거를 위한 키
 
@@ -132,7 +136,49 @@ const handleKeyDown = (event: KeyboardEvent) => {
   }
 };
 
+// 큐 상태를 downloadStatuses에 반영하는 함수
+const syncQueueToStatuses = () => {
+  // 현재 큐에 있는 갤러리 ID 목록
+  const queueGalleryIds = new Set(
+    downloadQueueStore.queue.map((item) => item.gallery_id)
+  );
+
+  // downloadStatuses에서 큐에 없는 항목 제거 (단, completed 상태는 유지)
+  Object.keys(downloadStatuses).forEach((galleryIdStr) => {
+    const galleryId = Number(galleryIdStr);
+    if (
+      !queueGalleryIds.has(galleryId) &&
+      downloadStatuses[galleryId]?.status !== "completed"
+    ) {
+      delete downloadStatuses[galleryId];
+    }
+  });
+
+  // 큐에 있는 항목들을 downloadStatuses에 업데이트
+  downloadQueueStore.queue.forEach((queueItem) => {
+    // 큐의 상태를 downloadStatuses에 매핑
+    let mappedStatus = queueItem.status;
+
+    // downloading -> progress로 매핑
+    if (queueItem.status === "downloading") {
+      mappedStatus = "progress";
+    }
+
+    downloadStatuses[queueItem.gallery_id] = {
+      status: mappedStatus,
+      progress: queueItem.progress,
+      error: queueItem.error_message,
+    };
+  });
+};
+
 onMounted(() => {
+  // 다운로드 큐 store 초기화
+  downloadQueueStore.initialize();
+
+  // 초기 큐 상태 동기화
+  syncQueueToStatuses();
+
   observer = new IntersectionObserver(
     (entries) => {
       if (
@@ -169,6 +215,14 @@ onMounted(() => {
     },
   );
 
+  // 큐 업데이트 이벤트 수신 (큐 상태가 변경되면 downloadStatuses에 반영)
+  ipcRenderer.on("download-queue-updated", () => {
+    // 큐를 다시 가져와서 상태 동기화
+    downloadQueueStore.fetchQueue().then(() => {
+      syncQueueToStatuses();
+    });
+  });
+
   // 저장된 다운로드 경로 불러오기
   ipcRenderer.invoke("get-config-value", "downloadPath").then((path) => {
     if (path) {
@@ -191,6 +245,9 @@ onUnmounted(() => {
     observer.disconnect();
   }
   window.removeEventListener("keydown", handleKeyDown);
+
+  // 큐 store cleanup
+  downloadQueueStore.cleanup();
 });
 
 watch(observerTarget, (newTarget) => {

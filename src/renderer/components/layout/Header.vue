@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { ipcRenderer } from "@/api";
+import DownloadQueuePopover from "@/components/feature/downloader/DownloadQueuePopover.vue";
 import { Button } from "@/components/ui/button";
 import { Icon } from "@iconify/vue";
 import { onMounted, onUnmounted, ref } from "vue";
@@ -31,7 +32,7 @@ onUnmounted(() => {
     class="flex items-center justify-between px-4 py-3 bg-muted border-b"
     style="-webkit-app-region: drag"
   >
-    <div class="flex items-center gap-2">
+    <div class="flex items-center gap-3">
       <Icon
         icon="solar:book-bookmark-bold-duotone"
         class="text-primary size-6"
@@ -40,6 +41,9 @@ onUnmounted(() => {
     </div>
 
     <div class="flex items-center gap-2">
+      <div style="-webkit-app-region: no-drag">
+        <DownloadQueuePopover />
+      </div>
       <Button
         class="size-8"
         variant="outline"
