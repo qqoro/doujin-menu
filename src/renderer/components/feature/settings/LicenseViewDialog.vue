@@ -28,6 +28,8 @@ const {
 } = useQuery({
   queryKey: [],
   queryFn: () => {
+    // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+    // @ts-ignore 빌드 전 파일 생성하기때문에 오류 발생 안함
     return import("@/assets/licenses.json");
   },
   select(data) {
