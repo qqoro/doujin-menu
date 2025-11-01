@@ -138,17 +138,63 @@ export function useQueryAndParams<
     resetQueries?.();
   };
 
-  watch([page, pageSize, searchType, schWord], () => updateQueryParams());
-  watch(Object.values(queries ?? {}), () => updateQueryParams());
+  // 내부 상태 변경 시 URL 쿼리 업데이트 (무한 루프 방지를 위해 플래그 사용)
+  let isUpdatingFromRoute = false;
+
+  watch([page, pageSize, searchType, schWord], () => {
+    if (!isUpdatingFromRoute) {
+      updateQueryParams();
+    }
+  });
+  watch(Object.values(queries ?? {}), () => {
+    if (!isUpdatingFromRoute) {
+      updateQueryParams();
+    }
+  });
 
   // route.query 변경 감지 및 내부 상태 업데이트
   watch(
     () => route.query,
     (newQuery) => {
+      isUpdatingFromRoute = true;
+
       // route.query가 비어있으면 reset 호출
       if (Object.keys(newQuery).length === 0) {
         reset();
+        isUpdatingFromRoute = false;
+        return;
       }
+
+      // route.query 값들을 내부 상태에 반영
+      page.value = newQuery.page ? Number(newQuery.page) : currentDefaultOptions.page;
+      pageSize.value = newQuery.pageSize ? Number(newQuery.pageSize) : currentDefaultOptions.pageSize;
+      searchType.value = (newQuery.searchType as string) ?? currentDefaultOptions.searchType;
+      schWord.value = (newQuery.schWord as string) ?? currentDefaultOptions.schWord;
+
+      // queries에 포함된 파라미터들도 업데이트
+      if (queries) {
+        const list = Object.entries(queries) as [string, Ref<unknown>][];
+        list.forEach(([k, v]) => {
+          if (k in newQuery) {
+            // 타입에 맞게 변환
+            const queryValue = newQuery[k];
+            if (queryValue !== undefined) {
+              if (typeof v.value === 'number') {
+                v.value = Number(queryValue) as UnwrapRef<T[typeof k]>;
+              } else if (typeof v.value === 'boolean') {
+                v.value = (queryValue === 'true') as UnwrapRef<T[typeof k]>;
+              } else {
+                v.value = queryValue as UnwrapRef<T[typeof k]>;
+              }
+            } else if (k in currentDefaultOptions) {
+              // 쿼리에 없으면 기본값으로 복원
+              v.value = currentDefaultOptions[k] as UnwrapRef<T[typeof k]>;
+            }
+          }
+        });
+      }
+
+      isUpdatingFromRoute = false;
     },
     { deep: true, immediate: true }, // 중첩된 객체 변경 감지를 위해 deep 옵션 사용, 즉시 실행
   );
