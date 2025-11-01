@@ -6,6 +6,7 @@ import { RouterView } from "vue-router";
 import { toast } from "vue-sonner";
 import { ipcRenderer } from "./api";
 import { useWindowEvent } from "./composable/useWindowEvent";
+import { useTheme } from "./composable/useTheme";
 
 const keyHandler = (event: KeyboardEvent) => {
   if (
@@ -20,8 +21,12 @@ const keyHandler = (event: KeyboardEvent) => {
 useWindowEvent("keydown", keyHandler);
 
 const uiStore = useUiStore();
+const { initializeTheme } = useTheme();
 
 onMounted(async () => {
+  // 테마 초기화
+  await initializeTheme();
+
   const shouldBeLocked = await ipcRenderer.invoke("get-initial-lock-status");
   if (shouldBeLocked) {
     uiStore.setLocked(true);

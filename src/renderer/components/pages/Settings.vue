@@ -37,6 +37,9 @@ import {
 } from "@/components/ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useQueryAndParams } from "@/composable/useQueryAndParams";
+import { useTheme } from "@/composable/useTheme";
+import { themeList } from "@/lib/themeList";
+import { ColorTheme } from "@/types/themes";
 import { Icon } from "@iconify/vue";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/vue-query";
 import { useColorMode } from "@vueuse/core";
@@ -135,6 +138,8 @@ const closePresetDialog = () => {
 
 // 설정 상태
 const theme = useColorMode();
+const { setTheme } = useTheme();
+const colorTheme = ref<ColorTheme>("cosmic-night");
 const autoLoadLibrary = ref(true);
 const libraryFolders = ref<LibraryFolder[]>([]);
 const createInfoTxtFile = ref(true);
@@ -166,7 +171,7 @@ const loadLibraryFolders = async () => {
     return {
       path: folder,
       bookCount: stats.data?.bookCount || 0,
-      lastScanned: stats.data?.lastScanned || null
+      lastScanned: stats.data?.lastScanned || null,
     };
   });
   libraryFolders.value = await Promise.all(folderPromises);
@@ -180,16 +185,19 @@ onMounted(async () => {
 
   const config = await ipcRenderer.invoke("get-config");
   theme.value = (config.theme as "light" | "dark" | "auto") || "auto";
+  colorTheme.value = (config.colorTheme as ColorTheme) || "cosmic-night";
   autoLoadLibrary.value = config.autoLoadLibrary !== false;
   createInfoTxtFile.value = config.createInfoTxtFile !== false;
-  downloadPattern.value = (config.downloadPattern as string) || "%artist% - %title%";
+  downloadPattern.value =
+    (config.downloadPattern as string) || "%artist% - %title%";
   compressDownload.value = config.compressDownload === true;
   compressFormat.value = (config.compressFormat as "cbz" | "zip") || "cbz";
   prioritizeKoreanTitles.value = config.prioritizeKoreanTitles === true;
   useAppLock.value = config.useAppLock === true;
 
   // 뷰어 설정 불러오기
-  viewerReadingDirection.value = (config.viewerReadingDirection as "ltr" | "rtl" | "webtoon") || "ltr";
+  viewerReadingDirection.value =
+    (config.viewerReadingDirection as "ltr" | "rtl" | "webtoon") || "ltr";
   viewerDoublePageView.value = config.viewerDoublePageView === true;
   viewerShowCoverAlone.value = config.viewerShowCoverAlone !== false;
   viewerAutoFitZoom.value = config.viewerAutoFitZoom !== false;
@@ -217,7 +225,7 @@ const formatBytes = (bytes: number): string => {
   const k = 1024;
   const sizes = ["Bytes", "KB", "MB", "GB"];
   const i = Math.floor(Math.log(bytes) / Math.log(k));
-  return Math.round(bytes / Math.pow(k, i) * 100) / 100 + " " + sizes[i];
+  return Math.round((bytes / Math.pow(k, i)) * 100) / 100 + " " + sizes[i];
 };
 
 // 임시 파일 삭제
@@ -248,6 +256,13 @@ const saveConfig = async (key: string, value: unknown) => {
 const onThemeChange = (newTheme: AcceptableValue) => {
   theme.value = newTheme as "light" | "dark" | "auto";
   saveConfig("theme", newTheme);
+};
+
+// 컬러 테마 변경 시 저장
+const onColorThemeChange = async (newTheme: AcceptableValue) => {
+  const themeValue = newTheme as ColorTheme;
+  colorTheme.value = themeValue;
+  await setTheme(themeValue);
 };
 
 // 스위치 변경 시 저장
@@ -514,7 +529,7 @@ const resetAllData = async () => {
                 <SettingItem
                   label-for="theme-select"
                   title="앱 테마"
-                  subtitle="앱의 전체적인 색상 테마를 선택합니다."
+                  subtitle="라이트/다크 모드를 선택합니다."
                 >
                   <Select
                     id="theme-select"
@@ -528,6 +543,47 @@ const resetAllData = async () => {
                       <SelectItem value="light">라이트</SelectItem>
                       <SelectItem value="dark">다크</SelectItem>
                       <SelectItem value="auto">시스템 설정</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </SettingItem>
+                <SettingItem label-for="color-theme-select" title="컬러 테마">
+                  <template #subtitle>
+                    <p class="text-sm text-muted-foreground">
+                      앱의 전체적인 색상 테마를 선택합니다. 변경 시 즉시
+                      적용됩니다.
+                    </p>
+                    <p class="text-xs text-muted-foreground mt-1">
+                      <a
+                        href="https://tweakcn.com/#examples"
+                        class="text-primary hover:underline cursor-pointer"
+                        @click.prevent="
+                          () =>
+                            ipcRenderer.send(
+                              'open-external-link',
+                              'https://tweakcn.com/#examples',
+                            )
+                        "
+                      >
+                        여기에서 미리볼 수 있습니다 →
+                      </a>
+                    </p>
+                  </template>
+                  <Select
+                    id="color-theme-select"
+                    :model-value="colorTheme"
+                    @update:model-value="onColorThemeChange"
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="컬러 테마 선택" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem
+                        v-for="theme in themeList"
+                        :key="theme.value"
+                        :value="theme.value"
+                      >
+                        {{ theme.label }}
+                      </SelectItem>
                     </SelectContent>
                   </Select>
                 </SettingItem>

@@ -19,6 +19,7 @@ interface LibraryViewSettings {
 // 설정 파일의 타입을 정의합니다.
 interface Config {
   theme?: "light" | "dark" | "auto";
+  colorTheme?: string; // 모든 tweakcn 테마 지원
   autoLoadLibrary?: boolean;
   libraryFolders?: string[];
   viewerReadingDirection?: "ltr" | "rtl" | "webtoon";
@@ -40,6 +41,7 @@ interface Config {
 
 const defaults: Config = {
   theme: "auto",
+  colorTheme: "cosmic-night",
   autoLoadLibrary: true,
   libraryFolders: [],
   viewerReadingDirection: "rtl",

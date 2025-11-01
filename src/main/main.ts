@@ -135,7 +135,7 @@ function createWindow() {
       .addListener("unmaximize", handleDevWindowStore);
   } else {
     mainWindow.loadFile(
-      path.join(import.meta.dirname, "..", "renderer", "index.html"),
+      path.join(import.meta.dirname, "..", "..", "renderer", "index.html"),
     );
   }
 
