@@ -15,6 +15,8 @@ interface FilterParams {
   isFavorite?: boolean;
 }
 
+const createKoreanRegexp = () => /^.+\|\s?(.+)$/;
+
 function buildFilteredQuery(filter: FilterParams | null) {
   const {
     searchQuery = "",
@@ -220,7 +222,7 @@ export const handleGetBooks = async (
   const formattedBooks = books.map((book) => {
     let displayTitle = book.title;
     if (prioritizeKoreanTitles) {
-      const koreanPart = /^.+\|\s?([가-힇a-z\d\s]+)$/i.exec(book.title);
+      const koreanPart = createKoreanRegexp().exec(book.title);
       if (koreanPart?.[1]) {
         displayTitle = koreanPart[1].trim();
       }
@@ -268,7 +270,7 @@ export const handleGetBook = async (bookId: number) => {
 
   let displayTitle = book.title;
   if (prioritizeKoreanTitles) {
-    const koreanPart = /^.+\|\s?([가-힇a-z\d\s]+)$/i.exec(book.title);
+    const koreanPart = createKoreanRegexp().exec(book.title);
     if (koreanPart?.[1]) {
       displayTitle = koreanPart[1].trim();
     }
