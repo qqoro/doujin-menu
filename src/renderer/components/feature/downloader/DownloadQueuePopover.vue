@@ -129,6 +129,11 @@ const handleClearCompleted = async () => {
 
 // 큐가 비어있는지
 const isEmpty = computed(() => queue.value.length === 0);
+
+// 최신 항목이 위에 오도록 역순으로 정렬
+const sortedQueue = computed(() => {
+  return [...queue.value].reverse();
+});
 </script>
 
 <template>
@@ -146,7 +151,7 @@ const isEmpty = computed(() => queue.value.length === 0);
     </PopoverTrigger>
     <PopoverContent
       class="w-[600px] max-h-[600px] overflow-y-auto p-0"
-      align="start"
+      align="end"
     >
       <div class="sticky top-0 bg-background border-b p-4 z-10">
         <div class="flex items-center justify-between">
@@ -192,7 +197,7 @@ const isEmpty = computed(() => queue.value.length === 0);
 
       <div v-else class="divide-y">
         <div
-          v-for="item in queue"
+          v-for="item in sortedQueue"
           :key="item.id"
           class="flex items-center gap-3 p-3 hover:bg-muted/50 transition-colors"
         >
