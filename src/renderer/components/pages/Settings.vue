@@ -210,22 +210,13 @@ onMounted(async () => {
 // 임시 파일 크기 가져오기
 const getTempFilesSize = async () => {
   const result = await ipcRenderer.invoke("get-temp-files-size");
-  if (result.success && result.size !== undefined) {
-    tempFilesSize.value = formatBytes(result.size);
+  if (result.success && result.data !== undefined) {
+    tempFilesSize.value = result.data;
   } else {
     toast.error("임시 파일 크기 조회에 실패했습니다.", {
       description: result.error,
     });
   }
-};
-
-// 바이트를 읽기 쉬운 형식으로 변환
-const formatBytes = (bytes: number): string => {
-  if (bytes === 0) return "0 Bytes";
-  const k = 1024;
-  const sizes = ["Bytes", "KB", "MB", "GB"];
-  const i = Math.floor(Math.log(bytes) / Math.log(k));
-  return Math.round((bytes / Math.pow(k, i)) * 100) / 100 + " " + sizes[i];
 };
 
 // 임시 파일 삭제

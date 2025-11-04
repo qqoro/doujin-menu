@@ -459,7 +459,7 @@ export interface IpcChannels {
   };
   "get-temp-files-size": {
     request: void;
-    response: { success: boolean; size?: number; error?: string };
+    response: { success: boolean; data?: string; error?: string };
   };
   "clear-temp-files": {
     request: void;
