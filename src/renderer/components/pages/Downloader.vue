@@ -2,9 +2,6 @@
 import { ipcRenderer } from "@/api";
 import HelpDialog from "@/components/common/HelpDialog.vue"; // HelpDialog 임포트
 import SmartSearchInput from "@/components/common/SmartSearchInput.vue";
-import { useScrollRestoration } from "@/composable/useScrollRestoration";
-import { useSearchPersistence } from "@/composable/useSearchPersistence";
-import { useDownloadQueueStore } from "@/store/downloadQueueStore";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -23,6 +20,9 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
+import { useScrollRestoration } from "@/composable/useScrollRestoration";
+import { useSearchPersistence } from "@/composable/useSearchPersistence";
+import { useDownloadQueueStore } from "@/store/downloadQueueStore";
 import { Icon } from "@iconify/vue";
 import { useInfiniteQuery } from "@tanstack/vue-query";
 import type { Gallery } from "node-hitomi";
@@ -128,6 +128,11 @@ const handleSelectGallery = (gallery: Gallery) => {
   selectedGallery.value = gallery;
 };
 
+const handleBookDeleted = (galleryId: number) => {
+  // 삭제된 책의 다운로드 상태 초기화
+  delete downloadStatuses[galleryId];
+};
+
 const handleKeyDown = (event: KeyboardEvent) => {
   if (event.key.toLowerCase() === "v" && !event.ctrlKey && !event.shiftKey) {
     if (selectedGallery.value) {
@@ -140,7 +145,7 @@ const handleKeyDown = (event: KeyboardEvent) => {
 const syncQueueToStatuses = () => {
   // 현재 큐에 있는 갤러리 ID 목록
   const queueGalleryIds = new Set(
-    downloadQueueStore.queue.map((item) => item.gallery_id)
+    downloadQueueStore.queue.map((item) => item.gallery_id),
   );
 
   // downloadStatuses에서 큐에 없는 항목 제거 (단, completed 상태는 유지)
@@ -196,24 +201,26 @@ onMounted(() => {
   }
 
   // 다운로드 진행 상황 수신
-  ipcRenderer.on(
-    "download-progress",
-    (_event, ...args) => {
-      const { galleryId, status, progress, error } = args[0] as { galleryId: number; status: string; progress?: number; error?: string };
-      downloadStatuses[galleryId] = { status, progress, error };
+  ipcRenderer.on("download-progress", (_event, ...args) => {
+    const { galleryId, status, progress, error } = args[0] as {
+      galleryId: number;
+      status: string;
+      progress?: number;
+      error?: string;
+    };
+    downloadStatuses[galleryId] = { status, progress, error };
 
-      if (status === "completed") {
-        const completedGallery = allGalleries.value.find(
-          (gallery) => gallery.id === galleryId,
+    if (status === "completed") {
+      const completedGallery = allGalleries.value.find(
+        (gallery) => gallery.id === galleryId,
+      );
+      if (completedGallery) {
+        toast.success(
+          `${completedGallery.title.display}이(가) 다운로드되었습니다.`,
         );
-        if (completedGallery) {
-          toast.success(
-            `${completedGallery.title.display}이(가) 다운로드되었습니다.`,
-          );
-        }
       }
-    },
-  );
+    }
+  });
 
   // 큐 업데이트 이벤트 수신 (큐 상태가 변경되면 downloadStatuses에 반영)
   ipcRenderer.on("download-queue-updated", () => {
@@ -571,7 +578,6 @@ useSearchPersistence(searchQuery, "downloader-search-query");
                 :key="item.id"
                 :gallery="item"
                 :download-status="downloadStatuses[item.id]"
-                :download-path="downloadPath"
                 :selected="selectedGallery?.id === item.id"
                 @select-gallery="handleSelectGallery"
                 @preview-gallery="
@@ -580,6 +586,7 @@ useSearchPersistence(searchQuery, "downloader-search-query");
                     isPreviewDialogOpen = true;
                   }
                 "
+                @book-deleted="handleBookDeleted"
               />
             </div>
             <div v-else class="flex flex-col gap-2">
@@ -588,7 +595,6 @@ useSearchPersistence(searchQuery, "downloader-search-query");
                 :key="item.id"
                 :gallery="item"
                 :download-status="downloadStatuses[item.id]"
-                :download-path="downloadPath"
                 :selected="selectedGallery?.id === item.id"
                 @select-gallery="handleSelectGallery"
                 @preview-gallery="
@@ -597,6 +603,7 @@ useSearchPersistence(searchQuery, "downloader-search-query");
                     isPreviewDialogOpen = true;
                   }
                 "
+                @book-deleted="handleBookDeleted"
               />
             </div>
             <div ref="observerTarget" class="h-10 w-full"></div>

@@ -1,7 +1,7 @@
-import { defineStore } from "pinia";
-import { ref, computed, onMounted, onUnmounted } from "vue";
 import * as api from "@/api";
 import { ipcRenderer } from "@/api";
+import { defineStore } from "pinia";
+import { computed, ref } from "vue";
 import type { DownloadQueueItem } from "../../types/ipc";
 
 export const useDownloadQueueStore = defineStore("downloadQueue", () => {
@@ -13,24 +13,24 @@ export const useDownloadQueueStore = defineStore("downloadQueue", () => {
   // 계산된 속성
   const queueCount = computed(() => queue.value.length);
   const activeDownloads = computed(() =>
-    queue.value.filter((item) => item.status === "downloading")
+    queue.value.filter((item) => item.status === "downloading"),
   );
   const pendingDownloads = computed(() =>
-    queue.value.filter((item) => item.status === "pending")
+    queue.value.filter((item) => item.status === "pending"),
   );
   const completedDownloads = computed(() =>
-    queue.value.filter((item) => item.status === "completed")
+    queue.value.filter((item) => item.status === "completed"),
   );
   const failedDownloads = computed(() =>
-    queue.value.filter((item) => item.status === "failed")
+    queue.value.filter((item) => item.status === "failed"),
   );
   const pausedDownloads = computed(() =>
-    queue.value.filter((item) => item.status === "paused")
+    queue.value.filter((item) => item.status === "paused"),
   );
 
   // 다운로드 중이거나 대기 중인 항목 개수
   const activeQueueCount = computed(
-    () => activeDownloads.value.length + pendingDownloads.value.length
+    () => activeDownloads.value.length + pendingDownloads.value.length,
   );
 
   // 큐 불러오기
@@ -130,9 +130,7 @@ export const useDownloadQueueStore = defineStore("downloadQueue", () => {
   const clearCompleted = async () => {
     try {
       await api.clearCompletedDownloads();
-      queue.value = queue.value.filter(
-        (item) => item.status !== "completed"
-      );
+      queue.value = queue.value.filter((item) => item.status !== "completed");
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
       console.error("완료된 다운로드 제거 실패:", err);
