@@ -142,7 +142,10 @@ watch(
 
 <template>
   <Dialog v-model:open="dialogOpen">
-    <DialogContent class="sm:max-w-[90vw] h-[90vh] flex flex-col">
+    <DialogContent
+      class="sm:max-w-[90vw] h-[90vh] flex flex-col"
+      @close-auto-focus.prevent
+    >
       <DialogHeader>
         <DialogTitle>미리보기: {{ displayTitle }}</DialogTitle>
       </DialogHeader>
