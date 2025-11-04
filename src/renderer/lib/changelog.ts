@@ -15,6 +15,28 @@ export interface Changelog {
  */
 export const changelogData: Changelog[] = [
   {
+    version: "1.4.1",
+    changes: [
+      {
+        type: "fix",
+        title: "🐛 버그 수정",
+        items: [
+          "임시 파일 크기 조회 시 발생하던 오류가 수정되었습니다.",
+          "다운로더에서 다운로드 완료된 책 삭제 기능이 수정되었습니다.",
+          "다운로더에서 미리보기 후 스크롤 위치가 잘못 이동하던 문제를 수정했습니다.",
+        ],
+      },
+      {
+        type: "etc",
+        title: "기타",
+        items: [
+          "다운로더 큐 목록에서 최신 항목이 위에 표시되도록 변경되었습니다.",
+          "일부 UI 요소에 선택한 컬러 테마가 적용되도록 개선되었습니다.",
+        ],
+      },
+    ],
+  },
+  {
     version: "1.4.0",
     changes: [
       {
