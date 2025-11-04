@@ -560,7 +560,7 @@ useWindowEvent("mousedown", handleMouseDown);
       <Transition name="fade">
         <div
           v-if="showToast && toastMessage"
-          class="fixed top-27 right-12 text-foreground bg-secondary/75 border-secondary/75 border backdrop-blur-sm font-semibold text-lg px-4 py-2 flex justify-center items-center rounded-lg gap-2 z-20"
+          class="fixed top-27 right-12 text-primary bg-secondary/75 border-secondary/75 border backdrop-blur-sm font-semibold text-lg px-4 py-2 flex justify-center items-center rounded-lg gap-2 z-20"
         >
           <Icon icon="solar:info-circle-bold-duotone" class="text-xl" />
           {{ toastMessage }}
