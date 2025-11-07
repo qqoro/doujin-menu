@@ -43,6 +43,7 @@ import PresetDropdown from "../common/PresetDropdown.vue";
 import SmartSearchInput from "../common/SmartSearchInput.vue";
 import BookCard from "../feature/BookCard.vue";
 import BookDetailDialog from "../feature/BookDetailDialog.vue";
+import BookPreviewDialog from "../feature/BookPreviewDialog.vue";
 import BookRowCard from "../feature/BookRowCard.vue";
 
 const queryClient = useQueryClient();
@@ -53,7 +54,9 @@ const loader = ref(null);
 const searchInputRef = ref<InstanceType<typeof SmartSearchInput> | null>(null);
 
 const showBookDetailDialog = ref(false);
+const showBookPreviewDialog = ref(false);
 const selectedBook = ref<Book | null>(null);
+const previewBook = ref<Book | null>(null);
 
 // Filter and Sort State
 const libraryPath = ref((route.query.libraryPath as string) || "all");
@@ -298,6 +301,11 @@ const handleShowDetails = (book: Book) => {
   showBookDetailDialog.value = true;
 };
 
+const handleShowPreview = (book: Book) => {
+  previewBook.value = book;
+  showBookPreviewDialog.value = true;
+};
+
 useWindowEvent("keydown", (e: KeyboardEvent) => {
   if (e.ctrlKey && e.key === "f") {
     e.preventDefault();
@@ -381,6 +389,21 @@ useScrollRestoration(".flex-grow.overflow-y-auto");
               <li>
                 책 카드 우클릭 메뉴를 통해 폴더 열기, 즐겨찾기 추가/해제 등의
                 작업을 할 수 있습니다.
+              </li>
+            </ul>
+            <h3 class="text-foreground text-base font-semibold">미리보기</h3>
+            <ul class="list-inside list-disc">
+              <li>
+                그리드 뷰에서 책 카드를 우클릭하여 '미리보기' 메뉴를 선택하면
+                페이지를 미리볼 수 있습니다.
+              </li>
+              <li>
+                리스트 뷰에서는 미리보기 버튼을 클릭하여 페이지를 미리볼 수
+                있습니다.
+              </li>
+              <li>
+                미리보기에서는 책의 모든 페이지를 가로 스크롤로 확인할 수
+                있습니다.
               </li>
             </ul>
           </div>
@@ -564,6 +587,7 @@ useScrollRestoration(".flex-grow.overflow-y-auto");
         @toggle-favorite="handleToggleFavorite"
         @open-book-folder="handleOpenFolder"
         @show-details="handleShowDetails"
+        @show-preview="handleShowPreview"
       />
       <div
         v-if="hasNextPage"
@@ -592,6 +616,7 @@ useScrollRestoration(".flex-grow.overflow-y-auto");
         @toggle-favorite="handleToggleFavorite"
         @open-book-folder="handleOpenFolder"
         @show-details="handleShowDetails"
+        @show-preview="handleShowPreview"
       />
       <div v-if="hasNextPage" ref="loader" class="p-4 text-center">
         <Button :disabled="isFetchingNextPage" @click="fetchNextPage">
@@ -636,6 +661,12 @@ useScrollRestoration(".flex-grow.overflow-y-auto");
       :book="selectedBook"
       :on-toggle-favorite="handleToggleFavorite"
       :on-open-folder="handleOpenFolder"
+    />
+
+    <BookPreviewDialog
+      :open="showBookPreviewDialog"
+      :book="previewBook"
+      @update:open="showBookPreviewDialog = $event"
     />
   </div>
 </template>

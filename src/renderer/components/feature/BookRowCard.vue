@@ -20,7 +20,10 @@ import { useRouter } from "vue-router";
 import { toast } from "vue-sonner";
 import type { Book } from "../../../types/ipc";
 
-const props = defineProps<{ book: Book; queryKey: readonly unknown[] }>();
+const props = defineProps<{
+  book: Book;
+  queryKey: readonly unknown[];
+}>();
 const emit = defineEmits([
   "selectTag",
   "selectArtist",
@@ -30,6 +33,7 @@ const emit = defineEmits([
   "toggle-favorite",
   "open-book-folder",
   "show-details",
+  "show-preview",
 ]);
 
 const router = useRouter();
@@ -251,6 +255,14 @@ const confirmDeleteBook = async () => {
       >
         <Icon icon="solar:info-circle-bold-duotone" class="h-4 w-4" />
         상세 정보
+      </Button>
+      <Button
+        size="sm"
+        variant="outline"
+        @click.stop="emit('show-preview', book)"
+      >
+        <Icon icon="solar:eye-bold-duotone" class="h-4 w-4" />
+        미리보기
       </Button>
       <Button size="sm" variant="outline" @click.stop="openInNewWindow">
         <Icon icon="solar:square-top-down-bold-duotone" class="h-4 w-4" />

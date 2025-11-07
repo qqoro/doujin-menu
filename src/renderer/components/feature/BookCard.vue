@@ -33,14 +33,18 @@ import ContextMenuSeparator from "../ui/context-menu/ContextMenuSeparator.vue";
 import { useTagDisplay } from "@/composable/useTagDisplay";
 import type { Book } from "../../../types/ipc";
 
-const props = defineProps<{ book: Book; queryKey: readonly unknown[] }>();
+const props = defineProps<{
+  book: Book;
+  queryKey: readonly unknown[];
+}>();
 const emit = defineEmits([
   "selectTag",
   "selectArtist",
   "selectGroup",
   "toggle-favorite",
   "open-book-folder",
-  "show-details", // 상세 정보 이벤트를 추가합니다.
+  "show-details",
+  "show-preview",
 ]);
 
 const router = useRouter();
@@ -273,6 +277,10 @@ const confirmDeleteBook = async () => {
       <ContextMenuItem @click="emit('show-details', book)">
         <Icon icon="solar:info-circle-bold-duotone" class="h-4 w-4" />
         상세 정보
+      </ContextMenuItem>
+      <ContextMenuItem @click.stop="emit('show-preview', book)">
+        <Icon icon="solar:eye-bold-duotone" class="h-4 w-4" />
+        미리보기
       </ContextMenuItem>
       <ContextMenuSeparator />
       <ContextMenuItem @click="handleDeleteBook">

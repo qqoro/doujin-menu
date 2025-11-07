@@ -407,7 +407,7 @@ useWindowEvent("mousedown", handleMouseDown);
     <Transition name="fade">
       <div
         v-if="showControls"
-        class="bg-muted-foreground/50 fixed top-0 right-0 left-0 z-10 p-4 transition-opacity duration-300"
+        class="bg-muted-foreground/50 fixed top-0 right-0 left-0 z-50 p-4 transition-opacity duration-300"
         style="-webkit-app-region: drag"
       >
         <TooltipProvider>
@@ -656,7 +656,7 @@ useWindowEvent("mousedown", handleMouseDown);
     <Transition name="fade">
       <div
         v-if="showControls"
-        class="bg-muted-foreground/50 fixed right-0 bottom-0 left-0 z-10 flex items-center justify-between gap-4 p-2 transition-opacity duration-300"
+        class="bg-muted-foreground/50 fixed right-0 bottom-0 left-0 z-50 flex items-center justify-between gap-4 p-2 transition-opacity duration-300"
         style="-webkit-app-region: no-drag"
       >
         <!-- 페이지 이동 -->
