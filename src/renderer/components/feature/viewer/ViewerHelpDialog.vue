@@ -23,12 +23,15 @@ const keybindings = [
   { keys: [["End"]], description: "마지막 페이지로 이동" },
   { keys: [["]"]], description: "다음 책으로 이동" },
   { keys: [["["]], description: "이전 책으로 이동" },
+  { keys: [["\\"]], description: "랜덤 책으로 이동" },
+  { keys: [["A"]], description: "자동 다음 책 토글" },
   { keys: [["+"], ["="]], description: "이미지 확대" },
   { keys: [["-"], ["_"]], description: "이미지 축소" },
   { keys: [["0"]], description: "확대/축소 초기화" },
   { keys: [["Ctrl", "휠"]], description: "이미지 확대/축소" },
   { keys: [["Ctrl", "1-9"]], description: "자동 넘김 시작 (1-9초 간격)" },
   { keys: [["Ctrl", "0"]], description: "자동 넘김 중지" },
+  { keys: [["`"]], description: "책 정보 보기/숨기기" },
   { keys: [["Esc"]], description: "라이브러리로 돌아가기" },
   { keys: [["Enter"]], description: "전체화면/창 모드 전환" },
   { keys: [["휠 클릭"]], description: "완전 전체화면/창 모드 전환" },
@@ -62,7 +65,8 @@ const keybindings = [
               있습니다.
             </li>
             <li>확대된 이미지를 마우스로 드래그하여 이동할 수 있습니다.</li>
-            <li>페이지를 이동하면 확대/축소 상태가 자동으로 초기화됩니다.</li>
+            <li>페이지를 이동하면 확대/축소 상태가 자동으로 초기화됩니다. (웹툰 모드 제외)</li>
+            <li>웹툰 모드에서는 확대/축소 기능을 사용할 수 있으며, 스크롤 시에도 줌 레벨이 유지됩니다.</li>
           </ul>
         </div>
 

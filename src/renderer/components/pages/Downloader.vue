@@ -371,7 +371,12 @@ useSearchPersistence(searchQuery, "downloader-search-query");
                 <code>artist:작가명</code>: 특정 작가의 작품을 검색합니다.
               </li>
               <li>
-                <code>tag:태그명</code>: 특정 태그가 포함된 작품을 검색합니다.
+                <code>태그명</code>: 특정 태그가 포함된 작품을 검색합니다. (예:
+                <code>female:very_long_hair</code>)
+              </li>
+              <li>
+                <code>-태그명</code>: 특정 태그를 제외하고 검색합니다. (예:
+                <code>-female:guro</code>)
               </li>
               <li>여러 검색어를 공백으로 구분하여 조합할 수 있습니다.</li>
             </ul>
@@ -530,7 +535,7 @@ useSearchPersistence(searchQuery, "downloader-search-query");
             <p class="text-muted-foreground pt-2 text-xs">
               검색은 히토미 검색과 동일한 문법을 지원합니다. (예:
               <code class="font-mono"
-                >female:sole_female female:very_long_hair</code
+                >female:sole_female female:very_long_hair -female:guro</code
               >)
             </p>
           </CardContent>
