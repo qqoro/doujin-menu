@@ -18,10 +18,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import {
-  ToggleGroup,
-  ToggleGroupItem,
-} from "@/components/ui/toggle-group";
+import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { useQueryAndParams } from "@/composable/useQueryAndParams";
 import { useScrollRestoration } from "@/composable/useScrollRestoration";
 import { useWindowEvent } from "@/composable/useWindowEvent";
@@ -35,8 +32,8 @@ import { debouncedWatch } from "@vueuse/core";
 import { computed, onMounted, ref, shallowRef, toRaw, watch } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import { toast } from "vue-sonner";
+import type { Book, FilterParams } from "../../../types/ipc";
 import {
-  FilterParams,
   getRandomBook,
   ipcRenderer,
   openBookFolder,
@@ -45,9 +42,8 @@ import {
 import PresetDropdown from "../common/PresetDropdown.vue";
 import SmartSearchInput from "../common/SmartSearchInput.vue";
 import BookCard from "../feature/BookCard.vue";
-import BookRowCard from "../feature/BookRowCard.vue";
 import BookDetailDialog from "../feature/BookDetailDialog.vue";
-import type { Book } from "../../../types/ipc";
+import BookRowCard from "../feature/BookRowCard.vue";
 
 const queryClient = useQueryClient();
 
@@ -61,10 +57,14 @@ const selectedBook = ref<Book | null>(null);
 
 // Filter and Sort State
 const libraryPath = ref((route.query.libraryPath as string) || "all");
-const readStatus = ref<"all" | "read" | "unread">((route.query.readStatus as "all" | "read" | "unread") || "all");
+const readStatus = ref<"all" | "read" | "unread">(
+  (route.query.readStatus as "all" | "read" | "unread") || "all",
+);
 const isFavorite = ref((route.query.isFavorite as string) || "all");
 const sortBy = ref((route.query.sortBy as string) || "added_at");
-const sortOrder = ref<"asc" | "desc">((route.query.sortOrder as "asc" | "desc") || "desc");
+const sortOrder = ref<"asc" | "desc">(
+  (route.query.sortOrder as "asc" | "desc") || "desc",
+);
 const viewMode = ref<"grid" | "list">("grid");
 const { schWord: searchQuery } = useQueryAndParams({
   queries: {
@@ -373,9 +373,7 @@ useScrollRestoration(".flex-grow.overflow-y-auto");
             </ul>
             <h3 class="font-semibold text-base text-foreground">책 관리</h3>
             <ul class="list-disc list-inside">
-              <li>
-                책 카드를 클릭하여 뷰어를 열 수 있습니다.
-              </li>
+              <li>책 카드를 클릭하여 뷰어를 열 수 있습니다.</li>
               <li>
                 책 카드를 <code>Ctrl</code>+클릭하거나 우클릭 메뉴의 '새 창으로
                 열기'를 선택하여 뷰어를 새 창에서 열 수 있습니다.

@@ -47,12 +47,12 @@ import { AcceptableValue } from "reka-ui";
 import { onMounted, ref } from "vue";
 import { useRoute } from "vue-router";
 import { toast } from "vue-sonner";
+import { Preset } from "../../../types/ipc";
 import {
   addPreset,
   deletePreset,
   getPresets,
   ipcRenderer,
-  Preset,
   updatePreset,
 } from "../../api";
 import EtcView from "../feature/settings/EtcView.vue";
@@ -569,11 +569,11 @@ const resetAllData = async () => {
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem
-                        v-for="theme in themeList"
-                        :key="theme.value"
-                        :value="theme.value"
+                        v-for="themeItem in themeList"
+                        :key="themeItem.value"
+                        :value="themeItem.value"
                       >
-                        {{ theme.label }}
+                        {{ themeItem.label }}
                       </SelectItem>
                     </SelectContent>
                   </Select>

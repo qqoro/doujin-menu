@@ -34,7 +34,10 @@ export function naturalSort(a: string, b: string): number {
  * @param pattern - 폴더명 패턴 (예: "%artist% - %title%")
  * @returns 생성된 폴더명 (Windows 호환)
  */
-export function formatDownloadFolderName(gallery: Gallery, pattern: string): string {
+export function formatDownloadFolderName(
+  gallery: Gallery,
+  pattern: string,
+): string {
   const artist = gallery.artists?.[0] || "N/A";
   const groups = gallery.groups?.join(", ") || "N/A";
   const title = gallery.title.display || `ID_${gallery.id}`;

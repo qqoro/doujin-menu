@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import { computed, ref, watch } from "vue";
+import SmartSearchInput from "@/components/common/SmartSearchInput.vue";
+import { Button } from "@/components/ui/button";
 import {
   Dialog,
   DialogContent,
@@ -8,11 +9,10 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import SmartSearchInput from "@/components/common/SmartSearchInput.vue";
-import { Preset } from "@/api";
+import { computed, ref, watch } from "vue";
+import { Preset } from "../../../../types/ipc";
 
 const props = defineProps<{ open: boolean; editingPreset: Preset | null }>();
 const emit = defineEmits(["update:open", "save"]);

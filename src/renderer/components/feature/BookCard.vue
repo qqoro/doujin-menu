@@ -98,16 +98,14 @@ const handleGroupClick = (group: { name: string }) => {
 
 // 유효한 작가 목록 (빈 문자열, null, undefined 제외)
 const validArtists = computed(() => {
-  return props.book.artists?.filter(
-    (a) => a.name && a.name.trim() !== ""
-  ) || [];
+  return (
+    props.book.artists?.filter((a) => a.name && a.name.trim() !== "") || []
+  );
 });
 
 // 유효한 그룹 목록 (빈 문자열, null, undefined 제외)
 const validGroups = computed(() => {
-  return props.book.groups?.filter(
-    (g) => g.name && g.name.trim() !== ""
-  ) || [];
+  return props.book.groups?.filter((g) => g.name && g.name.trim() !== "") || [];
 });
 
 // 작가 또는 그룹 정보가 있는지 확인
@@ -180,7 +178,10 @@ const confirmDeleteBook = async () => {
             v-if="validArtists.length > 0"
             class="flex items-center gap-1 w-full text-xs text-muted-foreground"
           >
-            <Icon icon="solar:user-bold-duotone" class="w-3 h-3 flex-shrink-0" />
+            <Icon
+              icon="solar:user-bold-duotone"
+              class="w-3 h-3 flex-shrink-0"
+            />
             <span
               class="truncate cursor-pointer hover:underline"
               :title="validArtists.map((a) => a.name).join(', ')"
@@ -194,7 +195,10 @@ const confirmDeleteBook = async () => {
             v-if="validGroups.length > 0"
             class="flex items-center gap-1 w-full text-xs text-muted-foreground"
           >
-            <Icon icon="solar:users-group-rounded-bold-duotone" class="w-3 h-3 flex-shrink-0" />
+            <Icon
+              icon="solar:users-group-rounded-bold-duotone"
+              class="w-3 h-3 flex-shrink-0"
+            />
             <span
               class="truncate cursor-pointer hover:underline"
               :title="validGroups.map((g) => g.name).join(', ')"

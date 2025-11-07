@@ -832,7 +832,9 @@ export const handleGetBookHistory = async ({
 export const handleDeleteBookHistory = async (historyId: number) => {
   try {
     await db.transaction(async (trx) => {
-      const historyEntry = await trx("BookHistory").where("id", historyId).first();
+      const historyEntry = await trx("BookHistory")
+        .where("id", historyId)
+        .first();
       if (!historyEntry) {
         return; // Or throw an error
       }
@@ -851,7 +853,9 @@ export const handleDeleteBookHistory = async (historyId: number) => {
       // Update the book's last_read_at
       await trx("Book")
         .where("id", bookId)
-        .update({ last_read_at: latestHistory ? latestHistory.viewed_at : null });
+        .update({
+          last_read_at: latestHistory ? latestHistory.viewed_at : null,
+        });
     });
 
     return { success: true };

@@ -1,5 +1,4 @@
 <script setup lang="ts">
-import { LicenseInfo } from "@/api";
 import {
   Accordion,
   AccordionContent,
@@ -15,6 +14,7 @@ import {
 } from "@/components/ui/dialog";
 import { Icon } from "@iconify/vue";
 import { useQuery } from "@tanstack/vue-query";
+import { LicenseInfo } from "../../../../types/ipc";
 
 defineProps<{
   open: boolean;

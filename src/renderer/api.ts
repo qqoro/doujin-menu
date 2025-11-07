@@ -1,11 +1,15 @@
-import type { TypedIpcRenderer, Preset, FilterParams, LicenseInfo, UpdateCheckResult } from "../types/ipc";
+import type {
+  FilterParams,
+  Preset,
+  TypedIpcRenderer,
+  UpdateCheckResult,
+} from "../types/ipc";
 
 // 타입이 지정된 IPC Renderer
+// eslint-disable-next-line @typescript-eslint/ban-ts-comment
+// @ts-ignore electron 전용 API
 export const ipcRenderer = window.require("electron")
   .ipcRenderer as TypedIpcRenderer;
-
-// 재사용을 위해 export
-export type { Preset, FilterParams, LicenseInfo, UpdateCheckResult };
 
 export async function getBook(bookId: number) {
   return ipcRenderer.invoke("get-book", bookId);
@@ -25,8 +29,9 @@ export async function getRandomBook(filter: FilterParams) {
     return { id: result.bookId, title: result.bookTitle };
   } else {
     throw new Error(
-      (typeof result.error === "string" ? result.error : String(result.error)) ||
-        "Failed to get random book",
+      (typeof result.error === "string"
+        ? result.error
+        : String(result.error)) || "Failed to get random book",
     );
   }
 }
@@ -204,7 +209,10 @@ export async function addToDownloadQueue(params: {
 }
 
 export async function removeFromDownloadQueue(queueId: number) {
-  const result = await ipcRenderer.invoke("remove-from-download-queue", queueId);
+  const result = await ipcRenderer.invoke(
+    "remove-from-download-queue",
+    queueId,
+  );
   if (result.success) {
     return true;
   } else {

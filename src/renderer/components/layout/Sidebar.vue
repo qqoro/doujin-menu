@@ -54,7 +54,7 @@ const navItems = [
 ];
 
 // 네비게이션 클릭 핸들러
-const handleNavClick = (item: typeof navItems[0]) => {
+const handleNavClick = (item: (typeof navItems)[0]) => {
   // 현재 라우트와 같은 경로를 클릭한 경우
   if (route.path === item.to) {
     // 스크롤 위치 초기화
@@ -101,7 +101,9 @@ const handleNavClick = (item: typeof navItems[0]) => {
                   cn(
                     'flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium text-muted-foreground hover:bg-accent hover:text-accent-foreground transition-colors',
                     isSidebarCollapsed ? 'justify-center w-14 h-14' : '',
-                    route.path === item.to ? 'bg-accent text-accent-foreground' : '',
+                    route.path === item.to
+                      ? 'bg-accent text-accent-foreground'
+                      : '',
                   )
                 "
                 @click="handleNavClick(item)"

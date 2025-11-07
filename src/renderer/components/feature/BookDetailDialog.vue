@@ -67,7 +67,12 @@ const displayPath = computed(() => {
               페이지 수: {{ book.page_count }}
             </p>
             <p class="text-sm text-muted-foreground">
-              추가된 날짜: {{ book.added_at ? new Date(book.added_at).toLocaleDateString() : '-' }}
+              추가된 날짜:
+              {{
+                book.added_at
+                  ? new Date(book.added_at).toLocaleDateString()
+                  : "-"
+              }}
             </p>
             <p class="text-sm text-muted-foreground">
               마지막 읽은 날짜:

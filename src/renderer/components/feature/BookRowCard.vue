@@ -12,12 +12,12 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { useTagDisplay } from "@/composable/useTagDisplay";
 import { Icon } from "@iconify/vue";
 import { useQueryClient } from "@tanstack/vue-query";
 import { computed, ref, toRaw } from "vue";
 import { useRouter } from "vue-router";
 import { toast } from "vue-sonner";
-import { useTagDisplay } from "@/composable/useTagDisplay";
 import type { Book } from "../../../types/ipc";
 
 const props = defineProps<{ book: Book; queryKey: readonly unknown[] }>();
@@ -72,9 +72,7 @@ const validGroups = computed(() => {
 });
 
 const validSeries = computed(() => {
-  return (
-    props.book.series?.filter((s) => s.name && s.name.trim() !== "") || []
-  );
+  return props.book.series?.filter((s) => s.name && s.name.trim() !== "") || [];
 });
 
 const validCharacters = computed(() => {
@@ -113,13 +111,6 @@ const confirmDeleteBook = async () => {
     isDeleteDialogOpen.value = false;
   }
 };
-
-const copyToClipboard = async (text: string) => {
-  await navigator.clipboard.writeText(text);
-  toast.success(`${text}가 클립보드에 복사되었습니다.`, {
-    duration: 750,
-  });
-};
 </script>
 
 <template>
@@ -152,7 +143,10 @@ const copyToClipboard = async (text: string) => {
           />
           작가:
           <template v-if="validArtists.length > 0">
-            <template v-for="(artist, index) in validArtists" :key="artist.name">
+            <template
+              v-for="(artist, index) in validArtists"
+              :key="artist.name"
+            >
               <button
                 class="inline-block text-left p-0 m-0 border-none bg-transparent cursor-pointer hover:underline text-current"
                 @click.stop="emit('selectArtist', artist.name)"
@@ -267,7 +261,10 @@ const copyToClipboard = async (text: string) => {
         폴더 열기
       </Button>
       <Button size="sm" variant="destructive" @click.stop="handleDeleteBook">
-        <Icon icon="solar:trash-bin-minimalistic-bold-duotone" class="w-4 h-4" />
+        <Icon
+          icon="solar:trash-bin-minimalistic-bold-duotone"
+          class="w-4 h-4"
+        />
         삭제
       </Button>
     </div>

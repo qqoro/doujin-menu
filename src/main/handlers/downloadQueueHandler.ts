@@ -1,6 +1,9 @@
 import { ipcMain, BrowserWindow } from "electron";
 import db from "../db/index.js";
-import type { DownloadQueueItem, DownloadQueueStatus } from "../../types/ipc.js";
+import type {
+  DownloadQueueItem,
+  DownloadQueueStatus,
+} from "../../types/ipc.js";
 import { handleDownloadGallery } from "./downloaderHandler.js";
 import fs from "fs/promises";
 import path from "path";
@@ -134,17 +137,24 @@ export const handleRemoveFromDownloadQueue = async (queueId: number) => {
           // 폴더 삭제
           try {
             await fs.rm(galleryDownloadPath, { recursive: true, force: true });
-            console.log(`[DownloadQueue] 미완료 다운로드 파일 삭제됨: ${galleryDownloadPath}`);
+            console.log(
+              `[DownloadQueue] 미완료 다운로드 파일 삭제됨: ${galleryDownloadPath}`,
+            );
           } catch (deleteError) {
             console.warn(`[DownloadQueue] 파일 삭제 실패 (무시):`, deleteError);
           }
 
           // 압축 파일도 삭제 시도
-          const compressFormat = configStore.get("compressFormat", "cbz") as string;
+          const compressFormat = configStore.get(
+            "compressFormat",
+            "cbz",
+          ) as string;
           const archiveFilePath = `${galleryDownloadPath}.${compressFormat}`;
           try {
             await fs.unlink(archiveFilePath);
-            console.log(`[DownloadQueue] 미완료 압축 파일 삭제됨: ${archiveFilePath}`);
+            console.log(
+              `[DownloadQueue] 미완료 압축 파일 삭제됨: ${archiveFilePath}`,
+            );
           } catch {
             // 압축 파일이 없으면 무시
           }
@@ -314,16 +324,20 @@ export const updateQueueItemStatus = async (
     downloadedFiles?: number;
     downloadSpeed?: number;
     errorMessage?: string;
-  }
+  },
 ) => {
   try {
     const updateData: Partial<DownloadQueueItem> = { status };
 
     if (data?.progress !== undefined) updateData.progress = data.progress;
-    if (data?.totalFiles !== undefined) updateData.total_files = data.totalFiles;
-    if (data?.downloadedFiles !== undefined) updateData.downloaded_files = data.downloadedFiles;
-    if (data?.downloadSpeed !== undefined) updateData.download_speed = data.downloadSpeed;
-    if (data?.errorMessage !== undefined) updateData.error_message = data.errorMessage;
+    if (data?.totalFiles !== undefined)
+      updateData.total_files = data.totalFiles;
+    if (data?.downloadedFiles !== undefined)
+      updateData.downloaded_files = data.downloadedFiles;
+    if (data?.downloadSpeed !== undefined)
+      updateData.download_speed = data.downloadSpeed;
+    if (data?.errorMessage !== undefined)
+      updateData.error_message = data.errorMessage;
 
     if (status === "downloading" && !updateData.started_at) {
       updateData.started_at = new Date().toISOString();
@@ -387,13 +401,15 @@ async function processDownloadQueue() {
             downloadPath: nextItem.download_path,
             queueId: nextItem.id, // 큐 ID 전달
             shouldCancel: () => shouldCancelCurrentDownload, // 취소 확인 함수
-          }
+          },
         );
 
         // 일시정지 처리
         if (shouldCancelCurrentDownload || result.paused) {
           await updateQueueItemStatus(nextItem.id, "paused");
-          console.log(`[DownloadQueue] 다운로드가 일시정지되었습니다: ${nextItem.gallery_id}`);
+          console.log(
+            `[DownloadQueue] 다운로드가 일시정지되었습니다: ${nextItem.gallery_id}`,
+          );
         } else if (result.success) {
           await updateQueueItemStatus(nextItem.id, "completed");
         } else {
@@ -419,7 +435,7 @@ async function processDownloadQueue() {
       shouldCancelCurrentDownload = false;
 
       // 잠시 대기 (다음 다운로드 전)
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      await new Promise((resolve) => setTimeout(resolve, 1000));
     }
   } catch (error) {
     // 큐 처리 루프 자체에서 예외 발생 (DB 연결 실패, 치명적 에러 등)
@@ -429,7 +445,9 @@ async function processDownloadQueue() {
     if (currentDownloadId !== null) {
       try {
         await updateQueueItemStatus(currentDownloadId, "pending");
-        console.log(`[DownloadQueue] 항목 ${currentDownloadId}을(를) pending으로 복구했습니다.`);
+        console.log(
+          `[DownloadQueue] 항목 ${currentDownloadId}을(를) pending으로 복구했습니다.`,
+        );
       } catch (updateError) {
         console.error(`[DownloadQueue] 항목 상태 복구 실패:`, updateError);
       }
@@ -446,7 +464,9 @@ async function processDownloadQueue() {
         .first();
 
       if (hasPending) {
-        console.log("[DownloadQueue] 대기 중인 항목이 있어 5초 후 큐 처리를 재시작합니다.");
+        console.log(
+          "[DownloadQueue] 대기 중인 항목이 있어 5초 후 큐 처리를 재시작합니다.",
+        );
         // 5초 후 재시작
         setTimeout(() => {
           processDownloadQueue();
@@ -463,7 +483,7 @@ async function processDownloadQueue() {
  */
 function broadcastQueueUpdate() {
   const windows = BrowserWindow.getAllWindows();
-  windows.forEach(window => {
+  windows.forEach((window) => {
     window.webContents.send("download-queue-updated");
   });
 }
@@ -496,19 +516,19 @@ export async function initializeDownloadQueue() {
 export function registerDownloadQueueHandlers() {
   ipcMain.handle("get-download-queue", handleGetDownloadQueue);
   ipcMain.handle("add-to-download-queue", (_event, params) =>
-    handleAddToDownloadQueue(params)
+    handleAddToDownloadQueue(params),
   );
   ipcMain.handle("remove-from-download-queue", (_event, queueId) =>
-    handleRemoveFromDownloadQueue(queueId)
+    handleRemoveFromDownloadQueue(queueId),
   );
   ipcMain.handle("pause-download", (_event, queueId) =>
-    handlePauseDownload(queueId)
+    handlePauseDownload(queueId),
   );
   ipcMain.handle("resume-download", (_event, queueId) =>
-    handleResumeDownload(queueId)
+    handleResumeDownload(queueId),
   );
   ipcMain.handle("retry-download", (_event, queueId) =>
-    handleRetryDownload(queueId)
+    handleRetryDownload(queueId),
   );
   ipcMain.handle("clear-completed-downloads", handleClearCompletedDownloads);
 

@@ -76,7 +76,8 @@ const loadImage = async () => {
     const result = await ipcRenderer.invoke("download-temp-thumbnail", {
       url: props.url,
       referer: props.referer,
-      galleryId: typeof props.id === "number" ? props.id : parseInt(props.id, 10),
+      galleryId:
+        typeof props.id === "number" ? props.id : parseInt(props.id, 10),
     });
 
     if (result.success && result.data) {

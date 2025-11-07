@@ -105,37 +105,73 @@ const goToViewer = (bookId: number) => {
               <div class="flex items-center justify-between">
                 <span class="text-sm">완독</span>
                 <span class="font-semibold">
-                  {{ formatNumberWithCommas(statistics.readingProgress.read) }}권
+                  {{
+                    formatNumberWithCommas(statistics.readingProgress.read)
+                  }}권
                   <span class="text-xs text-gray-500">
-                    ({{ ((statistics.readingProgress.read / statistics.totalBooks) * 100).toFixed(1) }}%)
+                    ({{
+                      (
+                        (statistics.readingProgress.read /
+                          statistics.totalBooks) *
+                        100
+                      ).toFixed(1)
+                    }}%)
                   </span>
                 </span>
               </div>
               <div class="flex items-center justify-between">
                 <span class="text-sm">읽는 중</span>
                 <span class="font-semibold">
-                  {{ formatNumberWithCommas(statistics.readingProgress.reading) }}권
+                  {{
+                    formatNumberWithCommas(statistics.readingProgress.reading)
+                  }}권
                   <span class="text-xs text-gray-500">
-                    ({{ ((statistics.readingProgress.reading / statistics.totalBooks) * 100).toFixed(1) }}%)
+                    ({{
+                      (
+                        (statistics.readingProgress.reading /
+                          statistics.totalBooks) *
+                        100
+                      ).toFixed(1)
+                    }}%)
                   </span>
                 </span>
               </div>
               <div class="flex items-center justify-between">
                 <span class="text-sm">안 읽음</span>
                 <span class="font-semibold">
-                  {{ formatNumberWithCommas(statistics.readingProgress.unread) }}권
+                  {{
+                    formatNumberWithCommas(statistics.readingProgress.unread)
+                  }}권
                   <span class="text-xs text-gray-500">
-                    ({{ ((statistics.readingProgress.unread / statistics.totalBooks) * 100).toFixed(1) }}%)
+                    ({{
+                      (
+                        (statistics.readingProgress.unread /
+                          statistics.totalBooks) *
+                        100
+                      ).toFixed(1)
+                    }}%)
                   </span>
                 </span>
               </div>
               <div class="h-px bg-border my-2"></div>
               <div class="flex items-center justify-between">
                 <span class="text-sm">즐겨찾기</span>
-                <span class="font-semibold text-yellow-600 dark:text-yellow-500">
-                  {{ formatNumberWithCommas(statistics.readingProgress.favorites) }}권
+                <span
+                  class="font-semibold text-yellow-600 dark:text-yellow-500"
+                >
+                  {{
+                    formatNumberWithCommas(
+                      statistics.readingProgress.favorites,
+                    )
+                  }}권
                   <span class="text-xs text-gray-500">
-                    ({{ ((statistics.readingProgress.favorites / statistics.totalBooks) * 100).toFixed(1) }}%)
+                    ({{
+                      (
+                        (statistics.readingProgress.favorites /
+                          statistics.totalBooks) *
+                        100
+                      ).toFixed(1)
+                    }}%)
                   </span>
                 </span>
               </div>
@@ -263,13 +299,18 @@ const goToViewer = (bookId: number) => {
         <Card>
           <CardHeader>
             <CardTitle class="flex items-center gap-2">
-              <Icon icon="solar:users-group-two-rounded-bold-duotone" class="w-6 h-6" />
+              <Icon
+                icon="solar:users-group-two-rounded-bold-duotone"
+                class="w-6 h-6"
+              />
               가장 좋아하는 그룹
             </CardTitle>
           </CardHeader>
           <CardContent>
             <ScrollArea class="h-48 w-full rounded-md border p-4">
-              <div v-if="statistics.topGroups && statistics.topGroups.length > 0">
+              <div
+                v-if="statistics.topGroups && statistics.topGroups.length > 0"
+              >
                 <div
                   v-for="group in statistics.topGroups"
                   :key="group.name"
@@ -306,7 +347,12 @@ const goToViewer = (bookId: number) => {
           </CardHeader>
           <CardContent>
             <ScrollArea class="h-48 w-full rounded-md border p-4">
-              <div v-if="statistics.topCharacters && statistics.topCharacters.length > 0">
+              <div
+                v-if="
+                  statistics.topCharacters &&
+                  statistics.topCharacters.length > 0
+                "
+              >
                 <div
                   v-for="character in statistics.topCharacters"
                   :key="character.name"
@@ -321,7 +367,9 @@ const goToViewer = (bookId: number) => {
                   </div>
                   <div class="text-sm font-semibold">
                     {{
-                      ((character.count / statistics.totalBooks) * 100).toFixed(1)
+                      ((character.count / statistics.totalBooks) * 100).toFixed(
+                        1,
+                      )
                     }}%
                   </div>
                 </div>
@@ -343,7 +391,9 @@ const goToViewer = (bookId: number) => {
           </CardHeader>
           <CardContent>
             <ScrollArea class="h-48 w-full rounded-md border p-4">
-              <div v-if="statistics.topSeries && statistics.topSeries.length > 0">
+              <div
+                v-if="statistics.topSeries && statistics.topSeries.length > 0"
+              >
                 <div
                   v-for="series in statistics.topSeries"
                   :key="series.name"
@@ -351,7 +401,9 @@ const goToViewer = (bookId: number) => {
                   @click="goToLibraryWithSearch('series:' + series.name)"
                 >
                   <div class="flex items-center gap-2 min-w-0">
-                    <span class="text-sm font-medium truncate">{{ series.name }}</span>
+                    <span class="text-sm font-medium truncate">{{
+                      series.name
+                    }}</span>
                   </div>
                   <div class="text-sm text-gray-500 flex-shrink-0">
                     {{ series.count }}권
@@ -385,10 +437,17 @@ const goToViewer = (bookId: number) => {
               <div class="h-px bg-border my-2"></div>
               <div>
                 <p class="text-sm text-gray-500 mb-1">읽은 페이지 수</p>
-                <p class="text-2xl font-semibold text-green-600 dark:text-green-500">
+                <p
+                  class="text-2xl font-semibold text-green-600 dark:text-green-500"
+                >
                   {{ formatNumberWithCommas(statistics.readPages) }}
                   <span class="text-sm text-gray-500">
-                    ({{ ((statistics.readPages / statistics.totalPages) * 100).toFixed(1) }}%)
+                    ({{
+                      (
+                        (statistics.readPages / statistics.totalPages) *
+                        100
+                      ).toFixed(1)
+                    }}%)
                   </span>
                 </p>
               </div>
@@ -435,17 +494,25 @@ const goToViewer = (bookId: number) => {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div v-if="statistics.typeDistribution && statistics.typeDistribution.length > 0" class="space-y-2">
+            <div
+              v-if="
+                statistics.typeDistribution &&
+                statistics.typeDistribution.length > 0
+              "
+              class="space-y-2"
+            >
               <div
                 v-for="type in statistics.typeDistribution"
                 :key="type.type"
                 class="flex items-center justify-between"
               >
-                <span class="text-sm">{{ type.type || '미지정' }}</span>
+                <span class="text-sm">{{ type.type || "미지정" }}</span>
                 <span class="font-semibold">
                   {{ formatNumberWithCommas(type.count) }}권
                   <span class="text-xs text-gray-500">
-                    ({{ ((type.count / statistics.totalBooks) * 100).toFixed(1) }}%)
+                    ({{
+                      ((type.count / statistics.totalBooks) * 100).toFixed(1)
+                    }}%)
                   </span>
                 </span>
               </div>

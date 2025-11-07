@@ -14,7 +14,6 @@ import { Button } from "@/components/ui/button";
 import { useGalleryCard } from "@/composable/useGalleryCard";
 import { Icon } from "@iconify/vue";
 import type { Gallery } from "node-hitomi";
-import { withDefaults } from "vue";
 
 interface Props {
   gallery: Gallery & { thumbnailUrl: string };

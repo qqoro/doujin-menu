@@ -1,14 +1,14 @@
-import { app, ipcMain } from "electron";
 import archiver from "archiver";
+import { app, ipcMain } from "electron";
 import { filenamifyPath } from "filenamify";
-import fs from "fs/promises";
 import { createWriteStream } from "fs";
-import hitomi, { Gallery } from "node-hitomi";
+import fs from "fs/promises";
+import hitomi from "node-hitomi";
 import path from "path";
 import { pathToFileURL } from "url";
+import { formatDownloadFolderName } from "../utils/index.js";
 import { store as configStore } from "./configHandler.js";
 import { scanFile } from "./directoryHandler.js";
-import { formatDownloadFolderName } from "../utils/index.js";
 
 export const handleSearchGalleries = async ({
   query,
@@ -127,7 +127,7 @@ export const handleDownloadGallery = async (
     galleryId,
     downloadPath,
     queueId,
-    shouldCancel
+    shouldCancel,
   }: {
     galleryId: number;
     downloadPath: string;
@@ -177,7 +177,11 @@ export const handleDownloadGallery = async (
       // 취소 확인
       if (shouldCancel && shouldCancel()) {
         console.log(`[Downloader] 다운로드 일시정지됨: ${galleryId}`);
-        return { success: false, error: "다운로드가 일시정지되었습니다.", paused: true };
+        return {
+          success: false,
+          error: "다운로드가 일시정지되었습니다.",
+          paused: true,
+        };
       }
 
       const file = gallery.files[i];
@@ -203,15 +207,17 @@ export const handleDownloadGallery = async (
         // 큐 ID가 있으면 DB 업데이트
         if (queueId) {
           const db = (await import("../db/index.js")).default;
-          await db("DownloadQueue").where("id", queueId).update({
-            progress,
-            downloaded_files: i + 1,
-          });
+          await db("DownloadQueue")
+            .where("id", queueId)
+            .update({
+              progress,
+              downloaded_files: i + 1,
+            });
 
           // 모든 윈도우에 큐 업데이트 알림
           const { BrowserWindow } = await import("electron");
           const windows = BrowserWindow.getAllWindows();
-          windows.forEach(window => {
+          windows.forEach((window) => {
             window.webContents.send("download-queue-updated");
           });
         }
@@ -228,7 +234,11 @@ export const handleDownloadGallery = async (
         // 재시도 루프 내에서도 취소 확인
         if (shouldCancel && shouldCancel()) {
           console.log(`[Downloader] 다운로드 일시정지됨: ${galleryId}`);
-          return { success: false, error: "다운로드가 일시정지되었습니다.", paused: true };
+          return {
+            success: false,
+            error: "다운로드가 일시정지되었습니다.",
+            paused: true,
+          };
         }
         attempt++;
         try {
@@ -285,15 +295,17 @@ export const handleDownloadGallery = async (
       // 큐 ID가 있으면 DB 업데이트
       if (queueId) {
         const db = (await import("../db/index.js")).default;
-        await db("DownloadQueue").where("id", queueId).update({
-          progress,
-          downloaded_files: i + 1,
-        });
+        await db("DownloadQueue")
+          .where("id", queueId)
+          .update({
+            progress,
+            downloaded_files: i + 1,
+          });
 
         // 모든 윈도우에 큐 업데이트 알림
         const { BrowserWindow } = await import("electron");
         const windows = BrowserWindow.getAllWindows();
-        windows.forEach(window => {
+        windows.forEach((window) => {
           window.webContents.send("download-queue-updated");
         });
       }

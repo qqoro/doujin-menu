@@ -166,10 +166,16 @@ export function useQueryAndParams<
       }
 
       // route.query 값들을 내부 상태에 반영
-      page.value = newQuery.page ? Number(newQuery.page) : currentDefaultOptions.page;
-      pageSize.value = newQuery.pageSize ? Number(newQuery.pageSize) : currentDefaultOptions.pageSize;
-      searchType.value = (newQuery.searchType as string) ?? currentDefaultOptions.searchType;
-      schWord.value = (newQuery.schWord as string) ?? currentDefaultOptions.schWord;
+      page.value = newQuery.page
+        ? Number(newQuery.page)
+        : currentDefaultOptions.page;
+      pageSize.value = newQuery.pageSize
+        ? Number(newQuery.pageSize)
+        : currentDefaultOptions.pageSize;
+      searchType.value =
+        (newQuery.searchType as string) ?? currentDefaultOptions.searchType;
+      schWord.value =
+        (newQuery.schWord as string) ?? currentDefaultOptions.schWord;
 
       // queries에 포함된 파라미터들도 업데이트
       if (queries) {
@@ -179,10 +185,10 @@ export function useQueryAndParams<
             // 타입에 맞게 변환
             const queryValue = newQuery[k];
             if (queryValue !== undefined) {
-              if (typeof v.value === 'number') {
+              if (typeof v.value === "number") {
                 v.value = Number(queryValue) as UnwrapRef<T[typeof k]>;
-              } else if (typeof v.value === 'boolean') {
-                v.value = (queryValue === 'true') as UnwrapRef<T[typeof k]>;
+              } else if (typeof v.value === "boolean") {
+                v.value = (queryValue === "true") as UnwrapRef<T[typeof k]>;
               } else {
                 v.value = queryValue as UnwrapRef<T[typeof k]>;
               }

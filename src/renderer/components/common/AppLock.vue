@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { ipcRenderer } from "@/api";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -13,7 +14,6 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useUiStore } from "@/store/uiStore";
-import { ipcRenderer } from "@/api";
 import { Icon } from "@iconify/vue";
 import { ref } from "vue";
 import { toast } from "vue-sonner";
@@ -28,7 +28,10 @@ const handleUnlock = async () => {
     return;
   }
   isVerifying.value = true;
-  const result = await ipcRenderer.invoke("verify-lock-password", password.value);
+  const result = await ipcRenderer.invoke(
+    "verify-lock-password",
+    password.value,
+  );
   isVerifying.value = false;
 
   if (result.success) {
@@ -66,7 +69,7 @@ const resetAllData = async () => {
           비밀번호를 입력하여 잠금을 해제하세요.
         </p>
       </div>
-      <form @submit.prevent="handleUnlock" class="flex flex-col gap-4">
+      <form class="flex flex-col gap-4" @submit.prevent="handleUnlock">
         <Input
           v-model="password"
           type="password"

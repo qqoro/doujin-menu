@@ -124,7 +124,12 @@ onMounted(async () => {
   appVersion.value = await api.getAppVersion();
 
   ipcRenderer.on("update-status", (_event, ...args) => {
-    const data = args[0] as { status: string; info?: { version: string }; progressObj?: { percent: number }; error?: string };
+    const data = args[0] as {
+      status: string;
+      info?: { version: string };
+      progressObj?: { percent: number };
+      error?: string;
+    };
     updateStatus.value = data.status;
     if (data.status === "update-available" && data.info) {
       latestVersion.value = data.info.version;
@@ -138,7 +143,11 @@ onMounted(async () => {
   });
 
   ipcRenderer.on("info-generation-progress", (_event, ...args) => {
-    const progress = args[0] as { current: number; total: number; message: string };
+    const progress = args[0] as {
+      current: number;
+      total: number;
+      message: string;
+    };
     generationProgress.value = progress;
     if (progress.current >= progress.total) {
       isGeneratingInfoFiles.value = false;

@@ -40,7 +40,7 @@ export const useViewerStore = defineStore("viewer", () => {
   // Auto-play state
   const isAutoPlay = ref(false);
   const autoPlayInterval = ref(5); // seconds
-  const autoPlayTimer = ref<NodeJS.Timeout | null>(null);
+  const autoPlayTimer = ref<number | null>(null);
 
   // Auto-next-book state
   const isAutoNextBook = ref(false);
@@ -49,7 +49,7 @@ export const useViewerStore = defineStore("viewer", () => {
   // Toast state
   const showToast = ref(false);
   const toastMessage = ref("");
-  const toastTimeoutId = ref<NodeJS.Timeout | null>(null);
+  const toastTimeoutId = ref<number | null>(null);
 
   // Getters
   const currentImageUrl = computed<string | null>(() => {
@@ -108,7 +108,7 @@ export const useViewerStore = defineStore("viewer", () => {
     }
     toastMessage.value = message;
     showToast.value = true;
-    toastTimeoutId.value = setTimeout(() => {
+    toastTimeoutId.value = window.setTimeout(() => {
       showToast.value = false;
       toastMessage.value = "";
     }, duration);
@@ -132,7 +132,7 @@ export const useViewerStore = defineStore("viewer", () => {
   function _startAutoPlayCore() {
     _stopAutoPlayCore(); // 기존 타이머 제거
     isAutoPlay.value = true;
-    autoPlayTimer.value = setInterval(() => {
+    autoPlayTimer.value = window.setInterval(() => {
       nextPage();
     }, autoPlayInterval.value * 1000);
   }
@@ -442,7 +442,8 @@ export const useViewerStore = defineStore("viewer", () => {
         | "random";
     }
     if (config.viewerRestoreLastSession !== undefined) {
-      viewerRestoreLastSession.value = config.viewerRestoreLastSession as boolean;
+      viewerRestoreLastSession.value =
+        config.viewerRestoreLastSession as boolean;
     }
     if (config.viewerAutoFitZoom !== undefined) {
       viewerAutoFitZoom.value = config.viewerAutoFitZoom as boolean;
@@ -454,10 +455,7 @@ export const useViewerStore = defineStore("viewer", () => {
       viewerShowCoverAlone.value = config.viewerShowCoverAlone as boolean;
     }
     if (config.viewerReadingMode !== undefined) {
-      readingMode.value = config.viewerReadingMode as
-        | "ltr"
-        | "rtl"
-        | "webtoon";
+      readingMode.value = config.viewerReadingMode as "ltr" | "rtl" | "webtoon";
     }
   }
 

@@ -33,7 +33,11 @@ onMounted(async () => {
   }
 
   ipcRenderer.on("update-status", (_event, ...args) => {
-    const { status, info, error } = args[0] as { status: string; info?: { version: string }; error?: string };
+    const { status, info, error } = args[0] as {
+      status: string;
+      info?: { version: string };
+      error?: string;
+    };
     if (status === "update-available" && info) {
       toast.info(`새로운 업데이트가 있습니다: ${info.version}`, {
         action: {
