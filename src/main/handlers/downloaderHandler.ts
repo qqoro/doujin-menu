@@ -92,8 +92,7 @@ export const handleGetGalleryDetails = async (galleryId: number) => {
       success: true,
       data: {
         ...gallery,
-        thumbnailUrl: `https://${thumbnailUrl.replace(/tn\d/, "tn").replace("bigtn", "webpbigtn")}`,
-        // thumbnailUrl: `https://${thumbnailUrl}`,
+        thumbnailUrl: `https://${thumbnailUrl}`,
       },
     };
   } catch (error) {
@@ -110,7 +109,8 @@ export const handleGetGalleryImageUrls = async (galleryId: number) => {
       throw new Error(`Gallery with ID ${galleryId} not found.`);
     }
     const previewUrls = gallery.files.map((file) => {
-      const imageUrl = hitomi.ImageUriResolver.getImageUri(file, "avif"); // 원본 이미지 URL
+      const fileExt = file.hasWebp ? "webp" : "avif";
+      const imageUrl = hitomi.ImageUriResolver.getImageUri(file, fileExt); // 원본 이미지 URL
       return `https://${imageUrl}`;
     });
     return { success: true, data: previewUrls };
