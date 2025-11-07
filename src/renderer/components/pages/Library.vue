@@ -310,10 +310,10 @@ useScrollRestoration(".flex-grow.overflow-y-auto");
 </script>
 
 <template>
-  <div class="h-full flex flex-col">
-    <div class="flex justify-between items-center mb-4">
+  <div class="flex h-full flex-col">
+    <div class="mb-4 flex items-center justify-between">
       <div class="flex items-center gap-2">
-        <Icon icon="solar:library-bold-duotone" class="w-6 h-6" />
+        <Icon icon="solar:library-bold-duotone" class="h-6 w-6" />
         <h2 class="text-2xl font-bold">라이브러리</h2>
         <HelpDialog
           title="라이브러리 도움말"
@@ -321,13 +321,13 @@ useScrollRestoration(".flex-grow.overflow-y-auto");
         >
           <template #trigger>
             <Button variant="ghost" size="icon">
-              <Icon icon="solar:question-circle-bold-duotone" class="w-6 h-6" />
+              <Icon icon="solar:question-circle-bold-duotone" class="h-6 w-6" />
             </Button>
           </template>
-          <div class="space-y-4 text-sm text-muted-foreground">
+          <div class="text-muted-foreground space-y-4 text-sm">
             <p>이 화면에서는 추가된 만화책들을 관리하고 열람할 수 있습니다.</p>
-            <h3 class="font-semibold text-base text-foreground">검색 팁</h3>
-            <ul class="list-disc list-inside">
+            <h3 class="text-foreground text-base font-semibold">검색 팁</h3>
+            <ul class="list-inside list-disc">
               <li>
                 검색창에 제목, 작가, 태그, 시리즈를 입력하여 검색할 수 있습니다.
               </li>
@@ -338,15 +338,15 @@ useScrollRestoration(".flex-grow.overflow-y-auto");
               <li>
                 <Icon
                   icon="solar:bookmark-bold-duotone"
-                  class="w-4 h-4 inline-block align-text-bottom"
+                  class="inline-block h-4 w-4 align-text-bottom"
                 />
                 버튼을 클릭하여 저장된 프리셋 검색어를 사용할 수 있습니다.
               </li>
             </ul>
-            <h3 class="font-semibold text-base text-foreground">
+            <h3 class="text-foreground text-base font-semibold">
               필터 및 정렬
             </h3>
-            <ul class="list-disc list-inside">
+            <ul class="list-inside list-disc">
               <li>
                 검색창 왼쪽의 드롭다운 메뉴를 사용하여 특정 라이브러리 폴더의
                 책만 볼 수 있습니다.
@@ -358,7 +358,7 @@ useScrollRestoration(".flex-grow.overflow-y-auto");
               <li>
                 <Icon
                   icon="solar:filter-bold-duotone"
-                  class="w-4 h-4 inline-block align-text-bottom"
+                  class="inline-block h-4 w-4 align-text-bottom"
                 />
                 버튼을 클릭하여 읽음 상태 및 즐겨찾기 여부로 필터링할 수
                 있습니다.
@@ -366,13 +366,13 @@ useScrollRestoration(".flex-grow.overflow-y-auto");
               <li>
                 <Icon
                   icon="solar:sort-bold-duotone"
-                  class="w-4 h-4 inline-block align-text-bottom"
+                  class="inline-block h-4 w-4 align-text-bottom"
                 />
                 버튼을 클릭하여 다양한 기준으로 정렬할 수 있습니다.
               </li>
             </ul>
-            <h3 class="font-semibold text-base text-foreground">책 관리</h3>
-            <ul class="list-disc list-inside">
+            <h3 class="text-foreground text-base font-semibold">책 관리</h3>
+            <ul class="list-inside list-disc">
               <li>책 카드를 클릭하여 뷰어를 열 수 있습니다.</li>
               <li>
                 책 카드를 <code>Ctrl</code>+클릭하거나 우클릭 메뉴의 '새 창으로
@@ -391,12 +391,12 @@ useScrollRestoration(".flex-grow.overflow-y-auto");
         size="icon"
         @click="router.push('/settings?tab=library')"
       >
-        <Icon icon="solar:settings-bold-duotone" class="w-6 h-6" />
+        <Icon icon="solar:settings-bold-duotone" class="h-6 w-6" />
       </Button>
     </div>
 
     <!-- 검색 및 필터 영역 -->
-    <div class="flex items-center gap-2 mb-4">
+    <div class="mb-4 flex items-center gap-2">
       <Select v-model="libraryPath">
         <SelectTrigger class="w-[280px]">
           <SelectValue placeholder="라이브러리 선택..." />
@@ -418,7 +418,7 @@ useScrollRestoration(".flex-grow.overflow-y-auto");
       <DropdownMenu>
         <DropdownMenuTrigger as-child>
           <Button variant="outline">
-            <Icon icon="solar:filter-bold-duotone" class="w-4 h-4" />
+            <Icon icon="solar:filter-bold-duotone" class="h-4 w-4" />
             필터
           </Button>
         </DropdownMenuTrigger>
@@ -445,7 +445,7 @@ useScrollRestoration(".flex-grow.overflow-y-auto");
         <DropdownMenu>
           <DropdownMenuTrigger as-child>
             <Button variant="outline" class="rounded-r-none">
-              <Icon icon="solar:sort-bold-duotone" class="w-4 h-4" />
+              <Icon icon="solar:sort-bold-duotone" class="h-4 w-4" />
               정렬
             </Button>
           </DropdownMenuTrigger>
@@ -457,7 +457,7 @@ useScrollRestoration(".flex-grow.overflow-y-auto");
               <Icon
                 v-if="sortBy === 'title'"
                 icon="solar:check-circle-bold-duotone"
-                class="w-4 h-4 ml-auto"
+                class="ml-auto h-4 w-4"
               />
             </DropdownMenuItem>
             <DropdownMenuItem @click="setSortBy('added_at')">
@@ -465,7 +465,7 @@ useScrollRestoration(".flex-grow.overflow-y-auto");
               <Icon
                 v-if="sortBy === 'added_at'"
                 icon="solar:check-circle-bold-duotone"
-                class="w-4 h-4 ml-auto"
+                class="ml-auto h-4 w-4"
               />
             </DropdownMenuItem>
             <DropdownMenuItem @click="setSortBy('last_read_at')">
@@ -473,7 +473,7 @@ useScrollRestoration(".flex-grow.overflow-y-auto");
               <Icon
                 v-if="sortBy === 'last_read_at'"
                 icon="solar:check-circle-bold-duotone"
-                class="w-4 h-4 ml-auto"
+                class="ml-auto h-4 w-4"
               />
             </DropdownMenuItem>
             <DropdownMenuItem @click="setSortBy('artists')">
@@ -481,7 +481,7 @@ useScrollRestoration(".flex-grow.overflow-y-auto");
               <Icon
                 v-if="sortBy === 'artists'"
                 icon="solar:check-circle-bold-duotone"
-                class="w-4 h-4 ml-auto"
+                class="ml-auto h-4 w-4"
               />
             </DropdownMenuItem>
             <DropdownMenuItem @click="setSortBy('page_count')">
@@ -489,7 +489,7 @@ useScrollRestoration(".flex-grow.overflow-y-auto");
               <Icon
                 v-if="sortBy === 'page_count'"
                 icon="solar:check-circle-bold-duotone"
-                class="w-4 h-4 ml-auto"
+                class="ml-auto h-4 w-4"
               />
             </DropdownMenuItem>
             <DropdownMenuItem @click="setSortBy('hitomi_id')">
@@ -497,7 +497,7 @@ useScrollRestoration(".flex-grow.overflow-y-auto");
               <Icon
                 v-if="sortBy === 'hitomi_id'"
                 icon="solar:check-circle-bold-duotone"
-                class="w-4 h-4 ml-auto"
+                class="ml-auto h-4 w-4"
               />
             </DropdownMenuItem>
           </DropdownMenuContent>
@@ -510,12 +510,12 @@ useScrollRestoration(".flex-grow.overflow-y-auto");
           <Icon
             v-if="sortOrder === 'asc'"
             icon="solar:sort-from-bottom-to-top-bold-duotone"
-            class="w-4 h-4"
+            class="h-4 w-4"
           />
           <Icon
             v-else
             icon="solar:sort-from-top-to-bottom-bold-duotone"
-            class="w-4 h-4"
+            class="h-4 w-4"
           />
         </Button>
       </div>
@@ -524,25 +524,25 @@ useScrollRestoration(".flex-grow.overflow-y-auto");
         :disabled="books.length === 0"
         @click="openRandomBookFromCurrentView"
       >
-        <Icon icon="solar:rocket-bold-duotone" class="w-4 h-4" />
+        <Icon icon="solar:rocket-bold-duotone" class="h-4 w-4" />
         랜덤
       </Button>
       <ToggleGroup v-model="viewMode" type="single">
         <ToggleGroupItem value="grid" aria-label="그리드 뷰">
-          <Icon icon="solar:widget-4-bold-duotone" class="w-4 h-4" />
+          <Icon icon="solar:widget-4-bold-duotone" class="h-4 w-4" />
         </ToggleGroupItem>
         <ToggleGroupItem value="list" aria-label="리스트 뷰">
-          <Icon icon="solar:list-bold-duotone" class="w-4 h-4" />
+          <Icon icon="solar:list-bold-duotone" class="h-4 w-4" />
         </ToggleGroupItem>
       </ToggleGroup>
     </div>
 
     <div
       v-if="isLoading"
-      class="flex-grow flex flex-col items-center justify-center text-center"
+      class="flex flex-grow flex-col items-center justify-center text-center"
     >
       <div
-        class="text-lg text-muted-foreground mb-4 flex justify-center items-center flex-col gap-2"
+        class="text-muted-foreground mb-4 flex flex-col items-center justify-center gap-2 text-lg"
       >
         <Icon icon="svg-spinners:ring-resize" class="size-8" />
         <p>로딩중...</p>
@@ -551,7 +551,7 @@ useScrollRestoration(".flex-grow.overflow-y-auto");
     <!-- Grid View -->
     <div
       v-else-if="books.length > 0 && viewMode === 'grid'"
-      class="flex-grow overflow-y-auto grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-6 gap-4 items-start"
+      class="grid flex-grow grid-cols-1 items-start gap-4 overflow-y-auto sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-6"
     >
       <BookCard
         v-for="book in books"
@@ -568,7 +568,7 @@ useScrollRestoration(".flex-grow.overflow-y-auto");
       <div
         v-if="hasNextPage"
         ref="loader"
-        class="text-center p-4 col-span-full"
+        class="col-span-full p-4 text-center"
       >
         <Button :disabled="isFetchingNextPage" @click="fetchNextPage">
           <Icon v-if="isFetchingNextPage" icon="svg-spinners:ring-resize" />
@@ -579,7 +579,7 @@ useScrollRestoration(".flex-grow.overflow-y-auto");
     <!-- List View -->
     <div
       v-else-if="books.length > 0 && viewMode === 'list'"
-      class="flex-grow overflow-y-auto flex flex-col"
+      class="flex flex-grow flex-col overflow-y-auto"
     >
       <BookRowCard
         v-for="book in books"
@@ -593,7 +593,7 @@ useScrollRestoration(".flex-grow.overflow-y-auto");
         @open-book-folder="handleOpenFolder"
         @show-details="handleShowDetails"
       />
-      <div v-if="hasNextPage" ref="loader" class="text-center p-4">
+      <div v-if="hasNextPage" ref="loader" class="p-4 text-center">
         <Button :disabled="isFetchingNextPage" @click="fetchNextPage">
           <Icon v-if="isFetchingNextPage" icon="svg-spinners:ring-resize" />
           <span>더 불러오기</span>
@@ -602,29 +602,29 @@ useScrollRestoration(".flex-grow.overflow-y-auto");
     </div>
     <div
       v-else-if="searchQuery.trim().length > 0"
-      class="flex-grow flex flex-col items-center justify-center text-center"
+      class="flex flex-grow flex-col items-center justify-center text-center"
     >
       <div
-        class="text-lg text-muted-foreground mb-4 flex justify-center items-center flex-col gap-2"
+        class="text-muted-foreground mb-4 flex flex-col items-center justify-center gap-2 text-lg"
       >
         <p>검색된 데이터가 없습니다.</p>
       </div>
     </div>
     <div
       v-else
-      class="flex-grow flex flex-col items-center justify-center text-center"
+      class="flex flex-grow flex-col items-center justify-center text-center"
     >
       <div
-        class="text-lg text-muted-foreground mb-4 flex justify-center items-center flex-col"
+        class="text-muted-foreground mb-4 flex flex-col items-center justify-center text-lg"
       >
         <p>등록된 라이브러리/책이 없습니다.</p>
-        <p class="flex justify-center items-center gap-1">
+        <p class="flex items-center justify-center gap-1">
           <Button
             variant="secondary"
             size="icon"
             @click="router.push('/settings?tab=library')"
           >
-            <Icon icon="solar:settings-bold-duotone" class="w-5 h-5" />
+            <Icon icon="solar:settings-bold-duotone" class="h-5 w-5" />
           </Button>
           <span>버튼을 눌러 설정화면으로 이동하세요.</span>
         </p>

@@ -33,7 +33,7 @@ const handleApplyPreset = (presetQuery: string) => {
   <DropdownMenu>
     <DropdownMenuTrigger as-child>
       <Button variant="outline" size="icon">
-        <Icon icon="solar:bookmark-bold-duotone" class="w-5 h-5" />
+        <Icon icon="solar:bookmark-bold-duotone" class="h-5 w-5" />
       </Button>
     </DropdownMenuTrigger>
     <DropdownMenuContent class="w-56">

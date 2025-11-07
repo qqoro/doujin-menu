@@ -167,18 +167,18 @@ onMounted(async () => {
         <div class="grid grid-cols-3 items-center gap-4">
           <div class="col-span-2">
             <Label>버전</Label>
-            <p class="text-sm text-muted-foreground">
+            <p class="text-muted-foreground text-sm">
               현재 애플리케이션 버전입니다.
             </p>
           </div>
-          <span class="text-sm text-muted-foreground justify-self-end"
+          <span class="text-muted-foreground justify-self-end text-sm"
             >v{{ appVersion }}</span
           >
         </div>
         <div class="grid grid-cols-3 items-center gap-4">
           <div class="col-span-2">
             <Label>업데이트</Label>
-            <p class="text-sm text-muted-foreground">
+            <p class="text-muted-foreground text-sm">
               앱 업데이트를 확인하고 설치합니다.
             </p>
           </div>
@@ -193,7 +193,7 @@ onMounted(async () => {
             <Icon
               v-if="updateStatus === 'checking'"
               icon="svg-spinners:ring-resize"
-              class="w-4 h-4 mr-2"
+              class="mr-2 h-4 w-4"
             />
             업데이트 확인
           </Button>
@@ -266,7 +266,7 @@ onMounted(async () => {
         <div class="grid grid-cols-3 items-center gap-4">
           <div class="col-span-2">
             <Label for="changelog">업데이트 내역</Label>
-            <p class="text-sm text-muted-foreground">
+            <p class="text-muted-foreground text-sm">
               최신 버전의 변경 내역을 확인합니다.
             </p>
           </div>
@@ -283,7 +283,7 @@ onMounted(async () => {
         <div class="grid grid-cols-3 items-center gap-4">
           <div class="col-span-2">
             <Label for="github-repo">GitHub 저장소</Label>
-            <p class="text-sm text-muted-foreground">
+            <p class="text-muted-foreground text-sm">
               프로젝트의 소스 코드를 확인합니다.
             </p>
           </div>
@@ -313,7 +313,7 @@ onMounted(async () => {
             v-model="infoFilePattern"
             placeholder="예: \((\d+)\)$"
           />
-          <p class="text-sm text-muted-foreground">
+          <p class="text-muted-foreground text-sm">
             폴더명에서 갤러리 ID를 추출할 정규식을 입력합니다. 첫 번째 캡처
             그룹이 ID로 사용됩니다.
           </p>
@@ -321,7 +321,7 @@ onMounted(async () => {
         <div class="grid grid-cols-3 items-center gap-4">
           <div class="col-span-2">
             <Label for="generate-info-files">info.txt 생성</Label>
-            <p class="text-sm text-muted-foreground">
+            <p class="text-muted-foreground text-sm">
               info.txt 파일이 없는 폴더를 찾아 위 정규식을 기반으로 파일을
               생성합니다.
             </p>
@@ -336,7 +336,7 @@ onMounted(async () => {
             <Icon
               v-if="isGeneratingInfoFiles"
               icon="svg-spinners:ring-resize"
-              class="w-4 h-4 mr-2"
+              class="mr-2 h-4 w-4"
             />
             생성 시작
           </Button>
@@ -345,7 +345,7 @@ onMounted(async () => {
           v-if="isGeneratingInfoFiles || generationProgress.total > 0"
           class="space-y-2 pt-4"
         >
-          <div class="flex justify-between text-sm text-muted-foreground">
+          <div class="text-muted-foreground flex justify-between text-sm">
             <span>진행률</span>
             <span
               >{{ generationProgress.current }} /
@@ -360,7 +360,7 @@ onMounted(async () => {
             "
             class="w-full"
           />
-          <p class="text-sm text-muted-foreground truncate">
+          <p class="text-muted-foreground truncate text-sm">
             {{ generationProgress.message }}
           </p>
         </div>
@@ -376,7 +376,7 @@ onMounted(async () => {
         <div class="grid grid-cols-3 items-center gap-4">
           <div class="col-span-2">
             <Label for="toggle-dev-tools">개발자 도구 토글</Label>
-            <p class="text-sm text-muted-foreground">
+            <p class="text-muted-foreground text-sm">
               개발자 도구 창을 열거나 닫습니다.
             </p>
           </div>
@@ -393,7 +393,7 @@ onMounted(async () => {
         <div class="grid grid-cols-3 items-center gap-4">
           <div class="col-span-2">
             <Label for="open-log-folder">로그 폴더 열기</Label>
-            <p class="text-sm text-muted-foreground">
+            <p class="text-muted-foreground text-sm">
               애플리케이션 로그 파일이 저장된 폴더를 엽니다.
             </p>
           </div>
@@ -421,7 +421,7 @@ onMounted(async () => {
             <Label for="github-issues" class="font-medium"
               >오류 제보 및 건의</Label
             >
-            <p class="text-sm text-muted-foreground">
+            <p class="text-muted-foreground text-sm">
               GitHub Issues 페이지를 통해 오류를 제보하거나 기능을 건의합니다.
             </p>
           </div>

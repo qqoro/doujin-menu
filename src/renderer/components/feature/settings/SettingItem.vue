@@ -1,11 +1,11 @@
 <template>
   <div class="flex items-center justify-between gap-4">
-    <div class="flex flex-col gap-1 items-start grow">
+    <div class="flex grow flex-col items-start gap-1">
       <Label :for="labelFor">{{ title }}</Label>
       <slot name="subtitle" />
       <p
         v-if="subtitle && !$slots.subtitle"
-        class="text-sm text-muted-foreground"
+        class="text-muted-foreground text-sm"
       >
         {{ subtitle }}
       </p>

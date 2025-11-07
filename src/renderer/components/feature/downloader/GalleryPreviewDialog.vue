@@ -143,15 +143,15 @@ watch(
 <template>
   <Dialog v-model:open="dialogOpen">
     <DialogContent
-      class="sm:max-w-[90vw] h-[90vh] flex flex-col"
+      class="flex h-[90vh] flex-col sm:max-w-[90vw]"
       @close-auto-focus.prevent
     >
       <DialogHeader>
         <DialogTitle>미리보기: {{ displayTitle }}</DialogTitle>
       </DialogHeader>
-      <div v-if="gallery" class="flex-1 flex flex-col overflow-hidden">
-        <div class="flex-shrink-0 space-y-2 mb-4">
-          <p class="text-sm text-muted-foreground">
+      <div v-if="gallery" class="flex flex-1 flex-col overflow-hidden">
+        <div class="mb-4 flex-shrink-0 space-y-2">
+          <p class="text-muted-foreground text-sm">
             작가: {{ displayArtists }}
           </p>
           <div class="flex flex-wrap gap-1">
@@ -168,26 +168,26 @@ watch(
         <div class="flex-1 overflow-hidden">
           <div
             v-if="isLoadingImages"
-            class="flex items-center justify-center h-full"
+            class="flex h-full items-center justify-center"
           >
             <p class="text-muted-foreground">미리보기 이미지 불러오는 중...</p>
           </div>
           <div
             v-else-if="imageLoadError"
-            class="flex items-center justify-center h-full text-destructive"
+            class="text-destructive flex h-full items-center justify-center"
           >
             <p>{{ imageLoadError }}</p>
           </div>
           <div
             v-else-if="previewImageUrls.length > 0"
-            class="flex overflow-x-auto h-full space-x-4 p-2 border rounded-md image-scroll-container"
+            class="image-scroll-container flex h-full space-x-4 overflow-x-auto rounded-md border p-2"
           >
             <div
               v-for="(url, index) in previewImageUrls"
               :key="index"
               ref="imageRefs"
               :data-index="index"
-              class="flex-shrink-0 h-full flex items-center justify-center"
+              class="flex h-full flex-shrink-0 items-center justify-center"
             >
               <ProxiedImage
                 :id="gallery.id"
@@ -201,13 +201,13 @@ watch(
           </div>
           <div
             v-else
-            class="flex items-center justify-center h-full text-muted-foreground"
+            class="text-muted-foreground flex h-full items-center justify-center"
           >
             <p>미리보기 이미지가 없습니다.</p>
           </div>
         </div>
       </div>
-      <div v-else class="text-center text-muted-foreground">
+      <div v-else class="text-muted-foreground text-center">
         선택된 갤러리가 없습니다.
       </div>
     </DialogContent>

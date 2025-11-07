@@ -44,7 +44,7 @@ const closeDialog = () => {
 
 <template>
   <Dialog :open="open" @update:open="closeDialog">
-    <DialogContent class="max-w-3xl h-[80vh] flex flex-col">
+    <DialogContent class="flex h-[80vh] max-w-3xl flex-col">
       <DialogHeader>
         <DialogTitle>오픈소스 라이선스</DialogTitle>
         <DialogDescription>
@@ -52,20 +52,20 @@ const closeDialog = () => {
         </DialogDescription>
       </DialogHeader>
 
-      <div v-if="isLoading" class="flex-1 flex items-center justify-center">
+      <div v-if="isLoading" class="flex flex-1 items-center justify-center">
         <Icon
           icon="solar:spinner-8-bold-duotone"
-          class="w-12 h-12 animate-spin"
+          class="h-12 w-12 animate-spin"
         />
         <p class="ml-2">라이선스 정보를 불러오는 중...</p>
       </div>
       <div
         v-else-if="error"
-        class="flex-1 flex items-center justify-center text-red-500"
+        class="flex flex-1 items-center justify-center text-red-500"
       >
         <Icon
           icon="solar:danger-triangle-bold-duotone"
-          class="w-12 h-12 mr-2"
+          class="mr-2 h-12 w-12"
         />
         <p>오류: {{ error.message }}</p>
       </div>
@@ -81,21 +81,21 @@ const closeDialog = () => {
                 <span class="font-semibold"
                   >{{ license.name }} ({{ license.version }})</span
                 >
-                <span class="text-sm text-muted-foreground">{{
+                <span class="text-muted-foreground text-sm">{{
                   license.licenses
                 }}</span>
               </div>
             </AccordionTrigger>
             <AccordionContent>
               <pre
-                class="whitespace-pre-wrap text-xs bg-muted p-4 rounded-md"
+                class="bg-muted rounded-md p-4 text-xs whitespace-pre-wrap"
                 >{{
                   license.licenseText || "라이선스 텍스트를 찾을 수 없습니다."
                 }}</pre
               >
               <p
                 v-if="license?.repository"
-                class="text-xs text-muted-foreground mt-2"
+                class="text-muted-foreground mt-2 text-xs"
               >
                 Repository:
                 <a
@@ -107,7 +107,7 @@ const closeDialog = () => {
               </p>
               <p
                 v-if="license?.publisher"
-                class="text-xs text-muted-foreground"
+                class="text-muted-foreground text-xs"
               >
                 Publisher: {{ license?.publisher }}
               </p>

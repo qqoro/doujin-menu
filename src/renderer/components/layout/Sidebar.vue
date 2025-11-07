@@ -84,13 +84,13 @@ const handleNavClick = (item: (typeof navItems)[0]) => {
   <aside
     :class="
       cn(
-        'bg-muted p-4 flex flex-col border-r transition-all duration-300 ease-in-out',
+        'bg-muted flex flex-col border-r p-4 transition-all duration-300 ease-in-out',
         isSidebarCollapsed ? 'items-center' : '',
       )
     "
     style="-webkit-app-region: drag"
   >
-    <nav class="flex flex-col gap-2 flex-1">
+    <nav class="flex flex-1 flex-col gap-2">
       <TooltipProvider :delay-duration="0">
         <template v-for="item in navItems" :key="item.to">
           <Tooltip>
@@ -99,8 +99,8 @@ const handleNavClick = (item: (typeof navItems)[0]) => {
                 style="-webkit-app-region: no-drag"
                 :class="
                   cn(
-                    'flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium text-muted-foreground hover:bg-accent hover:text-accent-foreground transition-colors',
-                    isSidebarCollapsed ? 'justify-center w-14 h-14' : '',
+                    'text-muted-foreground hover:bg-accent hover:text-accent-foreground flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors',
+                    isSidebarCollapsed ? 'h-14 w-14 justify-center' : '',
                     route.path === item.to
                       ? 'bg-accent text-accent-foreground'
                       : '',
@@ -108,7 +108,7 @@ const handleNavClick = (item: (typeof navItems)[0]) => {
                 "
                 @click="handleNavClick(item)"
               >
-                <Icon :icon="item.icon" class="w-6 h-6" />
+                <Icon :icon="item.icon" class="h-6 w-6" />
                 <span v-if="!isSidebarCollapsed" class="whitespace-nowrap">
                   {{ item.label }}
                 </span>
@@ -126,7 +126,7 @@ const handleNavClick = (item: (typeof navItems)[0]) => {
       <Button
         variant="outline"
         size="icon"
-        class="w-14 h-14"
+        class="h-14 w-14"
         style="-webkit-app-region: no-drag"
         @click="toggleSidebar"
       >
@@ -136,7 +136,7 @@ const handleNavClick = (item: (typeof navItems)[0]) => {
               ? 'solar:alt-arrow-right-bold-duotone'
               : 'solar:alt-arrow-left-bold-duotone'
           "
-          class="w-6! h-6!"
+          class="h-6! w-6!"
         />
       </Button>
     </div>

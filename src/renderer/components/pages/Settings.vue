@@ -464,50 +464,50 @@ const resetAllData = async () => {
 </script>
 
 <template>
-  <div class="h-full flex flex-col gap-6">
+  <div class="flex h-full flex-col gap-6">
     <div class="flex items-center justify-between">
-      <h1 class="text-2xl font-bold flex items-center gap-2">
-        <Icon icon="solar:settings-bold-duotone" class="w-7 h-7" />
+      <h1 class="flex items-center gap-2 text-2xl font-bold">
+        <Icon icon="solar:settings-bold-duotone" class="h-7 w-7" />
         설정
       </h1>
     </div>
 
     <Tabs v-model="tab" orientation="vertical" class="flex-1">
-      <div class="grid grid-cols-1 md:grid-cols-4 gap-6">
+      <div class="grid grid-cols-1 gap-6 md:grid-cols-4">
         <div class="md:col-span-1">
-          <TabsList class="w-full flex-col h-auto items-stretch">
+          <TabsList class="h-auto w-full flex-col items-stretch">
             <TabsTrigger value="general" class="justify-start p-3">
-              <Icon icon="solar:settings-linear" class="w-5 h-5" />
+              <Icon icon="solar:settings-linear" class="h-5 w-5" />
               일반
             </TabsTrigger>
             <TabsTrigger value="library" class="justify-start p-3">
-              <Icon icon="solar:folder-with-files-linear" class="w-5 h-5" />
+              <Icon icon="solar:folder-with-files-linear" class="h-5 w-5" />
               라이브러리
             </TabsTrigger>
             <TabsTrigger value="viewer" class="justify-start p-3">
-              <Icon icon="solar:display-linear" class="w-5 h-5" />
+              <Icon icon="solar:display-linear" class="h-5 w-5" />
               뷰어
             </TabsTrigger>
             <TabsTrigger value="downloader" class="justify-start p-3">
-              <Icon icon="solar:download-square-linear" class="w-5 h-5" />
+              <Icon icon="solar:download-square-linear" class="h-5 w-5" />
               다운로더
             </TabsTrigger>
             <TabsTrigger value="presets" class="justify-start p-3">
-              <Icon icon="solar:bookmark-linear" class="w-5 h-5" />
+              <Icon icon="solar:bookmark-linear" class="h-5 w-5" />
               프리셋
             </TabsTrigger>
             <TabsTrigger value="advanced" class="justify-start p-3">
-              <Icon icon="solar:danger-triangle-linear" class="w-5 h-5" />
+              <Icon icon="solar:danger-triangle-linear" class="h-5 w-5" />
               고급
             </TabsTrigger>
             <TabsTrigger value="etc" class="justify-start p-3">
-              <Icon icon="solar:menu-dots-bold-duotone" class="w-5 h-5" />
+              <Icon icon="solar:menu-dots-bold-duotone" class="h-5 w-5" />
               기타
             </TabsTrigger>
           </TabsList>
         </div>
 
-        <div class="md:col-span-3 overflow-y-auto h-full pb-6">
+        <div class="h-full overflow-y-auto pb-6 md:col-span-3">
           <TabsContent value="general" class="mt-0">
             <Card>
               <CardHeader>
@@ -539,14 +539,14 @@ const resetAllData = async () => {
                 </SettingItem>
                 <SettingItem label-for="color-theme-select" title="컬러 테마">
                   <template #subtitle>
-                    <p class="text-sm text-muted-foreground">
+                    <p class="text-muted-foreground text-sm">
                       앱의 전체적인 색상 테마를 선택합니다. 변경 시 즉시
                       적용됩니다.
                     </p>
-                    <p class="text-xs text-muted-foreground mt-1">
+                    <p class="text-muted-foreground mt-1 text-xs">
                       <a
                         href="https://tweakcn.com/#examples"
-                        class="text-primary hover:underline cursor-pointer"
+                        class="text-primary cursor-pointer hover:underline"
                         @click.prevent="
                           () =>
                             ipcRenderer.send(
@@ -606,7 +606,7 @@ const resetAllData = async () => {
                   subtitle="다운로더 썸네일 캐시 및 기타 임시 파일을 삭제하여 디스크 공간을 확보합니다."
                 >
                   <div class="flex items-center gap-2">
-                    <span class="text-sm text-muted-foreground">{{
+                    <span class="text-muted-foreground text-sm">{{
                       tempFilesSize
                     }}</span>
                     <AlertDialog>
@@ -657,14 +657,14 @@ const resetAllData = async () => {
                     @update:model-value="onUseAppLockChange"
                   />
                 </SettingItem>
-                <div v-if="useAppLock" class="space-y-4 pt-4 border-t">
+                <div v-if="useAppLock" class="space-y-4 border-t pt-4">
                   <div
-                    class="p-3 rounded-md bg-destructive/10 border border-destructive/50 text-destructive-foreground"
+                    class="bg-destructive/10 border-destructive/50 text-destructive-foreground rounded-md border p-3"
                   >
                     <div class="flex items-start gap-2">
                       <Icon
                         icon="solar:danger-triangle-bold-duotone"
-                        class="w-5 h-5 text-destructive mt-0.5 flex-shrink-0"
+                        class="text-destructive mt-0.5 h-5 w-5 flex-shrink-0"
                       />
                       <div class="flex-1">
                         <h4 class="font-semibold">중요: 비밀번호 분실 주의</h4>
@@ -707,7 +707,7 @@ const resetAllData = async () => {
                 <Button @click="handleSetPassword">
                   <Icon
                     icon="solar:lock-keyhole-minimalistic-bold-duotone"
-                    class="w-5 h-5 mr-2"
+                    class="mr-2 h-5 w-5"
                   />
                   비밀번호 설정
                 </Button>
@@ -729,7 +729,7 @@ const resetAllData = async () => {
                   <div class="space-y-3">
                     <div
                       v-if="libraryFolders.length === 0"
-                      class="text-center text-sm text-muted-foreground p-6 rounded-md border-2 border-dashed"
+                      class="text-muted-foreground rounded-md border-2 border-dashed p-6 text-center text-sm"
                     >
                       등록된 라이브러리 폴더가 없습니다.
                     </div>
@@ -740,7 +740,7 @@ const resetAllData = async () => {
                     >
                       <div class="truncate pr-4">
                         <p class="font-mono text-sm">{{ folder.path }}</p>
-                        <p class="text-xs text-muted-foreground">
+                        <p class="text-muted-foreground text-xs">
                           {{ folder.bookCount || 0 }}권 | 마지막 스캔:
                           {{
                             folder.lastScanned
@@ -749,7 +749,7 @@ const resetAllData = async () => {
                           }}
                         </p>
                       </div>
-                      <div class="flex items-center gap-1 flex-shrink-0">
+                      <div class="flex flex-shrink-0 items-center gap-1">
                         <Button
                           variant="ghost"
                           size="icon"
@@ -757,7 +757,7 @@ const resetAllData = async () => {
                         >
                           <Icon
                             icon="solar:folder-open-bold-duotone"
-                            class="w-5 h-5 text-gray-500"
+                            class="h-5 w-5 text-gray-500"
                           />
                         </Button>
                         <Button
@@ -767,7 +767,7 @@ const resetAllData = async () => {
                         >
                           <Icon
                             icon="solar:refresh-bold-duotone"
-                            class="w-5 h-5 text-blue-500"
+                            class="h-5 w-5 text-blue-500"
                           />
                         </Button>
                         <Button
@@ -777,7 +777,7 @@ const resetAllData = async () => {
                         >
                           <Icon
                             icon="solar:trash-bin-trash-bold-duotone"
-                            class="w-5 h-5 text-red-500"
+                            class="h-5 w-5 text-red-500"
                           />
                         </Button>
                       </div>
@@ -788,7 +788,7 @@ const resetAllData = async () => {
                   <Button class="w-full" @click="addLibraryFolder">
                     <Icon
                       icon="solar:folder-add-bold-duotone"
-                      class="w-5 h-5"
+                      class="h-5 w-5"
                     />
                     라이브러리 폴더 추가
                   </Button>
@@ -808,17 +808,17 @@ const resetAllData = async () => {
                     title="한국어 제목 우선 표시"
                   >
                     <template #subtitle>
-                      <p class="text-sm text-muted-foreground">
+                      <p class="text-muted-foreground text-sm">
                         제목에 한국어와 다른 언어가 함께 있을 경우 한국어를
                         우선적으로 표시합니다. (예: 'Original Title | 한국어
                         제목' -> '한국어 제목')
                       </p>
                       <p
-                        class="text-xs text-amber-600 dark:text-amber-400 mt-1"
+                        class="mt-1 text-xs text-amber-600 dark:text-amber-400"
                       >
                         <Icon
                           icon="solar:danger-triangle-bold-duotone"
-                          class="inline-block w-4 h-4"
+                          class="inline-block h-4 w-4"
                         />
                         이 기능은 파일명의 형식이 일관되지 않은 경우 제목이
                         예상대로 나타나지 않을 수 있습니다.
@@ -991,9 +991,9 @@ const resetAllData = async () => {
                     "
                   />
                 </SettingItem>
-                <div class="col-span-3 text-sm text-muted-foreground">
+                <div class="text-muted-foreground col-span-3 text-sm">
                   <p class="font-semibold">사용 가능한 변수</p>
-                  <ul class="list-disc list-inside ml-4">
+                  <ul class="ml-4 list-inside list-disc">
                     <li><code>%artist%</code>: 작가명</li>
                     <li><code>%title%</code>: 작품 제목</li>
                     <li><code>%id%</code>: 갤러리 ID</li>
@@ -1078,7 +1078,7 @@ const resetAllData = async () => {
                       variant="outline"
                       @click="isLicenseViewDialogOpen = true"
                     >
-                      <Icon icon="solar:document-text-linear" class="w-5 h-5" />
+                      <Icon icon="solar:document-text-linear" class="h-5 w-5" />
                       라이선스 보기
                     </Button>
                   </SettingItem>
@@ -1142,7 +1142,7 @@ const resetAllData = async () => {
                   <Button @click="openPresetDialog()">
                     <Icon
                       icon="solar:add-circle-bold-duotone"
-                      class="w-5 h-5"
+                      class="h-5 w-5"
                     />
                     새 프리셋 추가
                   </Button>
@@ -1150,7 +1150,7 @@ const resetAllData = async () => {
                 <!-- Presets Table will go here -->
                 <div
                   v-if="isLoadingPresets"
-                  class="text-center text-muted-foreground"
+                  class="text-muted-foreground text-center"
                 >
                   프리셋 불러오는 중...
                 </div>
@@ -1179,7 +1179,7 @@ const resetAllData = async () => {
                           >
                             <Icon
                               icon="solar:pen-bold-duotone"
-                              class="w-4 h-4"
+                              class="h-4 w-4"
                             />
                           </Button>
                           <AlertDialog>
@@ -1187,7 +1187,7 @@ const resetAllData = async () => {
                               <Button variant="ghost" size="icon">
                                 <Icon
                                   icon="solar:trash-bin-trash-bold-duotone"
-                                  class="w-4 h-4 text-red-500"
+                                  class="h-4 w-4 text-red-500"
                                 />
                               </Button>
                             </AlertDialogTrigger>
@@ -1229,7 +1229,7 @@ const resetAllData = async () => {
                       <TableRow>
                         <TableCell
                           colspan="3"
-                          class="text-center text-muted-foreground p-6"
+                          class="text-muted-foreground p-6 text-center"
                         >
                           (없음)
                         </TableCell>

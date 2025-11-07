@@ -57,10 +57,10 @@ const goToViewer = (bookId: number) => {
 </script>
 
 <template>
-  <div class="h-full flex flex-col gap-6">
+  <div class="flex h-full flex-col gap-6">
     <div class="flex items-center justify-between">
-      <h1 class="text-2xl font-bold flex items-center gap-2">
-        <Icon icon="solar:chart-square-bold-duotone" class="w-7 h-7" />
+      <h1 class="flex items-center gap-2 text-2xl font-bold">
+        <Icon icon="solar:chart-square-bold-duotone" class="h-7 w-7" />
         통계
       </h1>
     </div>
@@ -74,18 +74,18 @@ const goToViewer = (bookId: number) => {
       </div>
       <div
         v-else-if="statistics"
-        class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4"
+        class="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3"
       >
         <!-- 총 책 권수 -->
         <Card class="lg:col-span-3">
           <CardHeader>
             <CardTitle class="flex items-center gap-2">
-              <Icon icon="solar:book-2-bold-duotone" class="w-6 h-6" />
+              <Icon icon="solar:book-2-bold-duotone" class="h-6 w-6" />
               총 책 권수
             </CardTitle>
           </CardHeader>
           <CardContent
-            class="text-5xl font-extrabold h-full text-center py-4 text-primary flex justify-center items-center"
+            class="text-primary flex h-full items-center justify-center py-4 text-center text-5xl font-extrabold"
           >
             {{ formatNumberWithCommas(statistics.totalBooks) }}권
           </CardContent>
@@ -96,7 +96,7 @@ const goToViewer = (bookId: number) => {
         <Card>
           <CardHeader>
             <CardTitle class="flex items-center gap-2">
-              <Icon icon="solar:book-bookmark-bold-duotone" class="w-6 h-6" />
+              <Icon icon="solar:book-bookmark-bold-duotone" class="h-6 w-6" />
               읽기 진행 상황
             </CardTitle>
           </CardHeader>
@@ -153,7 +153,7 @@ const goToViewer = (bookId: number) => {
                   </span>
                 </span>
               </div>
-              <div class="h-px bg-border my-2"></div>
+              <div class="bg-border my-2 h-px"></div>
               <div class="flex items-center justify-between">
                 <span class="text-sm">즐겨찾기</span>
                 <span
@@ -183,7 +183,7 @@ const goToViewer = (bookId: number) => {
         <Card>
           <CardHeader>
             <CardTitle class="flex items-center gap-2">
-              <Icon icon="solar:eye-bold-duotone" class="w-6 h-6" />
+              <Icon icon="solar:eye-bold-duotone" class="h-6 w-6" />
               가장 자주 본 책
             </CardTitle>
           </CardHeader>
@@ -198,15 +198,15 @@ const goToViewer = (bookId: number) => {
                 <div
                   v-for="book in statistics.mostViewedBooks"
                   :key="book.id"
-                  class="flex items-center justify-between py-2 px-3 rounded-md hover:bg-accent transition-colors cursor-pointer"
+                  class="hover:bg-accent flex cursor-pointer items-center justify-between rounded-md px-3 py-2 transition-colors"
                   @click="goToViewer(book.id)"
                 >
-                  <div class="flex items-center gap-2 min-w-0">
-                    <span class="text-sm font-medium truncate">{{
+                  <div class="flex min-w-0 items-center gap-2">
+                    <span class="truncate text-sm font-medium">{{
                       book.title
                     }}</span>
                   </div>
-                  <div class="text-sm text-gray-500 flex-shrink-0">
+                  <div class="flex-shrink-0 text-sm text-gray-500">
                     {{ book.view_count }}회
                   </div>
                 </div>
@@ -223,7 +223,7 @@ const goToViewer = (bookId: number) => {
         <Card>
           <CardHeader>
             <CardTitle class="flex items-center gap-2">
-              <Icon icon="solar:tag-bold-duotone" class="w-6 h-6" />
+              <Icon icon="solar:tag-bold-duotone" class="h-6 w-6" />
               가장 좋아하는 태그
             </CardTitle>
           </CardHeader>
@@ -233,7 +233,7 @@ const goToViewer = (bookId: number) => {
                 <div
                   v-for="tag in statistics.topTags"
                   :key="tag.name"
-                  class="flex items-center justify-between py-2 px-3 rounded-md hover:bg-accent transition-colors cursor-pointer"
+                  class="hover:bg-accent flex cursor-pointer items-center justify-between rounded-md px-3 py-2 transition-colors"
                   @click="goToLibraryWithSearch('tag:' + tag.name)"
                 >
                   <div class="flex items-center gap-2">
@@ -260,7 +260,7 @@ const goToViewer = (bookId: number) => {
         <Card>
           <CardHeader>
             <CardTitle class="flex items-center gap-2">
-              <Icon icon="solar:user-circle-bold-duotone" class="w-6 h-6" />
+              <Icon icon="solar:user-circle-bold-duotone" class="h-6 w-6" />
               가장 좋아하는 작가
             </CardTitle>
           </CardHeader>
@@ -272,7 +272,7 @@ const goToViewer = (bookId: number) => {
                 <div
                   v-for="artist in statistics.topArtists"
                   :key="artist.name"
-                  class="flex items-center justify-between py-2 px-3 rounded-md hover:bg-accent transition-colors cursor-pointer"
+                  class="hover:bg-accent flex cursor-pointer items-center justify-between rounded-md px-3 py-2 transition-colors"
                   @click="goToLibraryWithSearch('artist:' + artist.name)"
                 >
                   <div class="flex items-center gap-2">
@@ -301,7 +301,7 @@ const goToViewer = (bookId: number) => {
             <CardTitle class="flex items-center gap-2">
               <Icon
                 icon="solar:users-group-two-rounded-bold-duotone"
-                class="w-6 h-6"
+                class="h-6 w-6"
               />
               가장 좋아하는 그룹
             </CardTitle>
@@ -314,7 +314,7 @@ const goToViewer = (bookId: number) => {
                 <div
                   v-for="group in statistics.topGroups"
                   :key="group.name"
-                  class="flex items-center justify-between py-2 px-3 rounded-md hover:bg-accent transition-colors cursor-pointer"
+                  class="hover:bg-accent flex cursor-pointer items-center justify-between rounded-md px-3 py-2 transition-colors"
                   @click="goToLibraryWithSearch('group:' + group.name)"
                 >
                   <div class="flex items-center gap-2">
@@ -341,7 +341,7 @@ const goToViewer = (bookId: number) => {
         <Card>
           <CardHeader>
             <CardTitle class="flex items-center gap-2">
-              <Icon icon="solar:user-bold-duotone" class="w-6 h-6" />
+              <Icon icon="solar:user-bold-duotone" class="h-6 w-6" />
               가장 많이 등장하는 캐릭터
             </CardTitle>
           </CardHeader>
@@ -356,7 +356,7 @@ const goToViewer = (bookId: number) => {
                 <div
                   v-for="character in statistics.topCharacters"
                   :key="character.name"
-                  class="flex items-center justify-between py-2 px-3 rounded-md hover:bg-accent transition-colors cursor-pointer"
+                  class="hover:bg-accent flex cursor-pointer items-center justify-between rounded-md px-3 py-2 transition-colors"
                   @click="goToLibraryWithSearch('character:' + character.name)"
                 >
                   <div class="flex items-center gap-2">
@@ -385,7 +385,7 @@ const goToViewer = (bookId: number) => {
         <Card>
           <CardHeader>
             <CardTitle class="flex items-center gap-2">
-              <Icon icon="solar:library-bold-duotone" class="w-6 h-6" />
+              <Icon icon="solar:library-bold-duotone" class="h-6 w-6" />
               가장 많은 책이 있는 시리즈
             </CardTitle>
           </CardHeader>
@@ -397,15 +397,15 @@ const goToViewer = (bookId: number) => {
                 <div
                   v-for="series in statistics.topSeries"
                   :key="series.name"
-                  class="flex items-center justify-between py-2 px-3 rounded-md hover:bg-accent transition-colors cursor-pointer"
+                  class="hover:bg-accent flex cursor-pointer items-center justify-between rounded-md px-3 py-2 transition-colors"
                   @click="goToLibraryWithSearch('series:' + series.name)"
                 >
-                  <div class="flex items-center gap-2 min-w-0">
-                    <span class="text-sm font-medium truncate">{{
+                  <div class="flex min-w-0 items-center gap-2">
+                    <span class="truncate text-sm font-medium">{{
                       series.name
                     }}</span>
                   </div>
-                  <div class="text-sm text-gray-500 flex-shrink-0">
+                  <div class="flex-shrink-0 text-sm text-gray-500">
                     {{ series.count }}권
                   </div>
                 </div>
@@ -422,21 +422,21 @@ const goToViewer = (bookId: number) => {
         <Card>
           <CardHeader>
             <CardTitle class="flex items-center gap-2">
-              <Icon icon="solar:document-bold-duotone" class="w-6 h-6" />
+              <Icon icon="solar:document-bold-duotone" class="h-6 w-6" />
               페이지 통계
             </CardTitle>
           </CardHeader>
           <CardContent>
             <div class="space-y-3">
               <div>
-                <p class="text-sm text-gray-500 mb-1">총 페이지 수</p>
-                <p class="text-3xl font-bold text-primary">
+                <p class="mb-1 text-sm text-gray-500">총 페이지 수</p>
+                <p class="text-primary text-3xl font-bold">
                   {{ formatNumberWithCommas(statistics.totalPages) }}
                 </p>
               </div>
-              <div class="h-px bg-border my-2"></div>
+              <div class="bg-border my-2 h-px"></div>
               <div>
-                <p class="text-sm text-gray-500 mb-1">읽은 페이지 수</p>
+                <p class="mb-1 text-sm text-gray-500">읽은 페이지 수</p>
                 <p
                   class="text-2xl font-semibold text-green-600 dark:text-green-500"
                 >
@@ -451,9 +451,9 @@ const goToViewer = (bookId: number) => {
                   </span>
                 </p>
               </div>
-              <div class="h-px bg-border my-2"></div>
+              <div class="bg-border my-2 h-px"></div>
               <div>
-                <p class="text-sm text-gray-500 mb-1">평균 페이지 수</p>
+                <p class="mb-1 text-sm text-gray-500">평균 페이지 수</p>
                 <p class="text-xl font-semibold">
                   {{ formatNumberWithCommas(statistics.averagePages) }}
                 </p>
@@ -466,12 +466,12 @@ const goToViewer = (bookId: number) => {
         <Card>
           <CardHeader>
             <CardTitle class="flex items-center gap-2">
-              <Icon icon="solar:folder-bold-duotone" class="w-6 h-6" />
+              <Icon icon="solar:folder-bold-duotone" class="h-6 w-6" />
               라이브러리 크기
             </CardTitle>
           </CardHeader>
           <CardContent
-            class="text-4xl font-bold text-center py-4 flex justify-center items-center h-full"
+            class="flex h-full items-center justify-center py-4 text-center text-4xl font-bold"
           >
             <div v-if="isLibrarySizeLoading" class="text-sm text-gray-500">
               계산 중...
@@ -489,7 +489,7 @@ const goToViewer = (bookId: number) => {
         <Card>
           <CardHeader>
             <CardTitle class="flex items-center gap-2">
-              <Icon icon="solar:layers-bold-duotone" class="w-6 h-6" />
+              <Icon icon="solar:layers-bold-duotone" class="h-6 w-6" />
               타입별 분포
             </CardTitle>
           </CardHeader>
@@ -528,7 +528,7 @@ const goToViewer = (bookId: number) => {
         <Card>
           <CardHeader>
             <CardTitle class="flex items-center gap-2">
-              <Icon icon="solar:bookmark-bold-duotone" class="w-6 h-6" />
+              <Icon icon="solar:bookmark-bold-duotone" class="h-6 w-6" />
               가장 긴/짧은 책
             </CardTitle>
           </CardHeader>
@@ -536,10 +536,10 @@ const goToViewer = (bookId: number) => {
             <div class="space-y-2">
               <div
                 v-if="statistics.longestBook"
-                class="py-2 px-3 rounded-md hover:bg-accent transition-colors"
+                class="hover:bg-accent rounded-md px-3 py-2 transition-colors"
               >
                 <p
-                  class="text-sm font-medium cursor-pointer"
+                  class="cursor-pointer text-sm font-medium"
                   @click="goToViewer(statistics.longestBook.id)"
                 >
                   가장 긴 책: {{ statistics.longestBook.title }} ({{
@@ -554,10 +554,10 @@ const goToViewer = (bookId: number) => {
 
               <div
                 v-if="statistics.shortestBook"
-                class="py-2 px-3 rounded-md hover:bg-accent transition-colors"
+                class="hover:bg-accent rounded-md px-3 py-2 transition-colors"
               >
                 <p
-                  class="text-sm font-medium cursor-pointer"
+                  class="cursor-pointer text-sm font-medium"
                   @click="goToViewer(statistics.shortestBook.id)"
                 >
                   가장 짧은 책: {{ statistics.shortestBook.title }} ({{
@@ -577,7 +577,7 @@ const goToViewer = (bookId: number) => {
         <Card>
           <CardHeader>
             <CardTitle class="flex items-center gap-2">
-              <Icon icon="solar:copy-bold-duotone" class="w-6 h-6" />
+              <Icon icon="solar:copy-bold-duotone" class="h-6 w-6" />
               중복된 책
             </CardTitle>
           </CardHeader>
@@ -588,7 +588,7 @@ const goToViewer = (bookId: number) => {
                 <TabsTrigger value="byHitomiId"> Hitomi ID </TabsTrigger>
               </TabsList>
               <TabsContent value="byTitle">
-                <ScrollArea class="h-40 w-full rounded-md border p-4 mt-2">
+                <ScrollArea class="mt-2 h-40 w-full rounded-md border p-4">
                   <div
                     v-if="
                       statistics.duplicateBooks.byTitle &&
@@ -598,15 +598,15 @@ const goToViewer = (bookId: number) => {
                     <div
                       v-for="(book, index) in statistics.duplicateBooks.byTitle"
                       :key="index"
-                      class="flex items-center justify-between py-2 px-3 rounded-md hover:bg-accent transition-colors cursor-pointer"
+                      class="hover:bg-accent flex cursor-pointer items-center justify-between rounded-md px-3 py-2 transition-colors"
                       @click="goToLibraryWithSearch(book.title)"
                     >
-                      <div class="flex items-center gap-2 min-w-0">
-                        <span class="text-sm font-medium truncate">{{
+                      <div class="flex min-w-0 items-center gap-2">
+                        <span class="truncate text-sm font-medium">{{
                           book.title
                         }}</span>
                       </div>
-                      <div class="text-sm text-gray-500 flex-shrink-0">
+                      <div class="flex-shrink-0 text-sm text-gray-500">
                         {{ book.count }}권
                       </div>
                     </div>
@@ -617,7 +617,7 @@ const goToViewer = (bookId: number) => {
                 </ScrollArea>
               </TabsContent>
               <TabsContent value="byHitomiId">
-                <ScrollArea class="h-40 w-full rounded-md border p-4 mt-2">
+                <ScrollArea class="mt-2 h-40 w-full rounded-md border p-4">
                   <div
                     v-if="
                       statistics.duplicateBooks.byHitomiId &&
@@ -628,15 +628,15 @@ const goToViewer = (bookId: number) => {
                       v-for="(book, index) in statistics.duplicateBooks
                         .byHitomiId"
                       :key="index"
-                      class="flex items-center justify-between py-2 px-3 rounded-md hover:bg-accent transition-colors cursor-pointer"
+                      class="hover:bg-accent flex cursor-pointer items-center justify-between rounded-md px-3 py-2 transition-colors"
                       @click="goToLibraryWithSearch('id:' + book.hitomi_id)"
                     >
-                      <div class="flex items-center gap-2 min-w-0">
-                        <span class="text-sm font-medium truncate">{{
+                      <div class="flex min-w-0 items-center gap-2">
+                        <span class="truncate text-sm font-medium">{{
                           book.hitomi_id
                         }}</span>
                       </div>
-                      <div class="text-sm text-gray-500 flex-shrink-0">
+                      <div class="flex-shrink-0 text-sm text-gray-500">
                         {{ book.count }}권
                       </div>
                     </div>

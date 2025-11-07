@@ -25,7 +25,7 @@ const emit = defineEmits<{ (e: "update:open", value: boolean): void }>();
     <DialogContent class="max-w-2xl">
       <DialogHeader>
         <DialogTitle class="flex items-center gap-2">
-          <Icon icon="solar:help-bold-duotone" class="w-6 h-6" />
+          <Icon icon="solar:help-bold-duotone" class="h-6 w-6" />
           {{ props.title }}
         </DialogTitle>
         <DialogDescription>

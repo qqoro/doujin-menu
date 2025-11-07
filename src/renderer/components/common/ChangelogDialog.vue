@@ -46,18 +46,18 @@ onUnmounted(() => {
         </DialogDescription>
       </DialogHeader>
       <div
-        class="flex flex-col gap-6 h-96 w-full rounded-md border p-4 overflow-y-auto"
+        class="flex h-96 w-full flex-col gap-6 overflow-y-auto rounded-md border p-4"
       >
         <div
           v-for="changelog in changelogData"
           :key="changelog.version"
           class="flex flex-col gap-2"
         >
-          <h1 class="border-b pb-1 mb-2 text-xl">v{{ changelog.version }}</h1>
+          <h1 class="mb-2 border-b pb-1 text-xl">v{{ changelog.version }}</h1>
           <div v-for="(change, index) in changelog.changes" :key="index">
             <h3 class="font-semibold">{{ change.title }}</h3>
             <ul
-              class="mt-2 list-disc space-y-1 pl-6 text-sm text-muted-foreground"
+              class="text-muted-foreground mt-2 list-disc space-y-1 pl-6 text-sm"
             >
               <li v-for="(item, itemIndex) in change.items" :key="itemIndex">
                 {{ item }}

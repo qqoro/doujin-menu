@@ -138,10 +138,10 @@ const confirmClearAll = async () => {
 </script>
 
 <template>
-  <div class="h-full flex flex-col gap-6">
+  <div class="flex h-full flex-col gap-6">
     <div class="flex items-center justify-between">
-      <h1 class="text-2xl font-bold flex items-center gap-2">
-        <Icon icon="solar:clock-circle-bold-duotone" class="w-7 h-7" />
+      <h1 class="flex items-center gap-2 text-2xl font-bold">
+        <Icon icon="solar:clock-circle-bold-duotone" class="h-7 w-7" />
         읽음 기록
       </h1>
       <Button
@@ -152,7 +152,7 @@ const confirmClearAll = async () => {
       >
         <Icon
           icon="solar:trash-bin-minimalistic-bold-duotone"
-          class="w-5 h-5"
+          class="h-5 w-5"
         />
       </Button>
     </div>
@@ -166,35 +166,35 @@ const confirmClearAll = async () => {
       </div>
       <div
         v-else-if="status === 'error'"
-        class="p-4 text-center text-destructive"
+        class="text-destructive p-4 text-center"
       >
         <p>오류가 발생했습니다.</p>
       </div>
       <div v-else-if="allItems.length > 0" class="space-y-2">
         <div v-for="item in allItems" :key="item.history_id">
           <div
-            class="flex items-center p-2 rounded-md hover:bg-accent/40 group cursor-pointer"
+            class="hover:bg-accent/40 group flex cursor-pointer items-center rounded-md p-2"
             @click="goToBook(item.id)"
           >
             <img
               :src="getCoverUrl(item.cover_path)"
-              class="w-16 h-20 object-cover rounded-md flex-shrink-0"
+              class="h-20 w-16 flex-shrink-0 rounded-md object-cover"
             />
-            <div class="ml-4 flex-grow min-w-0">
-              <p class="font-semibold truncate">{{ item.title }}</p>
-              <p class="text-sm text-muted-foreground">
+            <div class="ml-4 min-w-0 flex-grow">
+              <p class="truncate font-semibold">{{ item.title }}</p>
+              <p class="text-muted-foreground text-sm">
                 {{ formatDate(item.viewed_at) }}
               </p>
             </div>
             <Button
               variant="outline"
               size="icon"
-              class="ml-4 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0"
+              class="ml-4 flex-shrink-0 opacity-0 transition-opacity group-hover:opacity-100"
               @click.stop="handleDelete(item.history_id)"
             >
               <Icon
                 icon="solar:trash-bin-trash-bold-duotone"
-                class="w-5 h-5 text-destructive"
+                class="text-destructive h-5 w-5"
               />
             </Button>
           </div>

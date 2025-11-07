@@ -50,7 +50,7 @@ const {
 
 <template>
   <div
-    class="flex items-center p-2 border-b hover:bg-muted/50 transition-colors cursor-pointer"
+    class="hover:bg-muted/50 flex cursor-pointer items-center border-b p-2 transition-colors"
     :class="{
       'opacity-50': isDownloading,
       'bg-green-50/50': isDownloadCompleted,
@@ -59,37 +59,37 @@ const {
     }"
     @click="emit('select-gallery', gallery)"
   >
-    <div class="w-48 h-64 mr-4 flex-shrink-0 overflow-hidden relative">
+    <div class="relative mr-4 h-64 w-48 flex-shrink-0 overflow-hidden">
       <ProxiedImage
         :id="props.gallery.id"
         :url="props.gallery.thumbnailUrl"
         :referer="`https://hitomi.la/reader/${props.gallery.id}.html`"
         alt="Thumbnail"
-        class="w-full h-full object-cover rounded-md transition-transform duration-300 hover:scale-110"
+        class="h-full w-full rounded-md object-cover transition-transform duration-300 hover:scale-110"
       />
       <div
         v-if="isDownloadCompleted"
-        class="absolute top-2 right-2 bg-green-500 text-white rounded-full p-1"
+        class="absolute top-2 right-2 rounded-full bg-green-500 p-1 text-white"
       >
-        <Icon icon="solar:check-circle-bold" class="w-5 h-5" />
+        <Icon icon="solar:check-circle-bold" class="h-5 w-5" />
       </div>
     </div>
-    <div class="flex-1 flex flex-col gap-2">
+    <div class="flex flex-1 flex-col gap-2">
       <!-- 제목 -->
-      <p class="text-xs text-muted-foreground">
+      <p class="text-muted-foreground text-xs">
         {{ props.gallery.type }} |
         {{
           props.gallery.languageName?.local ||
           props.gallery.languageName?.english
         }}
       </p>
-      <h3 class="font-bold text-lg">{{ props.gallery.title.display }}</h3>
+      <h3 class="text-lg font-bold">{{ props.gallery.title.display }}</h3>
       <!-- 작가/그룹/시리즈/캐릭터/페이지 -->
-      <div class="flex flex-col gap-0.5 text-sm text-muted-foreground">
+      <div class="text-muted-foreground flex flex-col gap-0.5 text-sm">
         <p>
           <Icon
             icon="solar:pen-new-round-linear"
-            class="w-4 h-4 inline-block align-text-bottom"
+            class="inline-block h-4 w-4 align-text-bottom"
           />
           작가:
           <template
@@ -100,7 +100,7 @@ const {
               :key="artist"
             >
               <button
-                class="inline-block text-left p-0 m-0 border-none bg-transparent cursor-pointer hover:underline text-current"
+                class="m-0 inline-block cursor-pointer border-none bg-transparent p-0 text-left text-current hover:underline"
                 @click.stop="copyToClipboard(`artist:${artist}`)"
               >
                 {{ artist }}
@@ -114,12 +114,12 @@ const {
         <p v-if="props.gallery.groups && props.gallery.groups.length > 0">
           <Icon
             icon="solar:users-group-rounded-linear"
-            class="w-4 h-4 inline-block align-text-bottom"
+            class="inline-block h-4 w-4 align-text-bottom"
           />
           그룹:
           <template v-for="(group, index) in props.gallery.groups" :key="group">
             <button
-              class="inline-block text-left p-0 m-0 border-none bg-transparent cursor-pointer hover:underline text-current"
+              class="m-0 inline-block cursor-pointer border-none bg-transparent p-0 text-left text-current hover:underline"
               @click.stop="copyToClipboard(`group:${group}`)"
             >
               {{ group }}
@@ -131,7 +131,7 @@ const {
         <p v-if="props.gallery.series && props.gallery.series.length > 0">
           <Icon
             icon="solar:bookmark-linear"
-            class="w-4 h-4 inline-block align-text-bottom"
+            class="inline-block h-4 w-4 align-text-bottom"
           />
           시리즈:
           <template
@@ -139,7 +139,7 @@ const {
             :key="series"
           >
             <button
-              class="inline-block text-left p-0 m-0 border-none bg-transparent cursor-pointer hover:underline text-current"
+              class="m-0 inline-block cursor-pointer border-none bg-transparent p-0 text-left text-current hover:underline"
               @click.stop="copyToClipboard(`series:${series}`)"
             >
               {{ series }}
@@ -153,7 +153,7 @@ const {
         >
           <Icon
             icon="solar:user-linear"
-            class="w-4 h-4 inline-block align-text-bottom"
+            class="inline-block h-4 w-4 align-text-bottom"
           />
           캐릭터:
           <template
@@ -161,7 +161,7 @@ const {
             :key="character"
           >
             <button
-              class="inline-block text-left p-0 m-0 border-none bg-transparent cursor-pointer hover:underline text-current"
+              class="m-0 inline-block cursor-pointer border-none bg-transparent p-0 text-left text-current hover:underline"
               @click.stop="copyToClipboard(`character:${character}`)"
             >
               {{ character }}
@@ -172,7 +172,7 @@ const {
         <p>
           <Icon
             icon="solar:document-text-linear"
-            class="w-4 h-4 inline-block align-text-bottom"
+            class="inline-block h-4 w-4 align-text-bottom"
           />
           {{ props.gallery.files?.length || 0 }} 페이지
         </p>
@@ -199,7 +199,7 @@ const {
         variant="outline"
         @click.stop="emit('preview-gallery', gallery)"
       >
-        <Icon icon="solar:eye-bold-duotone" class="w-4 h-4" />
+        <Icon icon="solar:eye-bold-duotone" class="h-4 w-4" />
         미리보기
       </Button>
       <Button
@@ -207,11 +207,11 @@ const {
         :disabled="isDownloading || isDownloadCompleted"
         @click.stop="handleDownload"
       >
-        <Icon icon="solar:download-bold-duotone" class="w-4 h-4" />
+        <Icon icon="solar:download-bold-duotone" class="h-4 w-4" />
         {{ buttonText }}
       </Button>
       <Button v-if="isDownloadCompleted" size="sm" @click.stop="handleOpenBook">
-        <Icon icon="solar:book-bold-duotone" class="w-4 h-4" />
+        <Icon icon="solar:book-bold-duotone" class="h-4 w-4" />
         열기
       </Button>
       <Button
@@ -222,7 +222,7 @@ const {
       >
         <Icon
           icon="solar:trash-bin-minimalistic-bold-duotone"
-          class="w-4 h-4"
+          class="h-4 w-4"
         />
         삭제
       </Button>

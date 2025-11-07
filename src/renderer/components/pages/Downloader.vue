@@ -331,10 +331,10 @@ useSearchPersistence(searchQuery, "downloader-search-query");
 </script>
 
 <template>
-  <div class="h-full flex flex-col gap-6">
+  <div class="flex h-full flex-col gap-6">
     <div class="flex items-center justify-between">
-      <h1 class="text-2xl font-bold flex items-center gap-2">
-        <Icon icon="solar:download-square-bold-duotone" class="w-7 h-7" />
+      <h1 class="flex items-center gap-2 text-2xl font-bold">
+        <Icon icon="solar:download-square-bold-duotone" class="h-7 w-7" />
         다운로더
         <HelpDialog
           title="다운로더 도움말"
@@ -342,27 +342,27 @@ useSearchPersistence(searchQuery, "downloader-search-query");
         >
           <template #trigger>
             <Button variant="ghost" size="icon">
-              <Icon icon="solar:question-circle-bold-duotone" class="w-6 h-6" />
+              <Icon icon="solar:question-circle-bold-duotone" class="h-6 w-6" />
             </Button>
           </template>
-          <div class="space-y-4 text-sm text-muted-foreground">
+          <div class="text-muted-foreground space-y-4 text-sm">
             <p>
               이 화면에서는 Hitomi.la에서 작품을 검색하고 다운로드할 수
               있습니다.
             </p>
-            <h3 class="font-semibold text-base text-foreground">검색 팁</h3>
-            <ul class="list-disc list-inside">
+            <h3 class="text-foreground text-base font-semibold">검색 팁</h3>
+            <ul class="list-inside list-disc">
               <li>
                 <Icon
                   icon="solar:global-bold-duotone"
-                  class="w-4 h-4 inline-block align-text-bottom"
+                  class="inline-block h-4 w-4 align-text-bottom"
                 />
                 언어 설정을 통해 검색할 작품의 언어를 지정할 수 있습니다.
               </li>
               <li>
                 <Icon
                   icon="solar:bookmark-bold-duotone"
-                  class="w-4 h-4 inline-block align-text-bottom"
+                  class="inline-block h-4 w-4 align-text-bottom"
                 />
                 버튼을 클릭하여 저장된 프리셋 검색어를 사용할 수 있습니다.
               </li>
@@ -375,10 +375,10 @@ useSearchPersistence(searchQuery, "downloader-search-query");
               </li>
               <li>여러 검색어를 공백으로 구분하여 조합할 수 있습니다.</li>
             </ul>
-            <h3 class="font-semibold text-base text-foreground">
+            <h3 class="text-foreground text-base font-semibold">
               다운로드 관리
             </h3>
-            <ul class="list-disc list-inside">
+            <ul class="list-inside list-disc">
               <li>
                 검색 결과에서 작품을 클릭하여 상세 정보를 확인하고 다운로드할 수
                 있습니다.
@@ -386,8 +386,8 @@ useSearchPersistence(searchQuery, "downloader-search-query");
               <li>다운로드 경로는 설정에서 변경할 수 있습니다.</li>
               <li>다운로드 진행 상황은 각 작품 카드에서 확인할 수 있습니다.</li>
             </ul>
-            <h3 class="font-semibold text-base text-foreground">미리보기</h3>
-            <ul class="list-disc list-inside">
+            <h3 class="text-foreground text-base font-semibold">미리보기</h3>
+            <ul class="list-inside list-disc">
               <li>
                 검색 결과에서 작품을 선택한 후 <kbd>V</kbd> 키를 눌러 미리보기
                 다이얼로그를 열 수 있습니다.
@@ -397,14 +397,14 @@ useSearchPersistence(searchQuery, "downloader-search-query");
         </HelpDialog>
       </h1>
       <Button variant="secondary" size="icon" @click="goToSettings">
-        <Icon icon="solar:settings-bold-duotone" class="w-6 h-6" />
+        <Icon icon="solar:settings-bold-duotone" class="h-6 w-6" />
       </Button>
     </div>
 
-    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 flex-1 overflow-y-auto">
+    <div class="grid flex-1 grid-cols-1 gap-6 overflow-y-auto lg:grid-cols-3">
       <!-- Left Column: Search & Settings -->
       <div
-        class="lg:col-span-1 flex flex-col gap-6 lg:sticky lg:top-0 lg:h-fit"
+        class="flex flex-col gap-6 lg:sticky lg:top-0 lg:col-span-1 lg:h-fit"
       >
         <Card>
           <CardHeader>
@@ -412,8 +412,8 @@ useSearchPersistence(searchQuery, "downloader-search-query");
           </CardHeader>
           <CardContent>
             <!-- flex-col sm:items-center justify-between  sm:flex-row items-start -->
-            <div v-if="downloadPath" class="flex gap-4 flex-col">
-              <p class="text-sm text-muted-foreground break-all">
+            <div v-if="downloadPath" class="flex flex-col gap-4">
+              <p class="text-muted-foreground text-sm break-all">
                 <code class="font-mono">{{ downloadPath }}</code>
               </p>
               <div class="flex flex-row gap-2">
@@ -425,7 +425,7 @@ useSearchPersistence(searchQuery, "downloader-search-query");
                 >
                   <Icon
                     icon="solar:folder-open-bold-duotone"
-                    class="w-4 h-4"
+                    class="h-4 w-4"
                   />변경
                 </Button>
                 <Button
@@ -435,17 +435,17 @@ useSearchPersistence(searchQuery, "downloader-search-query");
                   class="flex-shrink-0"
                   @click="openDownloadFolder"
                 >
-                  <Icon icon="solar:folder-bold-duotone" class="w-4 h-4" />폴더
+                  <Icon icon="solar:folder-bold-duotone" class="h-4 w-4" />폴더
                   열기
                 </Button>
               </div>
             </div>
             <div v-else class="flex items-center justify-between">
-              <p class="text-sm text-destructive">폴더를 지정해주세요.</p>
+              <p class="text-destructive text-sm">폴더를 지정해주세요.</p>
               <Button size="sm" @click="openFolderDialog">
                 <Icon
                   icon="solar:folder-open-bold-duotone"
-                  class="w-4 h-4"
+                  class="h-4 w-4"
                 />폴더 지정
               </Button>
             </div>
@@ -460,15 +460,15 @@ useSearchPersistence(searchQuery, "downloader-search-query");
           </CardHeader>
           <CardContent>
             <div
-              class="flex items-start gap-2 mb-4 justify-between flex-col md:flex-row lg:flex-col"
+              class="mb-4 flex flex-col items-start justify-between gap-2 md:flex-row lg:flex-col"
             >
               <div class="flex flex-col">
                 <Label for="offset-input">시작 오프셋</Label>
-                <p class="text-sm text-muted-foreground">
+                <p class="text-muted-foreground text-sm">
                   검색 결과를 시작할 검색 인덱스를 지정합니다.
                 </p>
               </div>
-              <div class="flex gap-2 flex-wrap">
+              <div class="flex flex-wrap gap-2">
                 <Input
                   id="offset-input"
                   v-model.number="offset"
@@ -483,18 +483,18 @@ useSearchPersistence(searchQuery, "downloader-search-query");
                   :disabled="offset === 0"
                   @click="handlePreviousPage"
                 >
-                  <Icon icon="solar:arrow-left-bold-duotone" class="w-4 h-4" />
+                  <Icon icon="solar:arrow-left-bold-duotone" class="h-4 w-4" />
                   이전
                 </Button>
                 <Button variant="outline" size="sm" @click="handleNextPage">
                   다음
-                  <Icon icon="solar:arrow-right-bold-duotone" class="w-4 h-4" />
+                  <Icon icon="solar:arrow-right-bold-duotone" class="h-4 w-4" />
                 </Button>
               </div>
             </div>
             <div class="grid grid-cols-1 items-end gap-4 sm:grid-cols-4">
               <div
-                class="col-span-full sm:col-span-1 flex flex-col space-y-1.5 lg:col-span-full xl:col-span-2 2xl:col-span-1"
+                class="col-span-full flex flex-col space-y-1.5 sm:col-span-1 lg:col-span-full xl:col-span-2 2xl:col-span-1"
               >
                 <Label for="language-select">언어</Label>
                 <Select
@@ -516,7 +516,7 @@ useSearchPersistence(searchQuery, "downloader-search-query");
                 </Select>
               </div>
               <div
-                class="col-span-full sm:col-span-3 flex flex-col space-y-1.5 lg:col-span-full xl:col-span-2 2xl:col-span-3"
+                class="col-span-full flex flex-col space-y-1.5 sm:col-span-3 lg:col-span-full xl:col-span-2 2xl:col-span-3"
               >
                 <Label for="search-input">검색어</Label>
                 <SmartSearchInput
@@ -527,7 +527,7 @@ useSearchPersistence(searchQuery, "downloader-search-query");
                 />
               </div>
             </div>
-            <p class="text-xs text-muted-foreground pt-2">
+            <p class="text-muted-foreground pt-2 text-xs">
               검색은 히토미 검색과 동일한 문법을 지원합니다. (예:
               <code class="font-mono"
                 >female:sole_female female:very_long_hair</code
@@ -540,15 +540,15 @@ useSearchPersistence(searchQuery, "downloader-search-query");
               @apply-preset="handleSearch"
             />
             <Button class="flex-grow" @click="handleSearch">
-              <Icon icon="solar:magnifer-bold-duotone" class="w-5 h-5" />검색
+              <Icon icon="solar:magnifer-bold-duotone" class="h-5 w-5" />검색
             </Button>
           </CardFooter>
         </Card>
       </div>
 
       <!-- Right Column: Search Results -->
-      <div class="lg:col-span-2 flex flex-col gap-4">
-        <div class="flex justify-between items-center">
+      <div class="flex flex-col gap-4 lg:col-span-2">
+        <div class="flex items-center justify-between">
           <h2 class="text-lg font-semibold">검색 결과</h2>
           <div class="flex items-center space-x-2">
             <Label for="view-mode-switch">썸네일</Label>
@@ -556,22 +556,22 @@ useSearchPersistence(searchQuery, "downloader-search-query");
           </div>
         </div>
 
-        <div class="flex-1 overflow-y-auto border rounded-lg p-2 min-h-[60vh]">
-          <div v-if="isLoading" class="flex items-center justify-center h-full">
+        <div class="min-h-[60vh] flex-1 overflow-y-auto rounded-lg border p-2">
+          <div v-if="isLoading" class="flex h-full items-center justify-center">
             <p class="text-muted-foreground">
               <Icon icon="svg-spinners:ring-resize" class="size-8" />
             </p>
           </div>
           <div
             v-else-if="isError"
-            class="flex items-center justify-center h-full text-destructive"
+            class="text-destructive flex h-full items-center justify-center"
           >
             <p>오류 발생: {{ error?.message }}</p>
           </div>
           <div v-else-if="allGalleries.length > 0">
             <div
               v-if="isThumbnailView"
-              class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 xl:grid-cols-2 2xl:grid-cols-3 gap-4"
+              class="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-2 xl:grid-cols-2 2xl:grid-cols-3"
             >
               <GalleryThumbnailCard
                 v-for="item in allGalleries"
@@ -609,12 +609,12 @@ useSearchPersistence(searchQuery, "downloader-search-query");
             <div ref="observerTarget" class="h-10 w-full"></div>
             <div
               v-if="isFetchingNextPage"
-              class="text-center text-muted-foreground py-4"
+              class="text-muted-foreground py-4 text-center"
             >
               <p>더 많은 결과 불러오는 중...</p>
             </div>
           </div>
-          <div v-else class="flex items-center justify-center h-full">
+          <div v-else class="flex h-full items-center justify-center">
             <p class="text-muted-foreground">검색 결과가 없습니다.</p>
           </div>
         </div>

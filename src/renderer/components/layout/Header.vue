@@ -29,7 +29,7 @@ onUnmounted(() => {
 
 <template>
   <header
-    class="flex items-center justify-between px-4 py-3 bg-muted border-b"
+    class="bg-muted flex items-center justify-between border-b px-4 py-3"
     style="-webkit-app-region: drag"
   >
     <div class="flex items-center gap-3">
@@ -37,7 +37,7 @@ onUnmounted(() => {
         icon="solar:book-bookmark-bold-duotone"
         class="text-primary size-6"
       />
-      <h1 class="text-foreground font-semibold text-lg">동인메뉴판</h1>
+      <h1 class="text-foreground text-lg font-semibold">동인메뉴판</h1>
     </div>
 
     <div class="flex items-center gap-2">
@@ -70,7 +70,7 @@ onUnmounted(() => {
       <Button
         variant="outline"
         size="icon"
-        class="size-8 hover:bg-destructive/80 hover:text-white"
+        class="hover:bg-destructive/80 size-8 hover:text-white"
         @click="closeWindow"
       >
         <Icon icon="solar:close-square-line-duotone" class="size-4" />

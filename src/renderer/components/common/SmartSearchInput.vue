@@ -249,14 +249,14 @@ defineExpose({ focus });
     >
       <button
         type="button"
-        class="p-1 text-muted-foreground transition-colors hover:text-foreground"
+        class="text-muted-foreground hover:text-foreground p-1 transition-colors"
         @click="clearInput"
       >
         <Icon icon="solar:close-circle-bold-duotone" class="h-5 w-5" />
       </button>
       <button
         type="button"
-        class="p-1 text-muted-foreground transition-colors hover:text-foreground"
+        class="text-muted-foreground hover:text-foreground p-1 transition-colors"
         @click="copyToClipboard"
       >
         <Icon icon="solar:copy-bold-duotone" class="h-5 w-5" />
@@ -264,12 +264,12 @@ defineExpose({ focus });
     </div>
     <ul
       v-if="suggestions.length > 0 && isFocused"
-      class="absolute z-10 w-full bg-popover border rounded-md shadow-lg mt-1"
+      class="bg-popover absolute z-10 mt-1 w-full rounded-md border shadow-lg"
     >
       <li
         v-for="(suggestion, index) in suggestions"
         :key="suggestion"
-        class="px-4 py-2 cursor-pointer hover:bg-accent"
+        class="hover:bg-accent cursor-pointer px-4 py-2"
         :class="{ 'bg-accent': index === activeSuggestionIndex }"
         @mousedown.prevent
         @click="applySuggestion(suggestion)"

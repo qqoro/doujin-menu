@@ -115,31 +115,31 @@ const confirmDeleteBook = async () => {
 
 <template>
   <div
-    class="flex items-center p-2 border-b hover:bg-muted/50 transition-colors cursor-pointer"
+    class="hover:bg-muted/50 flex cursor-pointer items-center border-b p-2 transition-colors"
     @click="handleCardClick"
   >
-    <div class="w-48 h-64 mr-4 flex-shrink-0 overflow-hidden relative">
+    <div class="relative mr-4 h-64 w-48 flex-shrink-0 overflow-hidden">
       <img
         :src="coverUrl"
         :alt="book.title"
-        class="w-full h-full object-cover rounded-md transition-transform duration-300 hover:scale-110"
+        class="h-full w-full rounded-md object-cover transition-transform duration-300 hover:scale-110"
       />
       <div
         v-if="book.is_favorite"
-        class="absolute top-2 right-2 bg-red-500 text-white rounded-full p-1"
+        class="absolute top-2 right-2 rounded-full bg-red-500 p-1 text-white"
       >
-        <Icon icon="solar:heart-bold" class="w-5 h-5" />
+        <Icon icon="solar:heart-bold" class="h-5 w-5" />
       </div>
     </div>
-    <div class="flex-1 flex flex-col gap-2">
+    <div class="flex flex-1 flex-col gap-2">
       <!-- 제목 -->
-      <h3 class="font-bold text-lg">{{ book.title }}</h3>
+      <h3 class="text-lg font-bold">{{ book.title }}</h3>
       <!-- 작가/그룹/시리즈/캐릭터/페이지 -->
-      <div class="flex flex-col gap-0.5 text-sm text-muted-foreground">
+      <div class="text-muted-foreground flex flex-col gap-0.5 text-sm">
         <p>
           <Icon
             icon="solar:pen-new-round-linear"
-            class="w-4 h-4 inline-block align-text-bottom"
+            class="inline-block h-4 w-4 align-text-bottom"
           />
           작가:
           <template v-if="validArtists.length > 0">
@@ -148,7 +148,7 @@ const confirmDeleteBook = async () => {
               :key="artist.name"
             >
               <button
-                class="inline-block text-left p-0 m-0 border-none bg-transparent cursor-pointer hover:underline text-current"
+                class="m-0 inline-block cursor-pointer border-none bg-transparent p-0 text-left text-current hover:underline"
                 @click.stop="emit('selectArtist', artist.name)"
               >
                 {{ artist.name }}
@@ -162,12 +162,12 @@ const confirmDeleteBook = async () => {
         <p v-if="validGroups.length > 0">
           <Icon
             icon="solar:users-group-rounded-linear"
-            class="w-4 h-4 inline-block align-text-bottom"
+            class="inline-block h-4 w-4 align-text-bottom"
           />
           그룹:
           <template v-for="(group, index) in validGroups" :key="group.name">
             <button
-              class="inline-block text-left p-0 m-0 border-none bg-transparent cursor-pointer hover:underline text-current"
+              class="m-0 inline-block cursor-pointer border-none bg-transparent p-0 text-left text-current hover:underline"
               @click.stop="emit('selectGroup', group.name)"
             >
               {{ group.name }}
@@ -179,12 +179,12 @@ const confirmDeleteBook = async () => {
         <p v-if="validSeries.length > 0">
           <Icon
             icon="solar:bookmark-linear"
-            class="w-4 h-4 inline-block align-text-bottom"
+            class="inline-block h-4 w-4 align-text-bottom"
           />
           시리즈:
           <template v-for="(series, index) in validSeries" :key="series.name">
             <button
-              class="inline-block text-left p-0 m-0 border-none bg-transparent cursor-pointer hover:underline text-current"
+              class="m-0 inline-block cursor-pointer border-none bg-transparent p-0 text-left text-current hover:underline"
               @click.stop="emit('selectSeries', series.name)"
             >
               {{ series.name }}
@@ -196,7 +196,7 @@ const confirmDeleteBook = async () => {
         <p v-if="validCharacters.length > 0">
           <Icon
             icon="solar:user-linear"
-            class="w-4 h-4 inline-block align-text-bottom"
+            class="inline-block h-4 w-4 align-text-bottom"
           />
           캐릭터:
           <template
@@ -204,7 +204,7 @@ const confirmDeleteBook = async () => {
             :key="character.name"
           >
             <button
-              class="inline-block text-left p-0 m-0 border-none bg-transparent cursor-pointer hover:underline text-current"
+              class="m-0 inline-block cursor-pointer border-none bg-transparent p-0 text-left text-current hover:underline"
               @click.stop="emit('selectCharacter', character.name)"
             >
               {{ character.name }}
@@ -215,7 +215,7 @@ const confirmDeleteBook = async () => {
         <p>
           <Icon
             icon="solar:document-text-linear"
-            class="w-4 h-4 inline-block align-text-bottom"
+            class="inline-block h-4 w-4 align-text-bottom"
           />
           {{ book.page_count || 0 }} 페이지
         </p>
@@ -240,7 +240,7 @@ const confirmDeleteBook = async () => {
               ? 'solar:heart-broken-bold-duotone'
               : 'solar:heart-bold-duotone'
           "
-          class="w-4 h-4"
+          class="h-4 w-4"
         />
         {{ book.is_favorite ? "즐겨찾기 해제" : "즐겨찾기" }}
       </Button>
@@ -249,21 +249,21 @@ const confirmDeleteBook = async () => {
         variant="outline"
         @click.stop="emit('show-details', book)"
       >
-        <Icon icon="solar:info-circle-bold-duotone" class="w-4 h-4" />
+        <Icon icon="solar:info-circle-bold-duotone" class="h-4 w-4" />
         상세 정보
       </Button>
       <Button size="sm" variant="outline" @click.stop="openInNewWindow">
-        <Icon icon="solar:square-top-down-bold-duotone" class="w-4 h-4" />
+        <Icon icon="solar:square-top-down-bold-duotone" class="h-4 w-4" />
         새 창으로 열기
       </Button>
       <Button size="sm" variant="outline" @click.stop="openBookFolder">
-        <Icon icon="solar:folder-open-bold-duotone" class="w-4 h-4" />
+        <Icon icon="solar:folder-open-bold-duotone" class="h-4 w-4" />
         폴더 열기
       </Button>
       <Button size="sm" variant="destructive" @click.stop="handleDeleteBook">
         <Icon
           icon="solar:trash-bin-minimalistic-bold-duotone"
-          class="w-4 h-4"
+          class="h-4 w-4"
         />
         삭제
       </Button>

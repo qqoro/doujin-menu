@@ -36,7 +36,7 @@ onMounted(async () => {
   <div
     :class="
       cn(
-        'h-screen grid grid-rows-[auto_1fr] bg-background transition-[grid-template-columns] duration-300 ease-in-out',
+        'bg-background grid h-screen grid-rows-[auto_1fr] transition-[grid-template-columns] duration-300 ease-in-out',
         isSidebarCollapsed ? 'grid-cols-[5.5rem_1fr]' : 'grid-cols-[14rem_1fr]',
       )
     "
@@ -46,7 +46,7 @@ onMounted(async () => {
     <AppLock v-if="uiStore.isLocked" />
     <main
       v-else
-      class="row-start-2 col-start-2 overflow-y-auto p-6 bg-background"
+      class="bg-background col-start-2 row-start-2 overflow-y-auto p-6"
     >
       <router-view v-slot="{ Component }">
         <keep-alive :include="['Library', 'Downloader', 'History']">

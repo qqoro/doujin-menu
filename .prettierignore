@@ -1,1 +1,5 @@
+src/main/db/migrations
+
 src/renderer/components/ui
+src/renderer/public/assets/themes
+src/renderer/types/themes.ts

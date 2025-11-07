@@ -54,18 +54,18 @@ const resetAllData = async () => {
 <template>
   <div
     v-if="uiStore.isLocked"
-    class="fixed inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm"
+    class="bg-background/80 fixed inset-0 z-50 flex items-center justify-center backdrop-blur-sm"
   >
     <div
-      class="flex w-full max-w-xs flex-col gap-4 rounded-lg border bg-background p-6 shadow-lg"
+      class="bg-background flex w-full max-w-xs flex-col gap-4 rounded-lg border p-6 shadow-lg"
     >
       <div class="text-center">
         <Icon
           icon="solar:lock-keyhole-minimalistic-bold-duotone"
-          class="mx-auto h-12 w-12 text-primary"
+          class="text-primary mx-auto h-12 w-12"
         />
         <h2 class="mt-2 text-xl font-bold">앱 잠금</h2>
-        <p class="text-sm text-muted-foreground">
+        <p class="text-muted-foreground text-sm">
           비밀번호를 입력하여 잠금을 해제하세요.
         </p>
       </div>

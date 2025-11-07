@@ -140,23 +140,23 @@ const sortedQueue = computed(() => {
   <Popover>
     <PopoverTrigger as-child>
       <Button variant="outline" size="sm" class="relative">
-        <Icon icon="solar:download-square-bold-duotone" class="w-5 h-5" />
+        <Icon icon="solar:download-square-bold-duotone" class="h-5 w-5" />
         <span>다운로드 큐</span>
         <Badge
           v-if="activeQueueCount > 0"
-          class="absolute -top-2 -right-2 h-5 min-w-5 flex items-center justify-center rounded-full bg-blue-500 text-white text-xs px-1.5"
+          class="absolute -top-2 -right-2 flex h-5 min-w-5 items-center justify-center rounded-full bg-blue-500 px-1.5 text-xs text-white"
           >{{ activeQueueCount }}</Badge
         >
       </Button>
     </PopoverTrigger>
     <PopoverContent
-      class="w-[600px] max-h-[600px] overflow-y-auto p-0"
+      class="max-h-[600px] w-[600px] overflow-y-auto p-0"
       align="end"
     >
-      <div class="sticky top-0 bg-background border-b p-4 z-10">
+      <div class="bg-background sticky top-0 z-10 border-b p-4">
         <div class="flex items-center justify-between">
-          <h3 class="font-semibold text-lg flex items-center gap-2">
-            <Icon icon="solar:download-square-bold-duotone" class="w-5 h-5" />
+          <h3 class="flex items-center gap-2 text-lg font-semibold">
+            <Icon icon="solar:download-square-bold-duotone" class="h-5 w-5" />
             다운로드 큐
             <Badge variant="secondary">{{ queue.length }}개</Badge>
           </h3>
@@ -167,7 +167,7 @@ const sortedQueue = computed(() => {
               :disabled="isLoading"
               @click="downloadQueueStore.fetchQueue"
             >
-              <Icon icon="solar:refresh-bold-duotone" class="w-4 h-4" />
+              <Icon icon="solar:refresh-bold-duotone" class="h-4 w-4" />
               새로고침
             </Button>
             <Button
@@ -178,7 +178,7 @@ const sortedQueue = computed(() => {
             >
               <Icon
                 icon="solar:trash-bin-minimalistic-bold-duotone"
-                class="w-4 h-4"
+                class="h-4 w-4"
               />
               완료 항목 제거
             </Button>
@@ -186,24 +186,24 @@ const sortedQueue = computed(() => {
         </div>
       </div>
 
-      <div v-if="isEmpty" class="p-8 text-center text-muted-foreground">
+      <div v-if="isEmpty" class="text-muted-foreground p-8 text-center">
         <Icon
           icon="solar:folder-with-files-bold-duotone"
-          class="w-16 h-16 mx-auto mb-4 opacity-50"
+          class="mx-auto mb-4 h-16 w-16 opacity-50"
         />
         <p>다운로드 큐가 비어있습니다.</p>
-        <p class="text-sm mt-2">다운로더에서 작품을 다운로드하세요.</p>
+        <p class="mt-2 text-sm">다운로더에서 작품을 다운로드하세요.</p>
       </div>
 
       <div v-else class="divide-y">
         <div
           v-for="item in sortedQueue"
           :key="item.id"
-          class="flex items-center gap-3 p-3 hover:bg-muted/50 transition-colors"
+          class="hover:bg-muted/50 flex items-center gap-3 p-3 transition-colors"
         >
           <!-- 썸네일 -->
           <div
-            class="w-20 h-28 flex-shrink-0 overflow-hidden rounded-md bg-muted relative"
+            class="bg-muted relative h-28 w-20 flex-shrink-0 overflow-hidden rounded-md"
           >
             <ProxiedImage
               v-if="item.thumbnail_url"
@@ -211,37 +211,37 @@ const sortedQueue = computed(() => {
               :url="item.thumbnail_url"
               :referer="`https://hitomi.la/reader/${item.gallery_id}.html`"
               alt="Thumbnail"
-              class="w-full h-full object-cover"
+              class="h-full w-full object-cover"
             />
             <div
               v-else
-              class="w-full h-full flex items-center justify-center text-muted-foreground"
+              class="text-muted-foreground flex h-full w-full items-center justify-center"
             >
-              <Icon icon="solar:gallery-bold-duotone" class="w-8 h-8" />
+              <Icon icon="solar:gallery-bold-duotone" class="h-8 w-8" />
             </div>
           </div>
 
           <!-- 정보 -->
-          <div class="flex-1 min-w-0">
+          <div class="min-w-0 flex-1">
             <h4
-              class="font-medium text-sm truncate"
+              class="truncate text-sm font-medium"
               :title="item.gallery_title"
             >
               {{ item.gallery_title }}
             </h4>
             <p
               v-if="item.gallery_artist"
-              class="text-xs text-muted-foreground truncate"
+              class="text-muted-foreground truncate text-xs"
             >
               <Icon
                 icon="solar:pen-new-round-linear"
-                class="w-3 h-3 inline-block align-text-bottom"
+                class="inline-block h-3 w-3 align-text-bottom"
               />
               {{ item.gallery_artist }}
             </p>
 
             <!-- 상태 -->
-            <div class="flex items-center gap-2 mt-1">
+            <div class="mt-1 flex items-center gap-2">
               <Badge
                 :class="getStatusInfo(item.status).color"
                 variant="outline"
@@ -249,7 +249,7 @@ const sortedQueue = computed(() => {
               >
                 <Icon
                   :icon="getStatusInfo(item.status).icon"
-                  class="w-3 h-3 mr-1"
+                  class="mr-1 h-3 w-3"
                 />
                 {{ getStatusInfo(item.status).label }}
               </Badge>
@@ -259,7 +259,7 @@ const sortedQueue = computed(() => {
                 v-if="
                   item.status === 'downloading' || item.status === 'completed'
                 "
-                class="text-xs text-muted-foreground"
+                class="text-muted-foreground text-xs"
               >
                 {{ item.progress }}%
               </span>
@@ -270,10 +270,10 @@ const sortedQueue = computed(() => {
               v-if="
                 item.status === 'downloading' || item.status === 'completed'
               "
-              class="w-full bg-muted rounded-full h-1.5 mt-2"
+              class="bg-muted mt-2 h-1.5 w-full rounded-full"
             >
               <div
-                class="bg-blue-500 h-1.5 rounded-full transition-all"
+                class="h-1.5 rounded-full bg-blue-500 transition-all"
                 :style="{ width: `${item.progress}%` }"
               ></div>
             </div>
@@ -281,7 +281,7 @@ const sortedQueue = computed(() => {
             <!-- 에러 메시지 -->
             <p
               v-if="item.error_message"
-              class="text-xs text-red-500 mt-1 truncate"
+              class="mt-1 truncate text-xs text-red-500"
               :title="item.error_message"
             >
               {{ item.error_message }}
@@ -298,7 +298,7 @@ const sortedQueue = computed(() => {
               class="h-7 w-7"
               @click="handlePause(item.id)"
             >
-              <Icon icon="solar:pause-bold-duotone" class="w-4 h-4" />
+              <Icon icon="solar:pause-bold-duotone" class="h-4 w-4" />
             </Button>
 
             <!-- 재개 -->
@@ -309,7 +309,7 @@ const sortedQueue = computed(() => {
               class="h-7 w-7"
               @click="handleResume(item.id)"
             >
-              <Icon icon="solar:play-bold-duotone" class="w-4 h-4" />
+              <Icon icon="solar:play-bold-duotone" class="h-4 w-4" />
             </Button>
 
             <!-- 재시도 -->
@@ -320,7 +320,7 @@ const sortedQueue = computed(() => {
               class="h-7 w-7"
               @click="handleRetry(item.id)"
             >
-              <Icon icon="solar:restart-bold-duotone" class="w-4 h-4" />
+              <Icon icon="solar:restart-bold-duotone" class="h-4 w-4" />
             </Button>
 
             <!-- 제거 -->
@@ -328,12 +328,12 @@ const sortedQueue = computed(() => {
               v-if="item.status !== 'downloading'"
               variant="ghost"
               size="icon"
-              class="h-7 w-7 text-destructive"
+              class="text-destructive h-7 w-7"
               @click="handleRemove(item.id)"
             >
               <Icon
                 icon="solar:trash-bin-minimalistic-bold-duotone"
-                class="w-4 h-4"
+                class="h-4 w-4"
               />
             </Button>
           </div>

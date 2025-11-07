@@ -152,38 +152,38 @@ const confirmDeleteBook = async () => {
   <ContextMenu>
     <ContextMenuTrigger>
       <Card
-        class="overflow-hidden hover:shadow-lg transition-shadow flex flex-col h-full py-0 gap-0 cursor-pointer"
+        class="flex h-full cursor-pointer flex-col gap-0 overflow-hidden py-0 transition-shadow hover:shadow-lg"
         @click="handleCardClick"
       >
         <CardContent class="p-0">
           <img
             :src="coverUrl"
             :alt="book.title"
-            class="aspect-[2/3] w-full h-auto object-cover"
+            class="aspect-[2/3] h-auto w-full object-cover"
           />
         </CardContent>
-        <CardFooter class="p-2 flex-col items-start flex-grow gap-1">
-          <p class="font-semibold text-sm truncate w-full" :title="book.title">
+        <CardFooter class="flex-grow flex-col items-start gap-1 p-2">
+          <p class="w-full truncate text-sm font-semibold" :title="book.title">
             {{ book.title }}
           </p>
           <!-- 작가 정보가 없는 경우 -->
           <p
             v-if="!hasCreatorInfo"
-            class="text-xs text-muted-foreground truncate w-full"
+            class="text-muted-foreground w-full truncate text-xs"
           >
             작가 정보 없음
           </p>
           <!-- 작가 정보 -->
           <div
             v-if="validArtists.length > 0"
-            class="flex items-center gap-1 w-full text-xs text-muted-foreground"
+            class="text-muted-foreground flex w-full items-center gap-1 text-xs"
           >
             <Icon
               icon="solar:user-bold-duotone"
-              class="w-3 h-3 flex-shrink-0"
+              class="h-3 w-3 flex-shrink-0"
             />
             <span
-              class="truncate cursor-pointer hover:underline"
+              class="cursor-pointer truncate hover:underline"
               :title="validArtists.map((a) => a.name).join(', ')"
               @click.prevent.stop="handleArtistClick(validArtists[0])"
             >
@@ -193,21 +193,21 @@ const confirmDeleteBook = async () => {
           <!-- 그룹 정보 -->
           <div
             v-if="validGroups.length > 0"
-            class="flex items-center gap-1 w-full text-xs text-muted-foreground"
+            class="text-muted-foreground flex w-full items-center gap-1 text-xs"
           >
             <Icon
               icon="solar:users-group-rounded-bold-duotone"
-              class="w-3 h-3 flex-shrink-0"
+              class="h-3 w-3 flex-shrink-0"
             />
             <span
-              class="truncate cursor-pointer hover:underline"
+              class="cursor-pointer truncate hover:underline"
               :title="validGroups.map((g) => g.name).join(', ')"
               @click.prevent.stop="handleGroupClick(validGroups[0])"
             >
               {{ validGroups.map((g) => g.name).join(", ") }}
             </span>
           </div>
-          <div class="flex flex-wrap items-start gap-1 w-full min-h-[42px]">
+          <div class="flex min-h-[42px] w-full flex-wrap items-start gap-1">
             <Badge
               v-for="tag in visibleTags"
               :key="tag.name"
@@ -229,7 +229,7 @@ const confirmDeleteBook = async () => {
                 </TooltipTrigger>
                 <TooltipContent
                   side="bottom"
-                  class="max-w-[300px] p-2 bg-primary/50 backdrop-blur-md"
+                  class="bg-primary/50 max-w-[300px] p-2 backdrop-blur-md"
                   @click.prevent.stop
                 >
                   <div class="flex flex-wrap gap-1">
@@ -258,25 +258,25 @@ const confirmDeleteBook = async () => {
               ? 'solar:heart-broken-line-duotone'
               : 'solar:heart-bold-duotone'
           "
-          class="w-4 h-4"
+          class="h-4 w-4"
         />
         {{ book.is_favorite ? "즐겨찾기 해제" : "즐겨찾기 추가" }}
       </ContextMenuItem>
       <ContextMenuItem @click="openBookFolder">
-        <Icon icon="solar:folder-open-bold-duotone" class="w-4 h-4" />
+        <Icon icon="solar:folder-open-bold-duotone" class="h-4 w-4" />
         폴더 열기
       </ContextMenuItem>
       <ContextMenuItem @click="openInNewWindow">
-        <Icon icon="solar:square-top-down-bold-duotone" class="w-4 h-4" />
+        <Icon icon="solar:square-top-down-bold-duotone" class="h-4 w-4" />
         새 창으로 열기
       </ContextMenuItem>
       <ContextMenuItem @click="emit('show-details', book)">
-        <Icon icon="solar:info-circle-bold-duotone" class="w-4 h-4" />
+        <Icon icon="solar:info-circle-bold-duotone" class="h-4 w-4" />
         상세 정보
       </ContextMenuItem>
       <ContextMenuSeparator />
       <ContextMenuItem @click="handleDeleteBook">
-        <Icon icon="solar:trash-bin-trash-bold-duotone" class="w-4 h-4" />
+        <Icon icon="solar:trash-bin-trash-bold-duotone" class="h-4 w-4" />
         삭제
       </ContextMenuItem>
     </ContextMenuContent>

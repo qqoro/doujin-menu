@@ -152,23 +152,23 @@ onUnmounted(() => {
 </script>
 
 <template>
-  <div class="proxied-image-wrapper w-full h-full min-w-40">
+  <div class="proxied-image-wrapper h-full w-full min-w-40">
     <!-- 로딩 중 스켈레톤 UI -->
     <div
       v-if="(isLoading && !localSrc) || isRetrying"
-      class="w-full h-full bg-gray-200 dark:bg-gray-700 animate-pulse rounded"
+      class="h-full w-full animate-pulse rounded bg-gray-200 dark:bg-gray-700"
     ></div>
 
     <!-- 에러 발생 시 대체 UI (모든 재시도 실패 후) -->
     <div
       v-else-if="hasError"
-      class="w-full h-full bg-red-100 dark:bg-red-900/20 flex flex-col items-center justify-center rounded p-2"
+      class="flex h-full w-full flex-col items-center justify-center rounded bg-red-100 p-2 dark:bg-red-900/20"
     >
-      <p class="text-red-500 text-xs text-center mb-2">이미지<br />로드 실패</p>
+      <p class="mb-2 text-center text-xs text-red-500">이미지<br />로드 실패</p>
       <Button
         size="sm"
         variant="outline"
-        class="text-xs h-auto py-1 px-2"
+        class="h-auto px-2 py-1 text-xs"
         @click="retryLoad"
       >
         다시 로드하기
@@ -180,12 +180,12 @@ onUnmounted(() => {
       v-else-if="localSrc"
       :src="localSrc"
       :alt="alt"
-      class="w-full h-full object-cover"
+      class="h-full w-full object-cover"
     />
     <!-- lazy 로딩 시 플레이스홀더 (아직 로딩 시작 안 했을 때) -->
     <div
       v-else
-      class="w-full h-full bg-gray-100 dark:bg-gray-800 flex items-center justify-center rounded"
+      class="flex h-full w-full items-center justify-center rounded bg-gray-100 dark:bg-gray-800"
     >
       <p class="text-muted-foreground text-xs">로딩 대기 중...</p>
     </div>

@@ -400,19 +400,19 @@ useWindowEvent("mousedown", handleMouseDown);
 <template>
   <div
     ref="screenRef"
-    class="h-screen flex flex-col"
+    class="flex h-screen flex-col"
     :class="{ 'cursor-none!': !showCursor }"
   >
     <!-- 헤더 -->
     <Transition name="fade">
       <div
         v-if="showControls"
-        class="fixed top-0 left-0 right-0 bg-muted-foreground/50 p-4 z-10 transition-opacity duration-300"
+        class="bg-muted-foreground/50 fixed top-0 right-0 left-0 z-10 p-4 transition-opacity duration-300"
         style="-webkit-app-region: drag"
       >
         <TooltipProvider>
           <div class="flex items-center justify-between gap-2">
-            <div class="flex items-center gap-2 flex-1 min-w-0">
+            <div class="flex min-w-0 flex-1 items-center gap-2">
               <Tooltip>
                 <TooltipTrigger as-child>
                   <Button
@@ -436,7 +436,7 @@ useWindowEvent("mousedown", handleMouseDown);
                   </p>
                 </TooltipContent>
               </Tooltip>
-              <h1 class="text-xl font-bold truncate">
+              <h1 class="truncate text-xl font-bold">
                 {{ bookTitle || "만화책 뷰어" }}
               </h1>
             </div>
@@ -451,7 +451,7 @@ useWindowEvent("mousedown", handleMouseDown);
                   >
                     <Icon
                       icon="solar:rewind-back-bold-duotone"
-                      class="w-6 h-6"
+                      class="h-6 w-6"
                     />
                   </Button>
                 </TooltipTrigger>
@@ -473,7 +473,7 @@ useWindowEvent("mousedown", handleMouseDown);
                           ? 'solar:pause-bold-duotone'
                           : 'solar:play-bold-duotone'
                       "
-                      class="w-6 h-6"
+                      class="h-6 w-6"
                     />
                   </Button>
                 </TooltipTrigger>
@@ -500,7 +500,7 @@ useWindowEvent("mousedown", handleMouseDown);
                   >
                     <Icon
                       icon="solar:rewind-forward-bold-duotone"
-                      class="w-6 h-6"
+                      class="h-6 w-6"
                     />
                   </Button>
                 </TooltipTrigger>
@@ -522,7 +522,7 @@ useWindowEvent("mousedown", handleMouseDown);
                           ? 'solar:star-bold-duotone'
                           : 'solar:star-outline'
                       "
-                      class="w-6 h-6"
+                      class="h-6 w-6"
                     />
                   </Button>
                 </TooltipTrigger>
@@ -539,32 +539,32 @@ useWindowEvent("mousedown", handleMouseDown);
     <!-- 뷰어 영역 -->
     <div
       ref="viewerArea"
-      class="flex-1 flex items-center justify-center overflow-auto relative"
+      class="relative flex flex-1 items-center justify-center overflow-auto"
     >
       <div
         v-if="readingMode !== 'webtoon'"
-        class="absolute left-0 top-0 h-screen w-1/4 max-w-[500px] bg-linear-to-r from-muted-foreground/40 text-background flex justify-center items-center opacity-0 hover:opacity-100 transition-opacity duration-150 z-10 cursor-pointer pointer-events-auto"
+        class="from-muted-foreground/40 text-background pointer-events-auto absolute top-0 left-0 z-10 flex h-screen w-1/4 max-w-[500px] cursor-pointer items-center justify-center bg-linear-to-r opacity-0 transition-opacity duration-150 hover:opacity-100"
         @click="readingMode === 'rtl' ? store.nextPage() : store.prevPage()"
       >
         <Icon
           icon="solar:alt-arrow-left-outline"
-          class="size-12 drop-shadow-sm drop-shadow-foreground pointer-events-none"
+          class="drop-shadow-foreground pointer-events-none size-12 drop-shadow-sm"
         />
       </div>
       <div
         v-if="readingMode !== 'webtoon'"
-        class="absolute right-0 top-0 h-screen w-1/4 max-w-[500px] bg-linear-to-l from-muted-foreground/40 text-background flex justify-center items-center opacity-0 hover:opacity-100 transition-opacity duration-150 z-10 cursor-pointer pointer-events-auto"
+        class="from-muted-foreground/40 text-background pointer-events-auto absolute top-0 right-0 z-10 flex h-screen w-1/4 max-w-[500px] cursor-pointer items-center justify-center bg-linear-to-l opacity-0 transition-opacity duration-150 hover:opacity-100"
         @click="readingMode === 'rtl' ? store.prevPage() : store.nextPage()"
       >
         <Icon
           icon="solar:alt-arrow-right-outline"
-          class="size-12 drop-shadow-sm drop-shadow-foreground pointer-events-none"
+          class="drop-shadow-foreground pointer-events-none size-12 drop-shadow-sm"
         />
       </div>
       <Transition name="fade">
         <div
           v-if="!showControls"
-          class="fixed top-4 left-4 text-muted-foreground/50 font-bold text-lg"
+          class="text-muted-foreground/50 fixed top-4 left-4 text-lg font-bold"
         >
           {{ currentPage }} / {{ totalPages }}
         </div>
@@ -573,7 +573,7 @@ useWindowEvent("mousedown", handleMouseDown);
       <Transition name="fade">
         <div
           v-if="showToast && toastMessage"
-          class="fixed top-27 right-12 text-primary bg-secondary/75 border-secondary/75 border backdrop-blur-sm font-semibold text-lg px-4 py-2 flex justify-center items-center rounded-lg gap-2 z-20"
+          class="text-primary bg-secondary/75 border-secondary/75 fixed top-27 right-12 z-20 flex items-center justify-center gap-2 rounded-lg border px-4 py-2 text-lg font-semibold backdrop-blur-sm"
         >
           <Icon icon="solar:info-circle-bold-duotone" class="text-xl" />
           {{ toastMessage }}
@@ -582,14 +582,14 @@ useWindowEvent("mousedown", handleMouseDown);
       <div v-if="loading" class="text-center">
         <Icon
           icon="solar:spinner-8-bold-duotone"
-          class="w-12 h-12 animate-spin"
+          class="h-12 w-12 animate-spin"
         />
         <p class="mt-2">페이지를 불러오는 중...</p>
       </div>
       <div v-else-if="error" class="text-center text-red-400">
         <Icon
           icon="solar:danger-triangle-bold-duotone"
-          class="w-12 h-12 mx-auto"
+          class="mx-auto h-12 w-12"
         />
         <p class="mt-2">오류: {{ error }}</p>
       </div>
@@ -608,7 +608,7 @@ useWindowEvent("mousedown", handleMouseDown);
 
       <div
         v-if="viewerDoublePageView && readingMode !== 'webtoon'"
-        class="flex items-center justify-center w-full h-full"
+        class="flex h-full w-full items-center justify-center"
         :style="imageStyle"
       >
         <img
@@ -628,7 +628,7 @@ useWindowEvent("mousedown", handleMouseDown);
       <div
         v-if="readingMode === 'webtoon'"
         ref="webtoonRef"
-        class="flex flex-col items-center h-full overflow-auto"
+        class="flex h-full flex-col items-center overflow-auto"
         :class="{
           'cursor-grab': zoomLevel > 100 && !isDragging,
           'cursor-grabbing': zoomLevel > 100 && isDragging,
@@ -646,7 +646,7 @@ useWindowEvent("mousedown", handleMouseDown);
             :src="path"
             :alt="`Page ${index + 1}`"
             :data-page-num="index + 1"
-            class="w-full mb-1"
+            class="mb-1 w-full"
           />
         </div>
       </div>
@@ -656,12 +656,12 @@ useWindowEvent("mousedown", handleMouseDown);
     <Transition name="fade">
       <div
         v-if="showControls"
-        class="fixed bottom-0 left-0 right-0 bg-muted-foreground/50 p-2 flex items-center justify-between gap-4 z-10 transition-opacity duration-300"
+        class="bg-muted-foreground/50 fixed right-0 bottom-0 left-0 z-10 flex items-center justify-between gap-4 p-2 transition-opacity duration-300"
         style="-webkit-app-region: no-drag"
       >
         <!-- 페이지 이동 -->
         <TooltipProvider>
-          <div class="flex items-center gap-4 flex-1">
+          <div class="flex flex-1 items-center gap-4">
             <Tooltip>
               <TooltipTrigger as-child>
                 <Button
@@ -677,7 +677,7 @@ useWindowEvent("mousedown", handleMouseDown);
                 <p class="flex items-center gap-1">이전 페이지 <kbd>←</kbd></p>
               </TooltipContent>
             </Tooltip>
-            <div class="flex-1 flex items-center gap-4">
+            <div class="flex flex-1 items-center gap-4">
               <Slider
                 :model-value="[currentPage]"
                 :min="1"
@@ -706,7 +706,7 @@ useWindowEvent("mousedown", handleMouseDown);
                 </p>
               </TooltipContent>
             </Tooltip>
-            <span class="text-center min-w-20"
+            <span class="min-w-20 text-center"
               >{{ currentPage }} / {{ totalPages }}</span
             >
           </div>
@@ -721,7 +721,7 @@ useWindowEvent("mousedown", handleMouseDown);
                   size="icon"
                   @click="isDetailOpen = true"
                 >
-                  <Icon icon="solar:info-circle-bold-duotone" class="w-5 h-5" />
+                  <Icon icon="solar:info-circle-bold-duotone" class="h-5 w-5" />
                 </Button>
               </TooltipTrigger>
               <TooltipContent>
@@ -737,7 +737,7 @@ useWindowEvent("mousedown", handleMouseDown);
                     <Button variant="outline" size="icon">
                       <Icon
                         icon="solar:settings-bold-duotone"
-                        class="w-5 h-5"
+                        class="h-5 w-5"
                       />
                     </Button>
                   </PopoverTrigger>
@@ -748,8 +748,8 @@ useWindowEvent("mousedown", handleMouseDown);
                 <PopoverContent class="w-80">
                   <div class="grid gap-4">
                     <div class="space-y-2">
-                      <h4 class="font-medium leading-none">보기 설정</h4>
-                      <p class="text-sm text-muted-foreground">
+                      <h4 class="leading-none font-medium">보기 설정</h4>
+                      <p class="text-muted-foreground text-sm">
                         페이지를 보는 방식을 설정합니다.
                       </p>
                     </div>
@@ -777,7 +777,7 @@ useWindowEvent("mousedown", handleMouseDown);
                             >
                               <Icon
                                 icon="solar:arrow-right-bold-duotone"
-                                class="w-5 h-5"
+                                class="h-5 w-5"
                               />
                             </ToggleGroupItem>
                             <ToggleGroupItem
@@ -787,7 +787,7 @@ useWindowEvent("mousedown", handleMouseDown);
                             >
                               <Icon
                                 icon="solar:arrow-left-bold-duotone"
-                                class="w-5 h-5"
+                                class="h-5 w-5"
                               />
                             </ToggleGroupItem>
                             <ToggleGroupItem
@@ -797,7 +797,7 @@ useWindowEvent("mousedown", handleMouseDown);
                             >
                               <Icon
                                 icon="solar:arrow-down-bold-duotone"
-                                class="w-5 h-5"
+                                class="h-5 w-5"
                               />
                             </ToggleGroupItem>
                           </ToggleGroup>
@@ -825,10 +825,10 @@ useWindowEvent("mousedown", handleMouseDown);
                       </div>
                     </div>
                   </div>
-                  <div class="grid gap-4 pt-4 mt-4 border-t">
+                  <div class="mt-4 grid gap-4 border-t pt-4">
                     <div class="space-y-2">
-                      <h4 class="font-medium leading-none">자동 넘김 설정</h4>
-                      <p class="text-sm text-muted-foreground">
+                      <h4 class="leading-none font-medium">자동 넘김 설정</h4>
+                      <p class="text-muted-foreground text-sm">
                         자동으로 페이지를 넘기는 기능에 대한 설정입니다.
                       </p>
                     </div>
@@ -846,7 +846,7 @@ useWindowEvent("mousedown", handleMouseDown);
                               (v) => store.setAutoPlayInterval(v![0])
                             "
                           />
-                          <span class="text-sm font-mono"
+                          <span class="font-mono text-sm"
                             >{{ autoPlayInterval }}s</span
                           >
                         </div>
@@ -892,7 +892,7 @@ useWindowEvent("mousedown", handleMouseDown);
           </TooltipProvider>
           <ViewerHelpDialog @update:open="isHelpOpen = $event">
             <Button variant="outline" size="icon">
-              <Icon icon="solar:question-circle-bold-duotone" class="w-5 h-5" />
+              <Icon icon="solar:question-circle-bold-duotone" class="h-5 w-5" />
             </Button>
           </ViewerHelpDialog>
         </div>

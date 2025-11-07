@@ -43,7 +43,7 @@ const keybindings = [
     <DialogContent class="max-w-2xl">
       <DialogHeader>
         <DialogTitle class="flex items-center gap-2">
-          <Icon icon="solar:help-bold-duotone" class="w-6 h-6" />
+          <Icon icon="solar:help-bold-duotone" class="h-6 w-6" />
           뷰어 도움말
         </DialogTitle>
         <DialogDescription>
@@ -53,8 +53,8 @@ const keybindings = [
 
       <div class="grid gap-6 py-4">
         <div>
-          <h3 class="font-semibold mb-2">기본 조작</h3>
-          <ul class="list-disc list-inside text-sm text-muted-foreground">
+          <h3 class="mb-2 font-semibold">기본 조작</h3>
+          <ul class="text-muted-foreground list-inside list-disc text-sm">
             <li>화면의 좌우 가장자리를 클릭하여 페이지를 넘길 수 있습니다.</li>
             <li>화면 상단/하단에 마우스를 올리면 컨트롤 바가 나타납니다.</li>
             <li>
@@ -67,8 +67,8 @@ const keybindings = [
         </div>
 
         <div>
-          <h3 class="font-semibold mb-2">단축키</h3>
-          <div class="grid grid-cols-1 sm:grid-cols-2 gap-x-8 gap-y-2 text-sm">
+          <h3 class="mb-2 font-semibold">단축키</h3>
+          <div class="grid grid-cols-1 gap-x-8 gap-y-2 text-sm sm:grid-cols-2">
             <div
               v-for="kb in keybindings"
               :key="kb.description"
@@ -76,7 +76,7 @@ const keybindings = [
               :class="{ 'col-span-full': kb.line }"
             >
               <span class="text-muted-foreground">{{ kb.description }}</span>
-              <div class="flex items-center gap-1 flex-wrap">
+              <div class="flex flex-wrap items-center gap-1">
                 <template
                   v-for="(keyGroup, groupIndex) in kb.keys"
                   :key="groupIndex"
