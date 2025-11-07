@@ -19,7 +19,14 @@ function buildMain() {
   return compileTs(mainPath);
 }
 
+// 빌드 폴더 정리
+console.log(blueBright("Cleaning build directories..."));
 rmSync(join(import.meta.dirname, "..", "build"), {
+  recursive: true,
+  force: true,
+});
+// dist 폴더도 정리 (electron-builder 출력물)
+rmSync(join(import.meta.dirname, "..", "dist"), {
   recursive: true,
   force: true,
 });

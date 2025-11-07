@@ -57,12 +57,17 @@ function createViewerWindow(fromUrl: string) {
   const x = mainBounds.x + offset;
   const y = mainBounds.y + offset;
 
+  const iconPath =
+    process.env.NODE_ENV === "development"
+      ? path.join(process.cwd(), "static", "icon.ico")
+      : path.join(process.resourcesPath, "static", "icon.ico");
+
   const viewerWindow = new BrowserWindow({
     x,
     y,
     width: 800,
     height: 1000,
-    icon: path.join(process.resourcesPath, "static", "icon.ico"),
+    icon: iconPath,
     titleBarStyle: "hidden",
     webPreferences: {
       sandbox: false,
@@ -73,17 +78,15 @@ function createViewerWindow(fromUrl: string) {
   });
   viewerWindow.setMenu(null);
 
-  const url =
-    process.env.NODE_ENV === "development"
-      ? `http://localhost:${process.argv[2]}/#${fromUrl}`
-      : `file://${path.join(
-          import.meta.dirname,
-          "..",
-          "renderer",
-          "index.html",
-        )}#${fromUrl}`;
-
-  viewerWindow.loadURL(url);
+  if (process.env.NODE_ENV === "development") {
+    const rendererPort = process.argv[2];
+    viewerWindow.loadURL(`http://localhost:${rendererPort}/#${fromUrl}`);
+  } else {
+    viewerWindow.loadFile(
+      path.join(import.meta.dirname, "..", "..", "renderer", "index.html"),
+      { hash: fromUrl },
+    );
+  }
 
   viewerWindow.webContents.setWindowOpenHandler((details) => {
     shell.openExternal(details.url);
