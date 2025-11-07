@@ -531,10 +531,10 @@ export const useViewerStore = defineStore("viewer", () => {
     if (bookId.value === null) return;
 
     const newFavoriteStatus = !is_favorite.value; // 토글될 새로운 상태
-    const result = await ipcRenderer.invoke("toggle-book-favorite", [
-      bookId.value,
-      newFavoriteStatus,
-    ]);
+    const result = await ipcRenderer.invoke("toggle-book-favorite", {
+      bookId: bookId.value,
+      isFavorite: newFavoriteStatus,
+    });
     if (result.success) {
       is_favorite.value = !!result.is_favorite; // 메인 프로세스에서 반환된 실제 상태로 UI 업데이트
       showToastMessage(

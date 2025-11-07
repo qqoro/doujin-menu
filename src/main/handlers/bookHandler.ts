@@ -728,10 +728,13 @@ export const handleGetRandomBook = async (filter: FilterParams | null) => {
   }
 };
 
-export const handleToggleBookFavorite = async (
-  bookId: number,
-  isFavorite: boolean,
-) => {
+export const handleToggleBookFavorite = async ({
+  bookId,
+  isFavorite,
+}: {
+  bookId: number;
+  isFavorite: boolean;
+}) => {
   try {
     await db("Book").where("id", bookId).update({ is_favorite: isFavorite });
     return { success: true, is_favorite: isFavorite };
@@ -986,8 +989,8 @@ export function registerBookHandlers() {
   ipcMain.handle("get-random-book", (_event, filter) =>
     handleGetRandomBook(filter),
   );
-  ipcMain.handle("toggle-book-favorite", (_event, bookId, isFavorite) =>
-    handleToggleBookFavorite(bookId, isFavorite),
+  ipcMain.handle("toggle-book-favorite", (_event, params) =>
+    handleToggleBookFavorite(params),
   );
   ipcMain.handle("open-book-folder", (_event, bookPath) =>
     handleOpenBookFolder(bookPath),

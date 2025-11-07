@@ -223,7 +223,7 @@ export interface IpcChannels {
     };
   };
   "toggle-book-favorite": {
-    request: [number, boolean]; // [bookId, isFavorite]
+    request: { bookId: number; isFavorite: boolean };
     response: { success: boolean; is_favorite?: boolean; error?: unknown };
   };
   "open-book-folder": {

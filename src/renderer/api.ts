@@ -33,10 +33,10 @@ export async function getRandomBook(filter: FilterParams) {
 
 // Book Card Context Menu API
 export async function toggleBookFavorite(bookId: number, isFavorite: boolean) {
-  const result = await ipcRenderer.invoke("toggle-book-favorite", [
+  const result = await ipcRenderer.invoke("toggle-book-favorite", {
     bookId,
     isFavorite,
-  ]);
+  });
   if (result.success) {
     return result.is_favorite;
   } else {
