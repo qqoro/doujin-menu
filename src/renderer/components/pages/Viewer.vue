@@ -93,12 +93,14 @@ const doublePageImageClasses = computed(() => {
 
 const imageStyle = computed(() => {
   if (readingMode.value === "webtoon") return {};
-  const cursor =
-    zoomLevel.value > 100
-      ? isDragging.value
-        ? "grabbing"
-        : "grab"
-      : "default";
+
+  let cursor = "default";
+  if (!showCursor.value) {
+    cursor = "none";
+  } else if (zoomLevel.value > 100) {
+    cursor = isDragging.value ? "grabbing" : "grab";
+  }
+
   return {
     transform: `scale(${zoomLevel.value / 100}) translate(${panX.value}px, ${panY.value}px)`,
     cursor,
@@ -123,11 +125,13 @@ const dragStartY = ref(0);
 const dragStartPanX = ref(0);
 const dragStartPanY = ref(0);
 
-let cursorHideTimer: number;
+let cursorHideTimer: ReturnType<typeof setTimeout> | null = null;
 const handleMouseMove = (e: MouseEvent) => {
   showCursor.value = true;
-  clearTimeout(cursorHideTimer);
-  cursorHideTimer = window.setTimeout(() => {
+  if (cursorHideTimer !== null) {
+    clearTimeout(cursorHideTimer);
+  }
+  cursorHideTimer = setTimeout(() => {
     showCursor.value = false;
   }, 3000);
 
@@ -372,9 +376,12 @@ onMounted(async () => {
 onUnmounted(() => {
   store.cleanup();
   ipcRenderer.send("set-fullscreen-window", false);
+  if (cursorHideTimer !== null) {
+    clearTimeout(cursorHideTimer);
+  }
 });
 
-useWindowEvent("mousemove", (e: MouseEvent) => {
+useWindowEvent("mousemove", (e) => {
   handleMouseMove(e);
   handleMouseMoveForDrag(e);
 });
@@ -388,7 +395,7 @@ useWindowEvent("mousedown", handleMouseDown);
   <div
     ref="screenRef"
     class="h-screen flex flex-col"
-    :class="{ 'cursor-none': !showCursor }"
+    :class="{ 'cursor-none!': !showCursor }"
   >
     <!-- 헤더 -->
     <Transition name="fade">
@@ -530,22 +537,22 @@ useWindowEvent("mousedown", handleMouseDown);
     >
       <div
         v-if="readingMode !== 'webtoon'"
-        class="absolute left-0 top-0 h-screen w-1/4 max-w-[500px] from-muted-foreground/40 bg-linear-to-r text-background flex justify-center items-center opacity-0 hover:opacity-100 transition-opacity duration-150"
+        class="absolute left-0 top-0 h-screen w-1/4 max-w-[500px] bg-linear-to-r from-muted-foreground/40 text-background flex justify-center items-center opacity-0 hover:opacity-100 transition-opacity duration-150 z-10 cursor-pointer pointer-events-auto"
         @click="readingMode === 'rtl' ? store.nextPage() : store.prevPage()"
       >
         <Icon
           icon="solar:alt-arrow-left-outline"
-          class="size-12 drop-shadow-sm drop-shadow-foreground"
+          class="size-12 drop-shadow-sm drop-shadow-foreground pointer-events-none"
         />
       </div>
       <div
         v-if="readingMode !== 'webtoon'"
-        class="absolute right-0 top-0 h-screen w-1/4 max-w-[500px] from-muted-foreground/40 bg-linear-to-l text-background flex justify-center items-center opacity-0 hover:opacity-100 transition-opacity duration-150"
+        class="absolute right-0 top-0 h-screen w-1/4 max-w-[500px] bg-linear-to-l from-muted-foreground/40 text-background flex justify-center items-center opacity-0 hover:opacity-100 transition-opacity duration-150 z-10 cursor-pointer pointer-events-auto"
         @click="readingMode === 'rtl' ? store.prevPage() : store.nextPage()"
       >
         <Icon
           icon="solar:alt-arrow-right-outline"
-          class="size-12 drop-shadow-sm drop-shadow-foreground"
+          class="size-12 drop-shadow-sm drop-shadow-foreground pointer-events-none"
         />
       </div>
       <Transition name="fade">
