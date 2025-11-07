@@ -370,21 +370,18 @@ export const useViewerStore = defineStore("viewer", () => {
   }
 
   function zoomIn() {
-    if (readingMode.value === "webtoon") return;
     const newZoom = Math.min(500, zoomLevel.value + 10);
     zoomLevel.value = newZoom;
     showToastMessage(`확대: ${newZoom}%`);
   }
 
   function zoomOut() {
-    if (readingMode.value === "webtoon") return;
     const newZoom = Math.max(10, zoomLevel.value - 10);
     zoomLevel.value = newZoom;
     showToastMessage(`축소: ${newZoom}%`);
   }
 
   function resetZoom() {
-    if (readingMode.value === "webtoon") return;
     zoomLevel.value = 100;
     panX.value = 0;
     panY.value = 0;
@@ -392,7 +389,6 @@ export const useViewerStore = defineStore("viewer", () => {
   }
 
   function setZoom(level: number) {
-    if (readingMode.value === "webtoon") return;
     zoomLevel.value = Math.max(10, Math.min(500, level));
   }
 
@@ -566,10 +562,12 @@ export const useViewerStore = defineStore("viewer", () => {
     if (isAutoPlay.value) {
       _startAutoPlayCore();
     }
-    // 페이지 변경 시 줌 레벨 및 팬 위치 초기화
-    zoomLevel.value = 100;
-    panX.value = 0;
-    panY.value = 0;
+    // 페이지 변경 시 줌 레벨 및 팬 위치 초기화 (웹툰 모드 제외)
+    if (readingMode.value !== "webtoon") {
+      zoomLevel.value = 100;
+      panX.value = 0;
+      panY.value = 0;
+    }
   });
 
   return {

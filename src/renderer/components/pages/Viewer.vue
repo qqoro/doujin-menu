@@ -250,9 +250,7 @@ const handleKeyDown = async (e: KeyboardEvent) => {
 };
 
 const handleWheel = (e: WheelEvent) => {
-  if (readingMode.value === "webtoon") return;
-
-  // Ctrl + 휠로 확대/축소
+  // Ctrl + 휠로 확대/축소 (모든 모드에서 동작)
   if (e.ctrlKey) {
     e.preventDefault();
     if (e.deltaY < 0) {
@@ -263,7 +261,10 @@ const handleWheel = (e: WheelEvent) => {
     return;
   }
 
-  // 기본 휠 동작: 페이지 이동
+  // 웹툰 모드에서는 기본 스크롤 유지
+  if (readingMode.value === "webtoon") return;
+
+  // 기본 휠 동작: 페이지 이동 (웹툰 모드 제외)
   if (e.deltaY > 0) {
     store.nextPage();
   } else if (e.deltaY < 0) {
@@ -284,11 +285,7 @@ const handleMouseUp = (e: MouseEvent) => {
 
 const handleMouseDown = (e: MouseEvent) => {
   // 이미지가 확대되어 있고, 왼쪽 클릭인 경우에만 드래그 시작
-  if (
-    e.button === 0 &&
-    zoomLevel.value > 100 &&
-    readingMode.value !== "webtoon"
-  ) {
+  if (e.button === 0 && zoomLevel.value > 100) {
     e.preventDefault();
     isDragging.value = true;
     dragStartX.value = e.clientX;
@@ -304,7 +301,16 @@ const handleMouseMoveForDrag = (e: MouseEvent) => {
   const deltaX = e.clientX - dragStartX.value;
   const deltaY = e.clientY - dragStartY.value;
 
-  store.setPan(dragStartPanX.value + deltaX, dragStartPanY.value + deltaY);
+  if (readingMode.value === "webtoon" && webtoonRef.value) {
+    // 웹툰 모드: 스크롤 위치 조정
+    webtoonRef.value.scrollLeft = webtoonRef.value.scrollLeft - deltaX;
+    webtoonRef.value.scrollTop = webtoonRef.value.scrollTop - deltaY;
+    dragStartX.value = e.clientX;
+    dragStartY.value = e.clientY;
+  } else {
+    // 일반 모드: transform 패닝
+    store.setPan(dragStartPanX.value + deltaX, dragStartPanY.value + deltaY);
+  }
 };
 
 // 웹툰 모드 스크롤 위치 추적 및 페이지 업데이트
@@ -622,18 +628,27 @@ useWindowEvent("mousedown", handleMouseDown);
       <div
         v-if="readingMode === 'webtoon'"
         ref="webtoonRef"
-        class="flex flex-col items-center w-full h-full overflow-y-auto"
+        class="flex flex-col items-center h-full overflow-auto"
+        :class="{
+          'cursor-grab': zoomLevel > 100 && !isDragging,
+          'cursor-grabbing': zoomLevel > 100 && isDragging,
+        }"
         @scroll="handleScroll"
       >
-        <img
-          v-for="(path, index) in pagePaths"
-          ref="webtoonImageRef"
-          :key="path"
-          :src="path"
-          :alt="`Page ${index + 1}`"
-          :data-page-num="index + 1"
-          class="w-full max-w-4xl mb-1"
-        />
+        <div
+          class="flex flex-col items-center"
+          :style="{ width: '1024px', zoom: zoomLevel / 100 }"
+        >
+          <img
+            v-for="(path, index) in pagePaths"
+            ref="webtoonImageRef"
+            :key="path"
+            :src="path"
+            :alt="`Page ${index + 1}`"
+            :data-page-num="index + 1"
+            class="w-full mb-1"
+          />
+        </div>
       </div>
     </div>
 
