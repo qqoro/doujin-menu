@@ -4,7 +4,7 @@ export interface FilterParams {
   searchQuery?: string;
   libraryPath?: string;
   readStatus?: "all" | "read" | "unread";
-  sortBy?: string;
+  sortBy?: string; // title, added_at, last_read_at, artists, page_count, hitomi_id, random
   sortOrder?: "asc" | "desc";
   isFavorite?: boolean;
 }

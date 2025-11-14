@@ -523,11 +523,20 @@ useScrollRestoration(".flex-grow.overflow-y-auto");
                 class="ml-auto h-4 w-4"
               />
             </DropdownMenuItem>
+            <DropdownMenuItem @click="setSortBy('random')">
+              랜덤
+              <Icon
+                v-if="sortBy === 'random'"
+                icon="solar:check-circle-bold-duotone"
+                class="ml-auto h-4 w-4"
+              />
+            </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
         <Button
           variant="outline"
           class="rounded-l-none border-l-0"
+          :disabled="sortBy === 'random'"
           @click="toggleSortOrder"
         >
           <Icon

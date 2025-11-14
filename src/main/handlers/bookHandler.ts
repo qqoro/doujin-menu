@@ -195,7 +195,10 @@ export const handleGetBooks = async (
   const totalBooks = await totalCountQuery;
 
   // 4. 정렬 및 페이지네이션 적용
-  if (sortBy === "hitomi_id") {
+  if (sortBy === "random") {
+    // 랜덤 정렬: SQLite RANDOM() 함수 사용
+    mainQuery.orderByRaw("RANDOM()");
+  } else if (sortBy === "hitomi_id") {
     mainQuery.orderByRaw(
       `CAST(sub.hitomi_id AS INTEGER) ${sortOrder}, sub.id ${sortOrder}`,
     );
@@ -512,7 +515,10 @@ export const handleGetNextBook = async ({
       );
     }
 
-    if (mode === "random") {
+    const { sortBy = "added_at", sortOrder = "desc" } = filter || {};
+
+    // 랜덤 정렬이거나 random 모드인 경우 완전 랜덤 책으로 이동
+    if (mode === "random" || sortBy === "random") {
       const randomBook = await mainQuery
         .whereNot("sub.id", currentBookId)
         .orderByRaw("RANDOM()")
@@ -528,7 +534,6 @@ export const handleGetNextBook = async ({
     }
 
     // Sequential mode
-    const { sortBy = "added_at", sortOrder = "desc" } = filter || {};
     const currentBook = await buildFilteredQuery(null)
       .where("sub.id", currentBookId)
       .first();
@@ -618,6 +623,22 @@ export const handleGetPrevBook = async ({
   try {
     const mainQuery = buildFilteredQuery(filter);
     const { sortBy = "added_at", sortOrder = "desc" } = filter || {};
+
+    // 랜덤 정렬인 경우 완전 랜덤 책으로 이동
+    if (sortBy === "random") {
+      const randomBook = await mainQuery
+        .whereNot("sub.id", currentBookId)
+        .orderByRaw("RANDOM()")
+        .first();
+      if (randomBook) {
+        return {
+          success: true,
+          prevBookId: randomBook.id,
+          prevBookTitle: randomBook.title,
+        };
+      }
+      return { success: true, prevBookId: null };
+    }
 
     const currentBook = await buildFilteredQuery(null)
       .where("sub.id", currentBookId)
