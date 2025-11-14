@@ -16,6 +16,10 @@ const clearInput = () => {
   emit("update:modelValue", "");
 };
 
+const pasteFromClipboard = async () => {
+  emit("update:modelValue", await navigator.clipboard.readText());
+};
+
 const copyToClipboard = () => {
   if (props.modelValue) {
     navigator.clipboard.writeText(props.modelValue);
@@ -70,10 +74,12 @@ watch(
   (newValue) => {
     const term = currentSearchTerm.value.toLowerCase();
     const prefix = currentPrefix.value;
-    const currentTerms = newValue
-      .toLowerCase()
-      .split(" ")
-      .filter((s) => s.length > 0);
+    const currentTerms = new Set(
+      newValue
+        .toLowerCase()
+        .split(" ")
+        .filter((s) => s.length > 0),
+    );
 
     if (term.length === 0 && !manualSuggestTrigger.value) {
       suggestions.value = [];
@@ -124,16 +130,16 @@ watch(
         .map((item) => `${suggestionPrefix}${item}`);
 
       suggestions.value = filteredSuggestions.filter(
-        (s) => !currentTerms.includes(s.toLowerCase()),
+        (s) => !currentTerms.has(s.toLowerCase()),
       );
-    } else if (!prefix) {
+    } else if (prefix) {
+      // 알 수 없는 프리픽스가 입력된 경우
+      suggestions.value = [];
+    } else {
       // 프리픽스가 아직 없는 경우, 제안 가능한 모든 프리픽스를 보여줌
       suggestions.value = allSuggestiblePrefixes
         .filter((p) => p.startsWith(term))
-        .filter((s) => !currentTerms.includes(s.toLowerCase()));
-    } else {
-      // 알 수 없는 프리픽스가 입력된 경우
-      suggestions.value = [];
+        .filter((s) => !currentTerms.has(s.toLowerCase()));
     }
 
     activeSuggestionIndex.value = -1;
@@ -237,7 +243,7 @@ defineExpose({ focus });
       ref="input"
       :model-value="props.modelValue"
       :placeholder="placeholder"
-      class="w-full pr-20"
+      :class="['w-full', props.modelValue.length > 0 ? 'pr-20' : 'pr-12']"
       @update:model-value="emit('update:modelValue', $event)"
       @keydown="handleKeyDown"
       @focus="isFocused = true"
@@ -260,6 +266,15 @@ defineExpose({ focus });
         @click="copyToClipboard"
       >
         <Icon icon="solar:copy-bold-duotone" class="h-5 w-5" />
+      </button>
+    </div>
+    <div v-else class="absolute inset-y-0 right-0 flex items-center gap-1 pr-3">
+      <button
+        type="button"
+        class="text-muted-foreground hover:text-foreground p-1 transition-colors"
+        @click="pasteFromClipboard"
+      >
+        <Icon icon="solar:clipboard-text-bold-duotone" class="h-5 w-5" />
       </button>
     </div>
     <ul
