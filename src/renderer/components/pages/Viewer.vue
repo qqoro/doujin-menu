@@ -152,6 +152,12 @@ const handleMouseMove = (e: MouseEvent) => {
 };
 
 const handleKeyDown = async (e: KeyboardEvent) => {
+  if (e.key === "F11") {
+    e.preventDefault();
+    ipcRenderer.send("fullscreen-toggle-window");
+    return;
+  }
+
   if (e.key === "Escape") {
     e.preventDefault();
     if (isNewWindow.value) {

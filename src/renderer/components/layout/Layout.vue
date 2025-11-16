@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { getAppVersion, ipcRenderer } from "@/api";
+import { getAppVersion, ipcRenderer, isFullscreen } from "@/api";
 import { useWindowEvent } from "@/composable/useWindowEvent";
 import { cn } from "@/lib/utils";
 import { useUiStore } from "@/store/uiStore";
@@ -15,9 +15,20 @@ const { isSidebarCollapsed } = storeToRefs(uiStore);
 
 const open = ref(false);
 
-const handleKeyDown = (event: KeyboardEvent) => {
+const handleKeyDown = async (event: KeyboardEvent) => {
+  if (event.key === "Escape" && (await isFullscreen())) {
+    ipcRenderer.send("set-fullscreen-window", false);
+    return;
+  }
+
   if (event.key === "Escape") {
     ipcRenderer.send("minimize-window");
+    return;
+  }
+
+  if (event.key === "F11") {
+    ipcRenderer.send("fullscreen-toggle-window");
+    return;
   }
 };
 

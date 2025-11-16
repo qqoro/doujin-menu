@@ -170,6 +170,10 @@ export async function isNewWindow(): Promise<boolean> {
   return ipcRenderer.invoke("is-new-window");
 }
 
+export async function isFullscreen(): Promise<boolean> {
+  return ipcRenderer.invoke("is-fullscreen-window");
+}
+
 export function setWindowTitle(title: string) {
   ipcRenderer.send("set-window-title", title);
 }

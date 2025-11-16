@@ -34,6 +34,7 @@ import {
   handleGenerateThumbnail,
   registerThumbnailHandlers,
 } from "./handlers/thumbnailHandler.js";
+import { registerWindowHandlers } from "./handlers/windowHandler.js";
 import { registerUpdaterHandlers } from "./updater.js";
 import { naturalSort } from "./utils/index.js";
 
@@ -178,6 +179,7 @@ app.whenReady().then(async () => {
   registerPresetHandlers();
   registerStatisticsHandlers();
   registerThumbnailHandlers();
+  registerWindowHandlers(mainWindow, createViewerWindow, viewerWindows);
 
   // 다운로드 큐 초기화 (미완료 다운로드 복구)
   await initializeDownloadQueue();
@@ -374,59 +376,11 @@ app.whenReady().then(async () => {
     }
   });
 
-  // 창 제어 IPC 핸들러
-  ipcMain.on("minimize-window", () => {
-    mainWindow?.minimize();
-  });
-
-  ipcMain.on("maximize-toggle-window", (event) => {
-    const win = BrowserWindow.fromWebContents(event.sender);
-    if (win?.isMaximized()) {
-      win?.unmaximize();
-    } else {
-      win?.maximize();
-    }
-  });
-
-  ipcMain.on("set-fullscreen-window", (event, newState: boolean) => {
-    const win = BrowserWindow.fromWebContents(event.sender);
-    win?.setSimpleFullScreen(newState);
-  });
-
-  ipcMain.on("fullscreen-toggle-window", (event) => {
-    const win = BrowserWindow.fromWebContents(event.sender);
-    win?.setSimpleFullScreen(!win.isSimpleFullScreen());
-  });
-
-  ipcMain.on("close-window", () => {
-    mainWindow?.close();
-  });
-
-  ipcMain.on("close-current-window", (event) => {
-    const win = BrowserWindow.fromWebContents(event.sender);
-    win?.close();
-  });
-
-  ipcMain.on("set-window-title", (event, title) => {
-    const win = BrowserWindow.fromWebContents(event.sender);
-    if (win) {
-      win.setTitle(title);
-    }
-  });
-
-  ipcMain.on("open-new-window", (_event, url: string) => {
-    createViewerWindow(url);
-  });
 
   ipcMain.handle("get-initial-lock-status", () => {
     const useLock = configStore.get("useAppLock");
     const passwordSet = !!configStore.get("appLockPassword");
     return useLock && passwordSet;
-  });
-
-  ipcMain.handle("is-new-window", (event) => {
-    const win = BrowserWindow.fromWebContents(event.sender);
-    return viewerWindows.has(win!);
   });
 
   ipcMain.handle("open-folder", async (_event, folderPath: string) => {

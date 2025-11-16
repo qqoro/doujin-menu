@@ -479,6 +479,10 @@ export interface IpcChannels {
     request: void;
     response: boolean;
   };
+  "is-fullscreen-window": {
+    request: void;
+    response: boolean;
+  };
   "get-initial-lock-status": {
     request: void;
     response: { locked: boolean };
