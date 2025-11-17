@@ -15,6 +15,20 @@ export interface Changelog {
  */
 export const changelogData: Changelog[] = [
   {
+    version: "1.6.0",
+    changes: [
+      {
+        type: "feature",
+        title: "✨ 새로운 기능",
+        items: [
+          "검색창에 붙여넣기 버튼이 추가되었습니다.",
+          "라이브러리를 랜덤으로 정렬할 수 있는 기능이 추가되었습니다.",
+          "뷰어에서 전체화면 모드를 전환할 수 있는 기능이 추가되었습니다.",
+        ],
+      },
+    ],
+  },
+  {
     version: "1.5.0",
     changes: [
       {
