@@ -242,7 +242,12 @@ const handleKeyDown = async (e: KeyboardEvent) => {
     return;
   }
 
+  // 웹툰 모드에서는 ArrowUp/ArrowDown/PageUp/PageDown 키의 기본 스크롤 동작 허용
   if (e.key === "ArrowRight" || e.key === "ArrowDown" || e.key === "PageDown") {
+    // 웹툰 모드에서 ArrowDown/PageDown은 스크롤만 (페이지 이동 안함)
+    if (readingMode.value === "webtoon" && (e.key === "ArrowDown" || e.key === "PageDown")) {
+      return;
+    }
     e.preventDefault();
     store.nextPage();
   } else if (
@@ -250,6 +255,10 @@ const handleKeyDown = async (e: KeyboardEvent) => {
     e.key === "ArrowUp" ||
     e.key === "PageUp"
   ) {
+    // 웹툰 모드에서 ArrowUp/PageUp은 스크롤만 (페이지 이동 안함)
+    if (readingMode.value === "webtoon" && (e.key === "ArrowUp" || e.key === "PageUp")) {
+      return;
+    }
     e.preventDefault();
     store.prevPage();
   }
