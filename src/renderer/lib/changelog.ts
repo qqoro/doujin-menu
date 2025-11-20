@@ -15,6 +15,27 @@ export interface Changelog {
  */
 export const changelogData: Changelog[] = [
   {
+    version: "1.7.0",
+    changes: [
+      {
+        type: "feature",
+        title: "✨ 새로운 기능",
+        items: [
+          "웹툰 모드에서 자동 스크롤 기능을 사용할 수 있습니다. (Ctrl+숫자 키로 간격 조절)",
+          "웹툰 모드에서 위/아래 방향키와 PageUp/PageDown 키로 자연스럽게 스크롤할 수 있습니다.",
+        ],
+      },
+      {
+        type: "fix",
+        title: "🐛 버그 수정",
+        items: [
+          "라이브러리 정렬 옵션이 앱 재시작 후에도 유지됩니다.",
+          "다른 페이지로 이동 후 라이브러리로 돌아왔을 때 정렬 설정이 초기화되던 문제를 수정했습니다.",
+        ],
+      },
+    ],
+  },
+  {
     version: "1.6.0",
     changes: [
       {
