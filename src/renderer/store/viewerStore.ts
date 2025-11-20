@@ -41,6 +41,7 @@ export const useViewerStore = defineStore("viewer", () => {
   const isAutoPlay = ref(false);
   const autoPlayInterval = ref(5); // seconds
   const autoPlayTimer = ref<number | null>(null);
+  const webtoonScrollRef = ref<HTMLElement | null>(null); // 웹툰 스크롤 컨테이너 ref
 
   // Auto-next-book state
   const isAutoNextBook = ref(false);
@@ -125,23 +126,44 @@ export const useViewerStore = defineStore("viewer", () => {
   function stopAutoPlay() {
     if (isAutoPlay.value) {
       _stopAutoPlayCore();
-      showToastMessage("자동 넘김이 중지되었습니다.");
+      const message =
+        readingMode.value === "webtoon"
+          ? "자동 스크롤이 중지되었습니다."
+          : "자동 넘김이 중지되었습니다.";
+      showToastMessage(message);
     }
   }
 
   function _startAutoPlayCore() {
     _stopAutoPlayCore(); // 기존 타이머 제거
     isAutoPlay.value = true;
-    autoPlayTimer.value = window.setInterval(() => {
-      nextPage();
-    }, autoPlayInterval.value * 1000);
+
+    // 웹툰 모드: 자동 스크롤, 일반 모드: 자동 페이지 넘김
+    if (readingMode.value === "webtoon") {
+      autoPlayTimer.value = window.setInterval(() => {
+        if (webtoonScrollRef.value) {
+          // 뷰포트 높이의 70%만큼 스크롤
+          const scrollAmount = webtoonScrollRef.value.clientHeight * 0.7;
+          webtoonScrollRef.value.scrollBy({
+            top: scrollAmount,
+            behavior: "smooth",
+          });
+        }
+      }, autoPlayInterval.value * 1000);
+    } else {
+      autoPlayTimer.value = window.setInterval(() => {
+        nextPage();
+      }, autoPlayInterval.value * 1000);
+    }
   }
 
   function startAutoPlay() {
     _startAutoPlayCore();
-    showToastMessage(
-      `자동 넘김이 시작되었습니다. (${autoPlayInterval.value}초 간격)`,
-    );
+    const message =
+      readingMode.value === "webtoon"
+        ? `자동 스크롤이 시작되었습니다. (${autoPlayInterval.value}초 간격)`
+        : `자동 넘김이 시작되었습니다. (${autoPlayInterval.value}초 간격)`;
+    showToastMessage(message);
   }
   async function updateCurrentPageInDb() {
     if (bookId.value && currentPage.value) {
@@ -302,10 +324,14 @@ export const useViewerStore = defineStore("viewer", () => {
   function startAutoPlayWithInterval(seconds: number) {
     autoPlayInterval.value = seconds; // 간격 설정
     if (!isAutoPlay.value) {
-      startAutoPlay(); // 자동 넘김이 시작되지 않은 상태였다면 시작 토스트와 함께 시작
+      startAutoPlay(); // 자동 넘김/스크롤이 시작되지 않은 상태였다면 시작 토스트와 함께 시작
     } else {
       _startAutoPlayCore(); // 이미 실행 중이었다면 시작 토스트 없이 재시작
-      showToastMessage(`자동 넘김 간격이 ${seconds}초로 변경되었습니다.`); // 간격 변경 토스트
+      const message =
+        readingMode.value === "webtoon"
+          ? `자동 스크롤 간격이 ${seconds}초로 변경되었습니다.`
+          : `자동 넘김 간격이 ${seconds}초로 변경되었습니다.`;
+      showToastMessage(message);
     }
   }
 
@@ -582,6 +608,7 @@ export const useViewerStore = defineStore("viewer", () => {
     currentImageUrl,
     isAutoPlay,
     autoPlayInterval,
+    webtoonScrollRef,
     isAutoNextBook,
     autoNextBookMode,
     loadBook,

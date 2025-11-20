@@ -245,7 +245,10 @@ const handleKeyDown = async (e: KeyboardEvent) => {
   // 웹툰 모드에서는 ArrowUp/ArrowDown/PageUp/PageDown 키의 기본 스크롤 동작 허용
   if (e.key === "ArrowRight" || e.key === "ArrowDown" || e.key === "PageDown") {
     // 웹툰 모드에서 ArrowDown/PageDown은 스크롤만 (페이지 이동 안함)
-    if (readingMode.value === "webtoon" && (e.key === "ArrowDown" || e.key === "PageDown")) {
+    if (
+      readingMode.value === "webtoon" &&
+      (e.key === "ArrowDown" || e.key === "PageDown")
+    ) {
       return;
     }
     e.preventDefault();
@@ -256,7 +259,10 @@ const handleKeyDown = async (e: KeyboardEvent) => {
     e.key === "PageUp"
   ) {
     // 웹툰 모드에서 ArrowUp/PageUp은 스크롤만 (페이지 이동 안함)
-    if (readingMode.value === "webtoon" && (e.key === "ArrowUp" || e.key === "PageUp")) {
+    if (
+      readingMode.value === "webtoon" &&
+      (e.key === "ArrowUp" || e.key === "PageUp")
+    ) {
       return;
     }
     e.preventDefault();
@@ -394,8 +400,18 @@ onMounted(async () => {
   }
 });
 
+// webtoonRef 변경 시 store에 동기화
+watch(
+  webtoonRef,
+  (newRef) => {
+    store.webtoonScrollRef = newRef;
+  },
+  { immediate: true },
+);
+
 onUnmounted(() => {
   store.cleanup();
+  store.webtoonScrollRef = null; // ref 제거
   ipcRenderer.send("set-fullscreen-window", false);
   if (cursorHideTimer !== null) {
     clearTimeout(cursorHideTimer);
