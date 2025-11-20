@@ -1,6 +1,6 @@
 import chalk from "chalk";
 import { exec } from "child_process";
-import { mkdir, readFile, writeFile } from "fs/promises";
+import { mkdir, readFile, stat, writeFile } from "fs/promises";
 import { join } from "path";
 import { promisify } from "util";
 const { blueBright, greenBright, yellowBright, redBright } = chalk;
@@ -17,22 +17,33 @@ export async function buildLicenseInfo() {
   );
   await mkdir(licensesOutputDirectory, { recursive: true }); // Ensure directory exists
   const licensesOutputPath = join(licensesOutputDirectory, "licenses.json");
+  const packageJsonPath = join(import.meta.dirname, "..", "package.json");
 
-  // try {
-  //   const exist = await stat(licensesOutputPath);
-  //   if (exist?.isFile()) {
-  //     console.log(
-  //       blueBright(
-  //         "Existing open source licenses... skip generate :",
-  //         licensesOutputPath,
-  //       ),
-  //     );
-  //     return;
-  //   }
-  // } catch {}
+  // licenses.json과 package.json의 수정 시간 비교
+  try {
+    const licensesStats = await stat(licensesOutputPath);
+    const packageStats = await stat(packageJsonPath);
+
+    // licenses.json이 package.json보다 최근에 수정되었으면 건너뛰기
+    if (licensesStats.mtime >= packageStats.mtime) {
+      console.log(
+        blueBright(
+          "Licenses are up to date, skipping generation...",
+        ),
+      );
+      return;
+    }
+    console.log(
+      yellowBright(
+        "package.json has been modified, regenerating licenses...",
+      ),
+    );
+  } catch {
+    // 파일이 없거나 오류 발생 시 생성
+    console.log(blueBright("Generating licenses for the first time..."));
+  }
 
   // --- Generate Open Source Licenses ---
-  console.log(blueBright("Generating open source licenses..."));
 
   try {
     const { stdout } = await execPromise(
