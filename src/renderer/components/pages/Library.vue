@@ -29,7 +29,17 @@ import {
   useQueryClient,
 } from "@tanstack/vue-query";
 import { debouncedWatch } from "@vueuse/core";
-import { computed, onMounted, ref, shallowRef, toRaw, watch } from "vue";
+import {
+  computed,
+  nextTick,
+  onActivated,
+  onDeactivated,
+  onMounted,
+  ref,
+  shallowRef,
+  toRaw,
+  watch,
+} from "vue";
 import { useRoute, useRouter } from "vue-router";
 import { toast } from "vue-sonner";
 import type { Book, FilterParams } from "../../../types/ipc";
@@ -91,36 +101,73 @@ const { data: config, isSuccess: isConfigLoaded } = useQuery({
   queryFn: () => ipcRenderer.invoke("get-config"),
 });
 
+// 설정 초기화 완료 여부를 추적하는 플래그
+const isSettingsInitialized = ref(false);
+
+// 설정을 로드하는 공통 함수
+const loadSettings = () => {
+  if (config.value && config.value.libraryViewSettings) {
+    const settings = config.value.libraryViewSettings as {
+      sortBy: string;
+      sortOrder: "asc" | "desc";
+      readStatus: "all" | "read" | "unread";
+      viewMode: "grid" | "list";
+    };
+    const query = route.query;
+
+    // 각 파라미터를 개별적으로 확인하여 URL 쿼리에 없는 것만 설정에서 불러옴
+    if (!query.sortBy) {
+      sortBy.value = settings.sortBy;
+    }
+    if (!query.sortOrder) {
+      sortOrder.value = settings.sortOrder;
+    }
+    if (!query.readStatus) {
+      readStatus.value = settings.readStatus;
+    }
+    // viewMode는 URL 쿼리에 포함되지 않으므로 항상 설정에서 불러옴
+    viewMode.value = settings.viewMode || "grid";
+
+    // 설정 적용 완료 후 다음 틱에서 플래그 설정 (이후 변경부터 저장)
+    nextTick(() => {
+      isSettingsInitialized.value = true;
+    });
+  }
+};
+
 // Load settings when config is loaded
 watch(
   isConfigLoaded,
   (loaded) => {
-    const query = route.query;
-    if (query.sortBy || query.sortOrder || query.readStatus) {
-      return;
-    }
-
-    if (loaded && config.value && config.value.libraryViewSettings) {
-      const settings = config.value.libraryViewSettings as {
-        sortBy: string;
-        sortOrder: "asc" | "desc";
-        readStatus: "all" | "read" | "unread";
-        viewMode: "grid" | "list";
-      };
-      sortBy.value = settings.sortBy;
-      sortOrder.value = settings.sortOrder;
-      readStatus.value = settings.readStatus;
-      viewMode.value = settings.viewMode || "grid";
+    if (loaded) {
+      loadSettings();
     }
   },
   { immediate: true },
 );
 
+// 다른 페이지로 이동할 때 설정 저장 방지
+onDeactivated(() => {
+  // 다른 페이지로 이동 시 설정 저장 방지
+  isSettingsInitialized.value = false;
+});
+
+// keep-alive로 인해 다른 페이지에서 돌아올 때 설정 다시 로드
+onActivated(() => {
+  // 설정 저장 방지를 위해 플래그 리셋
+  isSettingsInitialized.value = false;
+  // config가 이미 로드되어 있으면 설정 다시 불러오기
+  if (isConfigLoaded.value) {
+    loadSettings();
+  }
+});
+
 // Watch for filter/sort changes and save them
 debouncedWatch(
   [sortBy, sortOrder, readStatus, viewMode],
-  () => {
-    if (!isConfigLoaded.value) return;
+  async () => {
+    // 설정이 초기화되기 전의 변경은 저장하지 않음
+    if (!isConfigLoaded.value || !isSettingsInitialized.value) return;
 
     const settings = {
       sortBy: sortBy.value,
@@ -128,10 +175,12 @@ debouncedWatch(
       readStatus: readStatus.value,
       viewMode: viewMode.value,
     };
-    ipcRenderer.invoke("set-config", {
+    await ipcRenderer.invoke("set-config", {
       key: "libraryViewSettings",
       value: settings,
     });
+    // 설정 저장 후 config 쿼리 캐시 무효화하여 최신 값 반영
+    queryClient.invalidateQueries({ queryKey: ["config"] });
   },
   { debounce: 1000 },
 );
@@ -167,6 +216,8 @@ const { data, fetchNextPage, hasNextPage, isFetchingNextPage, isLoading } =
       return lastPage.hasNextPage ? lastPage.nextPage : undefined;
     },
     initialPageParam: 0,
+    refetchOnWindowFocus: false, // 윈도우 포커스 시 재조회 방지
+    refetchOnMount: false, // 컴포넌트 마운트 시 재조회 방지
   });
 
 const books = computed(
