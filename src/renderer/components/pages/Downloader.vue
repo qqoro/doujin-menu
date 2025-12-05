@@ -134,6 +134,16 @@ const handleBookDeleted = (galleryId: number) => {
 };
 
 const handleKeyDown = (event: KeyboardEvent) => {
+  // 입력 요소에 포커스가 있을 때는 단축키 비활성화
+  const target = event.target as HTMLElement;
+  if (
+    target.tagName === "INPUT" ||
+    target.tagName === "TEXTAREA" ||
+    target.isContentEditable
+  ) {
+    return;
+  }
+
   if (event.key.toLowerCase() === "v" && !event.ctrlKey && !event.shiftKey) {
     if (selectedGallery.value) {
       isPreviewDialogOpen.value = !isPreviewDialogOpen.value;
