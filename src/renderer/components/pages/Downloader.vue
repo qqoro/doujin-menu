@@ -196,11 +196,13 @@ onMounted(() => {
 
   observer = new IntersectionObserver(
     (entries) => {
+      console.log("check", entries[0].isIntersecting);
       if (
         entries[0].isIntersecting &&
         hasNextPage.value &&
         !isFetchingNextPage.value
       ) {
+        console.warn("load", entries[0].isIntersecting);
         fetchNextPage();
       }
     },
@@ -571,7 +573,9 @@ useSearchPersistence(searchQuery, "downloader-search-query");
           </div>
         </div>
 
-        <div class="min-h-[60vh] flex-1 overflow-y-auto rounded-lg border p-2">
+        <div
+          class="relative min-h-[60vh] flex-1 overflow-y-auto rounded-lg border p-2"
+        >
           <div v-if="isLoading" class="flex h-full items-center justify-center">
             <p class="text-muted-foreground">
               <Icon icon="svg-spinners:ring-resize" class="size-8" />
@@ -621,7 +625,10 @@ useSearchPersistence(searchQuery, "downloader-search-query");
                 @book-deleted="handleBookDeleted"
               />
             </div>
-            <div ref="observerTarget" class="h-10 w-full"></div>
+            <div
+              ref="observerTarget"
+              class="absolute bottom-0 h-[1200px]"
+            ></div>
             <div
               v-if="isFetchingNextPage"
               class="text-muted-foreground py-4 text-center"
