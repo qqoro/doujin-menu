@@ -151,15 +151,34 @@ export const handleDownloadGallery = async (
       "downloadPattern",
       "%artist% - %title%",
     );
-    const galleryFolderName = formatDownloadFolderName(
-      gallery,
-      downloadPattern,
-    );
+    let galleryFolderName = formatDownloadFolderName(gallery, downloadPattern);
 
-    const galleryDownloadPath = filenamifyPath(
-      path.join(downloadPath, galleryFolderName),
-      { maxLength: 255, replacement: "_" },
-    );
+    // Windows MAX_PATH 제한(260자)을 고려한 전체 경로 길이 검증
+    // 파일명을 위한 여유 공간 확보 (예: "000001.webp" = 12자)
+    const MAX_SAFE_PATH_LENGTH = 245; // 260 - 30 (파일명 + 여유)
+    let tempPath = path.join(downloadPath, galleryFolderName);
+
+    // 전체 경로가 너무 길면 폴더명을 줄임
+    if (tempPath.length > MAX_SAFE_PATH_LENGTH) {
+      const idSuffix = `... (${gallery.id})`;
+      const availableLength =
+        MAX_SAFE_PATH_LENGTH - downloadPath.length - idSuffix.length - 1; // -1 for path separator
+
+      if (availableLength > 0 && galleryFolderName.length > availableLength) {
+        galleryFolderName =
+          galleryFolderName.substring(0, availableLength).trim() + idSuffix;
+      } else if (availableLength <= 0) {
+        // 다운로드 경로 자체가 너무 길어서 공간이 없는 경우
+        galleryFolderName = `${gallery.id}`;
+      }
+
+      tempPath = path.join(downloadPath, galleryFolderName);
+    }
+
+    // 예약 문자 처리
+    const galleryDownloadPath = filenamifyPath(tempPath, {
+      replacement: "_",
+    });
 
     await fs.mkdir(galleryDownloadPath, { recursive: true });
 
