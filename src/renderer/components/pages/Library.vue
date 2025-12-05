@@ -202,23 +202,29 @@ const queryKey = computed(
     ] as const,
 );
 
-const { data, fetchNextPage, hasNextPage, isFetchingNextPage, isLoading } =
-  useInfiniteQuery({
-    queryKey,
-    queryFn: async ({ pageParam = 0 }) => {
-      return ipcRenderer.invoke("get-books", {
-        pageParam,
-        pageSize: 50,
-        ...queryKey.value[1],
-      });
-    },
-    getNextPageParam: (lastPage) => {
-      return lastPage.hasNextPage ? lastPage.nextPage : undefined;
-    },
-    initialPageParam: 0,
-    refetchOnWindowFocus: false, // 윈도우 포커스 시 재조회 방지
-    refetchOnMount: false, // 컴포넌트 마운트 시 재조회 방지
-  });
+const {
+  data,
+  fetchNextPage,
+  hasNextPage,
+  isFetchingNextPage,
+  isLoading,
+  refetch,
+} = useInfiniteQuery({
+  queryKey,
+  queryFn: async ({ pageParam = 0 }) => {
+    return ipcRenderer.invoke("get-books", {
+      pageParam,
+      pageSize: 50,
+      ...queryKey.value[1],
+    });
+  },
+  getNextPageParam: (lastPage) => {
+    return lastPage.hasNextPage ? lastPage.nextPage : undefined;
+  },
+  initialPageParam: 0,
+  refetchOnWindowFocus: false, // 윈도우 포커스 시 재조회 방지
+  refetchOnMount: false, // 컴포넌트 마운트 시 재조회 방지
+});
 
 const books = computed(
   () => data.value?.pages.flatMap((page) => page.data) ?? [],
@@ -228,6 +234,11 @@ onMounted(() => {
   ipcRenderer.on("books-updated", () =>
     queryClient.invalidateQueries({ queryKey: ["books"] }),
   );
+});
+
+// keep-alive로 캐시된 컴포넌트가 활성화될 때 쿼리 다시 불러오기
+onActivated(() => {
+  refetch();
 });
 
 const observer = shallowRef<IntersectionObserver>();

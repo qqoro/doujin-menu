@@ -3,11 +3,22 @@ import {
   addBookHistory,
   isNewWindow as apiIsNewWindow,
   closeCurrentWindow,
+  deleteBook,
   getBook,
   ipcRenderer,
 } from "@/api";
 import BookDetailDialog from "@/components/feature/BookDetailDialog.vue";
 import ViewerHelpDialog from "@/components/feature/viewer/ViewerHelpDialog.vue";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import {
@@ -27,7 +38,7 @@ import {
 import { useWindowEvent } from "@/composable/useWindowEvent";
 import { useViewerStore } from "@/store/viewerStore";
 import { Icon } from "@iconify/vue";
-import { useQuery } from "@tanstack/vue-query";
+import { useQuery, useQueryClient } from "@tanstack/vue-query";
 import { useThrottleFn } from "@vueuse/core";
 import { storeToRefs } from "pinia";
 import { computed, onMounted, onUnmounted, ref, watch } from "vue";
@@ -36,6 +47,7 @@ import { useRoute, useRouter } from "vue-router";
 const route = useRoute();
 const router = useRouter();
 const store = useViewerStore();
+const queryClient = useQueryClient();
 
 const isNewWindow = ref(false);
 
@@ -117,6 +129,7 @@ const showControls = ref(true);
 const openSetting = ref(false);
 const isHelpOpen = ref(false);
 const isDetailOpen = ref(false);
+const isDeleteDialogOpen = ref(false);
 
 // 이미지 드래그 상태
 const isDragging = ref(false);
@@ -151,7 +164,56 @@ const handleMouseMove = (e: MouseEvent) => {
   showControls.value = false;
 };
 
+const handleDeleteBook = async () => {
+  if (!bookId.value) return;
+
+  try {
+    const currentBookId = bookId.value;
+    await deleteBook(currentBookId);
+    isDeleteDialogOpen.value = false;
+
+    // 라이브러리 목록 쿼리 무효화
+    queryClient.invalidateQueries({ queryKey: ["books"] });
+
+    // route에서 filter 가져오기
+    const filter = route.query.filter;
+    let filterParams;
+    if (filter && typeof filter === "string") {
+      try {
+        filterParams = JSON.parse(filter);
+      } catch (e) {
+        console.error("Failed to parse filter from route", e);
+      }
+    }
+
+    // 다음 책으로 이동 시도
+    const result = await ipcRenderer.invoke("get-next-book", {
+      currentBookId,
+      mode: "next",
+      filter: filterParams,
+    });
+
+    // 다음 책이 있으면 이동, 없으면 뒤로 가기
+    if (result.success && result.nextBookId) {
+      await store.loadBook(result.nextBookId, filterParams);
+    } else {
+      if (isNewWindow.value) {
+        closeCurrentWindow();
+      } else {
+        router.back();
+      }
+    }
+  } catch (error) {
+    console.error("책 삭제 중 오류 발생:", error);
+  }
+};
+
 const handleKeyDown = async (e: KeyboardEvent) => {
+  // 삭제 다이얼로그가 열려있으면 단축키 비활성화 (Escape 제외)
+  if (isDeleteDialogOpen.value && e.key !== "Escape") {
+    return;
+  }
+
   if (e.key === "F11") {
     e.preventDefault();
     ipcRenderer.send("fullscreen-toggle-window");
@@ -160,11 +222,24 @@ const handleKeyDown = async (e: KeyboardEvent) => {
 
   if (e.key === "Escape") {
     e.preventDefault();
+    // 삭제 다이얼로그가 열려있으면 닫기만
+    if (isDeleteDialogOpen.value) {
+      isDeleteDialogOpen.value = false;
+      return;
+    }
+    // 그 외에는 뒤로 가기
     if (isNewWindow.value) {
       closeCurrentWindow();
     } else {
       router.back();
     }
+    return;
+  }
+
+  // Shift + Delete: 책 삭제
+  if (e.shiftKey && e.key === "Delete") {
+    e.preventDefault();
+    isDeleteDialogOpen.value = true;
     return;
   }
 
@@ -931,6 +1006,28 @@ useWindowEvent("mousedown", handleMouseDown);
     </Transition>
 
     <BookDetailDialog v-if="book" v-model="isDetailOpen" :book="book" />
+
+    <!-- 책 삭제 확인 다이얼로그 -->
+    <AlertDialog v-model:open="isDeleteDialogOpen">
+      <AlertDialogContent>
+        <AlertDialogHeader>
+          <AlertDialogTitle>책을 삭제하시겠습니까?</AlertDialogTitle>
+          <AlertDialogDescription>
+            이 작업은 되돌릴 수 없습니다. 책과 관련된 모든 데이터가 영구적으로
+            삭제됩니다.
+          </AlertDialogDescription>
+        </AlertDialogHeader>
+        <AlertDialogFooter>
+          <AlertDialogCancel>취소</AlertDialogCancel>
+          <AlertDialogAction
+            class="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            @click="handleDeleteBook"
+          >
+            삭제
+          </AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
   </div>
 </template>
 
