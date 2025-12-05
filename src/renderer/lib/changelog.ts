@@ -15,6 +15,27 @@ export interface Changelog {
  */
 export const changelogData: Changelog[] = [
   {
+    version: "1.8.0",
+    changes: [
+      {
+        type: "feature",
+        title: "✨ 새로운 기능",
+        items: [
+          "뷰어에서 현재 보고 있는 책을 바로 삭제할 수 있는 기능이 추가되었습니다.",
+          "다운로더에서 스크롤 시 다음 페이지를 미리 불러와 더욱 부드러운 탐색이 가능합니다.",
+        ],
+      },
+      {
+        type: "fix",
+        title: "🐛 버그 수정",
+        items: [
+          "윈도우에서 긴 파일 경로로 인해 발생하던 문제를 수정했습니다.",
+          "다운로더 미리보기 단축키가 올바르게 작동하지 않던 문제를 수정했습니다.",
+        ],
+      },
+    ],
+  },
+  {
     version: "1.7.0",
     changes: [
       {
