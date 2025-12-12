@@ -16,6 +16,12 @@ interface LibraryViewSettings {
   viewMode: "grid" | "list";
 }
 
+// 시리즈 감지 설정 타입
+interface SeriesDetectionSettings {
+  minConfidence: number;
+  minBooks: number;
+}
+
 // 설정 파일의 타입을 정의합니다.
 interface Config {
   theme?: "light" | "dark" | "auto";
@@ -33,6 +39,7 @@ interface Config {
   compressDownload?: boolean;
   compressFormat?: "cbz" | "zip";
   libraryViewSettings?: LibraryViewSettings;
+  seriesDetectionSettings?: SeriesDetectionSettings;
   prioritizeKoreanTitles?: boolean;
   useAppLock?: boolean;
   appLockPassword?: string; // salt:hash
@@ -60,6 +67,10 @@ const defaults: Config = {
     sortOrder: "desc",
     readStatus: "all",
     viewMode: "grid",
+  },
+  seriesDetectionSettings: {
+    minConfidence: 0.7,
+    minBooks: 2,
   },
   prioritizeKoreanTitles: false,
   useAppLock: false,

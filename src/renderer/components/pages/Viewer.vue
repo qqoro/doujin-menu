@@ -36,6 +36,7 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { useWindowEvent } from "@/composable/useWindowEvent";
+import { hasOpenDialog } from "@/lib/utils";
 import { useViewerStore } from "@/store/viewerStore";
 import { Icon } from "@iconify/vue";
 import { useQuery, useQueryClient } from "@tanstack/vue-query";
@@ -83,6 +84,32 @@ const { data: book } = useQuery({
   queryKey: [bookId, is_favorite],
   enabled: () => !!bookId.value,
   queryFn: () => getBook(bookId.value!),
+});
+
+// 시리즈 총 권수 조회
+const { data: seriesBooks } = useQuery({
+  queryKey: computed(() => ["seriesBooks", book.value?.series_collection_id]),
+  enabled: computed(() => !!book.value?.series_collection_id),
+  queryFn: async () => {
+    if (!book.value?.series_collection_id) return [];
+    const result = await ipcRenderer.invoke(
+      "get-series-books",
+      book.value.series_collection_id,
+    );
+    return result.success ? (result.data || []) : [];
+  },
+});
+
+const seriesTotalCount = computed(() => seriesBooks.value?.length || 0);
+
+// 시리즈 내에서의 실제 순서 (1부터 시작)
+const seriesCurrentIndex = computed(() => {
+  if (!book.value?.series_collection_id || !seriesBooks.value) return null;
+  const sortedBooks = [...seriesBooks.value].sort(
+    (a, b) => (a.series_order_index || 0) - (b.series_order_index || 0),
+  );
+  const currentIndex = sortedBooks.findIndex((b) => b.id === book.value?.id);
+  return currentIndex >= 0 ? currentIndex + 1 : null;
 });
 
 const imageClasses = computed(() => {
@@ -297,14 +324,26 @@ const handleKeyDown = async (e: KeyboardEvent) => {
     store.goToPage(totalPages.value);
     return;
   }
-  if (e.key === "[") {
+  if (e.key === "[" || e.key === "{") {
     e.preventDefault();
-    store.loadPrevBook();
+    if (e.key === "{") {
+      // Shift+[: 시리즈 이전 권
+      store.loadPrevBookInSeries();
+    } else {
+      // [: 이전 책
+      store.loadPrevBook();
+    }
     return;
   }
-  if (e.key === "]") {
+  if (e.key === "]" || e.key === "}") {
     e.preventDefault();
-    store.loadNextBook("next"); // Always sequential for shortcut
+    if (e.key === "}") {
+      // Shift+]: 시리즈 다음 권
+      store.loadNextBookInSeries();
+    } else {
+      // ]: 다음 책
+      store.loadNextBook("next"); // Always sequential for shortcut
+    }
     return;
   }
   if (e.key === " ") {
@@ -614,6 +653,52 @@ useWindowEvent("mousedown", handleMouseDown);
                   <p class="flex items-center gap-1">다음 책 <kbd>]</kbd></p>
                 </TooltipContent>
               </Tooltip>
+              <!-- 시리즈 네비게이션 버튼 -->
+              <div
+                v-if="book?.series_collection_id"
+                class="border-muted-foreground/30 ml-2 flex items-center gap-1 border-l pl-2"
+              >
+                <Tooltip>
+                  <TooltipTrigger as-child>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      style="-webkit-app-region: no-drag"
+                      @click="store.loadPrevBookInSeries()"
+                    >
+                      <Icon
+                        icon="solar:skip-previous-bold-duotone"
+                        class="h-6 w-6"
+                      />
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <p class="flex items-center gap-1">
+                      시리즈 이전 권 <kbd>Shift</kbd>+<kbd>[</kbd>
+                    </p>
+                  </TooltipContent>
+                </Tooltip>
+                <Tooltip>
+                  <TooltipTrigger as-child>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      style="-webkit-app-region: no-drag"
+                      @click="store.loadNextBookInSeries()"
+                    >
+                      <Icon
+                        icon="solar:skip-next-bold-duotone"
+                        class="h-6 w-6"
+                      />
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <p class="flex items-center gap-1">
+                      시리즈 다음 권 <kbd>Shift</kbd>+<kbd>]</kbd>
+                    </p>
+                  </TooltipContent>
+                </Tooltip>
+              </div>
               <Tooltip>
                 <TooltipTrigger as-child>
                   <Button
@@ -670,9 +755,13 @@ useWindowEvent("mousedown", handleMouseDown);
       <Transition name="fade">
         <div
           v-if="!showControls"
-          class="text-muted-foreground/50 fixed top-4 left-4 text-lg font-bold"
+          class="text-muted-foreground/50 fixed top-4 left-4 flex flex-col gap-1 text-lg font-bold"
         >
-          {{ currentPage }} / {{ totalPages }}
+          <div>{{ currentPage }} / {{ totalPages }}</div>
+          <div v-if="book?.series_collection_id" class="text-sm">
+            시리즈 {{ seriesCurrentIndex || "?"
+            }}{{ seriesTotalCount > 0 ? `/${seriesTotalCount}` : "" }}권
+          </div>
         </div>
       </Transition>
       <!-- 토스트 알림 -->

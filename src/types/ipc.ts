@@ -50,6 +50,8 @@ export interface Book {
   type?: string;
   added_at?: string;
   series_name?: string;
+  series_collection_id?: number;
+  series_order_index?: number;
   language_name_english?: string;
   language_name_local?: string;
   artists: { name: string }[];
@@ -65,6 +67,23 @@ export interface BookHistory {
   id: number;
   title: string;
   cover_path?: string;
+}
+
+export interface SeriesCollection {
+  id: number;
+  name: string;
+  description: string | null;
+  cover_image: string | null;
+  is_auto_generated: boolean;
+  is_manually_edited: boolean;
+  confidence_score: number;
+  created_at: string;
+  updated_at: string;
+  book_count?: number;
+}
+
+export interface SeriesCollectionWithBooks extends SeriesCollection {
+  books: Book[];
 }
 
 export type DownloadQueueStatus =
@@ -446,6 +465,196 @@ export interface IpcChannels {
   "clear-completed-downloads": {
     request: void;
     response: { success: boolean; error?: string };
+  };
+
+  // Series Collection handlers
+  "get-series-collections": {
+    request: {
+      page?: number;
+      limit?: number;
+      filterType?: "all" | "auto" | "manual";
+      minConfidence?: number;
+      sortBy?: "name" | "book_count" | "confidence" | "created_at";
+      sortOrder?: "asc" | "desc";
+    };
+    response: {
+      success: boolean;
+      data?: {
+        series: SeriesCollection[];
+        total: number;
+        page: number;
+        limit: number;
+      };
+      error?: string;
+    };
+  };
+  "get-series-collection-by-id": {
+    request: number; // seriesId
+    response: {
+      success: boolean;
+      data?: SeriesCollectionWithBooks;
+      error?: string;
+    };
+  };
+  "create-series-collection": {
+    request: {
+      name: string;
+      confidence_score?: number;
+      is_auto_generated?: boolean;
+      is_manually_edited?: boolean;
+      detection_reason?: string;
+    };
+    response: {
+      success: boolean;
+      data?: { id: number };
+      error?: string;
+    };
+  };
+  "update-series-collection": {
+    request: {
+      seriesId: number;
+      data: {
+        name?: string;
+        confidence_score?: number;
+        is_manually_edited?: boolean;
+      };
+    };
+    response: {
+      success: boolean;
+      error?: string;
+    };
+  };
+  "delete-series-collection": {
+    request: number; // seriesId
+    response: {
+      success: boolean;
+      error?: string;
+    };
+  };
+  "run-series-detection": {
+    request: {
+      minConfidence?: number;
+      minBooks?: number;
+    };
+    response: {
+      success: boolean;
+      data?: {
+        created_count: number;
+        processed_books: number;
+      };
+      error?: string;
+    };
+  };
+  "run-series-detection-for-book": {
+    request: {
+      bookId: number;
+      options?: {
+        minConfidence?: number;
+        minBooks?: number;
+      };
+    };
+    response: {
+      success: boolean;
+      data?: {
+        seriesName: string;
+        confidence: number;
+        books: Book[];
+      } | null;
+      error?: string;
+    };
+  };
+  "add-book-to-series": {
+    request: {
+      bookId: number;
+      seriesId: number;
+      orderIndex?: number;
+    };
+    response: {
+      success: boolean;
+      error?: string;
+    };
+  };
+  "remove-book-from-series": {
+    request: number; // bookId
+    response: {
+      success: boolean;
+      error?: string;
+    };
+  };
+  "reorder-books-in-series": {
+    request: {
+      seriesId: number;
+      bookIds: number[];
+    };
+    response: {
+      success: boolean;
+      error?: string;
+    };
+  };
+  "merge-series-collections": {
+    request: {
+      sourceId: number;
+      targetId: number;
+    };
+    response: {
+      success: boolean;
+      error?: string;
+    };
+  };
+  "split-series-collection": {
+    request: {
+      sourceSeriesId: number;
+      bookIds: number[];
+      newSeriesName: string;
+    };
+    response: {
+      success: boolean;
+      data?: { newSeriesId: number };
+      error?: string;
+    };
+  };
+  "get-next-book-in-series": {
+    request: number; // currentBookId
+    response: {
+      success: boolean;
+      data?: { id: number; title: string } | null;
+      error?: string;
+    };
+  };
+  "get-previous-book-in-series": {
+    request: number; // currentBookId
+    response: {
+      success: boolean;
+      data?: { id: number; title: string } | null;
+      error?: string;
+    };
+  };
+  "get-series-books": {
+    request: number; // seriesId
+    response: {
+      success: boolean;
+      data?: Book[];
+      error?: string;
+    };
+  };
+  "get-series-navigation-book": {
+    request: {
+      currentBookId: number;
+      direction: "next" | "previous";
+    };
+    response: {
+      success: boolean;
+      data?: { id: number; title: string } | null;
+      error?: string;
+    };
+  };
+  "cleanup-empty-series": {
+    request: void;
+    response: {
+      success: boolean;
+      data?: { cleaned_count: number };
+      error?: string;
+    };
   };
 
   // Etc handlers

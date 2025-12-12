@@ -29,6 +29,7 @@ import {
 } from "./handlers/downloadQueueHandler.js";
 import { registerEtcHandlers } from "./handlers/etcHandler.js";
 import { registerPresetHandlers } from "./handlers/presetHandler.js";
+import { registerSeriesCollectionHandlers } from "./handlers/seriesCollectionHandler.js";
 import { registerStatisticsHandlers } from "./handlers/statisticsHandler.js";
 import {
   handleGenerateThumbnail,
@@ -177,6 +178,7 @@ app.whenReady().then(async () => {
   registerDownloadQueueHandlers();
   registerEtcHandlers(mainWindow);
   registerPresetHandlers();
+  registerSeriesCollectionHandlers();
   registerStatisticsHandlers();
   registerThumbnailHandlers();
   registerWindowHandlers(mainWindow, createViewerWindow, viewerWindows);

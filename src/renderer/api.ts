@@ -259,3 +259,242 @@ export async function clearCompletedDownloads() {
     throw new Error(result.error || "Failed to clear completed downloads");
   }
 }
+
+// ============================================================
+// 시리즈 컬렉션 API
+// ============================================================
+
+/**
+ * 시리즈 컬렉션 목록 조회
+ */
+export async function getSeriesCollections(params?: {
+  page?: number;
+  limit?: number;
+  filterType?: "all" | "auto" | "manual";
+  minConfidence?: number;
+  sortBy?: "name" | "book_count" | "confidence" | "created_at";
+  sortOrder?: "asc" | "desc";
+}) {
+  const result = await ipcRenderer.invoke("get-series-collections", params || {});
+  if (result.success) {
+    return result.data;
+  } else {
+    throw new Error(result.error || "시리즈 목록 조회 실패");
+  }
+}
+
+/**
+ * 특정 시리즈 컬렉션 상세 조회
+ */
+export async function getSeriesCollectionById(seriesId: number) {
+  const result = await ipcRenderer.invoke("get-series-collection-by-id", seriesId);
+  if (result.success) {
+    return result.data;
+  } else {
+    throw new Error(result.error || "시리즈 조회 실패");
+  }
+}
+
+/**
+ * 시리즈 컬렉션 생성
+ */
+export async function createSeriesCollection(data: {
+  name: string;
+  description?: string;
+  cover_image?: string;
+}) {
+  const result = await ipcRenderer.invoke("create-series-collection", data);
+  if (result.success) {
+    return result.data;
+  } else {
+    throw new Error(result.error || "시리즈 생성 실패");
+  }
+}
+
+/**
+ * 시리즈 컬렉션 수정
+ */
+export async function updateSeriesCollection(seriesId: number, data: {
+  name?: string;
+  confidence_score?: number;
+  is_manually_edited?: boolean;
+}) {
+  const result = await ipcRenderer.invoke("update-series-collection", { seriesId, data });
+  if (result.success) {
+    return true;
+  } else {
+    throw new Error(result.error || "시리즈 수정 실패");
+  }
+}
+
+/**
+ * 시리즈 컬렉션 삭제
+ */
+export async function deleteSeriesCollection(seriesId: number) {
+  const result = await ipcRenderer.invoke("delete-series-collection", seriesId);
+  if (result.success) {
+    return true;
+  } else {
+    throw new Error(result.error || "시리즈 삭제 실패");
+  }
+}
+
+/**
+ * 자동 시리즈 감지 실행
+ */
+export async function runSeriesDetection(options?: {
+  minConfidence?: number;
+  minBooks?: number;
+}) {
+  const result = await ipcRenderer.invoke("run-series-detection", options || {});
+  if (result.success) {
+    return result.data;
+  } else {
+    throw new Error(result.error || "자동 감지 실행 실패");
+  }
+}
+
+/**
+ * 특정 책에 대한 시리즈 감지
+ */
+export async function runSeriesDetectionForBook(
+  bookId: number,
+  options?: {
+    minConfidence?: number;
+    minBooks?: number;
+  },
+) {
+  const result = await ipcRenderer.invoke("run-series-detection-for-book", {
+    bookId,
+    options,
+  });
+  if (result.success) {
+    return result.data;
+  } else {
+    throw new Error(result.error || "책 시리즈 감지 실패");
+  }
+}
+
+/**
+ * 시리즈에 책 추가
+ */
+export async function addBookToSeries(
+  bookId: number,
+  seriesId: number,
+  orderIndex?: number,
+) {
+  const result = await ipcRenderer.invoke("add-book-to-series", {
+    bookId,
+    seriesId,
+    orderIndex,
+  });
+  if (result.success) {
+    return true;
+  } else {
+    throw new Error(result.error || "시리즈에 책 추가 실패");
+  }
+}
+
+/**
+ * 시리즈에서 책 제거
+ */
+export async function removeBookFromSeries(bookId: number) {
+  const result = await ipcRenderer.invoke("remove-book-from-series", bookId);
+  if (result.success) {
+    return true;
+  } else {
+    throw new Error(result.error || "시리즈에서 책 제거 실패");
+  }
+}
+
+/**
+ * 시리즈 내 책 순서 변경
+ */
+export async function reorderBooksInSeries(
+  seriesId: number,
+  bookIds: number[],
+) {
+  const result = await ipcRenderer.invoke("reorder-books-in-series", {
+    seriesId,
+    bookIds,
+  });
+  if (result.success) {
+    return true;
+  } else {
+    throw new Error(result.error || "책 순서 변경 실패");
+  }
+}
+
+/**
+ * 시리즈 병합
+ */
+export async function mergeSeriesCollections(
+  sourceId: number,
+  targetId: number,
+) {
+  const result = await ipcRenderer.invoke("merge-series-collections", {
+    sourceId,
+    targetId,
+  });
+  if (result.success) {
+    return true;
+  } else {
+    throw new Error(result.error || "시리즈 병합 실패");
+  }
+}
+
+/**
+ * 시리즈 분할
+ */
+export async function splitSeriesCollection(
+  sourceSeriesId: number,
+  bookIds: number[],
+  newSeriesName: string,
+) {
+  const result = await ipcRenderer.invoke("split-series-collection", {
+    sourceSeriesId,
+    bookIds,
+    newSeriesName,
+  });
+  if (result.success) {
+    return result.data;
+  } else {
+    throw new Error(result.error || "시리즈 분할 실패");
+  }
+}
+
+/**
+ * 시리즈의 다음 권 조회
+ */
+export async function getNextBookInSeries(currentBookId: number) {
+  const result = await ipcRenderer.invoke("get-next-book-in-series", currentBookId);
+  if (result.success) {
+    return result.data;
+  } else {
+    throw new Error(result.error || "다음 권 조회 실패");
+  }
+}
+
+/**
+ * 시리즈의 이전 권 조회
+ */
+export async function getPreviousBookInSeries(currentBookId: number) {
+  const result = await ipcRenderer.invoke("get-previous-book-in-series", currentBookId);
+  if (result.success) {
+    return result.data;
+  } else {
+    throw new Error(result.error || "이전 권 조회 실패");
+  }
+}
+
+/**
+ * 시리즈의 전체 책 목록 조회
+ */
+export async function getSeriesBooks(seriesId: number) {
+  const result = await ipcRenderer.invoke("get-series-books", seriesId);
+  if (result.success) {
+    return result.data;
+  } else {
+    throw new Error(result.error || "시리즈 책 목록 조회 실패");
+  }
+}

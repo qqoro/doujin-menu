@@ -40,6 +40,12 @@ const navItems = [
     label: "읽음 기록",
   },
   {
+    to: "/series-manager",
+    name: "SeriesManager",
+    icon: "solar:library-bold-duotone",
+    label: "시리즈",
+  },
+  {
     to: "/statistics",
     name: "Statistics",
     icon: "solar:chart-square-bold-duotone",
