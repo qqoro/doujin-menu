@@ -480,10 +480,13 @@ export interface IpcChannels {
     response: {
       success: boolean;
       data?: {
-        series: SeriesCollection[];
-        total: number;
-        page: number;
-        limit: number;
+        collections: SeriesCollection[];
+        pagination: {
+          page: number;
+          limit: number;
+          totalCount: number;
+          totalPages: number;
+        };
       };
       error?: string;
     };

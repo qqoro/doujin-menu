@@ -67,11 +67,9 @@ const {
 });
 
 // 계산된 속성
-const collections = computed(() => seriesData.value?.series || []);
-const totalCount = computed(() => seriesData.value?.total || 0);
-const totalPages = computed(() =>
-  Math.ceil((seriesData.value?.total || 0) / (seriesData.value?.limit || 50)),
-);
+const collections = computed(() => seriesData.value?.collections || []);
+const totalCount = computed(() => seriesData.value?.pagination?.totalCount || 0);
+const totalPages = computed(() => seriesData.value?.pagination?.totalPages || 0);
 
 // 자동 감지 실행 뮤테이션
 const detectionMutation = useMutation({

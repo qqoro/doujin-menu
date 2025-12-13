@@ -15,6 +15,18 @@ export interface Changelog {
  */
 export const changelogData: Changelog[] = [
   {
+    version: "1.9.1",
+    changes: [
+      {
+        type: "fix",
+        title: "🐛 버그 수정",
+        items: [
+          "시리즈 관리 페이지에서 시리즈 목록이 표시되지 않던 문제를 수정했습니다.",
+        ],
+      },
+    ],
+  },
+  {
     version: "1.9.0",
     changes: [
       {
