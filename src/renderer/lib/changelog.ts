@@ -15,6 +15,27 @@ export interface Changelog {
  */
 export const changelogData: Changelog[] = [
   {
+    version: "1.9.0",
+    changes: [
+      {
+        type: "feature",
+        title: "✨ 새로운 기능",
+        items: [
+          "시리즈 컬렉션 기능이 추가되었습니다. 같은 시리즈의 책들을 자동으로 그룹화하여 관리할 수 있습니다.",
+          "뷰어에서 현재 시리즈의 이전/다음 권으로 바로 이동할 수 있습니다.",
+          "시리즈 관리 페이지에서 자동 감지된 시리즈를 확인하고 수동으로 편집할 수 있습니다.",
+        ],
+      },
+      {
+        type: "etc",
+        title: "기타",
+        items: [
+          "모달 창에서 ESC 키로 닫을 때의 동작이 개선되었습니다.",
+        ],
+      },
+    ],
+  },
+  {
     version: "1.8.0",
     changes: [
       {
