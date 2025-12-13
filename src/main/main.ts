@@ -378,7 +378,6 @@ app.whenReady().then(async () => {
     }
   });
 
-
   ipcMain.handle("get-initial-lock-status", () => {
     const useLock = configStore.get("useAppLock");
     const passwordSet = !!configStore.get("appLockPassword");

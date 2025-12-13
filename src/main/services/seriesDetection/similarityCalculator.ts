@@ -28,7 +28,7 @@ export function levenshteinDistance(str1: string, str2: string): number {
       dp[i][j] = Math.min(
         dp[i - 1][j] + 1, // 삭제
         dp[i][j - 1] + 1, // 삽입
-        dp[i - 1][j - 1] + cost // 치환
+        dp[i - 1][j - 1] + cost, // 치환
       );
     }
   }
@@ -58,10 +58,10 @@ export function jaccardSimilarity(set1: string[], set2: string[]): number {
   if (set1.length === 0 && set2.length === 0) return 1.0;
   if (set1.length === 0 || set2.length === 0) return 0.0;
 
-  const s1 = new Set(set1.map(s => s.toLowerCase()));
-  const s2 = new Set(set2.map(s => s.toLowerCase()));
+  const s1 = new Set(set1.map((s) => s.toLowerCase()));
+  const s2 = new Set(set2.map((s) => s.toLowerCase()));
 
-  const intersection = new Set([...s1].filter(x => s2.has(x)));
+  const intersection = new Set([...s1].filter((x) => s2.has(x)));
   const union = new Set([...s1, ...s2]);
 
   return intersection.size / union.size;
@@ -71,21 +71,21 @@ export function jaccardSimilarity(set1: string[], set2: string[]): number {
  * 두 책의 작가 일치 여부
  */
 export function hasSameArtists(book1: Book, book2: Book): boolean {
-  const artists1 = book1.artists?.map(a => a.name.toLowerCase()) || [];
-  const artists2 = book2.artists?.map(a => a.name.toLowerCase()) || [];
+  const artists1 = book1.artists?.map((a) => a.name.toLowerCase()) || [];
+  const artists2 = book2.artists?.map((a) => a.name.toLowerCase()) || [];
 
   if (artists1.length === 0 || artists2.length === 0) return false;
 
   // 하나라도 겹치면 true
-  return artists1.some(a1 => artists2.includes(a1));
+  return artists1.some((a1) => artists2.includes(a1));
 }
 
 /**
  * 두 책의 작가 유사도 계산
  */
 export function calculateArtistSimilarity(book1: Book, book2: Book): number {
-  const artists1 = book1.artists?.map(a => a.name) || [];
-  const artists2 = book2.artists?.map(a => a.name) || [];
+  const artists1 = book1.artists?.map((a) => a.name) || [];
+  const artists2 = book2.artists?.map((a) => a.name) || [];
 
   return jaccardSimilarity(artists1, artists2);
 }
@@ -94,8 +94,8 @@ export function calculateArtistSimilarity(book1: Book, book2: Book): number {
  * 두 책의 태그 유사도 계산
  */
 export function calculateTagSimilarity(book1: Book, book2: Book): number {
-  const tags1 = book1.tags?.map(t => t.name) || [];
-  const tags2 = book2.tags?.map(t => t.name) || [];
+  const tags1 = book1.tags?.map((t) => t.name) || [];
+  const tags2 = book2.tags?.map((t) => t.name) || [];
 
   return jaccardSimilarity(tags1, tags2);
 }
@@ -104,10 +104,10 @@ export function calculateTagSimilarity(book1: Book, book2: Book): number {
  * 공통 태그 추출
  */
 export function getCommonTags(book1: Book, book2: Book): string[] {
-  const tags1 = new Set(book1.tags?.map(t => t.name.toLowerCase()) || []);
-  const tags2 = new Set(book2.tags?.map(t => t.name.toLowerCase()) || []);
+  const tags1 = new Set(book1.tags?.map((t) => t.name.toLowerCase()) || []);
+  const tags2 = new Set(book2.tags?.map((t) => t.name.toLowerCase()) || []);
 
-  return [...tags1].filter(t => tags2.has(t));
+  return [...tags1].filter((t) => tags2.has(t));
 }
 
 /**
@@ -115,16 +115,16 @@ export function getCommonTags(book1: Book, book2: Book): string[] {
  */
 export function getCommonTagsFromBooks(books: Book[]): string[] {
   if (books.length === 0) return [];
-  if (books.length === 1) return books[0].tags?.map(t => t.name) || [];
+  if (books.length === 1) return books[0].tags?.map((t) => t.name) || [];
 
   const tagSets = books.map(
-    book => new Set(book.tags?.map(t => t.name.toLowerCase()) || [])
+    (book) => new Set(book.tags?.map((t) => t.name.toLowerCase()) || []),
   );
 
   // 첫 번째 책의 태그 중에서 모든 책에 공통으로 있는 태그만 선택
   const firstTags = tagSets[0];
-  const commonTags = [...firstTags].filter(tag =>
-    tagSets.every(tagSet => tagSet.has(tag))
+  const commonTags = [...firstTags].filter((tag) =>
+    tagSets.every((tagSet) => tagSet.has(tag)),
   );
 
   return commonTags;
@@ -133,7 +133,10 @@ export function getCommonTagsFromBooks(books: Book[]): string[] {
 /**
  * 제목 유사도 계산 (전처리 포함)
  */
-export function calculateTitleSimilarity(title1: string, title2: string): number {
+export function calculateTitleSimilarity(
+  title1: string,
+  title2: string,
+): number {
   // 공백, 특수문자 정규화
   const normalize = (str: string) =>
     str

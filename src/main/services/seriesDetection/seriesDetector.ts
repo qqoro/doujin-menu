@@ -38,7 +38,7 @@ const DEFAULT_OPTIONS: DetectionOptions = {
  */
 export async function detectSeriesCandidates(
   books: Book[],
-  options: Partial<DetectionOptions> = {}
+  options: Partial<DetectionOptions> = {},
 ): Promise<DetectionResult> {
   const startTime = Date.now();
   const opts = { ...DEFAULT_OPTIONS, ...options };
@@ -73,12 +73,18 @@ export async function detectSeriesCandidates(
     });
 
     // 숫자 없는 책을 1권으로 처리하는 로직
-    const booksWithVolume = booksWithScore.filter(b => b.volumeNumber !== null);
-    const booksWithoutVolume = booksWithScore.filter(b => b.volumeNumber === null);
+    const booksWithVolume = booksWithScore.filter(
+      (b) => b.volumeNumber !== null,
+    );
+    const booksWithoutVolume = booksWithScore.filter(
+      (b) => b.volumeNumber === null,
+    );
 
     // 숫자가 없는 책이 있고, 1권이 명시적으로 없을 때
     if (booksWithoutVolume.length > 0 && booksWithVolume.length > 0) {
-      const hasExplicitVolumeOne = booksWithVolume.some(b => b.volumeNumber === 1);
+      const hasExplicitVolumeOne = booksWithVolume.some(
+        (b) => b.volumeNumber === 1,
+      );
 
       if (!hasExplicitVolumeOne) {
         // 1권이 없으면 숫자 없는 책 중 첫 번째를 1권으로 설정
@@ -132,10 +138,13 @@ export async function detectSeriesCandidates(
 
     // 권수 연속성 확인
     const volumeNumbers = booksWithScore
-      .map(b => b.volumeNumber)
+      .map((b) => b.volumeNumber)
       .filter((v): v is number => v !== null);
     if (volumeNumbers.length >= 2) {
-      detectionReasons.push({ type: "volume_sequence", sequence: volumeNumbers });
+      detectionReasons.push({
+        type: "volume_sequence",
+        sequence: volumeNumbers,
+      });
     }
 
     // 공통 태그 확인
@@ -162,12 +171,12 @@ export async function detectSeriesCandidates(
     // 신뢰도 임계값 확인
     if (candidate.confidence >= opts.minConfidence) {
       candidates.push(candidate);
-      booksWithScore.forEach(b => processedBookIds.add(b.book.id));
+      booksWithScore.forEach((b) => processedBookIds.add(b.book.id));
     }
   }
 
   // 2. 작가 + 제목 유사도 기반 그룹화 (패턴 매칭에서 누락된 책들)
-  const remainingBooks = books.filter(b => !processedBookIds.has(b.id));
+  const remainingBooks = books.filter((b) => !processedBookIds.has(b.id));
   const artistGroups = groupByArtistAndSimilarity(remainingBooks);
 
   for (const group of artistGroups) {
@@ -203,7 +212,7 @@ export async function detectSeriesCandidates(
 
     if (candidate.confidence >= opts.minConfidence) {
       candidates.push(candidate);
-      booksWithScore.forEach(b => processedBookIds.add(b.book.id));
+      booksWithScore.forEach((b) => processedBookIds.add(b.book.id));
     }
   }
 
@@ -219,7 +228,9 @@ export async function detectSeriesCandidates(
 /**
  * 제목 패턴으로 그룹화
  */
-function groupByTitlePattern(books: Book[]): Array<{ seriesName: string; books: Book[] }> {
+function groupByTitlePattern(
+  books: Book[],
+): Array<{ seriesName: string; books: Book[] }> {
   const groups = new Map<string, Book[]>();
 
   for (const book of books) {
@@ -252,21 +263,20 @@ function filterByArtistMatch(books: Book[]): Book[] {
   const artistCounts = new Map<string, number>();
 
   for (const book of books) {
-    const artists = book.artists?.map(a => a.name.toLowerCase()) || [];
+    const artists = book.artists?.map((a) => a.name.toLowerCase()) || [];
     for (const artist of artists) {
       artistCounts.set(artist, (artistCounts.get(artist) || 0) + 1);
     }
   }
 
-  const [primaryArtist] = Array.from(artistCounts.entries()).sort(
-    (a, b) => b[1] - a[1]
-  )[0] || [];
+  const [primaryArtist] =
+    Array.from(artistCounts.entries()).sort((a, b) => b[1] - a[1])[0] || [];
 
   if (!primaryArtist) return books;
 
   // 해당 작가의 작품만 필터링
-  return books.filter(book =>
-    book.artists?.some(a => a.name.toLowerCase() === primaryArtist)
+  return books.filter((book) =>
+    book.artists?.some((a) => a.name.toLowerCase() === primaryArtist),
   );
 }
 
@@ -276,11 +286,11 @@ function filterByArtistMatch(books: Book[]): Book[] {
 function checkAllHaveSameArtist(books: Book[]): boolean {
   if (books.length <= 1) return false;
 
-  const firstArtists = books[0].artists?.map(a => a.name.toLowerCase()) || [];
+  const firstArtists = books[0].artists?.map((a) => a.name.toLowerCase()) || [];
   if (firstArtists.length === 0) return false;
 
-  return books.every(book =>
-    book.artists?.some(a => firstArtists.includes(a.name.toLowerCase()))
+  return books.every((book) =>
+    book.artists?.some((a) => firstArtists.includes(a.name.toLowerCase())),
   );
 }
 
@@ -288,7 +298,7 @@ function checkAllHaveSameArtist(books: Book[]): boolean {
  * 작가와 제목 유사도로 그룹화
  */
 function groupByArtistAndSimilarity(
-  books: Book[]
+  books: Book[],
 ): Array<{ seriesName: string; books: Book[] }> {
   const groups: Array<{ seriesName: string; books: Book[] }> = [];
 
@@ -296,7 +306,7 @@ function groupByArtistAndSimilarity(
   const artistGroups = new Map<string, Book[]>();
 
   for (const book of books) {
-    const artists = book.artists?.map(a => a.name) || [];
+    const artists = book.artists?.map((a) => a.name) || [];
     for (const artist of artists) {
       if (!artistGroups.has(artist)) {
         artistGroups.set(artist, []);
@@ -309,7 +319,7 @@ function groupByArtistAndSimilarity(
   for (const [artist, artistBooks] of artistGroups) {
     if (artistBooks.length < 2) continue;
 
-    const titles = artistBooks.map(b => b.title);
+    const titles = artistBooks.map((b) => b.title);
     const commonPrefix = findCommonPrefix(titles);
 
     if (commonPrefix && commonPrefix.length > 2) {
@@ -329,7 +339,7 @@ function groupByArtistAndSimilarity(
 export async function detectSeriesForBook(
   targetBook: Book,
   allBooks: Book[],
-  options: Partial<DetectionOptions> = {}
+  options: Partial<DetectionOptions> = {},
 ): Promise<SeriesCandidate | null> {
   const opts = { ...DEFAULT_OPTIONS, ...options };
 
@@ -342,7 +352,7 @@ export async function detectSeriesForBook(
   }
 
   // 같은 패턴의 다른 책들 찾기
-  const similarBooks = allBooks.filter(book => {
+  const similarBooks = allBooks.filter((book) => {
     if (book.id === targetBook.id) return false;
 
     const otherParse = parseTitlePattern(book.title);
@@ -363,7 +373,7 @@ export async function detectSeriesForBook(
 
   const candidateBooks = [targetBook, ...similarBooks];
 
-  const booksWithScore: BookWithScore[] = candidateBooks.map(book => {
+  const booksWithScore: BookWithScore[] = candidateBooks.map((book) => {
     const parse = parseTitlePattern(book.title);
     return {
       book,

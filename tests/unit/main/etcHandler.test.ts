@@ -106,7 +106,6 @@ async function getDirSize(dirPath: string): Promise<number> {
 
 describe("etcHandler", () => {
   describe("formatBytes", () => {
-
     it("0 바이트는 '0 Bytes'를 반환해야 함", () => {
       expect(formatBytes(0)).toBe("0 Bytes");
     });

@@ -56,7 +56,9 @@ describe("presetHandler", () => {
       ];
 
       // 체이닝된 메서드 모킹
-      mockOrderBy.mockReturnValue({ select: vi.fn().mockResolvedValue(mockPresets) });
+      mockOrderBy.mockReturnValue({
+        select: vi.fn().mockResolvedValue(mockPresets),
+      });
       mockSelect.mockReturnValue({ orderBy: mockOrderBy });
 
       const result = await handleGetPresets();

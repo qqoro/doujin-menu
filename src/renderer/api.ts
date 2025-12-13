@@ -275,7 +275,10 @@ export async function getSeriesCollections(params?: {
   sortBy?: "name" | "book_count" | "confidence" | "created_at";
   sortOrder?: "asc" | "desc";
 }) {
-  const result = await ipcRenderer.invoke("get-series-collections", params || {});
+  const result = await ipcRenderer.invoke(
+    "get-series-collections",
+    params || {},
+  );
   if (result.success) {
     return result.data;
   } else {
@@ -287,7 +290,10 @@ export async function getSeriesCollections(params?: {
  * 특정 시리즈 컬렉션 상세 조회
  */
 export async function getSeriesCollectionById(seriesId: number) {
-  const result = await ipcRenderer.invoke("get-series-collection-by-id", seriesId);
+  const result = await ipcRenderer.invoke(
+    "get-series-collection-by-id",
+    seriesId,
+  );
   if (result.success) {
     return result.data;
   } else {
@@ -314,12 +320,18 @@ export async function createSeriesCollection(data: {
 /**
  * 시리즈 컬렉션 수정
  */
-export async function updateSeriesCollection(seriesId: number, data: {
-  name?: string;
-  confidence_score?: number;
-  is_manually_edited?: boolean;
-}) {
-  const result = await ipcRenderer.invoke("update-series-collection", { seriesId, data });
+export async function updateSeriesCollection(
+  seriesId: number,
+  data: {
+    name?: string;
+    confidence_score?: number;
+    is_manually_edited?: boolean;
+  },
+) {
+  const result = await ipcRenderer.invoke("update-series-collection", {
+    seriesId,
+    data,
+  });
   if (result.success) {
     return true;
   } else {
@@ -346,7 +358,10 @@ export async function runSeriesDetection(options?: {
   minConfidence?: number;
   minBooks?: number;
 }) {
-  const result = await ipcRenderer.invoke("run-series-detection", options || {});
+  const result = await ipcRenderer.invoke(
+    "run-series-detection",
+    options || {},
+  );
   if (result.success) {
     return result.data;
   } else {
@@ -467,7 +482,10 @@ export async function splitSeriesCollection(
  * 시리즈의 다음 권 조회
  */
 export async function getNextBookInSeries(currentBookId: number) {
-  const result = await ipcRenderer.invoke("get-next-book-in-series", currentBookId);
+  const result = await ipcRenderer.invoke(
+    "get-next-book-in-series",
+    currentBookId,
+  );
   if (result.success) {
     return result.data;
   } else {
@@ -479,7 +497,10 @@ export async function getNextBookInSeries(currentBookId: number) {
  * 시리즈의 이전 권 조회
  */
 export async function getPreviousBookInSeries(currentBookId: number) {
-  const result = await ipcRenderer.invoke("get-previous-book-in-series", currentBookId);
+  const result = await ipcRenderer.invoke(
+    "get-previous-book-in-series",
+    currentBookId,
+  );
   if (result.success) {
     return result.data;
   } else {

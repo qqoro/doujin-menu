@@ -87,7 +87,7 @@ watch(
       editDescription.value = newSeries.description || "";
     }
   },
-  { immediate: true }
+  { immediate: true },
 );
 
 // 편집 시작
@@ -151,19 +151,19 @@ const confidenceLevel = computed(() => {
 
 <template>
   <Dialog :open="props.open" @update:open="emit('update:open', $event)">
-    <DialogContent class="max-w-[700px] max-h-[85vh] flex flex-col">
+    <DialogContent class="flex max-h-[85vh] max-w-[700px] flex-col">
       <DialogHeader>
         <DialogTitle class="flex items-center justify-between">
           <span>시리즈 상세</span>
           <div class="flex items-center gap-2">
             <!-- 생성 방식 -->
-            <span class="text-xs px-2 py-1 rounded bg-secondary">
+            <span class="bg-secondary rounded px-2 py-1 text-xs">
               {{ series?.is_manually_edited ? "수동" : "자동" }}
             </span>
             <!-- 신뢰도 -->
             <span
               v-if="series?.is_auto_generated"
-              class="text-xs px-2 py-1 rounded text-white"
+              class="rounded px-2 py-1 text-xs text-white"
               :class="confidenceLevel.class"
             >
               {{ confidenceLevel.label }}
@@ -172,7 +172,7 @@ const confidenceLevel = computed(() => {
         </DialogTitle>
       </DialogHeader>
 
-      <ScrollArea class="flex-1 -mx-6 px-6">
+      <ScrollArea class="-mx-6 flex-1 px-6">
         <div class="space-y-6 pr-4 pb-4">
           <!-- 시리즈 정보 편집 -->
           <div class="space-y-4">
@@ -193,8 +193,8 @@ const confidenceLevel = computed(() => {
                 </Button>
                 <Button
                   size="sm"
-                  @click="saveEdit"
                   :disabled="updateMutation.isPending.value"
+                  @click="saveEdit"
                 >
                   저장
                 </Button>
@@ -225,11 +225,11 @@ const confidenceLevel = computed(() => {
               />
               <div
                 v-else-if="series?.description"
-                class="text-sm text-muted-foreground"
+                class="text-muted-foreground text-sm"
               >
                 {{ series.description }}
               </div>
-              <div v-else class="text-sm text-muted-foreground italic">
+              <div v-else class="text-muted-foreground text-sm italic">
                 설명 없음
               </div>
             </div>
@@ -247,24 +247,26 @@ const confidenceLevel = computed(() => {
               <div
                 v-for="book in seriesDetail?.books"
                 :key="book.id"
-                class="flex items-center gap-3 p-3 rounded-lg border hover:bg-accent group"
+                class="hover:bg-accent group flex items-center gap-3 rounded-lg border p-3"
               >
                 <!-- 순서 -->
                 <div
-                  class="w-8 h-8 rounded-full bg-primary/10 text-primary flex items-center justify-center text-sm font-semibold flex-shrink-0"
+                  class="bg-primary/10 text-primary flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full text-sm font-semibold"
                 >
                   {{ book.series_order_index }}
                 </div>
 
                 <!-- 책 정보 (클릭 가능) -->
                 <div
-                  class="flex-1 min-w-0 cursor-pointer"
+                  class="min-w-0 flex-1 cursor-pointer"
                   @click="handleBookClick(book.id)"
                 >
-                  <div class="font-medium truncate hover:text-primary transition-colors">
+                  <div
+                    class="hover:text-primary truncate font-medium transition-colors"
+                  >
                     {{ book.title }}
                   </div>
-                  <div class="text-xs text-muted-foreground">
+                  <div class="text-muted-foreground text-xs">
                     {{ book.page_count }}페이지
                   </div>
                 </div>
@@ -273,19 +275,19 @@ const confidenceLevel = computed(() => {
                 <Button
                   variant="ghost"
                   size="icon"
-                  class="opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0"
+                  class="flex-shrink-0 opacity-0 transition-opacity group-hover:opacity-100"
                   @click.stop="handleRemoveBook(book.id)"
                 >
                   <Icon
                     icon="solar:trash-bin-trash-bold-duotone"
-                    class="h-4 w-4 text-destructive"
+                    class="text-destructive h-4 w-4"
                   />
                 </Button>
               </div>
 
               <div
                 v-if="!seriesDetail?.books || seriesDetail.books.length === 0"
-                class="text-center py-8 text-muted-foreground"
+                class="text-muted-foreground py-8 text-center"
               >
                 이 시리즈에 속한 책이 없습니다
               </div>

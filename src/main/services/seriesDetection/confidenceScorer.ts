@@ -17,7 +17,7 @@ import { parseTitlePattern } from "./titlePatternMatcher.js";
  */
 export function calculateBookConfidence(
   book: Book,
-  candidateBooks: Book[]
+  candidateBooks: Book[],
 ): number {
   let totalScore = 0;
   let weights = 0;
@@ -36,19 +36,20 @@ export function calculateBookConfidence(
 
   // 2. 다른 책들과의 작가 일치도 (가중치: 0.3)
   const artistScores = candidateBooks
-    .filter(b => b.id !== book.id)
-    .map(b => calculateArtistSimilarity(book, b));
+    .filter((b) => b.id !== book.id)
+    .map((b) => calculateArtistSimilarity(book, b));
 
   if (artistScores.length > 0) {
-    const avgArtistScore = artistScores.reduce((a, b) => a + b, 0) / artistScores.length;
+    const avgArtistScore =
+      artistScores.reduce((a, b) => a + b, 0) / artistScores.length;
     totalScore += avgArtistScore * 0.3;
     weights += 0.3;
   }
 
   // 3. 다른 책들과의 태그 유사도 (가중치: 0.2)
   const tagScores = candidateBooks
-    .filter(b => b.id !== book.id)
-    .map(b => calculateTagSimilarity(book, b));
+    .filter((b) => b.id !== book.id)
+    .map((b) => calculateTagSimilarity(book, b));
 
   if (tagScores.length > 0) {
     const avgTagScore = tagScores.reduce((a, b) => a + b, 0) / tagScores.length;
@@ -58,11 +59,12 @@ export function calculateBookConfidence(
 
   // 4. 제목 유사도 (가중치: 0.1)
   const titleScores = candidateBooks
-    .filter(b => b.id !== book.id)
-    .map(b => calculateTitleSimilarity(book.title, b.title));
+    .filter((b) => b.id !== book.id)
+    .map((b) => calculateTitleSimilarity(book.title, b.title));
 
   if (titleScores.length > 0) {
-    const avgTitleScore = titleScores.reduce((a, b) => a + b, 0) / titleScores.length;
+    const avgTitleScore =
+      titleScores.reduce((a, b) => a + b, 0) / titleScores.length;
     totalScore += avgTitleScore * 0.1;
     weights += 0.1;
   }
@@ -79,13 +81,17 @@ function calculateDateContinuityScore(books: BookWithScore[]): number {
 
   // added_at 기준으로 정렬
   const sortedByDate = [...books]
-    .filter(b => b.book.added_at)
-    .sort((a, b) => new Date(a.book.added_at!).getTime() - new Date(b.book.added_at!).getTime());
+    .filter((b) => b.book.added_at)
+    .sort(
+      (a, b) =>
+        new Date(a.book.added_at!).getTime() -
+        new Date(b.book.added_at!).getTime(),
+    );
 
   if (sortedByDate.length < 2) return 0;
 
   // 권수가 있는 책들만 필터링
-  const booksWithVolume = sortedByDate.filter(b => b.volumeNumber !== null);
+  const booksWithVolume = sortedByDate.filter((b) => b.volumeNumber !== null);
   if (booksWithVolume.length < 2) return 0;
 
   // 날짜순과 권수순이 일치하는지 확인
@@ -117,7 +123,7 @@ export function calculateGroupConfidence(books: BookWithScore[]): number {
 
   // 2. 권수 연속성 점수 (가중치: 0.25)
   const volumeNumbers = books
-    .map(b => b.volumeNumber)
+    .map((b) => b.volumeNumber)
     .filter((v): v is number => v !== null)
     .sort((a, b) => a - b);
 
@@ -125,14 +131,16 @@ export function calculateGroupConfidence(books: BookWithScore[]): number {
   if (volumeNumbers.length >= 2) {
     // 연속된 숫자가 많을수록 높은 점수
     const isSequential = volumeNumbers.every(
-      (num, i) => i === 0 || num === volumeNumbers[i - 1] + 1
+      (num, i) => i === 0 || num === volumeNumbers[i - 1] + 1,
     );
 
     if (isSequential) {
       continuityScore = 1.0;
     } else {
       // 부분적으로 연속된 경우
-      const gaps = volumeNumbers.slice(1).map((num, i) => num - volumeNumbers[i]);
+      const gaps = volumeNumbers
+        .slice(1)
+        .map((num, i) => num - volumeNumbers[i]);
       const avgGap = gaps.reduce((a, b) => a + b, 0) / gaps.length;
       continuityScore = Math.max(0, 1 - (avgGap - 1) / 10);
     }
@@ -157,7 +165,9 @@ export function calculateGroupConfidence(books: BookWithScore[]): number {
 /**
  * 시리즈 후보의 최종 신뢰도 계산
  */
-export function calculateCandidateConfidence(candidate: SeriesCandidate): number {
+export function calculateCandidateConfidence(
+  candidate: SeriesCandidate,
+): number {
   const groupScore = calculateGroupConfidence(candidate.books);
 
   // 감지 근거에 따른 보너스
@@ -186,7 +196,9 @@ export function calculateCandidateConfidence(candidate: SeriesCandidate): number
 /**
  * 신뢰도에 따른 등급 분류
  */
-export function getConfidenceLevel(confidence: number): "high" | "medium" | "low" {
+export function getConfidenceLevel(
+  confidence: number,
+): "high" | "medium" | "low" {
   if (confidence >= 0.8) return "high";
   if (confidence >= 0.5) return "medium";
   return "low";
@@ -197,7 +209,7 @@ export function getConfidenceLevel(confidence: number): "high" | "medium" | "low
  */
 export function meetsConfidenceThreshold(
   confidence: number,
-  threshold: number
+  threshold: number,
 ): boolean {
   return confidence >= threshold;
 }

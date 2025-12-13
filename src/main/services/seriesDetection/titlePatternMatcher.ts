@@ -32,19 +32,35 @@ const VOLUME_PATTERNS = [
 
 // 특수기호 숫자 매핑 (①, ②, ③, ...)
 const CIRCLED_NUMBERS: Record<string, number> = {
-  '①': 1, '②': 2, '③': 3, '④': 4, '⑤': 5,
-  '⑥': 6, '⑦': 7, '⑧': 8, '⑨': 9, '⑩': 10,
-  '⑪': 11, '⑫': 12, '⑬': 13, '⑭': 14, '⑮': 15,
-  '⑯': 16, '⑰': 17, '⑱': 18, '⑲': 19, '⑳': 20,
+  "①": 1,
+  "②": 2,
+  "③": 3,
+  "④": 4,
+  "⑤": 5,
+  "⑥": 6,
+  "⑦": 7,
+  "⑧": 8,
+  "⑨": 9,
+  "⑩": 10,
+  "⑪": 11,
+  "⑫": 12,
+  "⑬": 13,
+  "⑭": 14,
+  "⑮": 15,
+  "⑯": 16,
+  "⑰": 17,
+  "⑱": 18,
+  "⑲": 19,
+  "⑳": 20,
 };
 
 // 한글 순서 매핑
 const KOREAN_ORDER: Record<string, number> = {
-  '상': 1,
-  '중': 2,
-  '하': 3,
-  '전': 1,
-  '후': 2,
+  상: 1,
+  중: 2,
+  하: 3,
+  전: 1,
+  후: 2,
 };
 
 // 대괄호/괄호로 묶인 패턴
@@ -67,14 +83,24 @@ const SEPARATOR_PATTERNS = [
 
 // 한글 숫자 매핑
 const KOREAN_NUMBERS: Record<string, number> = {
-  일: 1, 이: 2, 삼: 3, 사: 4, 오: 5,
-  육: 6, 칠: 7, 팔: 8, 구: 9, 십: 10,
+  일: 1,
+  이: 2,
+  삼: 3,
+  사: 4,
+  오: 5,
+  육: 6,
+  칠: 7,
+  팔: 8,
+  구: 9,
+  십: 10,
 };
 
 /**
  * 제목에서 특수기호 숫자 추출 (①, ②, ③ 등)
  */
-function extractCircledNumber(title: string): { number: number; prefix: string } | null {
+function extractCircledNumber(
+  title: string,
+): { number: number; prefix: string } | null {
   for (const [symbol, number] of Object.entries(CIRCLED_NUMBERS)) {
     const index = title.indexOf(symbol);
     if (index !== -1) {
@@ -90,13 +116,15 @@ function extractCircledNumber(title: string): { number: number; prefix: string }
 /**
  * 제목에서 한글 순서 추출 (상/중/하, 전/후 등)
  */
-function extractKoreanOrder(title: string): { number: number; prefix: string } | null {
+function extractKoreanOrder(
+  title: string,
+): { number: number; prefix: string } | null {
   for (const [order, number] of Object.entries(KOREAN_ORDER)) {
     // "시리즈명 상", "시리즈명 상권" 패턴
     const pattern1 = new RegExp(`^(.+?)\\s*${order}\\s*$`);
     const pattern2 = new RegExp(`^(.+?)\\s*${order}권\\s*$`);
 
-    let match = title.match(pattern1) || title.match(pattern2);
+    const match = title.match(pattern1) || title.match(pattern2);
     if (match) {
       const prefix = match[1].trim();
       if (prefix.length > 0) {
@@ -204,7 +232,9 @@ export function parseTitlePattern(title: string): TitleParseResult {
           prefix: seriesName,
           volumeNumber,
           originalTitle: trimmedTitle,
-          confidence: volumeNumber ? pattern.confidence : pattern.confidence * 0.8,
+          confidence: volumeNumber
+            ? pattern.confidence
+            : pattern.confidence * 0.8,
         };
       }
     }
@@ -216,7 +246,8 @@ export function parseTitlePattern(title: string): TitleParseResult {
     if (match) {
       const prefix = match[1].trim();
 
-      if (prefix.length > 2) { // 너무 짧은 접두어는 제외
+      if (prefix.length > 2) {
+        // 너무 짧은 접두어는 제외
         return {
           prefix,
           volumeNumber: null,
@@ -301,7 +332,7 @@ export function extractNumbers(title: string): number[] {
 
   // 한글 순서 추출 (상/중/하, 전/후)
   for (const [order, num] of Object.entries(KOREAN_ORDER)) {
-    if (title.includes(order + '권') || title.endsWith(order)) {
+    if (title.includes(order + "권") || title.endsWith(order)) {
       numbers.push(num);
     }
   }
@@ -309,12 +340,12 @@ export function extractNumbers(title: string): number[] {
   // 아라비아 숫자 추출
   const arabicMatches = title.match(/\d+/g);
   if (arabicMatches) {
-    numbers.push(...arabicMatches.map(n => parseInt(n, 10)));
+    numbers.push(...arabicMatches.map((n) => parseInt(n, 10)));
   }
 
   // 한글 숫자 추출 (간단한 경우만)
   for (const [korean, num] of Object.entries(KOREAN_NUMBERS)) {
-    if (title.includes(korean + '권')) {
+    if (title.includes(korean + "권")) {
       numbers.push(num);
     }
   }

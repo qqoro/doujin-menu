@@ -65,7 +65,6 @@ import { cleanValue } from "../../../src/main/handlers/directoryHandler";
 
 describe("directoryHandler", () => {
   describe("cleanValue", () => {
-
     it("'N/A' 문자열은 null을 반환해야 함", () => {
       expect(cleanValue("N/A")).toBeNull();
     });

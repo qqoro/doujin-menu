@@ -221,10 +221,15 @@ export const useViewerStore = defineStore("viewer", () => {
   async function loadNextBookInSeries() {
     if (!bookId.value) return;
 
-    const result = await ipcRenderer.invoke("get-next-book-in-series", bookId.value);
+    const result = await ipcRenderer.invoke(
+      "get-next-book-in-series",
+      bookId.value,
+    );
 
     if (result.success && result.data) {
-      showToastMessage(`시리즈 다음 권을 불러옵니다: ${result.data.title || ""}`);
+      showToastMessage(
+        `시리즈 다음 권을 불러옵니다: ${result.data.title || ""}`,
+      );
       await loadBook(result.data.id, filterParams.value ?? undefined);
     } else {
       showToastMessage("시리즈의 마지막 권입니다.");
@@ -234,10 +239,15 @@ export const useViewerStore = defineStore("viewer", () => {
   async function loadPrevBookInSeries() {
     if (!bookId.value) return;
 
-    const result = await ipcRenderer.invoke("get-previous-book-in-series", bookId.value);
+    const result = await ipcRenderer.invoke(
+      "get-previous-book-in-series",
+      bookId.value,
+    );
 
     if (result.success && result.data) {
-      showToastMessage(`시리즈 이전 권을 불러옵니다: ${result.data.title || ""}`);
+      showToastMessage(
+        `시리즈 이전 권을 불러옵니다: ${result.data.title || ""}`,
+      );
       await loadBook(result.data.id, filterParams.value ?? undefined);
     } else {
       showToastMessage("시리즈의 첫 번째 권입니다.");

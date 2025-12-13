@@ -96,7 +96,7 @@ const { data: seriesBooks } = useQuery({
       "get-series-books",
       book.value.series_collection_id,
     );
-    return result.success ? (result.data || []) : [];
+    return result.success ? result.data || [] : [];
   },
 });
 

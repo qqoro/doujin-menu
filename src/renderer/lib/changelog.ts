@@ -29,9 +29,7 @@ export const changelogData: Changelog[] = [
       {
         type: "etc",
         title: "기타",
-        items: [
-          "모달 창에서 ESC 키로 닫을 때의 동작이 개선되었습니다.",
-        ],
+        items: ["모달 창에서 ESC 키로 닫을 때의 동작이 개선되었습니다."],
       },
     ],
   },

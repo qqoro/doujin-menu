@@ -47,37 +47,39 @@ const creationType = computed(() => {
 
 <template>
   <div
-    class="group relative rounded-lg border bg-card text-card-foreground shadow-sm transition-all hover:shadow-md cursor-pointer"
+    class="group bg-card text-card-foreground relative cursor-pointer rounded-lg border shadow-sm transition-all hover:shadow-md"
     @click="emit('click')"
   >
     <!-- 커버 이미지 영역 -->
-    <div class="aspect-[3/4] relative overflow-hidden rounded-t-lg bg-muted">
+    <div class="bg-muted relative aspect-[3/4] overflow-hidden rounded-t-lg">
       <img
         v-if="series.cover_image"
         :src="`file://${series.cover_image}`"
         :alt="series.name"
-        class="w-full h-full object-cover"
+        class="h-full w-full object-cover"
         @error="(e) => ((e.target as HTMLImageElement).style.display = 'none')"
       />
       <div
         v-else
-        class="w-full h-full flex items-center justify-center bg-gradient-to-br from-primary/10 to-primary/5"
+        class="from-primary/10 to-primary/5 flex h-full w-full items-center justify-center bg-gradient-to-br"
       >
         <Icon
           icon="solar:library-bold-duotone"
-          class="h-16 w-16 text-primary/30"
+          class="text-primary/30 h-16 w-16"
         />
       </div>
 
       <!-- 권수 뱃지 -->
       <div
-        class="absolute top-2 right-2 bg-black/60 text-white px-2 py-1 rounded text-xs font-semibold backdrop-blur-sm"
+        class="absolute top-2 right-2 rounded bg-black/60 px-2 py-1 text-xs font-semibold text-white backdrop-blur-sm"
       >
         {{ series.book_count || 0 }}권
       </div>
 
       <!-- 옵션 메뉴 -->
-      <div class="absolute top-2 left-2 opacity-0 group-hover:opacity-100 transition-opacity">
+      <div
+        class="absolute top-2 left-2 opacity-0 transition-opacity group-hover:opacity-100"
+      >
         <DropdownMenu>
           <DropdownMenuTrigger as-child @click.stop>
             <Button
@@ -94,10 +96,13 @@ const creationType = computed(() => {
               상세 보기
             </DropdownMenuItem>
             <DropdownMenuItem
-              @click.stop="emit('delete')"
               class="text-destructive"
+              @click.stop="emit('delete')"
             >
-              <Icon icon="solar:trash-bin-trash-bold-duotone" class="mr-2 h-4 w-4" />
+              <Icon
+                icon="solar:trash-bin-trash-bold-duotone"
+                class="mr-2 h-4 w-4"
+              />
               삭제
             </DropdownMenuItem>
           </DropdownMenuContent>
@@ -106,9 +111,9 @@ const creationType = computed(() => {
     </div>
 
     <!-- 정보 영역 -->
-    <div class="p-4 space-y-2">
+    <div class="space-y-2 p-4">
       <div class="flex items-start justify-between gap-2">
-        <h3 class="font-semibold line-clamp-2 flex-1" :title="series.name">
+        <h3 class="line-clamp-2 flex-1 font-semibold" :title="series.name">
           {{ series.name }}
         </h3>
       </div>
@@ -116,7 +121,7 @@ const creationType = computed(() => {
       <!-- 설명 -->
       <p
         v-if="series.description"
-        class="text-sm text-muted-foreground line-clamp-2"
+        class="text-muted-foreground line-clamp-2 text-sm"
       >
         {{ series.description }}
       </p>
@@ -124,14 +129,16 @@ const creationType = computed(() => {
       <!-- 메타 정보 -->
       <div class="flex items-center gap-2 pt-2">
         <!-- 생성 방식 -->
-        <div class="text-xs px-2 py-0.5 rounded bg-secondary text-secondary-foreground">
+        <div
+          class="bg-secondary text-secondary-foreground rounded px-2 py-0.5 text-xs"
+        >
           {{ creationType }}
         </div>
 
         <!-- 신뢰도 (자동 생성인 경우만) -->
         <div
           v-if="series.is_auto_generated"
-          class="text-xs px-2 py-0.5 rounded text-white"
+          class="rounded px-2 py-0.5 text-xs text-white"
           :class="confidenceLevel.class"
         >
           {{ confidenceLevel.label }}
