@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { getAppVersion, ipcRenderer, isFullscreen } from "@/api";
 import { useWindowEvent } from "@/composable/useWindowEvent";
-import { cn } from "@/lib/utils";
+import { cn, hasOpenDialog } from "@/lib/utils";
 import { useUiStore } from "@/store/uiStore";
 import { storeToRefs } from "pinia";
 import { onMounted, ref } from "vue";
@@ -22,6 +22,12 @@ const handleKeyDown = async (event: KeyboardEvent) => {
   }
 
   if (event.key === "Escape") {
+    // 열려있는 다이얼로그나 오버레이가 있는지 확인
+    if (hasOpenDialog()) {
+      // 다이얼로그가 열려있으면 기본 동작(다이얼로그 닫기)만 수행하고 창 최소화는 하지 않음
+      return;
+    }
+
     ipcRenderer.send("minimize-window");
     return;
   }

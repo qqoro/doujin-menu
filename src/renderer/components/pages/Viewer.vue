@@ -236,11 +236,6 @@ const handleDeleteBook = async () => {
 };
 
 const handleKeyDown = async (e: KeyboardEvent) => {
-  // 삭제 다이얼로그가 열려있으면 단축키 비활성화 (Escape 제외)
-  if (isDeleteDialogOpen.value && e.key !== "Escape") {
-    return;
-  }
-
   if (e.key === "F11") {
     e.preventDefault();
     ipcRenderer.send("fullscreen-toggle-window");
@@ -248,13 +243,12 @@ const handleKeyDown = async (e: KeyboardEvent) => {
   }
 
   if (e.key === "Escape") {
-    e.preventDefault();
-    // 삭제 다이얼로그가 열려있으면 닫기만
-    if (isDeleteDialogOpen.value) {
-      isDeleteDialogOpen.value = false;
+    // 다이얼로그가 열려있으면 기본 동작(다이얼로그 닫기)만 수행
+    if (hasOpenDialog()) {
       return;
     }
-    // 그 외에는 뒤로 가기
+    e.preventDefault();
+    // 다이얼로그가 없으면 뒤로 가기
     if (isNewWindow.value) {
       closeCurrentWindow();
     } else {
