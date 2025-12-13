@@ -3,6 +3,7 @@ import { app, ipcMain, shell } from "electron";
 import fs from "fs/promises";
 import hitomi from "node-hitomi";
 import path from "path";
+import { console } from "../main.js";
 import { store as configStore } from "./configHandler.js";
 
 export async function getDirSize(dirPath: string): Promise<number> {

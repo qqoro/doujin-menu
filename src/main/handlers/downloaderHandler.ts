@@ -6,6 +6,7 @@ import fs from "fs/promises";
 import hitomi from "node-hitomi";
 import path from "path";
 import { pathToFileURL } from "url";
+import { console } from "../main.js";
 import { formatDownloadFolderName } from "../utils/index.js";
 import { store as configStore } from "./configHandler.js";
 import { scanFile } from "./directoryHandler.js";

@@ -4,6 +4,7 @@ import type {
   DownloadQueueItem,
   DownloadQueueStatus,
 } from "../../types/ipc.js";
+import { console } from "../main.js";
 import { handleDownloadGallery } from "./downloaderHandler.js";
 import fs from "fs/promises";
 import path from "path";

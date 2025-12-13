@@ -2,6 +2,7 @@ import { ipcMain } from "electron";
 import { readdir, stat } from "fs/promises";
 import { join } from "path";
 import db from "../db/index.js";
+import { console } from "../main.js";
 import { store as configStore } from "./configHandler.js";
 
 async function getFolderSize(directoryPath: string): Promise<number> {

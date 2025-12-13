@@ -1,6 +1,7 @@
 import { ipcMain } from "electron";
 import type { Preset } from "../../types/ipc.js";
 import db from "../db/index.js";
+import { console } from "../main.js";
 
 export const handleGetPresets = async () => {
   try {

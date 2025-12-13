@@ -5,6 +5,7 @@ import type {
   SeriesCollection,
   SeriesCollectionWithBooks,
 } from "../db/types.js";
+import { console } from "../main.js";
 import {
   detectSeriesCandidates,
   detectSeriesForBook,
