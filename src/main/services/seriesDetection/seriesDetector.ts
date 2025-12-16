@@ -85,7 +85,6 @@ export async function detectSeriesCandidates(
       }
     }
 
-    // 디버깅: 정렬 전 책 정보 로그
     log.debug(
       `[시리즈 감지] 그룹 "${group.seriesName}" 정렬 전:`,
       booksWithScore.map((b) => ({
@@ -95,7 +94,6 @@ export async function detectSeriesCandidates(
       })),
     );
 
-    // 순서대로 정렬
     booksWithScore.sort((a, b) => {
       if (a.volumeNumber !== null && b.volumeNumber !== null) {
         return a.volumeNumber - b.volumeNumber;
@@ -105,7 +103,6 @@ export async function detectSeriesCandidates(
       return a.book.title.localeCompare(b.book.title);
     });
 
-    // 디버깅: 정렬 후 책 정보 로그
     log.debug(
       `[시리즈 감지] 그룹 "${group.seriesName}" 정렬 후:`,
       booksWithScore.map((b) => ({
@@ -206,7 +203,6 @@ export async function detectSeriesCandidates(
       }
     }
 
-    // 순서대로 정렬 로직 추가
     booksWithScore.sort((a, b) => {
       if (a.volumeNumber !== null && b.volumeNumber !== null) {
         return a.volumeNumber - b.volumeNumber;
