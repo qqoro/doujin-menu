@@ -15,6 +15,16 @@ export interface Changelog {
  */
 export const changelogData: Changelog[] = [
   {
+    version: "1.9.2",
+    changes: [
+      {
+        type: "etc",
+        title: "기타",
+        items: ["시리즈 감지 기능을 개선했습니다."],
+      },
+    ],
+  },
+  {
     version: "1.9.1",
     changes: [
       {

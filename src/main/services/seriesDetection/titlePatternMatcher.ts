@@ -6,28 +6,43 @@
 import log from "electron-log";
 import type { TitleParseResult } from "./types.js";
 
+const SPIN_OFF_KEYWORDS = [
+  "외전",
+  "오마케",
+  "omake",
+  "extra",
+  "special",
+  "단편",
+  "특별편",
+  "side story",
+];
+
 // 권수 패턴 정규식들
 const VOLUME_PATTERNS = [
   // [시리즈명] 1권, [시리즈명] 제1권
-  { regex: /^(.+?)\s*[제]?(\d+)권\s*$/, confidence: 0.95 },
+  { regex: /^(.+?)\s*[제]?(\d+)권\b/i, confidence: 0.95 },
+  // [시리즈명] 1화, [시리즈명] 제1화
+  { regex: /^(.+?)\s*[제]?(\d+)화\b/i, confidence: 0.95 },
   // [시리즈명] Vol.1, [시리즈명] Vol 1
-  { regex: /^(.+?)\s*Vol\.?\s*(\d+)\s*$/i, confidence: 0.9 },
+  { regex: /^(.+?)\s*Vol\.?\s*(\d+)\b/i, confidence: 0.9 },
   // [시리즈명] Chapter 1, [시리즈명] Ch.1
-  { regex: /^(.+?)\s*(?:Chapter|Ch\.?)\s*(\d+)\s*$/i, confidence: 0.9 },
+  { regex: /^(.+?)\s*(?:Chapter|Ch\.?)\s*(\d+)\b/i, confidence: 0.9 },
   // [시리즈명] Part 1, [시리즈명] Pt.1
-  { regex: /^(.+?)\s*(?:Part|Pt\.?)\s*(\d+)\s*$/i, confidence: 0.9 },
+  { regex: /^(.+?)\s*(?:Part|Pt\.?)\s*(\d+)\b/i, confidence: 0.9 },
   // [시리즈명] Episode 1, [시리즈명] Ep.1
-  { regex: /^(.+?)\s*(?:Episode|Ep\.?)\s*(\d+)\s*$/i, confidence: 0.85 },
+  { regex: /^(.+?)\s*(?:Episode|Ep\.?)\s*(\d+)\b/i, confidence: 0.85 },
   // [시리즈명] #1
-  { regex: /^(.+?)\s*#(\d+)\s*$/, confidence: 0.85 },
+  { regex: /^(.+?)\s*#(\d+)\b/i, confidence: 0.85 },
   // [시리즈명] - 1, [시리즈명] -1
-  { regex: /^(.+?)\s*-\s*(\d+)\s*$/, confidence: 0.8 },
+  { regex: /^(.+?)\s*-\s*(\d+)\b/i, confidence: 0.8 },
   // [시리즈명] (1), [시리즈명](1)
-  { regex: /^(.+?)\s*\((\d+)\)\s*$/, confidence: 0.75 },
-  // [시리즈명] 01, [시리즈명] 001 (2-3자리 숫자만)
-  { regex: /^(.+?)\s+(\d{2,3})\s*$/, confidence: 0.7 },
-  // [시리즈명] 1 (한 자리 숫자) - 마지막에 배치하여 우선순위 낮춤
-  { regex: /^(.+?)\s+(\d)\s*$/, confidence: 0.85 },
+  { regex: /^(.+?)\s+\((\d+)\)\b/i, confidence: 0.8 },
+  // [시리즈명] 01, [시리즈명] 001 (2-3자리 숫자)
+  { regex: /^(.+?)\s+(\d{2,3})\b/i, confidence: 0.7 },
+  // [시리즈명] 1 (한 자리 숫자)
+  { regex: /^(.+?)\s+(\d)\b/i, confidence: 0.85 },
+  // [시리즈명]1 (숫자가 단어에 붙은 경우) - 가장 마지막에 배치
+  { regex: /^(.+?)(\d+)\b/i, confidence: 0.6 },
 ];
 
 // 특수기호 숫자 매핑 (①, ②, ③, ...)
@@ -120,11 +135,17 @@ function extractKoreanOrder(
   title: string,
 ): { number: number; prefix: string } | null {
   for (const [order, number] of Object.entries(KOREAN_ORDER)) {
-    // "시리즈명 상", "시리즈명 상권" 패턴
+    // "시리즈명 상", "시리즈명 상권", "시리즈명 (상)", "시리즈명 상편" 패턴
     const pattern1 = new RegExp(`^(.+?)\\s*${order}\\s*$`);
     const pattern2 = new RegExp(`^(.+?)\\s*${order}권\\s*$`);
+    const pattern3 = new RegExp(`^(.+?)\\s*\\(${order}\\)\\s*$`);
+    const pattern4 = new RegExp(`^(.+?)\\s*${order}편\\s*$`);
 
-    const match = title.match(pattern1) || title.match(pattern2);
+    const match =
+      title.match(pattern1) ||
+      title.match(pattern2) ||
+      title.match(pattern3) ||
+      title.match(pattern4);
     if (match) {
       const prefix = match[1].trim();
       if (prefix.length > 0) {
@@ -192,6 +213,28 @@ export function parseTitlePattern(title: string): TitleParseResult {
       `[시리즈 감지] 파싱 결과 (한글순서): "${trimmedTitle}" → 시리즈명: "${result.prefix}", 권수: ${result.volumeNumber}`,
     );
     return result;
+  }
+
+  // 0-2. 외전/오마케 패턴 우선 시도
+  for (const keyword of SPIN_OFF_KEYWORDS) {
+    const keywordSuffixRegex = new RegExp(`(.+?)\\s*\\b${keyword}\\b$`, "i");
+    const match = titleToParse.match(keywordSuffixRegex);
+
+    if (match) {
+      const prefix = match[1].trim();
+      if (prefix.length > 1) {
+        const result = {
+          prefix,
+          volumeNumber: null,
+          originalTitle: trimmedTitle,
+          confidence: 0.7,
+        };
+        log.debug(
+          `[시리즈 감지] 파싱 결과 (외전): "${trimmedTitle}" → 시리즈명: "${result.prefix}", 신뢰도: ${result.confidence}`,
+        );
+        return result;
+      }
+    }
   }
 
   // 1. 권수 패턴 시도

@@ -1,29 +1,21 @@
-/**
- * 메인 시리즈 자동 감지 로직
- */
-
 import log from "electron-log";
 import type { Book } from "../../db/types.js";
-import type {
-  DetectionOptions,
-  DetectionResult,
-  SeriesCandidate,
-  BookWithScore,
-  DetectionReason,
-} from "./types.js";
-import {
-  parseTitlePattern,
-  findCommonPrefix,
-  extractNumbers,
-} from "./titlePatternMatcher.js";
-import {
-  hasSameArtists,
-  getCommonTagsFromBooks,
-} from "./similarityCalculator.js";
 import {
   calculateBookConfidence,
   calculateCandidateConfidence,
 } from "./confidenceScorer.js";
+import {
+  getCommonTagsFromBooks,
+  hasSameArtists,
+} from "./similarityCalculator.js";
+import { findCommonPrefix, parseTitlePattern } from "./titlePatternMatcher.js";
+import type {
+  BookWithScore,
+  DetectionOptions,
+  DetectionReason,
+  DetectionResult,
+  SeriesCandidate,
+} from "./types.js";
 
 // 기본 감지 옵션
 const DEFAULT_OPTIONS: DetectionOptions = {
@@ -80,14 +72,14 @@ export async function detectSeriesCandidates(
       (b) => b.volumeNumber === null,
     );
 
-    // 숫자가 없는 책이 있고, 1권이 명시적으로 없을 때
-    if (booksWithoutVolume.length > 0 && booksWithVolume.length > 0) {
+    // 숫자가 없는 책이 한 권만 있고, 1권이 명시적으로 없을 때
+    if (booksWithoutVolume.length === 1 && booksWithVolume.length > 0) {
       const hasExplicitVolumeOne = booksWithVolume.some(
         (b) => b.volumeNumber === 1,
       );
 
       if (!hasExplicitVolumeOne) {
-        // 1권이 없으면 숫자 없는 책 중 첫 번째를 1권으로 설정
+        // 1권이 없으면 숫자 없는 책을 1권으로 설정
         booksWithoutVolume[0].volumeNumber = 1;
         booksWithoutVolume[0].orderIndex = 1;
       }
@@ -182,12 +174,47 @@ export async function detectSeriesCandidates(
   for (const group of artistGroups) {
     if (group.books.length < opts.minBooks) continue;
 
-    const booksWithScore: BookWithScore[] = group.books.map((book, index) => ({
-      book,
-      confidence: calculateBookConfidence(book, group.books),
-      volumeNumber: null,
-      orderIndex: index + 1,
-    }));
+    // 유사도 기반 그룹에 대해서도 제목 패턴 기반과 동일한 로직을 적용
+    const booksWithScore: BookWithScore[] = group.books.map((book, index) => {
+      const parseResult = parseTitlePattern(book.title);
+      const confidence = calculateBookConfidence(book, group.books);
+
+      return {
+        book,
+        confidence,
+        volumeNumber: parseResult.volumeNumber,
+        orderIndex: parseResult.volumeNumber || index + 1,
+      };
+    });
+
+    // 숫자 없는 책을 1권으로 처리하는 로직 추가
+    const booksWithVolume = booksWithScore.filter(
+      (b) => b.volumeNumber !== null,
+    );
+    const booksWithoutVolume = booksWithScore.filter(
+      (b) => b.volumeNumber === null,
+    );
+
+    if (booksWithoutVolume.length === 1 && booksWithVolume.length > 0) {
+      const hasExplicitVolumeOne = booksWithVolume.some(
+        (b) => b.volumeNumber === 1,
+      );
+
+      if (!hasExplicitVolumeOne) {
+        booksWithoutVolume[0].volumeNumber = 1;
+        booksWithoutVolume[0].orderIndex = 1;
+      }
+    }
+
+    // 순서대로 정렬 로직 추가
+    booksWithScore.sort((a, b) => {
+      if (a.volumeNumber !== null && b.volumeNumber !== null) {
+        return a.volumeNumber - b.volumeNumber;
+      }
+      if (a.volumeNumber !== null) return -1;
+      if (b.volumeNumber !== null) return 1;
+      return a.book.title.localeCompare(b.book.title);
+    });
 
     const detectionReasons: DetectionReason[] = [];
     if (group.books[0].artists?.[0]) {
@@ -232,25 +259,39 @@ function groupByTitlePattern(
   books: Book[],
 ): Array<{ seriesName: string; books: Book[] }> {
   const groups = new Map<string, Book[]>();
+  const groupConfidence = new Map<string, number>();
 
+  // 1. 모든 책을 접두사 기준으로 그룹화하고, 그룹별 최고 신뢰도를 추적합니다.
   for (const book of books) {
     const parseResult = parseTitlePattern(book.title);
-
-    // 신뢰도가 너무 낮으면 스킵
-    if (parseResult.confidence < 0.6) continue;
-
     const seriesName = parseResult.prefix;
+
+    if (!seriesName) {
+      continue;
+    }
 
     if (!groups.has(seriesName)) {
       groups.set(seriesName, []);
+      groupConfidence.set(seriesName, 0);
     }
     groups.get(seriesName)!.push(book);
+
+    // 그룹의 신뢰도를 가장 높은 책의 신뢰도로 업데이트합니다.
+    if (parseResult.confidence > groupConfidence.get(seriesName)!) {
+      groupConfidence.set(seriesName, parseResult.confidence);
+    }
   }
 
-  return Array.from(groups.entries()).map(([seriesName, books]) => ({
-    seriesName,
-    books,
-  }));
+  // 2. 신뢰도 임계값을 넘는 그룹만 필터링합니다.
+  const finalGroups: Array<{ seriesName: string; books: Book[] }> = [];
+  for (const [seriesName, bookList] of groups.entries()) {
+    // 그룹 내에 신뢰도 높은 책이 하나라도 있으면 유효한 그룹으로 판단합니다.
+    if (groupConfidence.get(seriesName)! >= 0.6) {
+      finalGroups.push({ seriesName, books: bookList });
+    }
+  }
+
+  return finalGroups;
 }
 
 /**
