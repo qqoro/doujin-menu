@@ -39,6 +39,13 @@ const previewImageUrls = ref<string[]>([]);
 const isLoadingImages = ref(false);
 const imageLoadError = ref<string | null>(null);
 
+// 가로 스크롤 핸들러
+const handleWheelScroll = (event: WheelEvent) => {
+  const container = event.currentTarget as HTMLElement;
+  event.preventDefault();
+  container.scrollLeft += event.deltaY + event.deltaX;
+};
+
 // Intersection Observer 관련
 const imageRefs = ref<HTMLElement[]>([]);
 const loadedImages = ref<Set<number>>(new Set());
@@ -156,6 +163,7 @@ watch(
           <div
             v-else-if="previewImageUrls.length > 0"
             class="image-scroll-container flex h-full space-x-4 overflow-x-auto rounded-md border p-2"
+            @wheel="handleWheelScroll"
           >
             <div
               v-for="(url, index) in previewImageUrls"
