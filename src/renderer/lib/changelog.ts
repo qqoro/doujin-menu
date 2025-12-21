@@ -15,6 +15,18 @@ export interface Changelog {
  */
 export const changelogData: Changelog[] = [
   {
+    version: "1.9.3",
+    changes: [
+      {
+        type: "feature",
+        title: "✨ 기능 개선",
+        items: [
+          "미리보기 창(갤러리, 책)에서 마우스 휠로 이미지를 좌우로 넘겨볼 수 있도록 개선했습니다.",
+        ],
+      },
+    ],
+  },
+  {
     version: "1.9.2",
     changes: [
       {
