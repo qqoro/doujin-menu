@@ -1,4 +1,6 @@
 import { ipcMain } from "electron";
+import { fileURLToPath } from "url";
+import { Worker } from "worker_threads";
 import db from "../db/index.js";
 import type {
   Book,
@@ -12,6 +14,45 @@ import {
 } from "../services/seriesDetection/seriesDetector.js";
 import type { DetectionOptions } from "../services/seriesDetection/types.js";
 import { store } from "./configHandler.js";
+
+/**
+ * Run series detection in a worker thread
+ */
+function runSeriesDetectionInWorker(
+  books: Book[],
+  options: Partial<DetectionOptions> = {},
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+): Promise<any> {
+  return new Promise((resolve, reject) => {
+    const worker = new Worker(
+      fileURLToPath(
+        new URL("../workers/seriesDetectionWorker.js", import.meta.url),
+      ),
+    );
+
+    worker.on("message", (msg) => {
+      worker.terminate();
+      if (msg.success) {
+        resolve(msg.data);
+      } else {
+        reject(new Error(msg.error));
+      }
+    });
+
+    worker.on("error", (err) => {
+      worker.terminate();
+      reject(err);
+    });
+
+    worker.on("exit", (code) => {
+      if (code !== 0) {
+        reject(new Error(`Worker stopped with exit code ${code}`));
+      }
+    });
+
+    worker.postMessage({ books, options });
+  });
+}
 
 /**
  * 모든 시리즈 컬렉션 조회 (페이지네이션)
@@ -314,7 +355,7 @@ export async function handleRunSeriesDetection(
     }));
 
     // 자동 감지 실행
-    const result = await detectSeriesCandidates(booksWithArrays, options);
+    const result = await runSeriesDetectionInWorker(booksWithArrays, options);
 
     // 감지된 후보들을 DB에 저장
     const createdSeries: SeriesCollection[] = [];

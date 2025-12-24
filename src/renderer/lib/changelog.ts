@@ -15,6 +15,19 @@ export interface Changelog {
  */
 export const changelogData: Changelog[] = [
   {
+    version: "1.9.4",
+    changes: [
+      {
+        type: "feature",
+        title: "✨ 기능 개선",
+        items: [
+          "시리즈 분석 작업을 백그라운드에서 처리하여 앱의 반응 속도를 개선했습니다.",
+          "다운로드 대기열이 모두 완료되었을 때 자동으로 시리즈를 분석하도록 개선했습니다.",
+        ],
+      },
+    ],
+  },
+  {
     version: "1.9.3",
     changes: [
       {

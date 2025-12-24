@@ -683,27 +683,24 @@ export async function scanDirectory(directoryPath: string): Promise<{
         `[Main] ${newlyAddedBookIds.length}권의 새 책 추가됨. 전체 시리즈 자동 감지 시작...`,
       );
 
-      // 새 책이 추가되면 시리즈에 속하지 않은 모든 책을 대상으로 시리즈 감지 실행
-      // (새 책끼리, 새 책과 기존 책 모두 함께 분석)
-      try {
-        // config에서 설정 가져오기
-        const seriesSettings = configStore.get("seriesDetectionSettings", {
-          minConfidence: 0.7,
-          minBooks: 2,
+      // config에서 설정 가져오기
+      const seriesSettings = configStore.get("seriesDetectionSettings", {
+        minConfidence: 0.7,
+        minBooks: 2,
+      });
+
+      // 전체 시리즈 감지 실행
+      handleRunSeriesDetection(seriesSettings)
+        .then((result) => {
+          if (result.success && result.data) {
+            console.log(
+              `[Main] 자동 시리즈 감지 완료: ${result.data.created_count}개 시리즈 생성, ${result.data.processed_books}권 처리`,
+            );
+          }
+        })
+        .catch((error) => {
+          console.error(`[Main] 자동 시리즈 감지 실패:`, error);
         });
-
-        // 전체 시리즈 감지 실행 (handleRunSeriesDetection 재사용)
-        const result = await handleRunSeriesDetection(seriesSettings);
-
-        if (result.success && result.data) {
-          console.log(
-            `[Main] 자동 시리즈 감지 완료: ${result.data.created_count}개 시리즈 생성, ${result.data.processed_books}권 처리`,
-          );
-        }
-      } catch (error) {
-        console.error(`[Main] 자동 시리즈 감지 실패:`, error);
-        // 에러가 발생해도 책 추가 프로세스는 계속 진행되도록 함
-      }
     }
 
     return {
@@ -892,31 +889,6 @@ export async function scanFile(filePath: string) {
             .where("id", result.bookId)
             .update({ cover_path: result.thumbnailPath });
         }
-      }
-    }
-
-    // 새 책이 추가된 경우 자동 시리즈 감지 실행
-    if (addedCount > 0) {
-      console.log(`[Main] 새 책 추가됨. 전체 시리즈 자동 감지 시작...`);
-
-      try {
-        // config에서 설정 가져오기
-        const seriesSettings = configStore.get("seriesDetectionSettings", {
-          minConfidence: 0.7,
-          minBooks: 2,
-        });
-
-        // 전체 시리즈 감지 실행
-        const result = await handleRunSeriesDetection(seriesSettings);
-
-        if (result.success && result.data) {
-          console.log(
-            `[Main] 자동 시리즈 감지 완료: ${result.data.created_count}개 시리즈 생성, ${result.data.processed_books}권 처리`,
-          );
-        }
-      } catch (error) {
-        console.error(`[Main] 자동 시리즈 감지 실패:`, error);
-        // 에러가 발생해도 파일 스캔 프로세스는 계속 진행되도록 함
       }
     }
 

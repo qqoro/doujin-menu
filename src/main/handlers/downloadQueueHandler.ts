@@ -1,17 +1,18 @@
-import { ipcMain, BrowserWindow } from "electron";
-import db from "../db/index.js";
+import { BrowserWindow, ipcMain } from "electron";
+import { filenamifyPath } from "filenamify";
+import fs from "fs/promises";
+import hitomi from "node-hitomi";
+import path from "path";
 import type {
   DownloadQueueItem,
   DownloadQueueStatus,
 } from "../../types/ipc.js";
+import db from "../db/index.js";
 import { console } from "../main.js";
-import { handleDownloadGallery } from "./downloaderHandler.js";
-import fs from "fs/promises";
-import path from "path";
-import { store as configStore } from "./configHandler.js";
-import hitomi from "node-hitomi";
-import { filenamifyPath } from "filenamify";
 import { formatDownloadFolderName } from "../utils/index.js";
+import { store as configStore } from "./configHandler.js";
+import { handleDownloadGallery } from "./downloaderHandler.js";
+import { handleRunSeriesDetection } from "./seriesCollectionHandler.js";
 
 // 다운로드 큐 처리 상태
 let isProcessingQueue = false;
@@ -437,6 +438,36 @@ async function processDownloadQueue() {
 
       // 잠시 대기 (다음 다운로드 전)
       await new Promise((resolve) => setTimeout(resolve, 1000));
+    }
+
+    // 큐의 모든 작업이 완료된 후, 마지막으로 한 번 시리즈 감지를 실행합니다.
+    // 단, 취소에 의해 루프가 종료된 경우가 아니라 정상적으로 큐가 비워진 경우에만 실행합니다.
+    try {
+      const seriesSettings = configStore.get("seriesDetectionSettings", {
+        minConfidence: 0.7,
+        minBooks: 2,
+      });
+
+      console.log(
+        "[DownloadQueue] 모든 다운로드 완료. 시리즈 자동 감지 실행...",
+      );
+      // 비동기로 실행하고 결과는 로그로만 확인 (await 하지 않음)
+      handleRunSeriesDetection(seriesSettings)
+        .then((result) => {
+          if (result.success && result.data) {
+            console.log(
+              `[DownloadQueue] 자동 시리즈 감지 완료: ${result.data.created_count}개 시리즈 생성`,
+            );
+          }
+        })
+        .catch((err) => {
+          console.error(`[DownloadQueue] 자동 시리즈 감지 실패:`, err);
+        });
+    } catch (err) {
+      console.error(
+        "[DownloadQueue] 시리즈 감지 모듈 로드 또는 실행 실패:",
+        err,
+      );
     }
   } catch (error) {
     // 큐 처리 루프 자체에서 예외 발생 (DB 연결 실패, 치명적 에러 등)
