@@ -1031,7 +1031,7 @@ export function registerSeriesCollectionHandlers() {
   ipcMain.handle("create-series-collection", (_event, data) =>
     handleCreateSeriesCollection(data),
   );
-  ipcMain.handle("update-series-collection", (_event, seriesId, data) =>
+  ipcMain.handle("update-series-collection", (_event, { seriesId, data }) =>
     handleUpdateSeriesCollection(seriesId, data),
   );
   ipcMain.handle("delete-series-collection", (_event, seriesId) =>
@@ -1043,13 +1043,13 @@ export function registerSeriesCollectionHandlers() {
   ipcMain.handle("run-series-detection-for-book", (_event, bookId, options) =>
     handleRunSeriesDetectionForBook(bookId, options),
   );
-  ipcMain.handle("add-book-to-series", (_event, bookId, seriesId, orderIndex) =>
+  ipcMain.handle("add-book-to-series", (_event, { bookId, seriesId, orderIndex }) =>
     handleAddBookToSeries(bookId, seriesId, orderIndex),
   );
   ipcMain.handle("remove-book-from-series", (_event, bookId) =>
     handleRemoveBookFromSeries(bookId),
   );
-  ipcMain.handle("reorder-books-in-series", (_event, seriesId, bookIds) =>
+  ipcMain.handle("reorder-books-in-series", (_event, { seriesId, bookIds }) =>
     handleReorderBooksInSeries(seriesId, bookIds),
   );
   ipcMain.handle("merge-series-collections", (_event, sourceId, targetId) =>

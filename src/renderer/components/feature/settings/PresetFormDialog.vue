@@ -12,6 +12,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { computed, ref, watch } from "vue";
+import { toast } from "vue-sonner";
 import { Preset } from "../../../../types/ipc";
 
 const props = defineProps<{ open: boolean; editingPreset: Preset | null }>();
@@ -48,7 +49,7 @@ watch(
 const handleSubmit = () => {
   if (!presetName.value || !presetQuery.value) {
     // 간단한 유효성 검사
-    alert("이름과 검색어를 모두 입력해주세요.");
+    toast.error("이름과 검색어를 모두 입력해주세요.");
     return;
   }
 

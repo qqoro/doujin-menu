@@ -15,6 +15,20 @@ export interface Changelog {
  */
 export const changelogData: Changelog[] = [
   {
+    version: "1.9.5",
+    changes: [
+      {
+        type: "feature",
+        title: "✨ 새로운 기능",
+        items: [
+          "시리즈 관리 화면에서 빈 시리즈를 직접 만들 수 있습니다.",
+          "기존 시리즈에 책을 추가할 수 있는 기능이 추가되었습니다. 제목, 작가, 태그 등으로 검색하여 원하는 책을 시리즈에 추가할 수 있습니다.",
+          "시리즈 내 책들의 순서를 드래그 앤 드롭으로 쉽게 변경할 수 있습니다.",
+        ],
+      },
+    ],
+  },
+  {
     version: "1.9.4",
     changes: [
       {

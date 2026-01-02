@@ -16,6 +16,16 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Icon } from "@iconify/vue";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/vue-query";
 import { computed, ref } from "vue";
@@ -30,6 +40,7 @@ import {
 import SeriesCollectionCard from "../feature/SeriesCollectionCard.vue";
 import SeriesDetailDialog from "../feature/SeriesDetailDialog.vue";
 import SeriesDetectionDialog from "../feature/SeriesDetectionDialog.vue";
+import CreateSeriesDialog from "../feature/CreateSeriesDialog.vue";
 
 const queryClient = useQueryClient();
 const router = useRouter();
@@ -44,7 +55,10 @@ const pageLimit = 50;
 // 다이얼로그 상태
 const showDetectionDialog = ref(false);
 const showDetailDialog = ref(false);
+const showCreateDialog = ref(false);
+const showDeleteDialog = ref(false);
 const selectedSeries = ref<SeriesCollectionWithBooks | null>(null);
+const seriesToDelete = ref<number | null>(null);
 
 // 시리즈 컬렉션 조회
 const {
@@ -116,11 +130,19 @@ const handleSeriesClick = (series: any) => {
   showDetailDialog.value = true;
 };
 
-// 시리즈 삭제
+// 시리즈 삭제 요청
 const handleDeleteSeries = (seriesId: number) => {
-  if (confirm("정말 이 시리즈를 삭제하시겠습니까?")) {
-    deleteMutation.mutate(seriesId);
+  seriesToDelete.value = seriesId;
+  showDeleteDialog.value = true;
+};
+
+// 시리즈 삭제 확정
+const confirmDelete = () => {
+  if (seriesToDelete.value !== null) {
+    deleteMutation.mutate(seriesToDelete.value);
+    seriesToDelete.value = null;
   }
+  showDeleteDialog.value = false;
 };
 
 // 페이지 변경
@@ -187,13 +209,19 @@ const toggleSortOrder = () => {
           </div>
         </HelpDialog>
       </div>
-      <Button
-        :disabled="detectionMutation.isPending.value"
-        @click="handleRunDetection"
-      >
-        <Icon icon="solar:magic-stick-3-bold-duotone" class="mr-2 h-4 w-4" />
-        자동 감지 실행
-      </Button>
+      <div class="flex gap-2">
+        <Button variant="outline" @click="showCreateDialog = true">
+          <Icon icon="solar:add-circle-bold-duotone" class="mr-2 h-4 w-4" />
+          새 시리즈
+        </Button>
+        <Button
+          :disabled="detectionMutation.isPending.value"
+          @click="handleRunDetection"
+        >
+          <Icon icon="solar:magic-stick-3-bold-duotone" class="mr-2 h-4 w-4" />
+          자동 감지 실행
+        </Button>
+      </div>
     </div>
 
     <!-- 필터 및 정렬 영역 -->
@@ -364,5 +392,27 @@ const toggleSortOrder = () => {
       :series="selectedSeries"
       @updated="refetch"
     />
+
+    <!-- 새 시리즈 만들기 다이얼로그 -->
+    <CreateSeriesDialog
+      v-model:open="showCreateDialog"
+      @created="refetch"
+    />
+
+    <!-- 시리즈 삭제 확인 다이얼로그 -->
+    <AlertDialog :open="showDeleteDialog" @update:open="showDeleteDialog = $event">
+      <AlertDialogContent>
+        <AlertDialogHeader>
+          <AlertDialogTitle>시리즈 삭제</AlertDialogTitle>
+          <AlertDialogDescription>
+            정말 이 시리즈를 삭제하시겠습니까? 시리즈에 속한 책들은 시리즈에서 제거되지만 책 자체는 삭제되지 않습니다.
+          </AlertDialogDescription>
+        </AlertDialogHeader>
+        <AlertDialogFooter>
+          <AlertDialogCancel>취소</AlertDialogCancel>
+          <AlertDialogAction @click="confirmDelete">삭제</AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
   </div>
 </template>

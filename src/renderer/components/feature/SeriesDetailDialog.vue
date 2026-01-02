@@ -3,10 +3,19 @@ import { Button } from "@/components/ui/button";
 import {
   Dialog,
   DialogContent,
-  DialogDescription,
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
@@ -23,6 +32,8 @@ import {
   reorderBooksInSeries,
 } from "../../api";
 import type { SeriesCollectionWithBooks } from "../../../main/db/types";
+import type { Book } from "../../../types/ipc";
+import AddBookToSeriesDialog from "./AddBookToSeriesDialog.vue";
 
 interface Props {
   open: boolean;
@@ -43,12 +54,34 @@ const isEditing = ref(false);
 const editName = ref("");
 const editDescription = ref("");
 
+// 책 추가 다이얼로그
+const showAddBookDialog = ref(false);
+
+// 책 제거 확인 다이얼로그
+const showRemoveDialog = ref(false);
+const bookToRemove = ref<number | null>(null);
+
+// 드래그 앤 드롭 상태
+const draggedIndex = ref<number | null>(null);
+const books = ref<Book[]>([]);
+
 // 시리즈 상세 조회
 const { data: seriesDetail, refetch } = useQuery({
   queryKey: computed(() => ["seriesCollection", props.series?.id]),
   queryFn: () => getSeriesCollectionById(props.series!.id),
   enabled: computed(() => props.open && !!props.series),
 });
+
+// 시리즈 상세 데이터가 변경되면 books 배열 업데이트
+watch(
+  () => seriesDetail.value,
+  (detail) => {
+    if (detail?.books) {
+      books.value = [...detail.books];
+    }
+  },
+  { immediate: true },
+);
 
 // 시리즈 정보 업데이트 뮤테이션
 const updateMutation = useMutation({
@@ -75,6 +108,25 @@ const removeBookMutation = useMutation({
   },
   onError: (error) => {
     toast.error(`제거 실패: ${error.message}`);
+  },
+});
+
+// 순서 변경 뮤테이션
+const reorderMutation = useMutation({
+  mutationFn: ({
+    seriesId,
+    bookIds,
+  }: {
+    seriesId: number;
+    bookIds: number[];
+  }) => reorderBooksInSeries(seriesId, bookIds),
+  onSuccess: () => {
+    toast.success("순서가 변경되었습니다");
+    refetch();
+    emit("updated");
+  },
+  onError: (error) => {
+    toast.error(`순서 변경 실패: ${error.message}`);
   },
 });
 
@@ -117,11 +169,19 @@ const saveEdit = () => {
   });
 };
 
-// 책 제거
+// 책 제거 요청
 const handleRemoveBook = (bookId: number) => {
-  if (confirm("이 책을 시리즈에서 제거하시겠습니까?")) {
-    removeBookMutation.mutate(bookId);
+  bookToRemove.value = bookId;
+  showRemoveDialog.value = true;
+};
+
+// 책 제거 확정
+const confirmRemoveBook = () => {
+  if (bookToRemove.value !== null) {
+    removeBookMutation.mutate(bookToRemove.value);
+    bookToRemove.value = null;
   }
+  showRemoveDialog.value = false;
 };
 
 // 책 클릭 - 뷰어로 이동
@@ -147,6 +207,44 @@ const confidenceLevel = computed(() => {
   if (score >= 0.5) return { label: "중간", class: "bg-yellow-500" };
   return { label: "낮음", class: "bg-red-500" };
 });
+
+// 드래그 앤 드롭 핸들러
+const handleDragStart = (index: number) => {
+  draggedIndex.value = index;
+};
+
+const handleDragOver = (e: DragEvent, index: number) => {
+  e.preventDefault();
+  if (draggedIndex.value === null || draggedIndex.value === index) return;
+
+  const newBooks = [...books.value];
+  const draggedBook = newBooks[draggedIndex.value];
+  newBooks.splice(draggedIndex.value, 1);
+  newBooks.splice(index, 0, draggedBook);
+
+  books.value = newBooks;
+  draggedIndex.value = index;
+};
+
+const handleDragEnd = () => {
+  if (draggedIndex.value === null || !props.series) return;
+
+  // 순서가 변경되었으면 서버에 저장
+  const bookIds = books.value.map((book) => book.id);
+  reorderMutation.mutate({ seriesId: props.series.id, bookIds });
+
+  draggedIndex.value = null;
+};
+
+// 책 추가 완료
+const handleBookAdded = () => {
+  showAddBookDialog.value = false;
+  refetch();
+  emit("updated");
+};
+
+// 현재 시리즈에 속한 책 ID 목록
+const excludeBookIds = computed(() => books.value.map((book) => book.id));
 </script>
 
 <template>
@@ -203,9 +301,10 @@ const confidenceLevel = computed(() => {
 
             <!-- 이름 -->
             <div class="space-y-2">
-              <Label>시리즈명</Label>
+              <Label for="series-name">시리즈명</Label>
               <Input
                 v-if="isEditing"
+                id="series-name"
                 v-model="editName"
                 placeholder="시리즈 이름을 입력하세요"
               />
@@ -216,9 +315,10 @@ const confidenceLevel = computed(() => {
 
             <!-- 설명 -->
             <div class="space-y-2">
-              <Label>설명</Label>
+              <Label for="series-description">설명</Label>
               <Textarea
                 v-if="isEditing"
+                id="series-description"
                 v-model="editDescription"
                 placeholder="시리즈 설명을 입력하세요 (선택사항)"
                 rows="3"
@@ -239,21 +339,42 @@ const confidenceLevel = computed(() => {
           <div class="space-y-4">
             <div class="flex items-center justify-between">
               <h3 class="font-semibold">
-                소속 책 ({{ seriesDetail?.books.length || 0 }}권)
+                소속 책 ({{ books.length || 0 }}권)
               </h3>
+              <Button
+                variant="outline"
+                size="sm"
+                @click="showAddBookDialog = true"
+              >
+                <Icon icon="solar:add-circle-bold-duotone" class="mr-2 h-4 w-4" />
+                책 추가
+              </Button>
             </div>
 
             <div class="space-y-2">
               <div
-                v-for="book in seriesDetail?.books"
+                v-for="(book, index) in books"
                 :key="book.id"
-                class="hover:bg-accent group flex items-center gap-3 rounded-lg border p-3"
+                class="hover:bg-accent group flex items-center gap-3 rounded-lg border p-3 transition-colors"
+                :class="{ 'opacity-50': draggedIndex === index }"
+                draggable="true"
+                @dragstart="handleDragStart(index)"
+                @dragover="handleDragOver($event, index)"
+                @dragend="handleDragEnd"
               >
+                <!-- 드래그 핸들 -->
+                <div class="shrink-0 cursor-grab active:cursor-grabbing">
+                  <Icon
+                    icon="solar:hamburger-menu-bold-duotone"
+                    class="text-muted-foreground h-5 w-5"
+                  />
+                </div>
+
                 <!-- 순서 -->
                 <div
-                  class="bg-primary/10 text-primary flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full text-sm font-semibold"
+                  class="bg-primary/10 text-primary flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-sm font-semibold"
                 >
-                  {{ book.series_order_index }}
+                  {{ index + 1 }}
                 </div>
 
                 <!-- 책 정보 (클릭 가능) -->
@@ -275,7 +396,7 @@ const confidenceLevel = computed(() => {
                 <Button
                   variant="ghost"
                   size="icon"
-                  class="flex-shrink-0 opacity-0 transition-opacity group-hover:opacity-100"
+                  class="shrink-0 opacity-0 transition-opacity group-hover:opacity-100"
                   @click.stop="handleRemoveBook(book.id)"
                 >
                   <Icon
@@ -286,7 +407,7 @@ const confidenceLevel = computed(() => {
               </div>
 
               <div
-                v-if="!seriesDetail?.books || seriesDetail.books.length === 0"
+                v-if="!books || books.length === 0"
                 class="text-muted-foreground py-8 text-center"
               >
                 이 시리즈에 속한 책이 없습니다
@@ -297,4 +418,28 @@ const confidenceLevel = computed(() => {
       </ScrollArea>
     </DialogContent>
   </Dialog>
+
+  <!-- 책 추가 다이얼로그 -->
+  <AddBookToSeriesDialog
+    v-model:open="showAddBookDialog"
+    :series-id="series?.id || null"
+    :exclude-book-ids="excludeBookIds"
+    @added="handleBookAdded"
+  />
+
+  <!-- 책 제거 확인 다이얼로그 -->
+  <AlertDialog :open="showRemoveDialog" @update:open="showRemoveDialog = $event">
+    <AlertDialogContent>
+      <AlertDialogHeader>
+        <AlertDialogTitle>시리즈에서 책 제거</AlertDialogTitle>
+        <AlertDialogDescription>
+          이 책을 시리즈에서 제거하시겠습니까? 책 자체는 삭제되지 않고 시리즈에서만 제거됩니다.
+        </AlertDialogDescription>
+      </AlertDialogHeader>
+      <AlertDialogFooter>
+        <AlertDialogCancel>취소</AlertDialogCancel>
+        <AlertDialogAction @click="confirmRemoveBook">제거</AlertDialogAction>
+      </AlertDialogFooter>
+    </AlertDialogContent>
+  </AlertDialog>
 </template>
