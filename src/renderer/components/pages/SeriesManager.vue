@@ -204,7 +204,7 @@ const toggleSortOrder = () => {
             </h3>
             <ul class="list-inside list-disc">
               <li>자동 생성/수동 생성 시리즈를 필터링할 수 있습니다.</li>
-              <li>이름, 권수, 신뢰도, 생성일 기준으로 정렬할 수 있습니다.</li>
+              <li>이름, 생성일 기준으로 정렬할 수 있습니다.</li>
             </ul>
           </div>
         </HelpDialog>
@@ -252,22 +252,6 @@ const toggleSortOrder = () => {
               이름순
               <Icon
                 v-if="sortBy === 'name'"
-                icon="solar:check-circle-bold-duotone"
-                class="ml-auto h-4 w-4"
-              />
-            </DropdownMenuItem>
-            <DropdownMenuItem @click="setSortBy('book_count')">
-              권수순
-              <Icon
-                v-if="sortBy === 'book_count'"
-                icon="solar:check-circle-bold-duotone"
-                class="ml-auto h-4 w-4"
-              />
-            </DropdownMenuItem>
-            <DropdownMenuItem @click="setSortBy('confidence')">
-              신뢰도순
-              <Icon
-                v-if="sortBy === 'confidence'"
                 icon="solar:check-circle-bold-duotone"
                 class="ml-auto h-4 w-4"
               />
