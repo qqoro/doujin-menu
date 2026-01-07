@@ -195,7 +195,8 @@ watch(
               :key="index"
               ref="imageRefs"
               :data-index="index"
-              class="flex h-full flex-shrink-0 items-center justify-center"
+              class="flex h-full flex-shrink-0 cursor-zoom-out items-center justify-center"
+              @click="dialogOpen = false"
             >
               <ProxiedImage
                 :id="gallery.id"

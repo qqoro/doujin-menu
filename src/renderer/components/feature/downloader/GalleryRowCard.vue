@@ -59,7 +59,10 @@ const {
     }"
     @click="emit('select-gallery', gallery)"
   >
-    <div class="relative mr-4 h-64 w-48 flex-shrink-0 overflow-hidden">
+    <div
+      class="relative mr-4 h-64 w-48 flex-shrink-0 cursor-zoom-in overflow-hidden"
+      @click.stop="emit('preview-gallery', gallery)"
+    >
       <ProxiedImage
         :id="props.gallery.id"
         :url="props.gallery.thumbnailUrl"
