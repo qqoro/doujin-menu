@@ -15,6 +15,26 @@ export interface Changelog {
  */
 export const changelogData: Changelog[] = [
   {
+    version: "1.10.0",
+    changes: [
+      {
+        type: "feature",
+        title: "✨ 새로운 기능",
+        items: [
+          "통계 페이지에 앱 사용 시간 통계가 추가되었습니다.",
+          "다운로더에서 썸네일을 클릭하여 전체 페이지를 미리 볼 수 있습니다.",
+        ],
+      },
+      {
+        type: "fix",
+        title: "🐛 버그 수정",
+        items: [
+          "시리즈 관리 페이지에서 시리즈가 올바르게 정렬되지 않던 문제를 수정했습니다.",
+        ],
+      },
+    ],
+  },
+  {
     version: "1.9.5",
     changes: [
       {
