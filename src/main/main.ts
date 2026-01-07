@@ -49,6 +49,9 @@ if (!gotTheLock) {
   app.quit();
 }
 
+// 앱 사용 시간 추적을 위한 변수
+let currentUsageLogId: number | null = null;
+
 let mainWindow: BrowserWindow;
 const viewerWindows = new Set<BrowserWindow>();
 
@@ -185,6 +188,19 @@ app.whenReady().then(async () => {
 
   // 다운로드 큐 초기화 (미완료 다운로드 복구)
   await initializeDownloadQueue();
+
+  // 앱 사용 시간 추적 시작
+  try {
+    const [logId] = await db("AppUsageLog").insert({
+      started_at: new Date().toISOString(),
+      ended_at: null,
+      duration: null,
+    });
+    currentUsageLogId = logId;
+    console.log(`[Main] 앱 사용 시간 추적 시작 (로그 ID: ${logId})`);
+  } catch (error) {
+    console.error("[Main] 앱 사용 시간 추적 시작 실패:", error);
+  }
 
   fs.mkdir(path.join(app.getPath("userData"), "downloader_temp_thumbnails"), {
     recursive: true,
@@ -416,6 +432,34 @@ app.whenReady().then(async () => {
 });
 
 app.on("window-all-closed", async function () {
+  // 앱 사용 시간 추적 종료
+  if (currentUsageLogId !== null) {
+    try {
+      const endedAt = new Date();
+      const log = await db("AppUsageLog")
+        .where("id", currentUsageLogId)
+        .first();
+
+      if (log?.started_at) {
+        const startedAt = new Date(log.started_at);
+        const durationSeconds = Math.floor(
+          (endedAt.getTime() - startedAt.getTime()) / 1000,
+        );
+
+        await db("AppUsageLog").where("id", currentUsageLogId).update({
+          ended_at: endedAt.toISOString(),
+          duration: durationSeconds,
+        });
+
+        console.log(
+          `[Main] 앱 사용 시간 추적 종료 (사용 시간: ${durationSeconds}초)`,
+        );
+      }
+    } catch (error) {
+      console.error("[Main] 앱 사용 시간 추적 종료 실패:", error);
+    }
+  }
+
   await closeDbConnection();
   if (process.platform !== "darwin") {
     app.quit();

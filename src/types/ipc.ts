@@ -294,6 +294,18 @@ export interface IpcChannels {
     request: void;
     response: number;
   };
+  "get-app-usage-stats": {
+    request: void;
+    response: {
+      today: number;
+      week: number;
+      month: number;
+      total: number;
+      averageDaily: number;
+      firstUsedAt: string | null;
+      currentSessionStartTime: string | null;
+    };
+  };
 
   // Preset handlers
   "get-presets": {

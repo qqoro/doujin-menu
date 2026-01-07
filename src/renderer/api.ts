@@ -23,6 +23,10 @@ export async function getLibrarySize() {
   return ipcRenderer.invoke("get-library-size");
 }
 
+export async function getAppUsageStats() {
+  return ipcRenderer.invoke("get-app-usage-stats");
+}
+
 export async function getRandomBook(filter: FilterParams) {
   const result = await ipcRenderer.invoke("get-random-book", filter);
   if (result.success) {

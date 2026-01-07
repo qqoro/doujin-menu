@@ -8,10 +8,7 @@ import type {
   SeriesCollectionWithBooks,
 } from "../db/types.js";
 import { console } from "../main.js";
-import {
-  detectSeriesCandidates,
-  detectSeriesForBook,
-} from "../services/seriesDetection/seriesDetector.js";
+import { detectSeriesForBook } from "../services/seriesDetection/seriesDetector.js";
 import type { DetectionOptions } from "../services/seriesDetection/types.js";
 import { store } from "./configHandler.js";
 
@@ -1043,8 +1040,10 @@ export function registerSeriesCollectionHandlers() {
   ipcMain.handle("run-series-detection-for-book", (_event, bookId, options) =>
     handleRunSeriesDetectionForBook(bookId, options),
   );
-  ipcMain.handle("add-book-to-series", (_event, { bookId, seriesId, orderIndex }) =>
-    handleAddBookToSeries(bookId, seriesId, orderIndex),
+  ipcMain.handle(
+    "add-book-to-series",
+    (_event, { bookId, seriesId, orderIndex }) =>
+      handleAddBookToSeries(bookId, seriesId, orderIndex),
   );
   ipcMain.handle("remove-book-from-series", (_event, bookId) =>
     handleRemoveBookFromSeries(bookId),

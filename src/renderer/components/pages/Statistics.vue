@@ -1,11 +1,12 @@
 <script setup lang="ts">
-import { getLibrarySize, getStatistics } from "@/api";
+import { getAppUsageStats, getLibrarySize, getStatistics } from "@/api";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Icon } from "@iconify/vue";
 import { useQuery } from "@tanstack/vue-query";
+import { computed, onBeforeUnmount, onMounted, ref } from "vue";
 import { useRouter } from "vue-router"; // useRouter 임포트
 
 const router = useRouter(); // useRouter 초기화
@@ -28,6 +29,56 @@ const {
   queryFn: getLibrarySize,
 });
 
+const {
+  data: appUsageStats,
+  isLoading: isAppUsageStatsLoading,
+  isError: isAppUsageStatsError,
+} = useQuery({
+  queryKey: ["appUsageStats"],
+  queryFn: getAppUsageStats,
+});
+
+// 실시간 사용 시간 업데이트를 위한 상태
+const currentTime = ref(Date.now());
+let updateInterval: NodeJS.Timeout | null = null;
+
+// 실시간으로 계산된 사용 시간
+const liveUsageStats = computed(() => {
+  if (!appUsageStats.value) return null;
+
+  // 현재 세션 시작 시간이 있으면 경과 시간 계산
+  let elapsedSeconds = 0;
+  if (appUsageStats.value.currentSessionStartTime) {
+    const sessionStart = new Date(
+      appUsageStats.value.currentSessionStartTime,
+    ).getTime();
+    elapsedSeconds = Math.floor((currentTime.value - sessionStart) / 1000);
+  }
+
+  return {
+    today: appUsageStats.value.today + elapsedSeconds,
+    week: appUsageStats.value.week + elapsedSeconds,
+    month: appUsageStats.value.month + elapsedSeconds,
+    total: appUsageStats.value.total + elapsedSeconds,
+    averageDaily: appUsageStats.value.averageDaily,
+  };
+});
+
+// 컴포넌트 마운트 시 1초마다 현재 시간 업데이트
+onMounted(() => {
+  updateInterval = setInterval(() => {
+    currentTime.value = Date.now();
+  }, 1000);
+});
+
+// 컴포넌트 언마운트 시 interval 정리
+onBeforeUnmount(() => {
+  if (updateInterval) {
+    clearInterval(updateInterval);
+    updateInterval = null;
+  }
+});
+
 const formatBytes = (bytes: number, decimals = 2) => {
   if (bytes === 0) return "0 Bytes";
 
@@ -43,6 +94,22 @@ const formatBytes = (bytes: number, decimals = 2) => {
 // 천 단위 쉼표 포맷 함수 추가
 const formatNumberWithCommas = (num: number) => {
   return num.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+};
+
+// 초를 시:분:초 포맷으로 변환 (또는 분:초)
+const formatDuration = (seconds: number) => {
+  if (seconds === 0) return "0초";
+
+  const hours = Math.floor(seconds / 3600);
+  const minutes = Math.floor((seconds % 3600) / 60);
+  const secs = seconds % 60;
+
+  const parts = [];
+  if (hours > 0) parts.push(`${hours}시간`);
+  if (minutes > 0) parts.push(`${minutes}분`);
+  if (secs > 0 || parts.length === 0) parts.push(`${secs}초`);
+
+  return parts.join(" ");
 };
 
 // 라이브러리 검색 페이지로 이동 함수
@@ -481,6 +548,72 @@ const goToViewer = (bookId: number) => {
             </div>
             <div v-else>
               {{ formatBytes(librarySize ?? 0) }}
+            </div>
+          </CardContent>
+        </Card>
+
+        <!-- 앱 사용 시간 -->
+        <Card class="lg:col-span-2">
+          <CardHeader>
+            <CardTitle class="flex items-center gap-2">
+              <Icon icon="solar:clock-circle-bold-duotone" class="h-6 w-6" />
+              앱 사용 시간
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div
+              v-if="isAppUsageStatsLoading"
+              class="text-center text-gray-500"
+            >
+              불러오는 중...
+            </div>
+            <div
+              v-else-if="isAppUsageStatsError"
+              class="text-center text-red-500"
+            >
+              오류
+            </div>
+            <div
+              v-else-if="liveUsageStats"
+              class="grid grid-cols-2 gap-4 md:grid-cols-4"
+            >
+              <div class="space-y-1">
+                <p class="text-sm text-gray-500">오늘</p>
+                <p class="text-2xl font-bold text-blue-600 dark:text-blue-500">
+                  {{ formatDuration(liveUsageStats.today) }}
+                </p>
+              </div>
+              <div class="space-y-1">
+                <p class="text-sm text-gray-500">이번 주</p>
+                <p
+                  class="text-2xl font-bold text-green-600 dark:text-green-500"
+                >
+                  {{ formatDuration(liveUsageStats.week) }}
+                </p>
+              </div>
+              <div class="space-y-1">
+                <p class="text-sm text-gray-500">이번 달</p>
+                <p
+                  class="text-2xl font-bold text-purple-600 dark:text-purple-500"
+                >
+                  {{ formatDuration(liveUsageStats.month) }}
+                </p>
+              </div>
+              <div class="space-y-1">
+                <p class="text-sm text-gray-500">전체</p>
+                <p
+                  class="text-2xl font-bold text-orange-600 dark:text-orange-500"
+                >
+                  {{ formatDuration(liveUsageStats.total) }}
+                </p>
+              </div>
+              <div class="col-span-2 space-y-1 md:col-span-4">
+                <div class="bg-border my-2 h-px"></div>
+                <p class="text-sm text-gray-500">평균 일일 사용 시간</p>
+                <p class="text-xl font-semibold">
+                  {{ formatDuration(liveUsageStats.averageDaily) }}
+                </p>
+              </div>
             </div>
           </CardContent>
         </Card>

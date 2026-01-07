@@ -266,7 +266,96 @@ export const handleGetLibrarySize = async () => {
   }
 };
 
+// 앱 사용 시간 통계 조회
+export const handleGetAppUsageStats = async () => {
+  try {
+    const now = new Date();
+    const todayStart = new Date(
+      now.getFullYear(),
+      now.getMonth(),
+      now.getDate(),
+    );
+    const weekStart = new Date(todayStart);
+    weekStart.setDate(todayStart.getDate() - todayStart.getDay()); // 이번 주 일요일
+    const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+
+    // 현재 실행 중인 세션 정보 조회 (ended_at이 null인 로그)
+    const currentSession = await db("AppUsageLog")
+      .select("started_at")
+      .whereNull("ended_at")
+      .orderBy("started_at", "desc")
+      .first();
+
+    const currentSessionStartTime = currentSession?.started_at || null;
+
+    // 오늘 사용 시간 (초) - 완료된 세션만
+    const todayStats = await db("AppUsageLog")
+      .sum("duration as total")
+      .where("started_at", ">=", todayStart.toISOString())
+      .whereNotNull("duration")
+      .first();
+
+    // 이번 주 사용 시간 (초) - 완료된 세션만
+    const weekStats = await db("AppUsageLog")
+      .sum("duration as total")
+      .where("started_at", ">=", weekStart.toISOString())
+      .whereNotNull("duration")
+      .first();
+
+    // 이번 달 사용 시간 (초) - 완료된 세션만
+    const monthStats = await db("AppUsageLog")
+      .sum("duration as total")
+      .where("started_at", ">=", monthStart.toISOString())
+      .whereNotNull("duration")
+      .first();
+
+    // 전체 사용 시간 (초) - 완료된 세션만
+    const totalStats = await db("AppUsageLog")
+      .sum("duration as total")
+      .whereNotNull("duration")
+      .first();
+
+    // 첫 실행일 조회
+    const firstLog = await db("AppUsageLog")
+      .select("started_at")
+      .orderBy("started_at", "asc")
+      .first();
+
+    const firstUsedAt = firstLog?.started_at || null;
+
+    // 평균 일일 사용 시간 계산 (전체 사용 시간 / 사용 일수)
+    let averageDailyUsage = 0;
+    if (firstUsedAt) {
+      const daysSinceFirstUse = Math.max(
+        1,
+        Math.ceil(
+          (now.getTime() - new Date(firstUsedAt).getTime()) /
+            (1000 * 60 * 60 * 24),
+        ),
+      );
+      const totalSeconds = totalStats?.total
+        ? Math.floor(totalStats.total as number)
+        : 0;
+      averageDailyUsage = Math.floor(totalSeconds / daysSinceFirstUse);
+    }
+
+    return {
+      today: todayStats?.total ? Math.floor(todayStats.total as number) : 0,
+      week: weekStats?.total ? Math.floor(weekStats.total as number) : 0,
+      month: monthStats?.total ? Math.floor(monthStats.total as number) : 0,
+      total: totalStats?.total ? Math.floor(totalStats.total as number) : 0,
+      averageDaily: averageDailyUsage,
+      firstUsedAt,
+      currentSessionStartTime, // 현재 세션 시작 시간 추가
+    };
+  } catch (error) {
+    console.error("Failed to get app usage stats:", error);
+    throw error;
+  }
+};
+
 export function registerStatisticsHandlers() {
   ipcMain.handle("get-statistics", (_event) => handleGetStatistics());
   ipcMain.handle("get-library-size", (_event) => handleGetLibrarySize());
+  ipcMain.handle("get-app-usage-stats", (_event) => handleGetAppUsageStats());
 }
