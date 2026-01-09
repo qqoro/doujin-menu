@@ -52,6 +52,9 @@ const queryClient = useQueryClient();
 
 const isNewWindow = ref(false);
 
+// 히스토리 추가 대기 상태 (페이지를 실제로 봤을 때만 기록하기 위함)
+const pendingHistoryBookId = ref<number | null>(null);
+
 const {
   bookId,
   currentPage,
@@ -487,6 +490,23 @@ watch(webtoonImageRef, (newRef) => {
   images.value = newRef;
 });
 
+// bookId 변경 감지 (책이 로드될 때)
+watch(bookId, (newBookId) => {
+  if (newBookId) {
+    // 히스토리 추가를 대기 상태로 설정 (페이지를 실제로 볼 때까지)
+    pendingHistoryBookId.value = newBookId;
+  }
+});
+
+// currentPage 변경 감지 (실제로 페이지를 봤을 때)
+watch(currentPage, () => {
+  if (pendingHistoryBookId.value) {
+    // 페이지를 봤으므로 히스토리 기록
+    addBookHistory(pendingHistoryBookId.value);
+    pendingHistoryBookId.value = null; // 한 번만 호출되도록 초기화
+  }
+});
+
 onMounted(async () => {
   isNewWindow.value = await apiIsNewWindow();
   store.loadViewerSettings();
@@ -504,7 +524,8 @@ onMounted(async () => {
 
   if (bookId) {
     store.loadBook(bookId, filterParams);
-    addBookHistory(bookId);
+    // 초기 로드 시에도 대기 상태로 설정 (페이지가 로드되면 자동으로 기록됨)
+    pendingHistoryBookId.value = bookId;
   }
 });
 
