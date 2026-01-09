@@ -19,7 +19,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Switch } from "@/components/ui/switch";
+import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { useScrollRestoration } from "@/composable/useScrollRestoration";
 import { useSearchPersistence } from "@/composable/useSearchPersistence";
 import { useDownloadQueueStore } from "@/store/downloadQueueStore";
@@ -48,8 +48,15 @@ const languageOptions = [
   { value: "chinese", label: "중국어" },
 ];
 
-// 뷰 모드 상태 (true: 썸네일, false: 자세히)
-const isThumbnailView = ref(false);
+// 뷰 모드 상태 ("grid": 썸네일, "list": 리스트)
+const viewMode = ref<"grid" | "list">("list");
+
+// ToggleGroup의 선택 해제 방지
+const handleViewModeChange = (value: AcceptableValue | AcceptableValue[]) => {
+  if (value && typeof value === "string" && (value === "grid" || value === "list")) {
+    viewMode.value = value;
+  }
+};
 
 // 임시 다운로드 경로 (추후 설정과 연동)
 const downloadPath = ref(""); // 초기값은 비워둠
@@ -567,10 +574,18 @@ useSearchPersistence(searchQuery, "downloader-search-query");
       <div class="flex flex-col gap-4 lg:col-span-2">
         <div class="flex items-center justify-between">
           <h2 class="text-lg font-semibold">검색 결과</h2>
-          <div class="flex items-center space-x-2">
-            <Label for="view-mode-switch">썸네일</Label>
-            <Switch id="view-mode-switch" v-model="isThumbnailView" />
-          </div>
+          <ToggleGroup
+            :model-value="viewMode"
+            type="single"
+            @update:model-value="handleViewModeChange"
+          >
+            <ToggleGroupItem value="grid" aria-label="썸네일 뷰">
+              <Icon icon="solar:widget-4-bold-duotone" class="h-4 w-4" />
+            </ToggleGroupItem>
+            <ToggleGroupItem value="list" aria-label="리스트 뷰">
+              <Icon icon="solar:list-bold-duotone" class="h-4 w-4" />
+            </ToggleGroupItem>
+          </ToggleGroup>
         </div>
 
         <div
@@ -589,7 +604,7 @@ useSearchPersistence(searchQuery, "downloader-search-query");
           </div>
           <div v-else-if="allGalleries.length > 0">
             <div
-              v-if="isThumbnailView"
+              v-if="viewMode === 'grid'"
               class="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-2 xl:grid-cols-2 2xl:grid-cols-3"
             >
               <GalleryThumbnailCard

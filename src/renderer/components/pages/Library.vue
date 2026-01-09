@@ -28,6 +28,7 @@ import {
   useQuery,
   useQueryClient,
 } from "@tanstack/vue-query";
+import { AcceptableValue } from "reka-ui";
 import { debouncedWatch } from "@vueuse/core";
 import {
   computed,
@@ -79,6 +80,18 @@ const sortOrder = ref<"asc" | "desc">(
   (route.query.sortOrder as "asc" | "desc") || "desc",
 );
 const viewMode = ref<"grid" | "list">("grid");
+
+// ToggleGroup의 선택 해제 방지
+const handleViewModeChange = (value: AcceptableValue | AcceptableValue[]) => {
+  if (
+    value &&
+    typeof value === "string" &&
+    (value === "grid" || value === "list")
+  ) {
+    viewMode.value = value;
+  }
+};
+
 const { schWord: searchQuery } = useQueryAndParams({
   queries: {
     libraryPath,
@@ -621,7 +634,11 @@ useScrollRestoration(".flex-grow.overflow-y-auto");
         <Icon icon="solar:rocket-bold-duotone" class="h-4 w-4" />
         랜덤
       </Button>
-      <ToggleGroup v-model="viewMode" type="single">
+      <ToggleGroup
+        :model-value="viewMode"
+        type="single"
+        @update:model-value="handleViewModeChange"
+      >
         <ToggleGroupItem value="grid" aria-label="그리드 뷰">
           <Icon icon="solar:widget-4-bold-duotone" class="h-4 w-4" />
         </ToggleGroupItem>
