@@ -1,4 +1,4 @@
-import { ipcRenderer, setWindowTitle } from "@/api";
+import { getBook, ipcRenderer, setWindowTitle } from "@/api";
 import { watchDebounced } from "@vueuse/core";
 import { defineStore } from "pinia";
 import { computed, nextTick, ref, toRaw, watch } from "vue";
@@ -31,6 +31,10 @@ export const useViewerStore = defineStore("viewer", () => {
   const viewerRestoreLastSession = ref(true);
   const viewerAutoFitZoom = ref(true);
   const images = ref<HTMLElement[] | null>(null);
+
+  // 웹툰 태그 자동 전환 관련 상태
+  const originalReadingMode = ref<"ltr" | "rtl" | "webtoon" | null>(null);
+  const wasAutoSwitched = ref(false);
 
   // Zoom state
   const zoomLevel = ref(100); // 10 ~ 500
@@ -461,6 +465,8 @@ export const useViewerStore = defineStore("viewer", () => {
 
   function cleanup() {
     _stopAutoPlayCore();
+    // 웹툰 태그로 인한 자동 전환이었다면 원래 설정 복원
+    restoreReadingMode();
     bookId.value = null;
     bookTitle.value = null;
     pagePaths.value = [];
@@ -484,6 +490,19 @@ export const useViewerStore = defineStore("viewer", () => {
     showToast.value = false;
     toastMessage.value = "";
     images.value = null;
+  }
+
+  // 자동 전환된 읽기 모드 복원
+  function restoreReadingMode() {
+    if (wasAutoSwitched.value && originalReadingMode.value !== null) {
+      readingMode.value = originalReadingMode.value;
+      ipcRenderer.invoke("set-config", {
+        key: "viewerReadingMode",
+        value: originalReadingMode.value,
+      });
+      wasAutoSwitched.value = false;
+      originalReadingMode.value = null;
+    }
   }
 
   async function loadViewerSettings() {
@@ -522,6 +541,11 @@ export const useViewerStore = defineStore("viewer", () => {
       return;
     }
 
+    // 다른 책으로 전환 시 이전 책의 자동 전환 상태 초기화
+    if (bookId.value !== _bookId) {
+      restoreReadingMode();
+    }
+
     const query: Record<string, string> = {};
     if (_filterParams) {
       query.filter = JSON.stringify(_filterParams);
@@ -550,6 +574,28 @@ export const useViewerStore = defineStore("viewer", () => {
         is_favorite.value = !!pathResult.is_favorite; // 즐겨찾기 상태 업데이트
       } else {
         throw new Error(pathResult.error);
+      }
+
+      // 웹툰 태그가 있는지 확인하고 자동 전환
+      const bookData = await getBook(_bookId);
+      if (bookData) {
+        const tags = bookData.tags || [];
+        const hasWebtoonTag = tags.some(
+          (tag) =>
+            tag.name.toLowerCase() === "webtoon" ||
+            tag.name.toLowerCase() === "웹툰",
+        );
+
+        // 웹툰 태그가 있고, 현재 웹툰 모드가 아니며, 이전에 자동 전환하지 않았다면
+        if (hasWebtoonTag && readingMode.value !== "webtoon") {
+          originalReadingMode.value = readingMode.value;
+          wasAutoSwitched.value = true;
+          readingMode.value = "webtoon";
+          // 웹툰 모드에서는 더블 페이지 비활성화
+          if (viewerDoublePageView.value) {
+            viewerDoublePageView.value = false;
+          }
+        }
       }
 
       if (viewerRestoreLastSession.value) {
