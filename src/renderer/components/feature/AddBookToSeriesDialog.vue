@@ -93,9 +93,7 @@ const handleSelectBook = (bookId: number) => {
     <DialogContent class="flex max-h-[80vh] max-w-[600px] flex-col">
       <DialogHeader>
         <DialogTitle>시리즈에 책 추가</DialogTitle>
-        <DialogDescription>
-          추가할 책을 검색하여 선택하세요
-        </DialogDescription>
+        <DialogDescription> 추가할 책을 검색하여 선택하세요 </DialogDescription>
       </DialogHeader>
 
       <!-- 검색 -->
@@ -126,9 +124,14 @@ const handleSelectBook = (bookId: number) => {
               @click="handleSelectBook(book.id)"
             >
               <div class="font-medium">{{ book.title }}</div>
-              <div class="text-muted-foreground mt-1 flex flex-wrap gap-x-2 gap-y-1 text-xs">
+              <div
+                class="text-muted-foreground mt-1 flex flex-wrap gap-x-2 gap-y-1 text-xs"
+              >
                 <span class="flex items-center gap-1">
-                  <Icon icon="solar:document-text-bold-duotone" class="h-3.5 w-3.5" />
+                  <Icon
+                    icon="solar:document-text-bold-duotone"
+                    class="h-3.5 w-3.5"
+                  />
                   {{ book.page_count }}페이지
                 </span>
                 <span
@@ -142,7 +145,10 @@ const handleSelectBook = (bookId: number) => {
                   v-if="book.groups && book.groups.length > 0"
                   class="flex items-center gap-1"
                 >
-                  <Icon icon="solar:users-group-rounded-bold-duotone" class="h-3.5 w-3.5" />
+                  <Icon
+                    icon="solar:users-group-rounded-bold-duotone"
+                    class="h-3.5 w-3.5"
+                  />
                   {{ book.groups.map((g) => g.name).join(", ") }}
                 </span>
               </div>

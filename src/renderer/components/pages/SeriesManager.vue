@@ -82,8 +82,12 @@ const {
 
 // 계산된 속성
 const collections = computed(() => seriesData.value?.collections || []);
-const totalCount = computed(() => seriesData.value?.pagination?.totalCount || 0);
-const totalPages = computed(() => seriesData.value?.pagination?.totalPages || 0);
+const totalCount = computed(
+  () => seriesData.value?.pagination?.totalCount || 0,
+);
+const totalPages = computed(
+  () => seriesData.value?.pagination?.totalPages || 0,
+);
 
 // 자동 감지 실행 뮤테이션
 const detectionMutation = useMutation({
@@ -378,18 +382,19 @@ const toggleSortOrder = () => {
     />
 
     <!-- 새 시리즈 만들기 다이얼로그 -->
-    <CreateSeriesDialog
-      v-model:open="showCreateDialog"
-      @created="refetch"
-    />
+    <CreateSeriesDialog v-model:open="showCreateDialog" @created="refetch" />
 
     <!-- 시리즈 삭제 확인 다이얼로그 -->
-    <AlertDialog :open="showDeleteDialog" @update:open="showDeleteDialog = $event">
+    <AlertDialog
+      :open="showDeleteDialog"
+      @update:open="showDeleteDialog = $event"
+    >
       <AlertDialogContent>
         <AlertDialogHeader>
           <AlertDialogTitle>시리즈 삭제</AlertDialogTitle>
           <AlertDialogDescription>
-            정말 이 시리즈를 삭제하시겠습니까? 시리즈에 속한 책들은 시리즈에서 제거되지만 책 자체는 삭제되지 않습니다.
+            정말 이 시리즈를 삭제하시겠습니까? 시리즈에 속한 책들은 시리즈에서
+            제거되지만 책 자체는 삭제되지 않습니다.
           </AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter>

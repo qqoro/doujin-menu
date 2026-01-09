@@ -53,7 +53,11 @@ const viewMode = ref<"grid" | "list">("list");
 
 // ToggleGroup의 선택 해제 방지
 const handleViewModeChange = (value: AcceptableValue | AcceptableValue[]) => {
-  if (value && typeof value === "string" && (value === "grid" || value === "list")) {
+  if (
+    value &&
+    typeof value === "string" &&
+    (value === "grid" || value === "list")
+  ) {
     viewMode.value = value;
   }
 };

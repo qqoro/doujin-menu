@@ -338,15 +338,16 @@ const excludeBookIds = computed(() => books.value.map((book) => book.id));
           <!-- 소속 책 목록 -->
           <div class="space-y-4">
             <div class="flex items-center justify-between">
-              <h3 class="font-semibold">
-                소속 책 ({{ books.length || 0 }}권)
-              </h3>
+              <h3 class="font-semibold">소속 책 ({{ books.length || 0 }}권)</h3>
               <Button
                 variant="outline"
                 size="sm"
                 @click="showAddBookDialog = true"
               >
-                <Icon icon="solar:add-circle-bold-duotone" class="mr-2 h-4 w-4" />
+                <Icon
+                  icon="solar:add-circle-bold-duotone"
+                  class="mr-2 h-4 w-4"
+                />
                 책 추가
               </Button>
             </div>
@@ -428,12 +429,16 @@ const excludeBookIds = computed(() => books.value.map((book) => book.id));
   />
 
   <!-- 책 제거 확인 다이얼로그 -->
-  <AlertDialog :open="showRemoveDialog" @update:open="showRemoveDialog = $event">
+  <AlertDialog
+    :open="showRemoveDialog"
+    @update:open="showRemoveDialog = $event"
+  >
     <AlertDialogContent>
       <AlertDialogHeader>
         <AlertDialogTitle>시리즈에서 책 제거</AlertDialogTitle>
         <AlertDialogDescription>
-          이 책을 시리즈에서 제거하시겠습니까? 책 자체는 삭제되지 않고 시리즈에서만 제거됩니다.
+          이 책을 시리즈에서 제거하시겠습니까? 책 자체는 삭제되지 않고
+          시리즈에서만 제거됩니다.
         </AlertDialogDescription>
       </AlertDialogHeader>
       <AlertDialogFooter>
