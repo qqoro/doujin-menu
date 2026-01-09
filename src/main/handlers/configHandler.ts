@@ -41,6 +41,7 @@ interface Config {
   libraryViewSettings?: LibraryViewSettings;
   seriesDetectionSettings?: SeriesDetectionSettings;
   prioritizeKoreanTitles?: boolean;
+  hideLibraryTags?: boolean;
   useAppLock?: boolean;
   appLockPassword?: string; // salt:hash
   viewerExcludeCompleted?: boolean;
@@ -73,6 +74,7 @@ const defaults: Config = {
     minBooks: 2,
   },
   prioritizeKoreanTitles: false,
+  hideLibraryTags: false,
   useAppLock: false,
   appLockPassword: "",
 };

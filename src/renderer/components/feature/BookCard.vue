@@ -36,6 +36,7 @@ import type { Book } from "../../../types/ipc";
 const props = defineProps<{
   book: Book;
   queryKey: readonly unknown[];
+  hideTags?: boolean;
 }>();
 const emit = defineEmits([
   "selectTag",
@@ -211,7 +212,10 @@ const confirmDeleteBook = async () => {
               {{ validGroups.map((g) => g.name).join(", ") }}
             </span>
           </div>
-          <div class="flex min-h-[42px] w-full flex-wrap items-start gap-1">
+          <div
+            v-if="!hideTags"
+            class="flex min-h-[42px] w-full flex-wrap items-start gap-1"
+          >
             <Badge
               v-for="tag in visibleTags"
               :key="tag.name"

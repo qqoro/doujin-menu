@@ -147,6 +147,7 @@ const downloadPattern = ref("%artist% - %title%");
 const compressDownload = ref(false);
 const compressFormat = ref<"cbz" | "zip">("cbz");
 const prioritizeKoreanTitles = ref(false);
+const hideLibraryTags = ref(false);
 const useAppLock = ref(false);
 const newPassword = ref("");
 const confirmPassword = ref("");
@@ -193,6 +194,7 @@ onMounted(async () => {
   compressDownload.value = config.compressDownload === true;
   compressFormat.value = (config.compressFormat as "cbz" | "zip") || "cbz";
   prioritizeKoreanTitles.value = config.prioritizeKoreanTitles === true;
+  hideLibraryTags.value = config.hideLibraryTags === true;
   useAppLock.value = config.useAppLock === true;
 
   // 뷰어 설정 불러오기
@@ -285,6 +287,11 @@ const onCompressFormatChange = (value: AcceptableValue) => {
 const onPrioritizeKoreanTitlesChange = (value: boolean) => {
   prioritizeKoreanTitles.value = value;
   saveConfig("prioritizeKoreanTitles", value);
+};
+
+const onHideLibraryTagsChange = (value: boolean) => {
+  hideLibraryTags.value = value;
+  saveConfig("hideLibraryTags", value);
 };
 
 const onUseAppLockChange = async (value: boolean) => {
@@ -829,6 +836,18 @@ const resetAllData = async () => {
                       :model-value="prioritizeKoreanTitles"
                       class="justify-self-end"
                       @update:model-value="onPrioritizeKoreanTitlesChange"
+                    />
+                  </SettingItem>
+                  <SettingItem
+                    label-for="hide-library-tags"
+                    title="라이브러리 태그 목록 숨기기"
+                    subtitle="라이브러리에서 책 카드의 태그 목록을 숨깁니다."
+                  >
+                    <Switch
+                      id="hide-library-tags"
+                      :model-value="hideLibraryTags"
+                      class="justify-self-end"
+                      @update:model-value="onHideLibraryTagsChange"
                     />
                   </SettingItem>
                 </CardContent>

@@ -114,6 +114,11 @@ const { data: config, isSuccess: isConfigLoaded } = useQuery({
   queryFn: () => ipcRenderer.invoke("get-config"),
 });
 
+// 태그 표시 설정
+const hideLibraryTags = computed(() => {
+  return config.value?.hideLibraryTags === true;
+});
+
 // 설정 초기화 완료 여부를 추적하는 플래그
 const isSettingsInitialized = ref(false);
 
@@ -669,6 +674,7 @@ useScrollRestoration(".flex-grow.overflow-y-auto");
         :key="book.id"
         :book="book"
         :query-key="queryKey"
+        :hide-tags="hideLibraryTags"
         @select-tag="toggleTag"
         @select-artist="toggleArtist"
         @select-group="toggleGroup"
@@ -698,6 +704,7 @@ useScrollRestoration(".flex-grow.overflow-y-auto");
         :key="book.id"
         :book="book"
         :query-key="queryKey"
+        :hide-tags="hideLibraryTags"
         @select-tag="toggleTag"
         @select-artist="toggleArtist"
         @select-group="toggleGroup"
