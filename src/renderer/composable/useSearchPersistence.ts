@@ -1,4 +1,4 @@
-import { watch, onMounted, Ref } from "vue";
+import { onActivated, onMounted, Ref, watch } from "vue";
 import { useRoute } from "vue-router";
 
 export function useSearchPersistence(
@@ -7,8 +7,7 @@ export function useSearchPersistence(
 ) {
   const route = useRoute();
 
-  // 컴포넌트 마운트 시 복원
-  onMounted(() => {
+  const restore = () => {
     // URL 쿼리에 검색어가 있으면 localStorage 복원 건너뛰기
     if (route.query.schWord) {
       return;
@@ -18,7 +17,11 @@ export function useSearchPersistence(
     if (saved) {
       searchQuery.value = saved;
     }
-  });
+  };
+
+  // 컴포넌트 마운트 시 복원
+  onMounted(restore);
+  onActivated(restore);
 
   // 검색어 변경 시 저장
   watch(searchQuery, (newValue) => {
