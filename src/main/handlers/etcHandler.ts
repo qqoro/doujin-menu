@@ -1,5 +1,6 @@
 import type { BrowserWindow, IpcMainInvokeEvent } from "electron";
 import { app, ipcMain, shell } from "electron";
+import fg from "fast-glob";
 import fs from "fs/promises";
 import hitomi from "node-hitomi";
 import path from "path";
@@ -71,19 +72,26 @@ async function handleGenerateMissingInfoFiles(
   let errorCount = 0;
   let processedCount = 0;
 
-  // 1. 전체 폴더 수 계산
-  let totalFolders = 0;
+  // 1. fast-glob로 모든 하위 폴더 찾기 (중첩 폴더 포함)
+  const allFolders: string[] = [];
   for (const folderPath of libraryFolders) {
     try {
-      const entries = await fs.readdir(folderPath, { withFileTypes: true });
-      totalFolders += entries.filter((entry) => entry.isDirectory()).length;
+      const folders = await fg(["**/*"], {
+        cwd: folderPath,
+        absolute: true,
+        onlyDirectories: true,
+        deep: 100,
+      });
+      allFolders.push(...folders);
     } catch (error) {
       console.error(
-        `Error reading library folder for counting ${folderPath}`,
+        `Error scanning library folder ${folderPath} with fast-glob:`,
         error,
       );
     }
   }
+
+  const totalFolders = allFolders.length;
 
   event.sender.send("info-generation-progress", {
     total: totalFolders,
@@ -91,81 +99,71 @@ async function handleGenerateMissingInfoFiles(
     message: "작업을 시작합니다...",
   });
 
-  // 2. 실제 처리
-  for (const folderPath of libraryFolders) {
+  // 2. 각 폴더에 대해 info.txt 생성
+  for (const subfolderPath of allFolders) {
+    processedCount++;
+    const folderName = path.basename(subfolderPath);
+    const infoFilePath = path.join(subfolderPath, "info.txt");
+    let statusMessage = "";
+
     try {
-      const entries = await fs.readdir(folderPath, { withFileTypes: true });
-      const subfolders = entries.filter((entry) => entry.isDirectory());
-
-      for (const subfolder of subfolders) {
-        processedCount++;
-        const subfolderPath = path.join(folderPath, subfolder.name);
-        const infoFilePath = path.join(subfolderPath, "info.txt");
-        let statusMessage = "";
-
+      await fs.access(infoFilePath);
+      statusMessage = `건너뜀 (파일 있음): ${folderName}`;
+      skippedCount++;
+    } catch {
+      // info.txt가 없는 경우
+      const match = RegExp(regex).exec(folderName);
+      if (match?.[1]) {
+        const galleryId = parseInt(match[1], 10);
         try {
-          await fs.access(infoFilePath);
-          statusMessage = `건너뜀 (파일 있음): ${subfolder.name}`;
-          skippedCount++;
-        } catch {
-          // info.txt가 없는 경우
-          const match = RegExp(regex).exec(subfolder.name);
-          if (match?.[1]) {
-            const galleryId = parseInt(match[1], 10);
-            try {
-              const gallery = await hitomi.getGallery(galleryId);
-              if (gallery) {
-                const infoContent = [
-                  `갤러리 넘버: ${gallery.id}`,
-                  `제목: ${gallery.title.display}`,
-                  `작가: ${gallery.artists?.join(", ") || "N/A"}`,
-                  `그룹: ${gallery.groups?.join(", ") || "N/A"}`,
-                  `타입: ${gallery.type || "N/A"}`,
-                  `시리즈: ${gallery.series?.join(", ") || "N/A"}`,
-                  `캐릭터: ${gallery.characters?.join(", ") || "N/A"}`,
-                  `태그: ${
-                    gallery.tags
-                      ?.map((t) =>
-                        t.type === "male" || t.type === "female"
-                          ? `${t.type}:${t.name}`
-                          : t.name,
-                      )
-                      .join(", ") || "N/A"
-                  }`,
-                  `언어: ${gallery.languageName?.english || "N/A"}`,
-                ].join("\n\n");
+          const gallery = await hitomi.getGallery(galleryId);
+          if (gallery) {
+            const infoContent = [
+              `갤러리 넘버: ${gallery.id}`,
+              `제목: ${gallery.title.display}`,
+              `작가: ${gallery.artists?.join(", ") || "N/A"}`,
+              `그룹: ${gallery.groups?.join(", ") || "N/A"}`,
+              `타입: ${gallery.type || "N/A"}`,
+              `시리즈: ${gallery.series?.join(", ") || "N/A"}`,
+              `캐릭터: ${gallery.characters?.join(", ") || "N/A"}`,
+              `태그: ${
+                gallery.tags
+                  ?.map((t) =>
+                    t.type === "male" || t.type === "female"
+                      ? `${t.type}:${t.name}`
+                      : t.name,
+                  )
+                  .join(", ") || "N/A"
+              }`,
+              `언어: ${gallery.languageName?.english || "N/A"}`,
+            ].join("\n\n");
 
-                await fs.writeFile(infoFilePath, infoContent);
-                statusMessage = `생성 완료: ${subfolder.name}`;
-                createdCount++;
-              } else {
-                statusMessage = `오류 (갤러리 없음): ${subfolder.name}`;
-                errorCount++;
-              }
-            } catch (error) {
-              console.error(
-                `Error fetching gallery info for ID ${galleryId}`,
-                error,
-              );
-              statusMessage = `오류 (정보 조회 실패): ${subfolder.name}`;
-              errorCount++;
-            }
+            await fs.writeFile(infoFilePath, infoContent);
+            statusMessage = `생성 완료: ${folderName}`;
+            createdCount++;
           } else {
-            statusMessage = `건너뜀 (패턴 불일치): ${subfolder.name}`;
-            skippedCount++;
+            statusMessage = `오류 (갤러리 없음): ${folderName}`;
+            errorCount++;
           }
+        } catch (error) {
+          console.error(
+            `Error fetching gallery info for ID ${galleryId}`,
+            error,
+          );
+          statusMessage = `오류 (정보 조회 실패): ${folderName}`;
+          errorCount++;
         }
-
-        event.sender.send("info-generation-progress", {
-          total: totalFolders,
-          current: processedCount,
-          message: statusMessage,
-        });
+      } else {
+        statusMessage = `건너뜀 (패턴 불일치): ${folderName}`;
+        skippedCount++;
       }
-    } catch (error) {
-      console.error(`Error reading library folder ${folderPath}:`, error);
-      errorCount++;
     }
+
+    event.sender.send("info-generation-progress", {
+      total: totalFolders,
+      current: processedCount,
+      message: statusMessage,
+    });
   }
 
   const finalMessage = `작업 완료: ${createdCount}개 생성, ${skippedCount}개 건너뜀, ${errorCount}개 오류`;

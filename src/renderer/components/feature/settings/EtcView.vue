@@ -43,7 +43,9 @@ const generateMissingInfoFiles = async () => {
     );
     // 최종 결과는 이제 progress 핸들러가 아닌 토스트로 표시
     if (result.success) {
-      toast.success("info.txt 파일 생성이 완료되었습니다.");
+      toast.success("info.txt 파일 생성이 완료되었습니다.", {
+        description: "라이브러리를 갱신해야 변경사항이 반영됩니다.",
+      });
     } else {
       toast.error(result.error || "알 수 없는 오류가 발생했습니다.");
     }
