@@ -15,6 +15,18 @@ export interface Changelog {
  */
 export const changelogData: Changelog[] = [
   {
+    version: "1.11.2",
+    changes: [
+      {
+        type: "fix",
+        title: "🐛 버그 수정",
+        items: [
+          "뷰어에서 다른 책으로 이동할 때 현재 페이지가 저장되지 않던 문제를 수정했습니다.",
+        ],
+      },
+    ],
+  },
+  {
     version: "1.11.1",
     changes: [
       {
