@@ -463,8 +463,10 @@ export const useViewerStore = defineStore("viewer", () => {
     panY.value = y;
   }
 
-  function cleanup() {
+  async function cleanup() {
     _stopAutoPlayCore();
+    // 뷰어 종료 전 현재 페이지 즉시 저장
+    await updateCurrentPageInDb();
     // 웹툰 태그로 인한 자동 전환이었다면 원래 설정 복원
     restoreReadingMode();
     bookId.value = null;
@@ -539,6 +541,11 @@ export const useViewerStore = defineStore("viewer", () => {
   async function loadBook(_bookId: number, _filterParams?: FilterParams) {
     if (bookId.value === _bookId && pagePaths.value.length > 0) {
       return;
+    }
+
+    // 다른 책으로 전환 시 이전 책의 현재 페이지를 즉시 저장
+    if (bookId.value !== null && bookId.value !== _bookId) {
+      await updateCurrentPageInDb();
     }
 
     // 다른 책으로 전환 시 이전 책의 자동 전환 상태 초기화
