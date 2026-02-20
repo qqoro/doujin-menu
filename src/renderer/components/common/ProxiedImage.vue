@@ -1,6 +1,5 @@
 <script setup lang="ts">
 import { ipcRenderer } from "@/api";
-import { Button } from "@/components/ui/button";
 import { onUnmounted, ref, watch } from "vue";
 
 const props = defineProps<{
@@ -28,12 +27,11 @@ const props = defineProps<{
 
 const localSrc = ref<string>("");
 const isLoading = ref(true);
-const hasError = ref(false);
 const retryCount = ref(0);
 const retryTimeoutId = ref<NodeJS.Timeout | null>(null);
 const isRetrying = ref(false); // 재시도 대기 중 상태
 
-const RETRY_DELAYS = [3000, 5000]; // 3초, 5초
+const RETRY_DELAY = 3000; // 3초 간격으로 무한 재시도
 
 // 이 ref는 이미지가 로딩을 시작해야 할 때 true가 됩니다.
 const activateLoad = ref(false);
@@ -51,25 +49,16 @@ watch(
 
 const loadImage = async () => {
   if (!props.url || !props.id) {
-    hasError.value = true;
     isLoading.value = false;
     return;
   }
 
-  // 이미 로드된 이미지이고, 현재 로딩 중이 아니며, 에러가 없는 경우
-  // 그리고 URL/ID가 변경되지 않았다면 다시 로드할 필요가 없습니다.
-  // 이 부분은 필요에 따라 더 정교한 캐싱 로직으로 대체될 수 있습니다.
-  if (
-    localSrc.value &&
-    !isLoading.value &&
-    !hasError.value &&
-    retryCount.value === 0 // 재시도 중이 아닐 때만 캐시 확인
-  ) {
+  // 이미 로드된 이미지이고, 현재 로딩 중이 아닌 경우
+  if (localSrc.value && !isLoading.value && retryCount.value === 0) {
     return;
   }
 
   isLoading.value = true;
-  hasError.value = false;
   isRetrying.value = false; // 로딩 시작 시 재시도 상태 초기화
 
   try {
@@ -77,12 +66,11 @@ const loadImage = async () => {
       url: props.url,
       referer: props.referer,
       galleryId:
-        typeof props.id === "number" ? props.id : parseInt(props.id, 10),
+        typeof props.id === "number" ? props.id : Number.parseInt(props.id, 10),
     });
 
     if (result.success && result.data) {
       localSrc.value = result.data;
-      hasError.value = false;
       retryCount.value = 0; // 성공 시 재시도 카운트 초기화
     } else {
       console.error("프록시 이미지 로드 실패:", result.error);
@@ -97,33 +85,13 @@ const loadImage = async () => {
 };
 
 const handleLoadError = () => {
-  if (retryCount.value < RETRY_DELAYS.length) {
-    const delay = RETRY_DELAYS[retryCount.value];
-    retryCount.value++;
-    isRetrying.value = true; // 재시도 대기 상태로 변경
-    console.log(
-      `${delay / 1000}초 후 재시도 (${retryCount.value}/${RETRY_DELAYS.length})`,
-    );
-    retryTimeoutId.value = setTimeout(() => {
-      loadImage();
-    }, delay);
-  } else {
-    hasError.value = true;
-    isRetrying.value = false; // 재시도 실패 시 재시도 상태 해제
-    console.error("모든 재시도 실패.");
-  }
-};
-
-const retryLoad = () => {
-  if (retryTimeoutId.value) {
-    clearTimeout(retryTimeoutId.value);
-    retryTimeoutId.value = null;
-  }
-  localSrc.value = ""; // 기존 이미지 소스 초기화
-  retryCount.value = 0; // 재시도 카운트 초기화
-  hasError.value = false; // 에러 상태 초기화
-  isRetrying.value = false; // 재시도 대기 상태 초기화
-  loadImage(); // 이미지 로드 다시 시작
+  // 3초 간격으로 무한 재시도
+  retryCount.value++;
+  isRetrying.value = true; // 재시도 대기 상태로 변경
+  console.log(`${RETRY_DELAY / 1000}초 후 재시도 (${retryCount.value}회)`);
+  retryTimeoutId.value = setTimeout(() => {
+    loadImage();
+  }, RETRY_DELAY);
 };
 
 // url, id, 또는 activateLoad가 변경될 때 이미지를 로드합니다.
@@ -158,22 +126,6 @@ onUnmounted(() => {
       v-if="(isLoading && !localSrc) || isRetrying"
       class="h-full w-full animate-pulse rounded bg-gray-200 dark:bg-gray-700"
     ></div>
-
-    <!-- 에러 발생 시 대체 UI (모든 재시도 실패 후) -->
-    <div
-      v-else-if="hasError"
-      class="flex h-full w-full flex-col items-center justify-center rounded bg-red-100 p-2 dark:bg-red-900/20"
-    >
-      <p class="mb-2 text-center text-xs text-red-500">이미지<br />로드 실패</p>
-      <Button
-        size="sm"
-        variant="outline"
-        class="h-auto px-2 py-1 text-xs"
-        @click="retryLoad"
-      >
-        다시 로드하기
-      </Button>
-    </div>
 
     <!-- 이미지 표시 -->
     <img
