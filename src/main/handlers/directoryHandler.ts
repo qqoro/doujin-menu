@@ -121,12 +121,14 @@ export async function extractInfoTxtFromZip(
                 `[Main] ZIP에서 info.txt 읽기 오류 ${zipPath}:`,
                 err,
               );
+              zipfile.close();
               return resolve(null);
             }
             let fileContent = "";
             readStream.on("data", (chunk) => (fileContent += chunk.toString()));
             readStream.on("end", () => {
               console.log(`[Main] ZIP에서 info.txt 내용 추출 성공: ${zipPath}`);
+              zipfile.close();
               resolve(fileContent);
             });
             readStream.on("error", (readErr) => {
@@ -134,6 +136,7 @@ export async function extractInfoTxtFromZip(
                 `[Main] ZIP에서 info.txt 스트림 읽기 오류 ${zipPath}:`,
                 readErr,
               );
+              zipfile.close();
               resolve(null);
             });
           });
@@ -145,6 +148,7 @@ export async function extractInfoTxtFromZip(
         console.log(
           `[Main] ${zipPath}에서 info.txt에 대한 ZIP 엔트리 스캔 완료. info.txt를 찾지 못했습니다.`,
         );
+        zipfile.close();
         resolve(null);
       });
       zipfile.on("error", (zipErr) => {
@@ -152,6 +156,7 @@ export async function extractInfoTxtFromZip(
           `[Main] ${zipPath}의 info.txt에 대한 ZIP 파일 처리 중 오류:`,
           zipErr,
         );
+        zipfile.close();
         resolve(null);
       });
       zipfile.readEntry(); // 엔트리 읽기 시작
@@ -177,6 +182,7 @@ export async function getImageCountInZip(zipPath: string): Promise<number> {
         zipfile.readEntry();
       });
       zipfile.on("end", () => {
+        zipfile.close();
         resolve(imageCount);
       });
       zipfile.on("error", (zipErr) => {
@@ -184,6 +190,7 @@ export async function getImageCountInZip(zipPath: string): Promise<number> {
           `[Main] 이미지 개수를 위한 ZIP 파일 처리 중 오류 ${zipPath}:`,
           zipErr,
         );
+        zipfile.close();
         resolve(0);
       });
       zipfile.readEntry(); // 엔트리 읽기 시작
