@@ -15,6 +15,19 @@ export interface Changelog {
  */
 export const changelogData: Changelog[] = [
   {
+    version: "1.11.3",
+    changes: [
+      {
+        type: "fix",
+        title: "🐛 버그 수정",
+        items: [
+          "ZIP 파일 스캔 시 파일 핸들 누수 문제를 수정했습니다.",
+          "이미지 로딩 실패 시 재시도 횟수 제한을 제거하여 안정성을 개선했습니다.",
+        ],
+      },
+    ],
+  },
+  {
     version: "1.11.2",
     changes: [
       {
