@@ -3,6 +3,7 @@ import { Input } from "@/components/ui/input";
 import { useLookupData } from "@/composable/useLookupData";
 import { Icon } from "@iconify/vue";
 import { computed, nextTick, ref, useTemplateRef, watch } from "vue";
+import { watchDebounced } from "@vueuse/core";
 import { toast } from "vue-sonner";
 
 const props = defineProps({
@@ -54,6 +55,19 @@ interface Typeable {
   type: string;
 }
 
+// 미리 computed로 이름 배열 생성 (매 입력마다 map() 호출 방지)
+const tagNames = computed(() => tags.value.map((t: Nameable) => t.name));
+const artistNames = computed(() => artists.value.map((a: Nameable) => a.name));
+const seriesNames = computed(() => series.value.map((s: Nameable) => s.name));
+const groupNames = computed(() => groups.value.map((g: Nameable) => g.name));
+const characterNames = computed(() =>
+  characters.value.map((c: Nameable) => c.name),
+);
+const typeNames = computed(() => types.value.map((t: Typeable) => t.type));
+const languageNames = computed(() =>
+  languages.value.map((l: Nameable) => l.name),
+);
+
 const currentPrefix = computed(() => {
   const lastSpaceIndex = props.modelValue.lastIndexOf(" ");
   const lastWord = props.modelValue.substring(lastSpaceIndex + 1);
@@ -69,7 +83,26 @@ const currentSearchTerm = computed(() => {
   return props.modelValue.substring(lastSpaceIndex + 1);
 });
 
-watch(
+// 프리픽스 제안 (즉시 반응, 데이터 양이 적어 debounce 불필요)
+watch(() => props.modelValue, (newValue) => {
+  const term = currentSearchTerm.value.toLowerCase();
+  const prefix = currentPrefix.value;
+
+  // 프리픽스가 없고 입력 중일 때만 프리픽스 제안
+  if (!prefix && term.length > 0) {
+    const allSuggestiblePrefixes = [...availablePrefixes, ...implicitTagPrefixes];
+    const currentTerms = new Set(
+      newValue.toLowerCase().split(" ").filter((s) => s.length > 0),
+    );
+    suggestions.value = allSuggestiblePrefixes
+      .filter((p) => p.startsWith(term))
+      .filter((s) => !currentTerms.has(s.toLowerCase()));
+    activeSuggestionIndex.value = -1;
+  }
+});
+
+// 태그/아티스트 제안 (300ms debounce로 타이핑 중 불필요한 연산 방지)
+watchDebounced(
   () => props.modelValue,
   (newValue) => {
     const term = currentSearchTerm.value.toLowerCase();
@@ -87,11 +120,6 @@ watch(
       return;
     }
 
-    // 제안 가능한 모든 프리픽스 목록 (기본 + 암시적 태그)
-    const allSuggestiblePrefixes = [
-      ...availablePrefixes,
-      ...implicitTagPrefixes,
-    ];
     const isImplicitTag = implicitTagPrefixes.some((p) => term.startsWith(p));
 
     let dataToSuggest: string[] = [];
@@ -100,38 +128,38 @@ watch(
 
     if (isImplicitTag) {
       // 암시적 태그 프리픽스가 입력된 경우 (예: 'female:')
-      dataToSuggest = tags.value.map((t: Nameable) => t.name);
+      dataToSuggest = tagNames.value;
       searchTerm = term; // 'female:'로 시작하는 전체 태그를 검색
       suggestionPrefix = ""; // 제안은 'female:big_breasts' 형태가 됨
     } else if (prefix) {
       // 명시적 프리픽스가 입력된 경우 (예: 'tag:')
       suggestionPrefix = prefix;
       searchTerm = term.substring(prefix.length);
-      if (prefix === "artist:")
-        dataToSuggest = artists.value.map((a: Nameable) => a.name);
-      else if (prefix === "group:")
-        dataToSuggest = groups.value.map((g: Nameable) => g.name);
-      else if (prefix === "type:")
-        dataToSuggest = types.value.map((t: Typeable) => t.type);
-      else if (prefix === "language:")
-        dataToSuggest = languages.value.map((l: Nameable) => l.name);
-      else if (prefix === "series:")
-        dataToSuggest = series.value.map((s: Nameable) => s.name);
-      else if (prefix === "character:")
-        dataToSuggest = characters.value.map((c: Nameable) => c.name);
-      else if (prefix === "tag:")
-        dataToSuggest = tags.value.map((t: Nameable) => t.name);
+      if (prefix === "artist:") dataToSuggest = artistNames.value;
+      else if (prefix === "group:") dataToSuggest = groupNames.value;
+      else if (prefix === "type:") dataToSuggest = typeNames.value;
+      else if (prefix === "language:") dataToSuggest = languageNames.value;
+      else if (prefix === "series:") dataToSuggest = seriesNames.value;
+      else if (prefix === "character:") dataToSuggest = characterNames.value;
+      else if (prefix === "tag:") dataToSuggest = tagNames.value;
     }
 
     if (dataToSuggest.length > 0) {
       // 검색할 데이터가 있는 경우 (프리픽스가 활성화된 상태)
-      const filteredSuggestions = dataToSuggest
-        .filter((item) => item.toLowerCase().startsWith(searchTerm))
-        .map((item) => `${suggestionPrefix}${item}`);
+      const MAX_SUGGESTIONS = 30;
+      const filteredSuggestions: string[] = [];
 
-      suggestions.value = filteredSuggestions.filter(
-        (s) => !currentTerms.has(s.toLowerCase()),
-      );
+      for (const item of dataToSuggest) {
+        if (filteredSuggestions.length >= MAX_SUGGESTIONS) break;
+        if (!item.toLowerCase().startsWith(searchTerm)) continue;
+
+        const suggestion = `${suggestionPrefix}${item}`;
+        if (!currentTerms.has(suggestion.toLowerCase())) {
+          filteredSuggestions.push(suggestion);
+        }
+      }
+
+      suggestions.value = filteredSuggestions;
     } else if (prefix) {
       // 알 수 없는 프리픽스가 입력된 경우
       suggestions.value = [];
@@ -144,6 +172,7 @@ watch(
 
     activeSuggestionIndex.value = -1;
   },
+  { debounce: 300 },
 );
 
 const applySuggestion = (suggestion: string) => {
