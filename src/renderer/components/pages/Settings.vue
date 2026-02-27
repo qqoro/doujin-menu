@@ -39,6 +39,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useQueryAndParams } from "@/composable/useQueryAndParams";
 import { useTheme } from "@/composable/useTheme";
 import { themeList } from "@/lib/themeList";
+import { useUiStore } from "@/store/uiStore";
 import { ColorTheme } from "@/types/themes";
 import { Icon } from "@iconify/vue";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/vue-query";
@@ -163,6 +164,10 @@ const viewerAutoFitZoom = ref(true);
 const viewerRestoreLastSession = ref(true);
 const viewerExcludeCompleted = ref(false);
 
+// 화면 회전 설정 상태
+const uiStore = useUiStore();
+const screenRotation = ref<0 | 90 | 180 | 270>(0);
+
 // 라이브러리 폴더 정보 불러오기
 const loadLibraryFolders = async () => {
   const config = await ipcRenderer.invoke("get-config");
@@ -205,6 +210,10 @@ onMounted(async () => {
   viewerAutoFitZoom.value = config.viewerAutoFitZoom !== false;
   viewerRestoreLastSession.value = config.viewerRestoreLastSession !== false;
   viewerExcludeCompleted.value = config.viewerExcludeCompleted === true;
+
+  // 화면 회전 설정 불러오기
+  screenRotation.value = (config.screenRotation as 0 | 90 | 180 | 270) || 0;
+
   await loadLibraryFolders();
   await getTempFilesSize();
 });
@@ -292,6 +301,14 @@ const onPrioritizeKoreanTitlesChange = (value: boolean) => {
 const onHideLibraryTagsChange = (value: boolean) => {
   hideLibraryTags.value = value;
   saveConfig("hideLibraryTags", value);
+};
+
+// 화면 회전 변경 시 저장
+const onScreenRotationChange = async (value: AcceptableValue) => {
+  const rotation = Number(value) as 0 | 90 | 180 | 270;
+  screenRotation.value = rotation;
+  uiStore.setScreenRotation(rotation); // 즉시 UI 반영
+  await saveConfig("screenRotation", rotation);
 };
 
 const onUseAppLockChange = async (value: boolean) => {
@@ -596,6 +613,27 @@ const resetAllData = async () => {
                     class="justify-self-end"
                     @update:model-value="onAutoLoadChange"
                   />
+                </SettingItem>
+                <SettingItem
+                  label-for="screen-rotation"
+                  title="화면 회전"
+                  subtitle="원격 데스크톱 사용 시 유용합니다. (일부 UI 요소가 정상 표시되지 않을 수 있습니다)"
+                >
+                  <Select
+                    id="screen-rotation"
+                    :model-value="String(screenRotation)"
+                    @update:model-value="onScreenRotationChange"
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="회전 각도 선택" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="0">0도 (기본)</SelectItem>
+                      <SelectItem value="90">90도</SelectItem>
+                      <SelectItem value="180">180도</SelectItem>
+                      <SelectItem value="270">270도</SelectItem>
+                    </SelectContent>
+                  </Select>
                 </SettingItem>
               </CardContent>
             </Card>

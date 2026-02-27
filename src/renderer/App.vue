@@ -41,6 +41,11 @@ onMounted(async () => {
   await initializeTheme();
   logTime("[App] initializeTheme 완료");
 
+  // 화면 회전 설정 로드
+  const config = await ipcRenderer.invoke("get-config");
+  const savedRotation = (config.screenRotation as 0 | 90 | 180 | 270) || 0;
+  uiStore.setScreenRotation(savedRotation);
+
   logTime("[App] get-initial-lock-status 시작");
   const shouldBeLocked = await ipcRenderer.invoke("get-initial-lock-status");
   logTime("[App] get-initial-lock-status 완료");

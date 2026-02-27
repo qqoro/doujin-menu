@@ -37,6 +37,7 @@ import {
 } from "@/components/ui/tooltip";
 import { useWindowEvent } from "@/composable/useWindowEvent";
 import { hasOpenDialog } from "@/lib/utils";
+import { useUiStore } from "@/store/uiStore";
 import { useViewerStore } from "@/store/viewerStore";
 import { Icon } from "@iconify/vue";
 import { useQuery, useQueryClient } from "@tanstack/vue-query";
@@ -48,6 +49,7 @@ import { useRoute, useRouter } from "vue-router";
 const route = useRoute();
 const router = useRouter();
 const store = useViewerStore();
+const uiStore = useUiStore();
 const queryClient = useQueryClient();
 
 const isNewWindow = ref(false);
@@ -82,6 +84,8 @@ const {
   panX,
   panY,
 } = storeToRefs(store);
+
+const { screenRotation } = storeToRefs(uiStore);
 
 const { data: book } = useQuery({
   queryKey: [bookId, is_favorite],
@@ -146,6 +150,33 @@ const imageStyle = computed(() => {
   return {
     transform: `scale(${zoomLevel.value / 100}) translate(${panX.value}px, ${panY.value}px)`,
     cursor,
+  };
+});
+
+// 화면 회전 스타일 계산
+const rotationStyle = computed(() => {
+  const rotation = screenRotation.value;
+  if (rotation === 0) return {};
+
+  if (rotation === 90 || rotation === 270) {
+    // 90도/270도 회전 시 width/height 교체 필요
+    return {
+      transform: `rotate(${rotation}deg)`,
+      transformOrigin: "center center",
+      width: "100vh",
+      height: "100vw",
+      position: "fixed" as const,
+      top: "50%",
+      left: "50%",
+      marginLeft: "-50vh",
+      marginTop: "-50vw",
+    };
+  }
+
+  // 180도 회전
+  return {
+    transform: "rotate(180deg)",
+    transformOrigin: "center center",
   };
 });
 
@@ -560,8 +591,13 @@ useWindowEvent("mousedown", handleMouseDown);
 <template>
   <div
     ref="screenRef"
-    class="flex h-screen flex-col"
-    :class="{ 'cursor-none!': !showCursor }"
+    class="flex flex-col"
+    :class="{
+      'cursor-none!': !showCursor,
+      'h-full': screenRotation === 90 || screenRotation === 270,
+      'h-screen': screenRotation !== 90 && screenRotation !== 270,
+    }"
+    :style="rotationStyle"
   >
     <!-- 헤더 -->
     <Transition name="fade">
@@ -749,7 +785,8 @@ useWindowEvent("mousedown", handleMouseDown);
     >
       <div
         v-if="readingMode !== 'webtoon'"
-        class="from-muted-foreground/40 text-background pointer-events-auto absolute top-0 left-0 z-10 flex h-screen w-1/4 max-w-[500px] cursor-pointer items-center justify-center bg-linear-to-r opacity-0 transition-opacity duration-150 hover:opacity-100"
+        class="from-muted-foreground/40 text-background pointer-events-auto absolute top-0 left-0 z-10 flex w-1/4 max-w-[500px] cursor-pointer items-center justify-center bg-linear-to-r opacity-0 transition-opacity duration-150 hover:opacity-100"
+        :class="screenRotation === 90 || screenRotation === 270 ? 'h-full' : 'h-screen'"
         @click="readingMode === 'rtl' ? store.nextPage() : store.prevPage()"
       >
         <Icon
@@ -759,7 +796,8 @@ useWindowEvent("mousedown", handleMouseDown);
       </div>
       <div
         v-if="readingMode !== 'webtoon'"
-        class="from-muted-foreground/40 text-background pointer-events-auto absolute top-0 right-0 z-10 flex h-screen w-1/4 max-w-[500px] cursor-pointer items-center justify-center bg-linear-to-l opacity-0 transition-opacity duration-150 hover:opacity-100"
+        class="from-muted-foreground/40 text-background pointer-events-auto absolute top-0 right-0 z-10 flex w-1/4 max-w-[500px] cursor-pointer items-center justify-center bg-linear-to-l opacity-0 transition-opacity duration-150 hover:opacity-100"
+        :class="screenRotation === 90 || screenRotation === 270 ? 'h-full' : 'h-screen'"
         @click="readingMode === 'rtl' ? store.prevPage() : store.nextPage()"
       >
         <Icon

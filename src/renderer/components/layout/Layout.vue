@@ -4,16 +4,43 @@ import { useWindowEvent } from "@/composable/useWindowEvent";
 import { cn, hasOpenDialog } from "@/lib/utils";
 import { useUiStore } from "@/store/uiStore";
 import { storeToRefs } from "pinia";
-import { onMounted, ref } from "vue";
+import { computed, onMounted, ref } from "vue";
 import AppLock from "../common/AppLock.vue";
 import ChangelogDialog from "../common/ChangelogDialog.vue";
 import Header from "./Header.vue";
 import Sidebar from "./Sidebar.vue";
 
 const uiStore = useUiStore();
-const { isSidebarCollapsed } = storeToRefs(uiStore);
+const { isSidebarCollapsed, screenRotation } = storeToRefs(uiStore);
 
 const open = ref(false);
+
+// 화면 회전 스타일 계산
+const rotationStyle = computed(() => {
+  const rotation = screenRotation.value;
+  if (rotation === 0) return {};
+
+  if (rotation === 90 || rotation === 270) {
+    // 90도/270도 회전 시 width/height 교체 필요
+    return {
+      transform: `rotate(${rotation}deg)`,
+      transformOrigin: "center center",
+      width: "100vh",
+      height: "100vw",
+      position: "fixed" as const,
+      top: "50%",
+      left: "50%",
+      marginLeft: "-50vh",
+      marginTop: "-50vw",
+    };
+  }
+
+  // 180도 회전
+  return {
+    transform: "rotate(180deg)",
+    transformOrigin: "center center",
+  };
+});
 
 const handleKeyDown = async (event: KeyboardEvent) => {
   if (event.key === "Escape" && (await isFullscreen())) {
@@ -53,10 +80,13 @@ onMounted(async () => {
   <div
     :class="
       cn(
-        'bg-background grid h-screen grid-rows-[auto_1fr] transition-[grid-template-columns] duration-300 ease-in-out',
+        'bg-background grid grid-rows-[auto_1fr] transition-[grid-template-columns] duration-300 ease-in-out',
+        // 회전된 경우 h-full, 아니면 h-screen 사용
+        screenRotation === 90 || screenRotation === 270 ? 'h-full' : 'h-screen',
         isSidebarCollapsed ? 'grid-cols-[5.5rem_1fr]' : 'grid-cols-[14rem_1fr]',
       )
     "
+    :style="rotationStyle"
   >
     <Header class="col-span-2" />
     <Sidebar class="row-start-2" />

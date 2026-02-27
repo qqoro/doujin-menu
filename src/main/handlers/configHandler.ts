@@ -45,6 +45,7 @@ interface Config {
   useAppLock?: boolean;
   appLockPassword?: string; // salt:hash
   viewerExcludeCompleted?: boolean;
+  screenRotation?: 0 | 90 | 180 | 270; // 화면 회전 각도
 }
 
 const defaults: Config = {
@@ -77,6 +78,7 @@ const defaults: Config = {
   hideLibraryTags: false,
   useAppLock: false,
   appLockPassword: "",
+  screenRotation: 0,
 };
 
 export const store = new Store<Config>({
