@@ -28,6 +28,7 @@ import {
 } from "@/components/ui/popover";
 import { Slider } from "@/components/ui/slider";
 import { Switch } from "@/components/ui/switch";
+import { Input } from "@/components/ui/input";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import {
   Tooltip,
@@ -71,6 +72,7 @@ const {
   autoPlayInterval,
   isAutoNextBook,
   autoNextBookMode,
+  autoPlayStopPage,
   viewerAutoFitZoom,
   is_favorite,
   viewerDoublePageView,
@@ -1131,6 +1133,33 @@ useWindowEvent("mousedown", handleMouseDown);
                             >랜덤</ToggleGroupItem
                           >
                         </ToggleGroup>
+                      </div>
+                      <!-- 자동 넘김 종료 설정 -->
+                      <div class="grid grid-cols-3 items-center gap-4">
+                        <Label>자동 넘김 종료</Label>
+                        <Switch
+                          :model-value="autoPlayStopPage !== null"
+                          class="col-span-2"
+                          @update:model-value="store.toggleAutoPlayStopPage()"
+                        />
+                      </div>
+                      <div
+                        v-if="autoPlayStopPage !== null"
+                        class="grid grid-cols-3 items-center gap-4"
+                      >
+                        <Label class="text-muted-foreground">종료 페이지</Label>
+                        <div class="col-span-2 flex items-center gap-2">
+                          <Input
+                            type="number"
+                            :model-value="autoPlayStopPage ?? 1"
+                            :min="1"
+                            class="w-20"
+                            @update:model-value="
+                              (val) => store.setAutoPlayStopPage(Number(val) || null)
+                            "
+                          />
+                          <span class="text-xs text-muted-foreground">페이지</span>
+                        </div>
                       </div>
                     </div>
                   </div>

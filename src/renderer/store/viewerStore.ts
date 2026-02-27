@@ -51,6 +51,9 @@ export const useViewerStore = defineStore("viewer", () => {
   const isAutoNextBook = ref(false);
   const autoNextBookMode = ref<"next" | "random">("next");
 
+  // Auto-play stop page state
+  const autoPlayStopPage = ref<number | null>(null); // 자동 넘김 정지할 페이지 (null = 비활성화)
+
   // Toast state
   const showToast = ref(false);
   const toastMessage = ref("");
@@ -156,6 +159,17 @@ export const useViewerStore = defineStore("viewer", () => {
       }, autoPlayInterval.value * 1000);
     } else {
       autoPlayTimer.value = window.setInterval(() => {
+        // 자동 넘김 정지 페이지 확인
+        if (
+          autoPlayStopPage.value !== null &&
+          currentPage.value >= autoPlayStopPage.value
+        ) {
+          stopAutoPlay();
+          showToastMessage(
+            `${autoPlayStopPage.value}페이지에서 자동 넘김이 종료되었습니다.`,
+          );
+          return;
+        }
         nextPage();
       }, autoPlayInterval.value * 1000);
     }
@@ -395,6 +409,21 @@ export const useViewerStore = defineStore("viewer", () => {
     });
   }
 
+  // 자동 넘김 정지 페이지 설정
+  function setAutoPlayStopPage(page: number | null) {
+    autoPlayStopPage.value = page;
+    ipcRenderer.invoke("set-config", {
+      key: "viewerAutoPlayStopPage",
+      value: page,
+    });
+  }
+
+  // 자동 넘김 정지 토글 (on: 1페이지로 설정, off: null로 설정)
+  function toggleAutoPlayStopPage() {
+    const newValue = autoPlayStopPage.value === null ? 1 : null;
+    setAutoPlayStopPage(newValue);
+  }
+
   function setDoublePage(value: boolean) {
     if (readingMode.value === "webtoon" && value) {
       showToastMessage("웹툰 모드에서는 더블 페이지를 사용할 수 없습니다.");
@@ -519,6 +548,9 @@ export const useViewerStore = defineStore("viewer", () => {
       autoNextBookMode.value = config.viewerAutoNextBookMode as
         | "next"
         | "random";
+    }
+    if (config.viewerAutoPlayStopPage !== undefined) {
+      autoPlayStopPage.value = config.viewerAutoPlayStopPage as number | null;
     }
     if (config.viewerRestoreLastSession !== undefined) {
       viewerRestoreLastSession.value =
@@ -700,6 +732,7 @@ export const useViewerStore = defineStore("viewer", () => {
     webtoonScrollRef,
     isAutoNextBook,
     autoNextBookMode,
+    autoPlayStopPage,
     loadBook,
     nextPage,
     prevPage,
@@ -711,6 +744,8 @@ export const useViewerStore = defineStore("viewer", () => {
     stopAutoPlay,
     toggleAutoNextBook,
     setNextBookMode,
+    setAutoPlayStopPage,
+    toggleAutoPlayStopPage,
     loadNextBook,
     loadPrevBook,
     loadNextBookInSeries,
