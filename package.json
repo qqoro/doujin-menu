@@ -22,6 +22,7 @@
     "format": "prettier --write src",
     "lint": "eslint . --ext .vue,.js,.jsx,.cjs,.mjs,.ts,.tsx,.cts,.mts",
     "lint:fix": "eslint . --ext .vue,.js,.jsx,.cjs,.mjs,.ts,.tsx,.cts,.mts --fix",
+    "typecheck": "tsc --noEmit && vue-tsc --noEmit",
     "test": "vitest",
     "test:series": "pnpm test tests/unit/main/seriesDetector.test.ts",
     "test:coverage": "vitest run --coverage"
