@@ -25,6 +25,9 @@ const DEFAULT_OPTIONS: DetectionOptions = {
   protectManualEdits: true,
 };
 
+// 성능 최적화: 최대 그룹 크기 (이 이상이면 건너뜀)
+const MAX_GROUP_SIZE = 500;
+
 /**
  * 책들을 분석하여 시리즈 후보 그룹들을 생성
  */
@@ -43,6 +46,13 @@ export async function detectSeriesCandidates(
 
   for (const group of patternGroups) {
     if (group.books.length < opts.minBooks) continue;
+    // 성능 최적화: 너무 큰 그룹은 건너뜀
+    if (group.books.length > MAX_GROUP_SIZE) {
+      log.debug(
+        `[시리즈 감지] 그룹 "${group.seriesName}"이 너무 큼 (${group.books.length}권) - 건너뜀`,
+      );
+      continue;
+    }
 
     // 작가 일치 필터링 (옵션)
     let filteredBooks = group.books;

@@ -29,7 +29,10 @@ import {
 } from "./handlers/downloadQueueHandler.js";
 import { registerEtcHandlers } from "./handlers/etcHandler.js";
 import { registerPresetHandlers } from "./handlers/presetHandler.js";
-import { registerSeriesCollectionHandlers } from "./handlers/seriesCollectionHandler.js";
+import {
+  registerSeriesCollectionHandlers,
+  handleRunSeriesDetection,
+} from "./handlers/seriesCollectionHandler.js";
 import { registerStatisticsHandlers } from "./handlers/statisticsHandler.js";
 import {
   handleGenerateThumbnail,
@@ -129,9 +132,9 @@ function createWindow() {
 
   if (process.env.NODE_ENV === "development") {
     const rendererPort = process.argv[2];
-    mainWindow.loadURL(`http://localhost:${rendererPort}`).then(() => {
-      mainWindow.webContents.openDevTools({ mode: "detach" });
-    });
+    // 개발자도구 먼저 열기
+    mainWindow.webContents.openDevTools({ mode: "detach" });
+    mainWindow.loadURL(`http://localhost:${rendererPort}`);
     // 개발 환경에서만 상태 저장 수동 (개발의 경우 정상 종료가 아니라 상태 저장이 안됨)
     const handleDevWindowStore = () => {
       mainWindowState.saveState(mainWindow);
@@ -169,10 +172,36 @@ function createWindow() {
   mainWindow.on("unmaximize", () => {
     mainWindow.webContents.send("window-maximized", false);
   });
+
+  // Renderer가 로드된 후 시리즈 감지 실행 (UI 차단 방지)
+  // 충분히 지연시켜 Vue 앱이 완전히 초기화된 후 실행
+  mainWindow.webContents.on("did-finish-load", () => {
+    // 3초 후에 시리즈 감지 실행 (UI가 완전히 로드된 후)
+    setTimeout(() => {
+      const seriesSettings = configStore.get("seriesDetectionSettings", {
+        minConfidence: 0.7,
+        minBooks: 2,
+      });
+
+      console.log("[Main] UI 로드 완료. 백그라운드에서 시리즈 감지 시작...");
+      handleRunSeriesDetection(seriesSettings)
+        .then((result) => {
+          if (result.success && result.data) {
+            console.log(
+              `[Main] 시리즈 감지 완료: ${result.data.created_count}개 시리즈 생성`,
+            );
+          }
+        })
+        .catch((err) => {
+          console.error("[Main] 시리즈 감지 실패:", err);
+        });
+    }, 3000);
+  });
 }
 
 app.whenReady().then(async () => {
   createWindow();
+
   registerUpdaterHandlers(mainWindow);
   registerBookHandlers();
   registerConfigHandlers();
@@ -197,7 +226,6 @@ app.whenReady().then(async () => {
       duration: null,
     });
     currentUsageLogId = logId;
-    console.log(`[Main] 앱 사용 시간 추적 시작 (로그 ID: ${logId})`);
   } catch (error) {
     console.error("[Main] 앱 사용 시간 추적 시작 실패:", error);
   }
@@ -415,19 +443,28 @@ app.whenReady().then(async () => {
     }
   });
 
-  // 앱 시작 시 라이브러리 자동 스캔
-  const config = configStore.store; // configStore에서 현재 설정 가져오기
+  // 앱 시작 시 라이브러리 자동 스캔 (비동기로 실행하여 UI 로딩 차단 방지)
+  const config = configStore.store;
   if (config.autoLoadLibrary) {
     const libraryFolders = config.libraryFolders || [];
-    for (const folderPath of libraryFolders) {
-      console.log(`[Main] Auto-scanning library folder: ${folderPath}`);
-      await scanDirectory(folderPath);
-      const books = await db("Book")
-        .select("id")
-        .whereLike("path", `${folderPath}%`)
-        .and.where("cover_path", null);
-      await Promise.all(books.map((book) => handleGenerateThumbnail(book.id)));
-    }
+
+    // 스캔을 백그라운드에서 비동기로 실행 (UI 로딩을 차단하지 않음)
+    Promise.resolve().then(async () => {
+      for (const folderPath of libraryFolders) {
+        console.log(`[Main] Auto-scanning library folder: ${folderPath}`);
+        await scanDirectory(folderPath);
+
+        const books = await db("Book")
+          .select("id")
+          .whereLike("path", `${folderPath}%`)
+          .and.where("cover_path", null);
+
+        await Promise.all(books.map((book) => handleGenerateThumbnail(book.id)));
+      }
+
+      // 스캔 완료 후 UI에 알림
+      mainWindow.webContents.send("library-scan-completed");
+    });
   }
 });
 

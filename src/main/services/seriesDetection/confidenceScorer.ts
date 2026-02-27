@@ -12,6 +12,9 @@ import {
 } from "./similarityCalculator.js";
 import { parseTitlePattern } from "./titlePatternMatcher.js";
 
+// 성능 최적화: 그룹 크기 제한
+const MAX_GROUP_SIZE_FOR_SIMILARITY = 100;
+
 /**
  * 개별 책이 시리즈에 속할 신뢰도 계산
  */
@@ -34,10 +37,17 @@ export function calculateBookConfidence(
     weights += 0.4;
   }
 
+  // 성능 최적화: 그룹이 너무 크면 샘플링
+  const otherBooks = candidateBooks.filter((b) => b.id !== book.id);
+  const sampledBooks =
+    otherBooks.length > MAX_GROUP_SIZE_FOR_SIMILARITY
+      ? otherBooks.slice(0, MAX_GROUP_SIZE_FOR_SIMILARITY)
+      : otherBooks;
+
   // 2. 다른 책들과의 작가 일치도 (가중치: 0.3)
-  const artistScores = candidateBooks
-    .filter((b) => b.id !== book.id)
-    .map((b) => calculateArtistSimilarity(book, b));
+  const artistScores = sampledBooks.map((b) =>
+    calculateArtistSimilarity(book, b),
+  );
 
   if (artistScores.length > 0) {
     const avgArtistScore =
@@ -47,9 +57,7 @@ export function calculateBookConfidence(
   }
 
   // 3. 다른 책들과의 태그 유사도 (가중치: 0.2)
-  const tagScores = candidateBooks
-    .filter((b) => b.id !== book.id)
-    .map((b) => calculateTagSimilarity(book, b));
+  const tagScores = sampledBooks.map((b) => calculateTagSimilarity(book, b));
 
   if (tagScores.length > 0) {
     const avgTagScore = tagScores.reduce((a, b) => a + b, 0) / tagScores.length;
@@ -57,16 +65,18 @@ export function calculateBookConfidence(
     weights += 0.2;
   }
 
-  // 4. 제목 유사도 (가중치: 0.1)
-  const titleScores = candidateBooks
-    .filter((b) => b.id !== book.id)
-    .map((b) => calculateTitleSimilarity(book.title, b.title));
+  // 4. 제목 유사도 (가중치: 0.1) - 큰 그룹에서는 생략
+  if (otherBooks.length <= MAX_GROUP_SIZE_FOR_SIMILARITY) {
+    const titleScores = sampledBooks.map((b) =>
+      calculateTitleSimilarity(book.title, b.title),
+    );
 
-  if (titleScores.length > 0) {
-    const avgTitleScore =
-      titleScores.reduce((a, b) => a + b, 0) / titleScores.length;
-    totalScore += avgTitleScore * 0.1;
-    weights += 0.1;
+    if (titleScores.length > 0) {
+      const avgTitleScore =
+        titleScores.reduce((a, b) => a + b, 0) / titleScores.length;
+      totalScore += avgTitleScore * 0.1;
+      weights += 0.1;
+    }
   }
 
   // 가중치로 정규화

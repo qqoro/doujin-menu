@@ -11,6 +11,11 @@ import type {
 export const ipcRenderer = window.require("electron")
   .ipcRenderer as TypedIpcRenderer;
 
+// 더미 데이터 생성 (개발용)
+export async function generateDummyData(bookCount: number) {
+  return ipcRenderer.invoke("generate-dummy-data", bookCount);
+}
+
 export async function getBook(bookId: number) {
   return ipcRenderer.invoke("get-book", bookId);
 }

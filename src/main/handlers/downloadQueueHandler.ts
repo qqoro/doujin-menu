@@ -440,35 +440,10 @@ async function processDownloadQueue() {
       await new Promise((resolve) => setTimeout(resolve, 1000));
     }
 
-    // 큐의 모든 작업이 완료된 후, 마지막으로 한 번 시리즈 감지를 실행합니다.
-    // 단, 취소에 의해 루프가 종료된 경우가 아니라 정상적으로 큐가 비워진 경우에만 실행합니다.
-    try {
-      const seriesSettings = configStore.get("seriesDetectionSettings", {
-        minConfidence: 0.7,
-        minBooks: 2,
-      });
-
-      console.log(
-        "[DownloadQueue] 모든 다운로드 완료. 시리즈 자동 감지 실행...",
-      );
-      // 비동기로 실행하고 결과는 로그로만 확인 (await 하지 않음)
-      handleRunSeriesDetection(seriesSettings)
-        .then((result) => {
-          if (result.success && result.data) {
-            console.log(
-              `[DownloadQueue] 자동 시리즈 감지 완료: ${result.data.created_count}개 시리즈 생성`,
-            );
-          }
-        })
-        .catch((err) => {
-          console.error(`[DownloadQueue] 자동 시리즈 감지 실패:`, err);
-        });
-    } catch (err) {
-      console.error(
-        "[DownloadQueue] 시리즈 감지 모듈 로드 또는 실행 실패:",
-        err,
-      );
-    }
+    // 큐의 모든 작업이 완료됨 - 시리즈 감지는 main.ts에서 UI 로드 후 실행
+    console.log(
+      "[DownloadQueue] 모든 다운로드 완료. 시리즈 감지는 UI 로드 후 실행됩니다.",
+    );
   } catch (error) {
     // 큐 처리 루프 자체에서 예외 발생 (DB 연결 실패, 치명적 에러 등)
     console.error("[DownloadQueue] 큐 처리 중 치명적 에러 발생:", error);

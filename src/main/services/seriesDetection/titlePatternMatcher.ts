@@ -171,6 +171,10 @@ function extractKoreanTitle(title: string): string {
   return title;
 }
 
+// 로그 샘플링을 위한 카운터 (성능 최적화)
+let logCounter = 0;
+const LOG_SAMPLE_RATE = 100; // 100개 중 1개만 로그 출력
+
 /**
  * 제목에서 시리즈 패턴을 파싱
  */
@@ -180,8 +184,9 @@ export function parseTitlePattern(title: string): TitleParseResult {
   // | 기호가 있으면 한글 부분 우선 파싱
   const titleToParse = extractKoreanTitle(trimmedTitle);
 
-  // 디버깅: 제목 추출 로그
-  if (titleToParse !== trimmedTitle) {
+  // 로그 샘플링 (100개 중 1개만 출력)
+  const shouldLog = ++logCounter % LOG_SAMPLE_RATE === 0;
+  if (shouldLog && titleToParse !== trimmedTitle) {
     log.debug(`[시리즈 감지] 제목 추출: "${trimmedTitle}" → "${titleToParse}"`);
   }
 
@@ -194,9 +199,11 @@ export function parseTitlePattern(title: string): TitleParseResult {
       originalTitle: trimmedTitle,
       confidence: 0.95,
     };
-    log.debug(
-      `[시리즈 감지] 파싱 결과 (특수기호): "${trimmedTitle}" → 시리즈명: "${result.prefix}", 권수: ${result.volumeNumber}`,
-    );
+    if (shouldLog) {
+      log.debug(
+        `[시리즈 감지] 파싱 결과 (특수기호): "${trimmedTitle}" → 시리즈명: "${result.prefix}", 권수: ${result.volumeNumber}`,
+      );
+    }
     return result;
   }
 
@@ -209,9 +216,11 @@ export function parseTitlePattern(title: string): TitleParseResult {
       originalTitle: trimmedTitle,
       confidence: 0.9,
     };
-    log.debug(
-      `[시리즈 감지] 파싱 결과 (한글순서): "${trimmedTitle}" → 시리즈명: "${result.prefix}", 권수: ${result.volumeNumber}`,
-    );
+    if (shouldLog) {
+      log.debug(
+        `[시리즈 감지] 파싱 결과 (한글순서): "${trimmedTitle}" → 시리즈명: "${result.prefix}", 권수: ${result.volumeNumber}`,
+      );
+    }
     return result;
   }
 
@@ -229,9 +238,11 @@ export function parseTitlePattern(title: string): TitleParseResult {
           originalTitle: trimmedTitle,
           confidence: 0.7,
         };
-        log.debug(
-          `[시리즈 감지] 파싱 결과 (외전): "${trimmedTitle}" → 시리즈명: "${result.prefix}", 신뢰도: ${result.confidence}`,
-        );
+        if (shouldLog) {
+          log.debug(
+            `[시리즈 감지] 파싱 결과 (외전): "${trimmedTitle}" → 시리즈명: "${result.prefix}", 신뢰도: ${result.confidence}`,
+          );
+        }
         return result;
       }
     }
@@ -251,9 +262,11 @@ export function parseTitlePattern(title: string): TitleParseResult {
           originalTitle: trimmedTitle,
           confidence: pattern.confidence,
         };
-        log.debug(
-          `[시리즈 감지] 파싱 결과 (권수패턴): "${trimmedTitle}" → 시리즈명: "${result.prefix}", 권수: ${result.volumeNumber}`,
-        );
+        if (shouldLog) {
+          log.debug(
+            `[시리즈 감지] 파싱 결과 (권수패턴): "${trimmedTitle}" → 시리즈명: "${result.prefix}", 권수: ${result.volumeNumber}`,
+          );
+        }
         return result;
       }
     }
@@ -309,10 +322,12 @@ export function parseTitlePattern(title: string): TitleParseResult {
     confidence: 0.3, // 낮은 신뢰도
   };
 
-  // 디버깅: 파싱 결과 로그
-  log.debug(
-    `[시리즈 감지] 파싱 결과: "${trimmedTitle}" → 시리즈명: "${result.prefix}", 권수: ${result.volumeNumber}, 신뢰도: ${result.confidence}`,
-  );
+  // 로그 샘플링 (100개 중 1개만 출력)
+  if (shouldLog) {
+    log.debug(
+      `[시리즈 감지] 파싱 결과: "${trimmedTitle}" → 시리즈명: "${result.prefix}", 권수: ${result.volumeNumber}, 신뢰도: ${result.confidence}`,
+    );
+  }
 
   return result;
 }

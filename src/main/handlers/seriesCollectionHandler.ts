@@ -1,4 +1,4 @@
-import { ipcMain } from "electron";
+import { app, ipcMain } from "electron";
 import { fileURLToPath } from "url";
 import { Worker } from "worker_threads";
 import db from "../db/index.js";
@@ -13,14 +13,19 @@ import type { DetectionOptions } from "../services/seriesDetection/types.js";
 import { store } from "./configHandler.js";
 
 /**
- * Run series detection in a worker thread
+ * Worker 스레드에서 시리즈 감지 실행 (DB 작업 포함)
+ * 메인 스레드를 차단하지 않음
  */
 function runSeriesDetectionInWorker(
-  books: Book[],
   options: Partial<DetectionOptions> = {},
+  protectManualEdits: boolean = true,
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
 ): Promise<any> {
   return new Promise((resolve, reject) => {
+    // DB 경로 결정
+    const isDevelopment = process.env.NODE_ENV === "development";
+    const dbPath = isDevelopment ? "./dev.sqlite3" : app.getPath("userData") + "/database.db";
+
     const worker = new Worker(
       fileURLToPath(
         new URL("../workers/seriesDetectionWorker.js", import.meta.url),
@@ -47,7 +52,8 @@ function runSeriesDetectionInWorker(
       }
     });
 
-    worker.postMessage({ books, options });
+    // DB 경로와 설정만 전달 (책 데이터는 Worker 내부에서 조회)
+    worker.postMessage({ dbPath, options, protectManualEdits });
   });
 }
 
@@ -289,122 +295,26 @@ export async function handleDeleteSeriesCollection(seriesId: number) {
 
 /**
  * 자동 시리즈 감지 실행 (전체)
+ * 모든 작업이 Worker 스레드에서 수행되어 메인 스레드를 차단하지 않음
  */
 export async function handleRunSeriesDetection(
   options?: Partial<DetectionOptions>,
 ) {
   try {
-    // protectManualEdits 옵션이 true인 경우 (기본값)
-    // 수동 편집되지 않은 자동 생성 시리즈만 삭제
     const protectManualEdits = options?.protectManualEdits ?? true;
 
-    if (protectManualEdits) {
-      // 자동 생성되고 수동 편집되지 않은 시리즈만 삭제
-      await db.transaction(async (trx) => {
-        // 삭제할 시리즈들의 ID 조회
-        const seriesToDelete = await trx("SeriesCollection")
-          .where("is_auto_generated", true)
-          .where("is_manually_edited", false)
-          .select("id");
+    console.log("[SeriesCollection] Worker 스레드에서 시리즈 감지 시작...");
 
-        if (seriesToDelete.length > 0) {
-          const idsToDelete = seriesToDelete.map((s) => s.id);
+    // Worker에서 모든 작업 수행 (DB 조회 + 감지 + 저장)
+    const result = await runSeriesDetectionInWorker(options, protectManualEdits);
 
-          // 해당 시리즈에 속한 책들의 series_collection_id를 NULL로
-          await trx("Book")
-            .whereIn("series_collection_id", idsToDelete)
-            .update({
-              series_collection_id: null,
-              series_order_index: null,
-            });
-
-          // 시리즈 삭제
-          await trx("SeriesCollection").whereIn("id", idsToDelete).delete();
-        }
-      });
-    }
-
-    // 시리즈에 속하지 않은 책만 조회 (중복 방지)
-    const books = await db("Book")
-      .select(
-        "Book.*",
-        db.raw("GROUP_CONCAT(DISTINCT Artist.name) as artists"),
-        db.raw("GROUP_CONCAT(DISTINCT Tag.name) as tags"),
-      )
-      .leftJoin("BookArtist", "Book.id", "BookArtist.book_id")
-      .leftJoin("Artist", "BookArtist.artist_id", "Artist.id")
-      .leftJoin("BookTag", "Book.id", "BookTag.book_id")
-      .leftJoin("Tag", "BookTag.tag_id", "Tag.id")
-      .whereNull("Book.series_collection_id") // 시리즈에 속하지 않은 책만
-      .groupBy("Book.id");
-
-    // 각 책의 artists와 tags를 배열로 변환
-    const booksWithArrays = books.map((book: any) => ({
-      ...book,
-      artists: book.artists
-        ? book.artists.split(",").map((name: string) => ({ id: 0, name }))
-        : [],
-      tags: book.tags
-        ? book.tags
-            .split(",")
-            .map((name: string) => ({ id: 0, name, color: null }))
-        : [],
-    }));
-
-    // 자동 감지 실행
-    const result = await runSeriesDetectionInWorker(booksWithArrays, options);
-
-    // 감지된 후보들을 DB에 저장
-    const createdSeries: SeriesCollection[] = [];
-
-    for (const candidate of result.candidates) {
-      // 책이 2개 미만이면 스킵 (빈 시리즈 또는 1개만 있는 시리즈 방지)
-      if (candidate.books.length < 2) {
-        continue;
-      }
-
-      // 트랜잭션으로 시리즈 생성 및 책 매핑
-      await db.transaction(async (trx) => {
-        // 시리즈 생성
-        const [seriesId] = await trx("SeriesCollection").insert({
-          name: candidate.seriesName,
-          is_auto_generated: true,
-          is_manually_edited: false,
-          confidence_score: candidate.confidence,
-          created_at: db.fn.now(),
-          updated_at: db.fn.now(),
-        });
-
-        // 책들에 시리즈 매핑
-        for (const bookWithScore of candidate.books) {
-          await trx("Book").where("id", bookWithScore.book.id).update({
-            series_collection_id: seriesId,
-            series_order_index: bookWithScore.orderIndex,
-          });
-        }
-
-        const created = await trx("SeriesCollection")
-          .where("id", seriesId)
-          .first();
-        createdSeries.push(created);
-      });
-    }
-
-    // 빈 시리즈 및 1개만 있는 시리즈 정리
-    const cleanupResult = await handleCleanupEmptySeries();
-    const cleanedCount = cleanupResult.success
-      ? cleanupResult.data?.deleted_count || 0
-      : 0;
+    console.log(
+      `[SeriesCollection] 시리즈 감지 완료: ${result.created_count}개 생성`,
+    );
 
     return {
       success: true,
-      data: {
-        created_count: createdSeries.length,
-        processed_books: result.processedBooks,
-        duration: result.duration,
-        cleaned_count: cleanedCount,
-        series: createdSeries,
-      },
+      data: result,
     };
   } catch (error) {
     console.error("자동 감지 실행 실패:", error);
