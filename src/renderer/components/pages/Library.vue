@@ -31,7 +31,7 @@ import {
   useQueryClient,
 } from "@tanstack/vue-query";
 import { AcceptableValue } from "reka-ui";
-import { debouncedWatch } from "@vueuse/core";
+import { debouncedRef, debouncedWatch } from "@vueuse/core";
 import {
   computed,
   nextTick,
@@ -117,6 +117,9 @@ const { schWord: searchQuery } = useQueryAndParams({
     sortOrder: "desc",
   },
 });
+
+// 검색어 debounce 적용 (API 호출 최적화)
+const debouncedSearchQuery = debouncedRef(searchQuery, 300);
 
 const { data: config, isSuccess: isConfigLoaded } = useQuery({
   queryKey: ["config"],
@@ -219,7 +222,7 @@ const queryKey = computed(
     [
       "books",
       {
-        searchQuery: searchQuery.value,
+        searchQuery: debouncedSearchQuery.value,
         libraryPath: libraryPath.value,
         readStatus: readStatus.value,
         sortBy: sortBy.value,
