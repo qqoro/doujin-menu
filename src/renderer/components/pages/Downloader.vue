@@ -207,13 +207,11 @@ onMounted(() => {
 
   observer = new IntersectionObserver(
     (entries) => {
-      console.log("check", entries[0].isIntersecting);
       if (
         entries[0].isIntersecting &&
         hasNextPage.value &&
         !isFetchingNextPage.value
       ) {
-        console.warn("load", entries[0].isIntersecting);
         fetchNextPage();
       }
     },

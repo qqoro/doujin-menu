@@ -7,15 +7,6 @@ import { toast } from "vue-sonner";
 import { ipcRenderer } from "./api";
 import { useWindowEvent } from "./composable/useWindowEvent";
 import { useTheme } from "./composable/useTheme";
-import log from "electron-log";
-
-const appStartTime = performance.now();
-const logTime = (label: string) => {
-  log.log(`[⏱️ ${(performance.now() - appStartTime).toFixed(0)}ms] ${label}`);
-};
-
-logTime("[App] script setup 시작");
-
 const keyHandler = (event: KeyboardEvent) => {
   if (
     (event.ctrlKey && event.key.toLowerCase() === "r") ||
@@ -31,24 +22,16 @@ useWindowEvent("keydown", keyHandler);
 const uiStore = useUiStore();
 const { initializeTheme } = useTheme();
 
-logTime("[App] useUiStore, useTheme 초기화 완료");
-
 onMounted(async () => {
-  logTime("[App] onMounted 시작");
-
   // 테마 초기화
-  logTime("[App] initializeTheme 시작");
   await initializeTheme();
-  logTime("[App] initializeTheme 완료");
 
   // 화면 회전 설정 로드
   const config = await ipcRenderer.invoke("get-config");
   const savedRotation = (config.screenRotation as 0 | 90 | 180 | 270) || 0;
   uiStore.setScreenRotation(savedRotation);
 
-  logTime("[App] get-initial-lock-status 시작");
   const shouldBeLocked = await ipcRenderer.invoke("get-initial-lock-status");
-  logTime("[App] get-initial-lock-status 완료");
   if (shouldBeLocked) {
     uiStore.setLocked(true);
   }
@@ -82,8 +65,6 @@ onMounted(async () => {
       toast.error(`업데이트 오류: ${error}`);
     }
   });
-
-  logTime("[App] onMounted 완료");
 });
 </script>
 

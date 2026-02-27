@@ -32,7 +32,6 @@ export async function extractCoverFromZip(
   zipPath: string,
   outputPath: string,
 ): Promise<string | null> {
-  console.log(`[Main] ZIP에서 커버 추출 시도: ${zipPath} to ${outputPath}`);
   return new Promise((resolve, reject) => {
     yauzl.open(zipPath, { lazyEntries: true }, (err, zipfile) => {
       if (err) {
@@ -239,9 +238,6 @@ async function processBookItem(
     name,
   }: { isDirectory: boolean; isFile: boolean; name: string },
 ) {
-  console.log(
-    `[Main] 다음 항목에 대해 processBookItem 호출됨: ${itemPath}, isDirectory: ${isDirectory}, isFile: ${isFile}`,
-  );
   // 1. 반환할 책 데이터, 커버 경로, 메타데이터 객체를 초기화합니다.
   let bookData: Book | null = null;
   let infoMetadata: ParsedMetadata = {};
@@ -259,10 +255,6 @@ async function processBookItem(
     const stats = await fs.stat(infoTxtPath);
     if (stats.isFile()) {
       infoMetadata = parseInfoTxt(await fs.readFile(infoTxtPath, "utf-8"));
-      console.log(
-        `[Main] ${name}에 대한 info.txt를 찾아 파싱했습니다:`,
-        infoMetadata,
-      );
     }
   } catch {
     // info.txt 파일이 없거나 읽을 수 없는 경우 무시하고 다음 단계로 진행합니다.
@@ -276,10 +268,6 @@ async function processBookItem(
         infoMetadata = parseInfoTxt(
           await fs.readFile(parentInfoTxtPath, "utf-8"),
         );
-        console.log(
-          `[Main] ${name}에 대한 외부 info.txt를 찾아 파싱했습니다:`,
-          infoMetadata,
-        );
       }
     } catch {
       // 외부 info.txt 파일이 없거나 읽을 수 없는 경우 무시합니다.
@@ -290,14 +278,9 @@ async function processBookItem(
   if (isFile) {
     const ext = path.extname(name).toLowerCase();
     if (ext === ".cbz" || ext === ".zip") {
-      console.log(`[Main] ZIP 파일 처리 중: ${itemPath}`);
       const infoTxtContent = await extractInfoTxtFromZip(itemPath);
       if (infoTxtContent) {
         infoMetadata = parseInfoTxt(infoTxtContent);
-        console.log(
-          `[Main] ${name}에 대한 ZIP 내부의 info.txt를 찾아 파싱했습니다:`,
-          infoMetadata,
-        );
       }
     }
   }
@@ -366,9 +349,6 @@ async function processBookItem(
   }
 
   // 6. 책으로 처리할 수 없는 항목인 경우 null을 반환합니다.
-  console.log(
-    `[Main] processBookItem이 다음 항목에 대해 null을 반환합니다: ${itemPath}`,
-  );
   return null;
 }
 
@@ -456,7 +436,6 @@ export async function scanDirectory(directoryPath: string): Promise<{
       );
 
       for (const book of booksToDelete) {
-        console.log(`[Main] DB에서 책 삭제 중: ${book.path}`);
         await trx("BookArtist").where("book_id", book.id).del();
         await trx("BookTag").where("book_id", book.id).del();
         await trx("BookSeries").where("book_id", book.id).del();
@@ -468,7 +447,6 @@ export async function scanDirectory(directoryPath: string): Promise<{
         if (book.cover_path) {
           try {
             await fs.unlink(book.cover_path);
-            console.log(`[Main] 썸네일 파일 삭제: ${book.cover_path}`);
           } catch (e) {
             console.error(
               `[Main] 썸네일 파일 삭제 실패 ${book.cover_path}:`,
@@ -482,11 +460,6 @@ export async function scanDirectory(directoryPath: string): Promise<{
     // 이제, 삽입과 업데이트를 배치로 처리
     for (let i = 0; i < processedBooks.length; i += batchSize) {
       const batch = processedBooks.slice(i, i + batchSize);
-      console.log(
-        `[Main] 배치 처리 중 ${i / batchSize + 1} / ${Math.ceil(
-          processedBooks.length / batchSize,
-        )}...`,
-      );
 
       await db.transaction(async (trx) => {
         const batchPaths = batch.map((p) => p.bookData.path);
@@ -515,9 +488,6 @@ export async function scanDirectory(directoryPath: string): Promise<{
                 ),
                 language_name_local: cleanValue(bookData.language_name_local),
               });
-            console.log(
-              `[Main] 기존 책 정보 업데이트. ID: ${bookId}, 제목: ${bookData.title}`,
-            );
             totalUpdatedCount++;
 
             // 업데이트를 위해 기존 연결 제거
@@ -539,9 +509,6 @@ export async function scanDirectory(directoryPath: string): Promise<{
             };
             const result = await trx("Book").insert(bookToInsert);
             bookId = result[0];
-            console.log(
-              `[Main] 새 책 추가. ID: ${bookId}, 제목: ${bookData.title}`,
-            );
             totalAddedCount++;
             newlyAddedBookIds.push(bookId); // 새로 추가된 책 ID 수집
           }
@@ -725,7 +692,6 @@ export async function scanDirectory(directoryPath: string): Promise<{
 }
 
 export async function scanFile(filePath: string) {
-  console.log(`[Main] 파일 스캔 중: ${filePath}`);
   let addedCount = 0;
   let updatedCount = 0;
 
@@ -759,9 +725,6 @@ export async function scanFile(filePath: string) {
               language_name_english: cleanValue(bookData.language_name_english),
               language_name_local: cleanValue(bookData.language_name_local),
             });
-          console.log(
-            `[Main] 기존 책 정보 업데이트. ID: ${bookId}, 제목: ${bookData.title}`,
-          );
           updatedCount++;
 
           // 업데이트를 위해 기존 연결 제거
@@ -783,9 +746,6 @@ export async function scanFile(filePath: string) {
           };
           const result = await trx("Book").insert(bookToInsert);
           bookId = result[0];
-          console.log(
-            `[Main] 새 책 추가. ID: ${bookId}, 제목: ${bookData.title}`,
-          );
           addedCount++;
         }
 
@@ -898,10 +858,6 @@ export async function scanFile(filePath: string) {
         }
       }
     }
-
-    console.log(
-      `[Main] ${filePath}에 대한 스캔 완료: 추가 ${addedCount}, 업데이트 ${updatedCount}`,
-    );
 
     BrowserWindow.getAllWindows().forEach((window) => {
       window.webContents.send("books-updated");

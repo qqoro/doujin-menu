@@ -196,7 +196,6 @@ export const handleDownloadGallery = async (
     for (let i = 0; i < totalFiles; i++) {
       // 취소 확인
       if (shouldCancel && shouldCancel()) {
-        console.log(`[Downloader] 다운로드 일시정지됨: ${galleryId}`);
         return {
           success: false,
           error: "다운로드가 일시정지되었습니다.",
@@ -214,7 +213,6 @@ export const handleDownloadGallery = async (
       // 파일이 이미 존재하면 건너뛰기 (이어받기)
       try {
         await fs.access(filePath);
-        console.log(`[Downloader] 파일이 이미 존재하여 건너뜀: ${fileName}`);
 
         // 진행률 업데이트
         const progress = Math.round(((i + 1) / totalFiles) * 100);
@@ -253,7 +251,6 @@ export const handleDownloadGallery = async (
       while (!success) {
         // 재시도 루프 내에서도 취소 확인
         if (shouldCancel && shouldCancel()) {
-          console.log(`[Downloader] 다운로드 일시정지됨: ${galleryId}`);
           return {
             success: false,
             error: "다운로드가 일시정지되었습니다.",
@@ -386,10 +383,6 @@ export const handleDownloadGallery = async (
 
       // 원본 폴더 삭제
       await fs.rm(galleryDownloadPath, { recursive: true, force: true });
-
-      console.log(
-        `[Downloader] Archive created: ${archiveFilePath} (${archive.pointer()} bytes)`,
-      );
     }
 
     webContents.send("download-progress", {
@@ -410,14 +403,7 @@ export const handleDownloadGallery = async (
     );
 
     if (isDownloadedToLibrary) {
-      console.log(
-        `[Main] Downloaded gallery ${galleryId} is in a library folder. Scanning: ${scanPath}`,
-      );
       await scanFile(scanPath);
-    } else {
-      console.log(
-        `[Main] Downloaded gallery ${galleryId} is not in a configured library folder. Skipping scan.`,
-      );
     }
 
     return { success: true };

@@ -33,7 +33,6 @@ function queryParamsProcessor(value: unknown) {
   if (typeof value === "boolean") return value.toString();
   if (value instanceof Date) return value.toISOString();
 
-  console.log(value);
   return "";
 }
 

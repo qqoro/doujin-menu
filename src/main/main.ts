@@ -183,7 +183,6 @@ function createWindow() {
         minBooks: 2,
       });
 
-      console.log("[Main] UI 로드 완료. 백그라운드에서 시리즈 감지 시작...");
       handleRunSeriesDetection(seriesSettings)
         .then((result) => {
           if (result.success && result.data) {

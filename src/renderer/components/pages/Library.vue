@@ -1,6 +1,4 @@
 <script setup lang="ts">
-import log from "electron-log";
-
 import HelpDialog from "@/components/common/HelpDialog.vue";
 import { Button } from "@/components/ui/button";
 import {
@@ -58,13 +56,6 @@ import BookCard from "../feature/BookCard.vue";
 import BookDetailDialog from "../feature/BookDetailDialog.vue";
 import BookPreviewDialog from "../feature/BookPreviewDialog.vue";
 import BookRowCard from "../feature/BookRowCard.vue";
-
-const libraryStartTime = performance.now();
-const logTime = (label: string) => {
-  log.log(`[⏱️ ${(performance.now() - libraryStartTime).toFixed(0)}ms] ${label}`);
-};
-
-logTime("[Library] script setup 시작");
 
 const queryClient = useQueryClient();
 
@@ -242,14 +233,11 @@ const {
 } = useInfiniteQuery({
   queryKey,
   queryFn: async ({ pageParam = 0 }) => {
-    const start = performance.now();
-    logTime(`get-books 시작 (page ${pageParam})`);
     const result = await ipcRenderer.invoke("get-books", {
       pageParam,
       pageSize: 50,
       ...queryKey.value[1],
     });
-    logTime(`get-books 완료 (page ${pageParam}): ${(performance.now() - start).toFixed(0)}ms`);
     return result;
   },
   getNextPageParam: (lastPage) => {
@@ -265,11 +253,9 @@ const books = computed(
 );
 
 onMounted(() => {
-  logTime("onMounted 시작");
   ipcRenderer.on("books-updated", () =>
     queryClient.invalidateQueries({ queryKey: ["books"] }),
   );
-  logTime("onMounted 완료");
 });
 
 // keep-alive로 캐시된 컴포넌트가 활성화될 때 쿼리 다시 불러오기

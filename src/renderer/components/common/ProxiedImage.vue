@@ -88,7 +88,6 @@ const handleLoadError = () => {
   // 3초 간격으로 무한 재시도
   retryCount.value++;
   isRetrying.value = true; // 재시도 대기 상태로 변경
-  console.log(`${RETRY_DELAY / 1000}초 후 재시도 (${retryCount.value}회)`);
   retryTimeoutId.value = setTimeout(() => {
     loadImage();
   }, RETRY_DELAY);

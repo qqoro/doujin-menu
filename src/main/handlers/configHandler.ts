@@ -228,16 +228,12 @@ export const handleAddLibraryFolder = async () => {
 };
 
 async function deleteBooksInFolder(folderPath: string) {
-  console.log(
-    `[ConfigHandler] Deleting books associated with folder: ${folderPath}`,
-  );
   await db.transaction(async (trx) => {
     const booksToDelete = await trx("Book")
       .select("id", "path", "cover_path")
       .where("path", "like", `${folderPath}%`);
 
     for (const book of booksToDelete) {
-      console.log(`[ConfigHandler] Deleting book from DB: ${book.path}`);
       await trx("BookArtist").where("book_id", book.id).del();
       await trx("BookTag").where("book_id", book.id).del();
       await trx("BookSeries").where("book_id", book.id).del();
@@ -249,9 +245,6 @@ async function deleteBooksInFolder(folderPath: string) {
       if (book.cover_path) {
         try {
           await fs.unlink(book.cover_path);
-          console.log(
-            `[ConfigHandler] Deleted thumbnail file: ${book.cover_path}`,
-          );
         } catch (e) {
           console.error(
             `[ConfigHandler] Failed to delete thumbnail file ${book.cover_path}:`,
@@ -261,9 +254,6 @@ async function deleteBooksInFolder(folderPath: string) {
       }
     }
   });
-  console.log(
-    `[ConfigHandler] Finished deleting books for folder: ${folderPath}`,
-  );
 }
 
 export const handleRemoveLibraryFolder = async (folderPath: string) => {
@@ -273,9 +263,6 @@ export const handleRemoveLibraryFolder = async (folderPath: string) => {
   try {
     await deleteBooksInFolder(folderPath); // 분리된 함수 호출
     store.set("libraryFolders", newFolders);
-    console.log(
-      `[ConfigHandler] Successfully removed library folder ${folderPath} and associated books.`,
-    );
     return { success: true, folders: newFolders };
   } catch (error) {
     console.error(

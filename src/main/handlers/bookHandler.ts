@@ -366,9 +366,6 @@ export const handleGetBookPagePaths = async (bookId: number) => {
       for (let i = 0; i < imageFiles.length; i++) {
         pagePaths.push(`doujin-menu://${bookId}/${i}`);
       }
-      console.log(
-        `[Main] Found ${pagePaths.length} pages for folder book ${bookId}`,
-      );
       return {
         success: true,
         data: pagePaths,
@@ -412,9 +409,6 @@ export const handleGetBookPagePaths = async (bookId: number) => {
               for (let i = 0; i < imageEntries.length; i++) {
                 pagePaths.push(`doujin-menu://${bookId}/${i}`);
               }
-              console.log(
-                `[Main] Found ${pagePaths.length} pages for zip book ${bookId}`,
-              );
               zipfile.close();
               resolve({
                 success: true,
@@ -933,18 +927,12 @@ export const handleDeleteBook = async (bookId: number) => {
         const stats = await fs.stat(book.path);
         if (stats.isDirectory()) {
           await fs.rm(book.path, { recursive: true, force: true });
-          console.log(`[Main] Deleted directory: ${book.path}`);
         } else if (stats.isFile()) {
           await fs.unlink(book.path);
-          console.log(`[Main] Deleted file: ${book.path}`);
         }
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
       } catch (fileError: any) {
-        if (fileError.code === "ENOENT") {
-          console.warn(
-            `[Main] Book file/folder not found, skipping deletion: ${book.path}`,
-          );
-        } else {
+        if (fileError.code !== "ENOENT") {
           console.error(
             `[Main] Failed to delete physical file/folder ${book.path}:`,
             fileError,
@@ -961,16 +949,9 @@ export const handleDeleteBook = async (bookId: number) => {
     ) {
       try {
         await fs.unlink(book.cover_path);
-        console.log(`[Main] Deleted thumbnail: ${book.cover_path}`);
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
       } catch (thumbError: any) {
-        if (thumbError.code === "ENOENT") {
-          console.warn(
-            `[Main] Thumbnail file not found, skipping deletion: ${book.cover_path}`,
-          );
-        }
-      } finally {
-        // Do not re-throw
+        // ENOENT는 무시 (이미 삭제됨)
       }
     }
 

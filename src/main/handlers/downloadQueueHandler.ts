@@ -139,9 +139,6 @@ export const handleRemoveFromDownloadQueue = async (queueId: number) => {
           // 폴더 삭제
           try {
             await fs.rm(galleryDownloadPath, { recursive: true, force: true });
-            console.log(
-              `[DownloadQueue] 미완료 다운로드 파일 삭제됨: ${galleryDownloadPath}`,
-            );
           } catch (deleteError) {
             console.warn(`[DownloadQueue] 파일 삭제 실패 (무시):`, deleteError);
           }
@@ -154,9 +151,6 @@ export const handleRemoveFromDownloadQueue = async (queueId: number) => {
           const archiveFilePath = `${galleryDownloadPath}.${compressFormat}`;
           try {
             await fs.unlink(archiveFilePath);
-            console.log(
-              `[DownloadQueue] 미완료 압축 파일 삭제됨: ${archiveFilePath}`,
-            );
           } catch {
             // 압축 파일이 없으면 무시
           }
@@ -203,7 +197,6 @@ export const handlePauseDownload = async (queueId: number) => {
       // 취소 플래그를 설정했지만, 실제 다운로드가 멈출 때까지는
       // DB 상태를 즉시 변경하지 않습니다.
       // processDownloadQueue에서 취소를 감지하고 paused로 변경합니다.
-      console.log(`[DownloadQueue] 일시정지 요청됨: ${queueId}`);
     } else {
       // 현재 다운로드 중이 아닌 경우 (이론상 발생하지 않아야 함)
       await db("DownloadQueue").where("id", queueId).update({
@@ -409,9 +402,6 @@ async function processDownloadQueue() {
         // 일시정지 처리
         if (shouldCancelCurrentDownload || result.paused) {
           await updateQueueItemStatus(nextItem.id, "paused");
-          console.log(
-            `[DownloadQueue] 다운로드가 일시정지되었습니다: ${nextItem.gallery_id}`,
-          );
         } else if (result.success) {
           await updateQueueItemStatus(nextItem.id, "completed");
         } else {
@@ -441,9 +431,6 @@ async function processDownloadQueue() {
     }
 
     // 큐의 모든 작업이 완료됨 - 시리즈 감지는 main.ts에서 UI 로드 후 실행
-    console.log(
-      "[DownloadQueue] 모든 다운로드 완료. 시리즈 감지는 UI 로드 후 실행됩니다.",
-    );
   } catch (error) {
     // 큐 처리 루프 자체에서 예외 발생 (DB 연결 실패, 치명적 에러 등)
     console.error("[DownloadQueue] 큐 처리 중 치명적 에러 발생:", error);
@@ -452,9 +439,6 @@ async function processDownloadQueue() {
     if (currentDownloadId !== null) {
       try {
         await updateQueueItemStatus(currentDownloadId, "pending");
-        console.log(
-          `[DownloadQueue] 항목 ${currentDownloadId}을(를) pending으로 복구했습니다.`,
-        );
       } catch (updateError) {
         console.error(`[DownloadQueue] 항목 상태 복구 실패:`, updateError);
       }
@@ -471,9 +455,6 @@ async function processDownloadQueue() {
         .first();
 
       if (hasPending) {
-        console.log(
-          "[DownloadQueue] 대기 중인 항목이 있어 5초 후 큐 처리를 재시작합니다.",
-        );
         // 5초 후 재시작
         setTimeout(() => {
           processDownloadQueue();
@@ -506,12 +487,8 @@ export async function initializeDownloadQueue() {
       .where("status", "downloading")
       .update({ status: "pending" });
 
-    console.log("[DownloadQueue] 미완료 다운로드 복구 완료");
-
     // 큐 처리 시작
     processDownloadQueue();
-
-    console.log("[DownloadQueue] 다운로드 큐 초기화 완료");
   } catch (error) {
     console.error("Error initializing download queue:", error);
   }
@@ -538,6 +515,4 @@ export function registerDownloadQueueHandlers() {
     handleRetryDownload(queueId),
   );
   ipcMain.handle("clear-completed-downloads", handleClearCompletedDownloads);
-
-  console.log("[DownloadQueue] 다운로드 큐 핸들러 등록 완료");
 }
