@@ -349,7 +349,7 @@ export function extractCommonPrefix(title1: string, title2: string): string {
 
   // 단어 경계에서 자르기 (공백, 괄호, 하이픈 등)
   const prefix = title1.substring(0, commonLength);
-  const boundaryMatch = prefix.match(/^(.+?)[\s\-\(\[\{「]?$/);
+  const boundaryMatch = new RegExp(/^(.+?)[\s\-([{「]?$/).exec(prefix);
 
   return boundaryMatch ? boundaryMatch[1].trim() : prefix.trim();
 }

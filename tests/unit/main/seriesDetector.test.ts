@@ -45,7 +45,7 @@ const createMockBook = (
     tags: tags.map((name, i) => ({ id: 2000 + i, name, color: null })),
     groups: [],
     characters: [],
-    type: 'folder',
+    type: "folder",
     language_name_english: null,
     language_name_local: null,
     series_collection_id: null,
@@ -317,11 +317,9 @@ describe("seriesDetector/detectSeriesCandidates", () => {
 
   it("부제가 붙어 제목 끝에 숫자가 오지 않는 시리즈를 올바르게 분석하고 정렬해야 합니다", async () => {
     const books: Book[] = [
-      createMockBook(
-        1,
-        "JK Kuppuku Kousoku 2 ~Aikidou Shoujo ga Maketa Hi~",
-        ["Artist X"],
-      ),
+      createMockBook(1, "JK Kuppuku Kousoku 2 ~Aikidou Shoujo ga Maketa Hi~", [
+        "Artist X",
+      ]),
       createMockBook(
         2,
         "JK Kuppuku Kousoku 3 ~Aikidou Shoujo ga Maketa Hi~ | JK굴복구속3 ~합기도 소녀가 패배한 날~",

@@ -78,7 +78,6 @@ const {
   handleSetLockPassword,
   handleVerifyLockPassword,
   handleClearLockPassword,
-  store,
 } = await import("../../../src/main/handlers/configHandler.js");
 
 describe("configHandler", () => {
@@ -117,6 +116,7 @@ describe("configHandler", () => {
     it("존재하지 않는 키는 undefined를 반환해야 함", async () => {
       mockGet.mockReturnValue(undefined);
 
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const result = await handleGetConfigValue("nonExistentKey" as any);
 
       expect(result).toBeUndefined();
@@ -142,6 +142,7 @@ describe("configHandler", () => {
 
       const result = await handleSetConfig({
         key: "theme",
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         value: "invalid" as any,
       });
 

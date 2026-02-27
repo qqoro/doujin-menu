@@ -21,7 +21,7 @@ interface Props {
 const props = defineProps<Props>();
 const emit = defineEmits<{
   "update:open": [value: boolean];
-  confirm: [options: any];
+  confirm: [options: { minConfidence: number; minBooks: number }];
 }>();
 
 // 설정값 저장

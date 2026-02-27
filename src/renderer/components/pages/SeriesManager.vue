@@ -1,5 +1,15 @@
 <script setup lang="ts">
 import HelpDialog from "@/components/common/HelpDialog.vue";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -16,34 +26,25 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@/components/ui/alert-dialog";
 import { Icon } from "@iconify/vue";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/vue-query";
 import { computed, ref } from "vue";
-import { useRouter } from "vue-router";
 import { toast } from "vue-sonner";
-import type { SeriesCollectionWithBooks } from "../../../main/db/types";
+import type {
+  SeriesCollection,
+  SeriesCollectionWithBooks,
+} from "../../../main/db/types";
 import {
   deleteSeriesCollection,
   getSeriesCollections,
   runSeriesDetection,
 } from "../../api";
+import CreateSeriesDialog from "../feature/CreateSeriesDialog.vue";
 import SeriesCollectionCard from "../feature/SeriesCollectionCard.vue";
 import SeriesDetailDialog from "../feature/SeriesDetailDialog.vue";
 import SeriesDetectionDialog from "../feature/SeriesDetectionDialog.vue";
-import CreateSeriesDialog from "../feature/CreateSeriesDialog.vue";
 
 const queryClient = useQueryClient();
-const router = useRouter();
 
 // 필터 및 정렬 상태
 const filterType = ref<"all" | "auto" | "manual">("all");
@@ -123,14 +124,17 @@ const handleRunDetection = () => {
 };
 
 // 자동 감지 확정 실행
-const handleConfirmDetection = (options: any) => {
+const handleConfirmDetection = (options: {
+  minConfidence: number;
+  minBooks: number;
+}) => {
   showDetectionDialog.value = false;
   detectionMutation.mutate(options);
 };
 
 // 시리즈 클릭
-const handleSeriesClick = (series: any) => {
-  selectedSeries.value = series;
+const handleSeriesClick = (series: SeriesCollection) => {
+  selectedSeries.value = series as SeriesCollectionWithBooks;
   showDetailDialog.value = true;
 };
 

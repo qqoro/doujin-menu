@@ -1,11 +1,4 @@
 <script setup lang="ts">
-import { Button } from "@/components/ui/button";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -16,23 +9,30 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { Textarea } from "@/components/ui/textarea";
 import { Icon } from "@iconify/vue";
-import { ref, watch, computed } from "vue";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/vue-query";
+import { useMutation, useQuery } from "@tanstack/vue-query";
+import { computed, ref, watch } from "vue";
 import { useRouter } from "vue-router";
 import { toast } from "vue-sonner";
-import {
-  getSeriesCollectionById,
-  updateSeriesCollection,
-  removeBookFromSeries,
-  reorderBooksInSeries,
-} from "../../api";
 import type { SeriesCollectionWithBooks } from "../../../main/db/types";
 import type { Book } from "../../../types/ipc";
+import {
+  getSeriesCollectionById,
+  removeBookFromSeries,
+  reorderBooksInSeries,
+  updateSeriesCollection,
+} from "../../api";
 import AddBookToSeriesDialog from "./AddBookToSeriesDialog.vue";
 
 interface Props {
@@ -46,7 +46,6 @@ const emit = defineEmits<{
   updated: [];
 }>();
 
-const queryClient = useQueryClient();
 const router = useRouter();
 
 // 편집 모드
@@ -85,8 +84,13 @@ watch(
 
 // 시리즈 정보 업데이트 뮤테이션
 const updateMutation = useMutation({
-  mutationFn: ({ id, data }: { id: number; data: any }) =>
-    updateSeriesCollection(id, data),
+  mutationFn: ({
+    id,
+    data,
+  }: {
+    id: number;
+    data: { name?: string; description?: string };
+  }) => updateSeriesCollection(id, data),
   onSuccess: () => {
     toast.success("시리즈 정보가 업데이트되었습니다");
     isEditing.value = false;
@@ -190,12 +194,6 @@ const handleBookClick = (bookId: number) => {
     name: "Viewer",
     params: { id: bookId },
   });
-  emit("update:open", false);
-};
-
-// 다이얼로그 닫기
-const closeDialog = () => {
-  isEditing.value = false;
   emit("update:open", false);
 };
 

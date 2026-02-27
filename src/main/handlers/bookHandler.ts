@@ -949,8 +949,7 @@ export const handleDeleteBook = async (bookId: number) => {
     ) {
       try {
         await fs.unlink(book.cover_path);
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      } catch (thumbError: any) {
+      } catch {
         // ENOENT는 무시 (이미 삭제됨)
       }
     }

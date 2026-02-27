@@ -2,8 +2,8 @@
 import { Input } from "@/components/ui/input";
 import { useLookupData } from "@/composable/useLookupData";
 import { Icon } from "@iconify/vue";
-import { computed, nextTick, ref, useTemplateRef, watch } from "vue";
 import { watchDebounced } from "@vueuse/core";
+import { computed, nextTick, ref, useTemplateRef, watch } from "vue";
 import { toast } from "vue-sonner";
 
 const props = defineProps({
@@ -45,6 +45,9 @@ const availablePrefixes = [
 
 const implicitTagPrefixes = ["female:", "male:"];
 
+// 제안 가능한 모든 프리픽스 목록
+const allSuggestiblePrefixes = [...availablePrefixes, ...implicitTagPrefixes];
+
 const { artists, tags, series, groups, characters, types, languages } =
   useLookupData();
 
@@ -84,22 +87,27 @@ const currentSearchTerm = computed(() => {
 });
 
 // 프리픽스 제안 (즉시 반응, 데이터 양이 적어 debounce 불필요)
-watch(() => props.modelValue, (newValue) => {
-  const term = currentSearchTerm.value.toLowerCase();
-  const prefix = currentPrefix.value;
+watch(
+  () => props.modelValue,
+  (newValue) => {
+    const term = currentSearchTerm.value.toLowerCase();
+    const prefix = currentPrefix.value;
 
-  // 프리픽스가 없고 입력 중일 때만 프리픽스 제안
-  if (!prefix && term.length > 0) {
-    const allSuggestiblePrefixes = [...availablePrefixes, ...implicitTagPrefixes];
-    const currentTerms = new Set(
-      newValue.toLowerCase().split(" ").filter((s) => s.length > 0),
-    );
-    suggestions.value = allSuggestiblePrefixes
-      .filter((p) => p.startsWith(term))
-      .filter((s) => !currentTerms.has(s.toLowerCase()));
-    activeSuggestionIndex.value = -1;
-  }
-});
+    // 프리픽스가 없고 입력 중일 때만 프리픽스 제안
+    if (!prefix && term.length > 0) {
+      const currentTerms = new Set(
+        newValue
+          .toLowerCase()
+          .split(" ")
+          .filter((s: string) => s.length > 0),
+      );
+      suggestions.value = allSuggestiblePrefixes
+        .filter((p: string) => p.startsWith(term))
+        .filter((s: string) => !currentTerms.has(s.toLowerCase()));
+      activeSuggestionIndex.value = -1;
+    }
+  },
+);
 
 // 태그/아티스트 제안 (300ms debounce로 타이핑 중 불필요한 연산 방지)
 watchDebounced(
@@ -166,8 +174,8 @@ watchDebounced(
     } else {
       // 프리픽스가 아직 없는 경우, 제안 가능한 모든 프리픽스를 보여줌
       suggestions.value = allSuggestiblePrefixes
-        .filter((p) => p.startsWith(term))
-        .filter((s) => !currentTerms.has(s.toLowerCase()));
+        .filter((p: string) => p.startsWith(term))
+        .filter((s: string) => !currentTerms.has(s.toLowerCase()));
     }
 
     activeSuggestionIndex.value = -1;

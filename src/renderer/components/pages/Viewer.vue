@@ -788,7 +788,11 @@ useWindowEvent("mousedown", handleMouseDown);
       <div
         v-if="readingMode !== 'webtoon'"
         class="from-muted-foreground/40 text-background pointer-events-auto absolute top-0 left-0 z-10 flex w-1/4 max-w-[500px] cursor-pointer items-center justify-center bg-linear-to-r opacity-0 transition-opacity duration-150 hover:opacity-100"
-        :class="screenRotation === 90 || screenRotation === 270 ? 'h-full' : 'h-screen'"
+        :class="
+          screenRotation === 90 || screenRotation === 270
+            ? 'h-full'
+            : 'h-screen'
+        "
         @click="readingMode === 'rtl' ? store.nextPage() : store.prevPage()"
       >
         <Icon
@@ -799,7 +803,11 @@ useWindowEvent("mousedown", handleMouseDown);
       <div
         v-if="readingMode !== 'webtoon'"
         class="from-muted-foreground/40 text-background pointer-events-auto absolute top-0 right-0 z-10 flex w-1/4 max-w-[500px] cursor-pointer items-center justify-center bg-linear-to-l opacity-0 transition-opacity duration-150 hover:opacity-100"
-        :class="screenRotation === 90 || screenRotation === 270 ? 'h-full' : 'h-screen'"
+        :class="
+          screenRotation === 90 || screenRotation === 270
+            ? 'h-full'
+            : 'h-screen'
+        "
         @click="readingMode === 'rtl' ? store.prevPage() : store.nextPage()"
       >
         <Icon
@@ -1155,10 +1163,13 @@ useWindowEvent("mousedown", handleMouseDown);
                             :min="1"
                             class="w-20"
                             @update:model-value="
-                              (val) => store.setAutoPlayStopPage(Number(val) || null)
+                              (val) =>
+                                store.setAutoPlayStopPage(Number(val) || null)
                             "
                           />
-                          <span class="text-xs text-muted-foreground">페이지</span>
+                          <span class="text-muted-foreground text-xs"
+                            >페이지</span
+                          >
                         </div>
                       </div>
                     </div>

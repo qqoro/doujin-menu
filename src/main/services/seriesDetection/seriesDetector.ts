@@ -363,7 +363,7 @@ function groupByArtistAndSimilarity(
   }
 
   // 각 작가 그룹 내에서 제목 공통 부분 찾기
-  for (const [artist, artistBooks] of artistGroups) {
+  for (const [, artistBooks] of artistGroups) {
     if (artistBooks.length < 2) continue;
 
     const titles = artistBooks.map((b) => b.title);

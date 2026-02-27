@@ -29,11 +29,11 @@ describe("statisticsHandler", () => {
               const stats = await mockStat(fullPath);
               totalSize += stats.size;
             }
-          } catch (err) {
+          } catch {
             // 에러 무시
           }
         }
-      } catch (err) {
+      } catch {
         // 에러 무시
       }
       return totalSize;

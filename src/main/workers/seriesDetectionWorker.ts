@@ -5,12 +5,6 @@ import type { Book } from "../db/types.js";
 import { detectSeriesCandidates } from "../services/seriesDetection/seriesDetector.js";
 import type { DetectionOptions } from "../services/seriesDetection/types.js";
 
-interface SeriesCandidate {
-  seriesName: string;
-  confidence: number;
-  books: { book: Book; orderIndex: number }[];
-}
-
 if (parentPort) {
   parentPort.on(
     "message",
@@ -65,24 +59,32 @@ if (parentPort) {
           .groupBy("Book.id");
 
         // 3. 데이터 변환
-        const booksWithArrays: Book[] = books.map((book: any) => ({
-          ...book,
-          artists: book.artists
-            ? book.artists.split(",").map((name: string) => ({ id: 0, name }))
-            : [],
-          tags: book.tags
-            ? book.tags
-                .split(",")
-                .map((name: string) => ({ id: 0, name, color: null }))
-            : [],
-        }));
+        const booksWithArrays: Book[] = books.map(
+          (
+            book: Record<string, unknown> & { artists?: string; tags?: string },
+          ) =>
+            ({
+              ...book,
+              artists: book.artists
+                ? book.artists
+                    .split(",")
+                    .map((name: string) => ({ id: 0, name }))
+                : [],
+              tags: book.tags
+                ? book.tags
+                    .split(",")
+                    .map((name: string) => ({ id: 0, name, color: null }))
+                : [],
+            }) as Book,
+        );
 
         // 4. 시리즈 감지 알고리즘 실행
         const result = await detectSeriesCandidates(booksWithArrays, options);
 
         // 5. 감지된 시리즈 저장
         const createdSeries: { id: number; name: string }[] = [];
-        const minBooks = (options as any).minBooks || 2;
+        const minBooks =
+          (options as DetectionOptions & { minBooks?: number }).minBooks || 2;
 
         for (const candidate of result.candidates) {
           if (candidate.books.length < minBooks) {
@@ -120,7 +122,8 @@ if (parentPort) {
               .count("* as count")
               .first();
 
-            const count = (bookCount as any)?.count || 0;
+            const count =
+              (bookCount as { count: number } | undefined)?.count || 0;
 
             if (count < 2) {
               await trx("Book")

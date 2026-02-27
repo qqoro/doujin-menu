@@ -12,7 +12,6 @@ import { console } from "../main.js";
 import { formatDownloadFolderName } from "../utils/index.js";
 import { store as configStore } from "./configHandler.js";
 import { handleDownloadGallery } from "./downloaderHandler.js";
-import { handleRunSeriesDetection } from "./seriesCollectionHandler.js";
 
 // 다운로드 큐 처리 상태
 let isProcessingQueue = false;
@@ -390,7 +389,7 @@ async function processDownloadQueue() {
 
         // 다운로드 실행 (기존 downloaderHandler 사용)
         const result = await handleDownloadGallery(
-          { sender: mainWindow.webContents } as any,
+          { sender: mainWindow.webContents } as Electron.IpcMainInvokeEvent,
           {
             galleryId: nextItem.gallery_id,
             downloadPath: nextItem.download_path,

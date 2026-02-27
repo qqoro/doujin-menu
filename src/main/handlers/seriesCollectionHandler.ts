@@ -24,7 +24,9 @@ function runSeriesDetectionInWorker(
   return new Promise((resolve, reject) => {
     // DB 경로 결정
     const isDevelopment = process.env.NODE_ENV === "development";
-    const dbPath = isDevelopment ? "./dev.sqlite3" : app.getPath("userData") + "/database.db";
+    const dbPath = isDevelopment
+      ? "./dev.sqlite3"
+      : app.getPath("userData") + "/database.db";
 
     const worker = new Worker(
       fileURLToPath(
@@ -116,7 +118,7 @@ export async function handleGetSeriesCollections(params: {
 
         return {
           ...collection,
-          book_count: (bookCount as any)?.count || 0,
+          book_count: (bookCount as { count: number } | undefined)?.count || 0,
           cover_image: collection.cover_image || firstBook?.cover_path || null,
         };
       }),
@@ -126,7 +128,8 @@ export async function handleGetSeriesCollections(params: {
     const totalCountResult = await db("SeriesCollection")
       .count("* as count")
       .first();
-    const totalCount = (totalCountResult as any)?.count || 0;
+    const totalCount =
+      (totalCountResult as { count: number } | undefined)?.count || 0;
 
     return {
       success: true,
@@ -306,7 +309,10 @@ export async function handleRunSeriesDetection(
     console.log("[SeriesCollection] Worker 스레드에서 시리즈 감지 시작...");
 
     // Worker에서 모든 작업 수행 (DB 조회 + 감지 + 저장)
-    const result = await runSeriesDetectionInWorker(options, protectManualEdits);
+    const result = await runSeriesDetectionInWorker(
+      options,
+      protectManualEdits,
+    );
 
     console.log(
       `[SeriesCollection] 시리즈 감지 완료: ${result.created_count}개 생성`,
@@ -369,17 +375,23 @@ export async function handleRunSeriesDetectionForBook(
       .groupBy("Book.id");
 
     // 배열 변환
-    const convertBook = (book: any): Book => ({
-      ...book,
-      artists: book.artists
-        ? book.artists.split(",").map((name: string) => ({ id: 0, name }))
-        : [],
-      tags: book.tags
-        ? book.tags
-            .split(",")
-            .map((name: string) => ({ id: 0, name, color: null }))
-        : [],
-    });
+    const convertBook = (
+      book: Record<string, unknown> & {
+        artists?: string;
+        tags?: string;
+      },
+    ): Book =>
+      ({
+        ...book,
+        artists: book.artists
+          ? book.artists.split(",").map((name: string) => ({ id: 0, name }))
+          : [],
+        tags: book.tags
+          ? book.tags
+              .split(",")
+              .map((name: string) => ({ id: 0, name, color: null }))
+          : [],
+      }) as Book;
 
     const candidate = await detectSeriesForBook(
       convertBook(targetBook),
@@ -454,17 +466,23 @@ export async function handleAutoDetectSeriesForBook(bookId: number) {
       .groupBy("Book.id");
 
     // 배열 변환
-    const convertBook = (book: any): Book => ({
-      ...book,
-      artists: book.artists
-        ? book.artists.split(",").map((name: string) => ({ id: 0, name }))
-        : [],
-      tags: book.tags
-        ? book.tags
-            .split(",")
-            .map((name: string) => ({ id: 0, name, color: null }))
-        : [],
-    });
+    const convertBook = (
+      book: Record<string, unknown> & {
+        artists?: string;
+        tags?: string;
+      },
+    ): Book =>
+      ({
+        ...book,
+        artists: book.artists
+          ? book.artists.split(",").map((name: string) => ({ id: 0, name }))
+          : [],
+        tags: book.tags
+          ? book.tags
+              .split(",")
+              .map((name: string) => ({ id: 0, name, color: null }))
+          : [],
+      }) as Book;
 
     const candidate = await detectSeriesForBook(
       convertBook(targetBook),
@@ -521,7 +539,8 @@ export async function handleAddBookToSeries(
         .max("series_order_index as max")
         .first();
 
-      finalOrderIndex = ((maxOrder as any)?.max || 0) + 1;
+      finalOrderIndex =
+        ((maxOrder as { max: number } | undefined)?.max || 0) + 1;
     }
 
     await db("Book").where("id", bookId).update({
@@ -642,7 +661,7 @@ export async function handleMergeSeriesCollections(
         .max("series_order_index as max")
         .first();
 
-      let nextOrder = ((maxOrder as any)?.max || 0) + 1;
+      let nextOrder = ((maxOrder as { max: number } | undefined)?.max || 0) + 1;
 
       for (const book of sourceBooks) {
         await trx("Book").where("id", book.id).update({
@@ -893,7 +912,7 @@ export async function handleCleanupEmptySeries() {
           .count("* as count")
           .first();
 
-        const count = (bookCount as any)?.count || 0;
+        const count = (bookCount as { count: number } | undefined)?.count || 0;
 
         // 책이 2개 미만이면 삭제
         if (count < 2) {

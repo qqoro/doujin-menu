@@ -15,6 +15,29 @@ export interface Changelog {
  */
 export const changelogData: Changelog[] = [
   {
+    version: "1.12.0",
+    changes: [
+      {
+        type: "feature",
+        title: "✨ 새로운 기능",
+        items: [
+          "앱 전체 화면 회전 기능이 추가되었습니다. (설정 → 일반)",
+          "자동 넘김 기능에서 특정 페이지에서 종료하는 옵션이 추가되었습니다.",
+        ],
+      },
+      {
+        type: "etc",
+        title: "🚀 성능 개선",
+        items: [
+          "검색 자동완성 성능을 최적화했습니다.",
+          "검색어 입력 시 300ms 지연을 적용하여 불필요한 연산을 줄였습니다.",
+          "시리즈 감지 성능을 최적화했습니다.",
+          "라이브러리 검색 속도를 개선했습니다.",
+        ],
+      },
+    ],
+  },
+  {
     version: "1.11.3",
     changes: [
       {

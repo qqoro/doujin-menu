@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { Button } from "@/components/ui/button";
+import SmartSearchInput from "@/components/common/SmartSearchInput.vue";
 import {
   Dialog,
   DialogContent,
@@ -9,12 +9,11 @@ import {
 } from "@/components/ui/dialog";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Icon } from "@iconify/vue";
-import { ref, watch, computed } from "vue";
 import { useMutation, useQuery } from "@tanstack/vue-query";
+import { computed, ref, watch } from "vue";
 import { toast } from "vue-sonner";
-import { addBookToSeries, ipcRenderer } from "../../api";
 import type { Book } from "../../../types/ipc";
-import SmartSearchInput from "@/components/common/SmartSearchInput.vue";
+import { addBookToSeries, ipcRenderer } from "../../api";
 
 interface Props {
   open: boolean;

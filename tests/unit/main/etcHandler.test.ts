@@ -67,8 +67,8 @@ vi.mock("fs/promises", () => ({
   readdir: vi.fn(),
 }));
 
-import { formatBytes } from "../../../src/main/handlers/etcHandler";
 import { lstat, readdir } from "fs/promises";
+import { formatBytes } from "../../../src/main/handlers/etcHandler";
 
 // mock 함수 타입 캐스팅
 const mockLstat = lstat as unknown as ReturnType<typeof vi.fn>;
@@ -99,7 +99,7 @@ async function getDirSize(dirPath: string): Promise<number> {
     }
 
     return totalSize;
-  } catch (error) {
+  } catch {
     return 0;
   }
 }

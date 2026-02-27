@@ -692,9 +692,6 @@ export async function scanDirectory(directoryPath: string): Promise<{
 }
 
 export async function scanFile(filePath: string) {
-  let addedCount = 0;
-  let updatedCount = 0;
-
   try {
     const stats = await fs.stat(filePath);
     const processedBook = await processBookItem(filePath, {
@@ -725,7 +722,6 @@ export async function scanFile(filePath: string) {
               language_name_english: cleanValue(bookData.language_name_english),
               language_name_local: cleanValue(bookData.language_name_local),
             });
-          updatedCount++;
 
           // 업데이트를 위해 기존 연결 제거
           await trx("BookArtist").where("book_id", bookId).del();
@@ -746,7 +742,6 @@ export async function scanFile(filePath: string) {
           };
           const result = await trx("Book").insert(bookToInsert);
           bookId = result[0];
-          addedCount++;
         }
 
         // 아티스트, 그룹, 캐릭터, 태그, 시리즈 처리

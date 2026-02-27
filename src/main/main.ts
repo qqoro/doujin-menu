@@ -458,7 +458,9 @@ app.whenReady().then(async () => {
           .whereLike("path", `${folderPath}%`)
           .and.where("cover_path", null);
 
-        await Promise.all(books.map((book) => handleGenerateThumbnail(book.id)));
+        await Promise.all(
+          books.map((book) => handleGenerateThumbnail(book.id)),
+        );
       }
 
       // 스캔 완료 후 UI에 알림
