@@ -31,6 +31,7 @@ export const useViewerStore = defineStore("viewer", () => {
   const viewerRestoreLastSession = ref(true);
   const viewerAutoFitZoom = ref(true);
   const images = ref<HTMLElement[] | null>(null);
+  const viewerHideNavigationOverlay = ref(false);
 
   // 웹툰 태그 자동 전환 관련 상태
   const originalReadingMode = ref<"ltr" | "rtl" | "webtoon" | null>(null);
@@ -568,6 +569,10 @@ export const useViewerStore = defineStore("viewer", () => {
     if (config.viewerReadingMode !== undefined) {
       readingMode.value = config.viewerReadingMode as "ltr" | "rtl" | "webtoon";
     }
+    if (config.viewerHideNavigationOverlay !== undefined) {
+      viewerHideNavigationOverlay.value =
+        config.viewerHideNavigationOverlay as boolean;
+    }
   }
 
   async function loadBook(_bookId: number, _filterParams?: FilterParams) {
@@ -776,5 +781,6 @@ export const useViewerStore = defineStore("viewer", () => {
     resetZoom,
     setZoom,
     setPan,
+    viewerHideNavigationOverlay,
   };
 });

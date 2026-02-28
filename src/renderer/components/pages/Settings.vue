@@ -163,6 +163,8 @@ const viewerShowCoverAlone = ref(true);
 const viewerAutoFitZoom = ref(true);
 const viewerRestoreLastSession = ref(true);
 const viewerExcludeCompleted = ref(false);
+const viewerHideNavigationOverlay = ref(false);
+const viewerOpenInFullscreen = ref(false);
 
 // 화면 회전 설정 상태
 const uiStore = useUiStore();
@@ -210,6 +212,9 @@ onMounted(async () => {
   viewerAutoFitZoom.value = config.viewerAutoFitZoom !== false;
   viewerRestoreLastSession.value = config.viewerRestoreLastSession !== false;
   viewerExcludeCompleted.value = config.viewerExcludeCompleted === true;
+  viewerHideNavigationOverlay.value =
+    config.viewerHideNavigationOverlay === true;
+  viewerOpenInFullscreen.value = config.viewerOpenInFullscreen === true;
 
   // 화면 회전 설정 불러오기
   screenRotation.value = (config.screenRotation as 0 | 90 | 180 | 270) || 0;
@@ -370,6 +375,16 @@ const onViewerRestoreLastSessionChange = (value: boolean) => {
 const onViewerExcludeCompletedChange = (value: boolean) => {
   viewerExcludeCompleted.value = value;
   saveConfig("viewerExcludeCompleted", value);
+};
+
+const onViewerHideNavigationOverlayChange = (value: boolean) => {
+  viewerHideNavigationOverlay.value = value;
+  saveConfig("viewerHideNavigationOverlay", value);
+};
+
+const onViewerOpenInFullscreenChange = (value: boolean) => {
+  viewerOpenInFullscreen.value = value;
+  saveConfig("viewerOpenInFullscreen", value);
 };
 
 // 데이터베이스 백업
@@ -1006,6 +1021,30 @@ const resetAllData = async () => {
                     :model-value="viewerExcludeCompleted"
                     class="justify-self-end"
                     @update:model-value="onViewerExcludeCompletedChange"
+                  />
+                </SettingItem>
+                <SettingItem
+                  label-for="hide-navigation-overlay"
+                  title="네비게이션 오버레이 숨기기"
+                  subtitle="마우스를 화면 가장자리에 올렸을 때 나타나는 화살표와 그라데이션을 숨깁니다. (클릭 영역은 유지)"
+                >
+                  <Switch
+                    id="hide-navigation-overlay"
+                    :model-value="viewerHideNavigationOverlay"
+                    class="justify-self-end"
+                    @update:model-value="onViewerHideNavigationOverlayChange"
+                  />
+                </SettingItem>
+                <SettingItem
+                  label-for="open-in-fullscreen"
+                  title="뷰어 진입 시 전체 화면"
+                  subtitle="만화책을 열 때 자동으로 전체 화면 모드로 진입합니다. (F11 또는 휠 클릭으로 전환 가능)"
+                >
+                  <Switch
+                    id="open-in-fullscreen"
+                    :model-value="viewerOpenInFullscreen"
+                    class="justify-self-end"
+                    @update:model-value="onViewerOpenInFullscreenChange"
                   />
                 </SettingItem>
               </CardContent>

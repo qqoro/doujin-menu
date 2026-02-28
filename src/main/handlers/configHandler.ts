@@ -46,6 +46,8 @@ interface Config {
   appLockPassword?: string; // salt:hash
   viewerExcludeCompleted?: boolean;
   screenRotation?: 0 | 90 | 180 | 270; // 화면 회전 각도
+  viewerHideNavigationOverlay?: boolean; // 네비게이션 오버레이 숨김
+  viewerOpenInFullscreen?: boolean; // 뷰어 진입 시 자동 전체 화면
 }
 
 const defaults: Config = {
@@ -79,6 +81,8 @@ const defaults: Config = {
   useAppLock: false,
   appLockPassword: "",
   screenRotation: 0,
+  viewerHideNavigationOverlay: false,
+  viewerOpenInFullscreen: false,
 };
 
 export const store = new Store<Config>({

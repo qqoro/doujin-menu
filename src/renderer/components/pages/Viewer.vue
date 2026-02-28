@@ -85,6 +85,7 @@ const {
   zoomLevel,
   panX,
   panY,
+  viewerHideNavigationOverlay,
 } = storeToRefs(store);
 
 const { screenRotation } = storeToRefs(uiStore);
@@ -560,6 +561,12 @@ onMounted(async () => {
     // 초기 로드 시에도 대기 상태로 설정 (페이지가 로드되면 자동으로 기록됨)
     pendingHistoryBookId.value = bookId;
   }
+
+  // 뷰어 진입 시 전체 화면 설정 확인
+  const config = await ipcRenderer.invoke("get-config");
+  if (config.viewerOpenInFullscreen === true) {
+    ipcRenderer.send("set-fullscreen-window", true);
+  }
 });
 
 // webtoonRef 변경 시 store에 동기화
@@ -787,32 +794,44 @@ useWindowEvent("mousedown", handleMouseDown);
     >
       <div
         v-if="readingMode !== 'webtoon'"
-        class="from-muted-foreground/40 text-background pointer-events-auto absolute top-0 left-0 z-10 flex w-1/4 max-w-[500px] cursor-pointer items-center justify-center bg-linear-to-r opacity-0 transition-opacity duration-150 hover:opacity-100"
-        :class="
+        class="pointer-events-auto absolute top-0 left-0 z-10 flex w-1/4 max-w-[500px] cursor-pointer items-center justify-center opacity-0 transition-opacity duration-150"
+        :class="[
           screenRotation === 90 || screenRotation === 270
             ? 'h-full'
-            : 'h-screen'
-        "
+            : 'h-screen',
+          viewerHideNavigationOverlay ? '' : 'hover:opacity-100',
+        ]"
         @click="readingMode === 'rtl' ? store.nextPage() : store.prevPage()"
       >
+        <div
+          v-if="!viewerHideNavigationOverlay"
+          class="from-muted-foreground/40 pointer-events-none absolute inset-0 bg-linear-to-r"
+        ></div>
         <Icon
+          v-if="!viewerHideNavigationOverlay"
           icon="solar:alt-arrow-left-outline"
-          class="drop-shadow-foreground pointer-events-none size-12 drop-shadow-sm"
+          class="text-background drop-shadow-foreground pointer-events-none relative z-10 size-12 drop-shadow-sm"
         />
       </div>
       <div
         v-if="readingMode !== 'webtoon'"
-        class="from-muted-foreground/40 text-background pointer-events-auto absolute top-0 right-0 z-10 flex w-1/4 max-w-[500px] cursor-pointer items-center justify-center bg-linear-to-l opacity-0 transition-opacity duration-150 hover:opacity-100"
-        :class="
+        class="pointer-events-auto absolute top-0 right-0 z-10 flex w-1/4 max-w-[500px] cursor-pointer items-center justify-center opacity-0 transition-opacity duration-150"
+        :class="[
           screenRotation === 90 || screenRotation === 270
             ? 'h-full'
-            : 'h-screen'
-        "
+            : 'h-screen',
+          viewerHideNavigationOverlay ? '' : 'hover:opacity-100',
+        ]"
         @click="readingMode === 'rtl' ? store.prevPage() : store.nextPage()"
       >
+        <div
+          v-if="!viewerHideNavigationOverlay"
+          class="from-muted-foreground/40 pointer-events-none absolute inset-0 bg-linear-to-l"
+        ></div>
         <Icon
+          v-if="!viewerHideNavigationOverlay"
           icon="solar:alt-arrow-right-outline"
-          class="drop-shadow-foreground pointer-events-none size-12 drop-shadow-sm"
+          class="text-background drop-shadow-foreground pointer-events-none relative z-10 size-12 drop-shadow-sm"
         />
       </div>
       <Transition name="fade">
