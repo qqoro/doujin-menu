@@ -15,6 +15,25 @@ export interface Changelog {
  */
 export const changelogData: Changelog[] = [
   {
+    version: "1.13.0",
+    changes: [
+      {
+        type: "feature",
+        title: "✨ 새로운 기능",
+        items: [
+          "라이브러리 스캔 진행률을 실시간으로 확인할 수 있습니다.",
+          "뷰어 진입 시 자동으로 전체 화면으로 전환하는 옵션이 추가되었습니다. (설정 → 뷰어)",
+          "뷰어에서 페이지 이동 오버레이를 숨기는 옵션이 추가되었습니다. (설정 → 뷰어)",
+        ],
+      },
+      {
+        type: "etc",
+        title: "🚀 성능 개선",
+        items: ["라이브러리 스캔 시 메모리 사용량을 최적화했습니다."],
+      },
+    ],
+  },
+  {
     version: "1.12.0",
     changes: [
       {
