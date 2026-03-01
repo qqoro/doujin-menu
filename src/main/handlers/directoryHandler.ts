@@ -11,6 +11,7 @@ import db from "../db/index.js";
 import { Book } from "../db/types.js";
 import { console } from "../main.js";
 import { ParsedMetadata, parseInfoTxt } from "../parsers/infoTxtParser.js";
+import type { LibraryScanProgress } from "../../types/ipc.js";
 import { naturalSort } from "../utils/index.js";
 import { store as configStore } from "./configHandler.js";
 import { handleRunSeriesDetection } from "./seriesCollectionHandler.js";
@@ -21,6 +22,29 @@ import {
 
 // Windows MAX_PATH 제한
 const MAX_PATH_LENGTH = 260;
+
+// 진행률 브로드캐스트 쓰로틀링을 위한 변수
+let lastProgressBroadcastTime = 0;
+const PROGRESS_BROADCAST_INTERVAL = 100; // 100ms 간격으로 쓰로틀링
+
+// 진행률 브로드캐스트 함수
+function broadcastScanProgress(progress: LibraryScanProgress) {
+  const now = Date.now();
+  // 쓰로틀링: 마지막 전송 후 PROGRESS_BROADCAST_INTERVAL이 지나지 않았으면 전송하지 않음
+  // 단, 완료(phase: 'completed')나 시작(phase: 'counting') 단계는 즉시 전송
+  if (
+    now - lastProgressBroadcastTime < PROGRESS_BROADCAST_INTERVAL &&
+    progress.phase !== "completed" &&
+    progress.phase !== "counting"
+  ) {
+    return;
+  }
+  lastProgressBroadcastTime = now;
+
+  BrowserWindow.getAllWindows().forEach((window) => {
+    window.webContents.send("library-scan-progress", progress);
+  });
+}
 
 export function cleanValue(value: string | null | undefined): string | null {
   if (value === "N/A" || value === undefined || value === null) {
@@ -534,8 +558,65 @@ export async function scanDirectory(directoryPath: string): Promise<{
   const allBookIdsToGenerateThumbnails: number[] = [];
   const allNewlyAddedBookIds: number[] = [];
 
+  // 진행률 추적을 위한 변수
+  let processedFileCount = 0;
+  let totalFileCount = 0;
+  let currentFileName: string | null = null;
+
+  // 진행률 업데이트 헬퍼 함수
+  const updateProgress = (
+    phase: LibraryScanProgress["phase"],
+    extra: Partial<LibraryScanProgress> = {},
+  ) => {
+    const progress =
+      totalFileCount > 0
+        ? Math.round((processedFileCount / totalFileCount) * 100)
+        : 0;
+    broadcastScanProgress({
+      folderPath: directoryPath,
+      phase,
+      progress,
+      currentFile: currentFileName,
+      processedCount: processedFileCount,
+      totalCount: totalFileCount,
+      addedCount: totalAddedCount,
+      updatedCount: totalUpdatedCount,
+      deletedCount: totalDeletedCount,
+      ...extra,
+    });
+  };
+
   try {
-    // fast-glob 스트림 API 사용으로 메모리 최적화
+    // 1단계: 파일 수 카운트
+    updateProgress("counting");
+    console.log(`[Main] 파일 수 카운트 중...`);
+
+    // 폴더와 ZIP 파일 수 카운트
+    const countStream = fg.stream(["**/*"], {
+      cwd: directoryPath,
+      absolute: true,
+      deep: MAX_SCAN_DEPTH,
+      onlyFiles: false,
+      objectMode: true,
+    });
+
+    for await (const entry of countStream) {
+      const entryObj = entry as unknown as fg.Entry;
+      const itemPath = entryObj.path.replaceAll("/", "\\");
+      const ext = path.extname(itemPath).toLowerCase();
+      const isDirectory = entryObj.dirent.isDirectory();
+      const isFile = entryObj.dirent.isFile();
+      const isZip = isFile && (ext === ".cbz" || ext === ".zip");
+
+      if (isDirectory || isZip) {
+        totalFileCount++;
+      }
+    }
+
+    console.log(`[Main] 총 ${totalFileCount}개의 항목을 스캔합니다.`);
+    updateProgress("scanning");
+
+    // 2단계: 실제 스캔 처리
     const stream = fg.stream(["**/*"], {
       cwd: directoryPath,
       absolute: true,
@@ -572,6 +653,10 @@ export async function scanDirectory(directoryPath: string): Promise<{
           continue;
         }
 
+        // 진행률 업데이트
+        processedFileCount++;
+        currentFileName = path.basename(itemPath);
+
         const bookResult = await processBookItem(itemPath, {
           isDirectory,
           isFile,
@@ -594,6 +679,8 @@ export async function scanDirectory(directoryPath: string): Promise<{
               allNewlyAddedBookIds.push(...result.newBookIds);
               allBookIdsToGenerateThumbnails.push(...result.thumbnailNeeded);
             });
+            // 진행률 업데이트
+            updateProgress("scanning");
             // 메모리 해제를 위해 청크 비우기
             processedBooksChunk.length = 0;
             // 이벤트 루프에 양보하여 GC가 메모리를 정리할 기회 제공
@@ -652,11 +739,34 @@ export async function scanDirectory(directoryPath: string): Promise<{
       }
     });
 
-    // 썸네일 생성 (배치 처리로 메모리 최적화)
+    // 3단계: 썸네일 생성
     if (allBookIdsToGenerateThumbnails.length > 0) {
       console.log(
         `[Main] 스캔 후 ${allBookIdsToGenerateThumbnails.length}권의 책에 대한 썸네일 생성 중...`,
       );
+
+      // 썸네일 진행률 추적
+      let thumbnailsProcessed = 0;
+      const totalThumbnails = allBookIdsToGenerateThumbnails.length;
+
+      const updateThumbnailProgress = () => {
+        thumbnailsProcessed++;
+        const progress = Math.round(
+          (thumbnailsProcessed / totalThumbnails) * 100,
+        );
+        broadcastScanProgress({
+          folderPath: directoryPath,
+          phase: "thumbnails",
+          progress,
+          currentFile: `썸네일 생성 중 (${thumbnailsProcessed}/${totalThumbnails})`,
+          processedCount: processedFileCount,
+          totalCount: totalFileCount,
+          addedCount: totalAddedCount,
+          updatedCount: totalUpdatedCount,
+          deletedCount: totalDeletedCount,
+        });
+      };
+
       const queue = new PQueue({ concurrency: os.cpus().length });
       const THUMBNAIL_CHUNK_SIZE = 100;
       const thumbnailChunk: { bookId: number; thumbnailPath: string }[] = [];
@@ -684,6 +794,7 @@ export async function scanDirectory(directoryPath: string): Promise<{
               await flushThumbnailChunk();
             }
           }
+          updateThumbnailProgress();
         });
       }
       await queue.onIdle();
@@ -692,18 +803,31 @@ export async function scanDirectory(directoryPath: string): Promise<{
       console.log(`[Main] 스캔 후 썸네일 생성 및 업데이트 완료.`);
     }
 
-    // 새로 추가된 책들에 대해 자동 시리즈 감지 실행
+    // 4단계: 시리즈 자동 감지
     if (allNewlyAddedBookIds.length > 0) {
       console.log(
         `[Main] ${allNewlyAddedBookIds.length}권의 새 책 추가됨. 전체 시리즈 자동 감지 시작...`,
       );
+
+      // 시리즈 감지 진행률 표시
+      broadcastScanProgress({
+        folderPath: directoryPath,
+        phase: "series",
+        progress: 0,
+        currentFile: "시리즈 자동 감지 중...",
+        processedCount: processedFileCount,
+        totalCount: totalFileCount,
+        addedCount: totalAddedCount,
+        updatedCount: totalUpdatedCount,
+        deletedCount: totalDeletedCount,
+      });
 
       const seriesSettings = configStore.get("seriesDetectionSettings", {
         minConfidence: 0.7,
         minBooks: 2,
       });
 
-      handleRunSeriesDetection(seriesSettings)
+      await handleRunSeriesDetection(seriesSettings)
         .then((result) => {
           if (result.success && result.data) {
             console.log(
@@ -715,6 +839,19 @@ export async function scanDirectory(directoryPath: string): Promise<{
           console.error(`[Main] 자동 시리즈 감지 실패:`, error);
         });
     }
+
+    // 5단계: 완료
+    broadcastScanProgress({
+      folderPath: directoryPath,
+      phase: "completed",
+      progress: 100,
+      currentFile: null,
+      processedCount: processedFileCount,
+      totalCount: totalFileCount,
+      addedCount: totalAddedCount,
+      updatedCount: totalUpdatedCount,
+      deletedCount: totalDeletedCount,
+    });
 
     return {
       added: totalAddedCount,

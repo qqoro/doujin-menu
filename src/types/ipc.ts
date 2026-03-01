@@ -138,6 +138,19 @@ export interface Statistics {
   };
 }
 
+// 라이브러리 스캔 진행률 정보
+export interface LibraryScanProgress {
+  folderPath: string; // 스캔 중인 폴더 경로
+  phase: "counting" | "scanning" | "thumbnails" | "series" | "completed"; // 현재 단계
+  progress: number; // 0-100 진행률
+  currentFile: string | null; // 현재 처리 중인 파일명
+  processedCount: number; // 처리된 파일 수
+  totalCount: number; // 전체 파일 수
+  addedCount: number; // 추가된 책 수
+  updatedCount: number; // 업데이트된 책 수
+  deletedCount: number; // 삭제된 책 수
+}
+
 // IPC 채널 이름과 요청/응답 타입 매핑
 export interface IpcChannels {
   // Book handlers

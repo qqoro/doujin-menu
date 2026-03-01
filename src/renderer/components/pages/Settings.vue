@@ -39,6 +39,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useQueryAndParams } from "@/composable/useQueryAndParams";
 import { useTheme } from "@/composable/useTheme";
 import { themeList } from "@/lib/themeList";
+import { useLibraryScanStore } from "@/store/libraryScanStore";
 import { useUiStore } from "@/store/uiStore";
 import { ColorTheme } from "@/types/themes";
 import { Icon } from "@iconify/vue";
@@ -60,6 +61,7 @@ import EtcView from "../feature/settings/EtcView.vue";
 import LicenseViewDialog from "../feature/settings/LicenseViewDialog.vue"; // New import
 import PresetFormDialog from "../feature/settings/PresetFormDialog.vue";
 import SettingItem from "../feature/settings/SettingItem.vue";
+import LibraryScanProgress from "../feature/LibraryScanProgress.vue";
 import { Input } from "../ui/input";
 
 const route = useRoute();
@@ -187,6 +189,10 @@ const loadLibraryFolders = async () => {
 
 // 컴포넌트 마운트 시 설정 불러오기
 onMounted(async () => {
+  // 라이브러리 스캔 Store 초기화
+  const libraryScanStore = useLibraryScanStore();
+  libraryScanStore.initialize();
+
   if (route.query.tab) {
     tab.value = route.query.tab as string;
   }
@@ -776,6 +782,9 @@ const resetAllData = async () => {
           </TabsContent>
 
           <TabsContent value="library" class="mt-0">
+            <!-- 스캔 진행률 표시 -->
+            <LibraryScanProgress />
+
             <div class="space-y-6">
               <Card>
                 <CardHeader>

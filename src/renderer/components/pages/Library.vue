@@ -22,6 +22,7 @@ import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { useQueryAndParams } from "@/composable/useQueryAndParams";
 import { useScrollRestoration } from "@/composable/useScrollRestoration";
 import { useWindowEvent } from "@/composable/useWindowEvent";
+import { useLibraryScanStore } from "@/store/libraryScanStore";
 import { Icon } from "@iconify/vue";
 import {
   useInfiniteQuery,
@@ -56,6 +57,7 @@ import BookCard from "../feature/BookCard.vue";
 import BookDetailDialog from "../feature/BookDetailDialog.vue";
 import BookPreviewDialog from "../feature/BookPreviewDialog.vue";
 import BookRowCard from "../feature/BookRowCard.vue";
+import LibraryScanProgress from "../feature/LibraryScanProgress.vue";
 
 const queryClient = useQueryClient();
 
@@ -253,6 +255,10 @@ const books = computed(
 );
 
 onMounted(() => {
+  // 라이브러리 스캔 Store 초기화
+  const libraryScanStore = useLibraryScanStore();
+  libraryScanStore.initialize();
+
   ipcRenderer.on("books-updated", () =>
     queryClient.invalidateQueries({ queryKey: ["books"] }),
   );
@@ -403,6 +409,9 @@ useScrollRestoration(".flex-grow.overflow-y-auto");
 
 <template>
   <div class="flex h-full flex-col">
+    <!-- 스캔 진행률 표시 -->
+    <LibraryScanProgress />
+
     <div class="mb-4 flex items-center justify-between">
       <div class="flex items-center gap-2">
         <Icon icon="solar:library-bold-duotone" class="h-6 w-6" />
