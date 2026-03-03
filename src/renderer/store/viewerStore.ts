@@ -33,6 +33,7 @@ export const useViewerStore = defineStore("viewer", () => {
   const images = ref<HTMLElement[] | null>(null);
   const viewerHideNavigationOverlay = ref(false);
   const hidePageNumber = ref(false);
+  const viewerHideToast = ref(false);
 
   // 웹툰 태그 자동 전환 관련 상태
   const originalReadingMode = ref<"ltr" | "rtl" | "webtoon" | null>(null);
@@ -577,6 +578,9 @@ export const useViewerStore = defineStore("viewer", () => {
     if (config.viewerHidePageNumber !== undefined) {
       hidePageNumber.value = config.viewerHidePageNumber as boolean;
     }
+    if (config.viewerHideToast !== undefined) {
+      viewerHideToast.value = config.viewerHideToast as boolean;
+    }
   }
 
   async function loadBook(_bookId: number, _filterParams?: FilterParams) {
@@ -787,5 +791,6 @@ export const useViewerStore = defineStore("viewer", () => {
     setPan,
     viewerHideNavigationOverlay,
     hidePageNumber,
+    viewerHideToast,
   };
 });

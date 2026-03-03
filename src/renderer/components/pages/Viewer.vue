@@ -87,6 +87,7 @@ const {
   panY,
   viewerHideNavigationOverlay,
   hidePageNumber,
+  viewerHideToast,
 } = storeToRefs(store);
 
 const { screenRotation } = storeToRefs(uiStore);
@@ -850,7 +851,7 @@ useWindowEvent("mousedown", handleMouseDown);
       <!-- 토스트 알림 -->
       <Transition name="fade">
         <div
-          v-if="showToast && toastMessage"
+          v-if="!viewerHideToast && showToast && toastMessage"
           class="text-primary bg-secondary/75 border-secondary/75 fixed top-27 right-12 z-20 flex items-center justify-center gap-2 rounded-lg border px-4 py-2 text-lg font-semibold backdrop-blur-sm"
         >
           <Icon icon="solar:info-circle-bold-duotone" class="text-xl" />

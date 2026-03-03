@@ -167,6 +167,7 @@ const viewerRestoreLastSession = ref(true);
 const viewerExcludeCompleted = ref(false);
 const viewerHideNavigationOverlay = ref(false);
 const viewerHidePageNumber = ref(false);
+const viewerHideToast = ref(false);
 const viewerOpenInFullscreen = ref(false);
 
 // 화면 회전 설정 상태
@@ -222,6 +223,7 @@ onMounted(async () => {
   viewerHideNavigationOverlay.value =
     config.viewerHideNavigationOverlay === true;
   viewerHidePageNumber.value = config.viewerHidePageNumber === true;
+  viewerHideToast.value = config.viewerHideToast === true;
   viewerOpenInFullscreen.value = config.viewerOpenInFullscreen === true;
 
   // 화면 회전 설정 불러오기
@@ -393,6 +395,11 @@ const onViewerHideNavigationOverlayChange = (value: boolean) => {
 const onViewerHidePageNumberChange = (value: boolean) => {
   viewerHidePageNumber.value = value;
   saveConfig("viewerHidePageNumber", value);
+};
+
+const onViewerHideToastChange = (value: boolean) => {
+  viewerHideToast.value = value;
+  saveConfig("viewerHideToast", value);
 };
 
 const onViewerOpenInFullscreenChange = (value: boolean) => {
@@ -1061,6 +1068,18 @@ const resetAllData = async () => {
                     :model-value="viewerHidePageNumber"
                     class="justify-self-end"
                     @update:model-value="onViewerHidePageNumberChange"
+                  />
+                </SettingItem>
+                <SettingItem
+                  label-for="hide-toast"
+                  title="토스트 숨기기"
+                  subtitle="뷰어 내 알림 토스트를 숨깁니다."
+                >
+                  <Switch
+                    id="hide-toast"
+                    :model-value="viewerHideToast"
+                    class="justify-self-end"
+                    @update:model-value="onViewerHideToastChange"
                   />
                 </SettingItem>
                 <SettingItem

@@ -49,6 +49,7 @@ interface Config {
   viewerHideNavigationOverlay?: boolean; // 네비게이션 오버레이 숨김
   viewerOpenInFullscreen?: boolean; // 뷰어 진입 시 자동 전체 화면
   viewerHidePageNumber?: boolean; // 페이지 번호 숨김
+  viewerHideToast?: boolean; // 토스트 숨김
 }
 
 const defaults: Config = {
@@ -85,6 +86,7 @@ const defaults: Config = {
   viewerHideNavigationOverlay: false,
   viewerOpenInFullscreen: false,
   viewerHidePageNumber: false,
+  viewerHideToast: false,
 };
 
 export const store = new Store<Config>({
