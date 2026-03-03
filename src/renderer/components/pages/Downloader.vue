@@ -419,6 +419,13 @@ useSearchPersistence(searchQuery, "downloader-search-query");
                 다이얼로그를 열 수 있습니다.
               </li>
             </ul>
+            <h3 class="text-foreground text-base font-semibold">폴더명 패턴</h3>
+            <ul class="list-inside list-disc">
+              <li>
+                <code>%artist|groups%</code>와 같이 Fallback 문법을 사용할 수
+                있습니다. (artist가 없으면 groups 사용)
+              </li>
+            </ul>
           </div>
         </HelpDialog>
       </h1>

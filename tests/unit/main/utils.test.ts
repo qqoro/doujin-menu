@@ -43,7 +43,7 @@ describe("formatDownloadFolderName", () => {
 
     it("language 치환", () => {
       const gallery = createGallery({
-        languageName: { english: "Korean" },
+        languageName: { english: "Korean", local: null },
       });
       expect(formatDownloadFolderName(gallery, "%language% - %title%")).toBe(
         "Korean - Test Title",

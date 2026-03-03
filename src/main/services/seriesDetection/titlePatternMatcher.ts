@@ -25,6 +25,8 @@ const VOLUME_PATTERNS = [
   { regex: /^(.+?)\s*[제]?(\d+)화\b/i, confidence: 0.95 },
   // [시리즈명] Vol.1, [시리즈명] Vol 1
   { regex: /^(.+?)\s*Vol\.?\s*(\d+)\b/i, confidence: 0.9 },
+  // [시리즈명] v.1, [시리즈명] v1 (소문자 v 패턴)
+  { regex: /^(.+?)\s*v\.?\s*(\d+)\b/i, confidence: 0.85 },
   // [시리즈명] Chapter 1, [시리즈명] Ch.1
   { regex: /^(.+?)\s*(?:Chapter|Ch\.?)\s*(\d+)\b/i, confidence: 0.9 },
   // [시리즈명] Part 1, [시리즈명] Pt.1

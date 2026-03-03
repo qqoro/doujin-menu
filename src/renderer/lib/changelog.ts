@@ -15,6 +15,28 @@ export interface Changelog {
  */
 export const changelogData: Changelog[] = [
   {
+    version: "1.14.0",
+    changes: [
+      {
+        type: "feature",
+        title: "✨ 새로운 기능",
+        items: [
+          "뷰어 컨트롤 바에 랜덤 책 이동 버튼이 추가되었습니다.",
+          "뷰어에서 토스트 알림을 숨기는 옵션이 추가되었습니다. (설정 → 뷰어)",
+          "뷰어에서 페이지 번호를 숨기는 옵션이 추가되었습니다. (설정 → 뷰어)",
+          "다운로더 폴더명 패턴에 Fallback 문법이 추가되었습니다. (예: %artist|groups% - artist가 없으면 groups 사용)",
+        ],
+      },
+      {
+        type: "fix",
+        title: "🐛 버그 수정",
+        items: [
+          "뷰어 진입 시 상단바 자동 숨김 설정이 올바르게 적용되지 않던 문제를 수정했습니다.",
+        ],
+      },
+    ],
+  },
+  {
     version: "1.13.0",
     changes: [
       {
