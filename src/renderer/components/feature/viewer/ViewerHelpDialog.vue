@@ -23,6 +23,8 @@ const keybindings = [
   { keys: [["End"]], description: "마지막 페이지로 이동" },
   { keys: [["]"]], description: "다음 책으로 이동" },
   { keys: [["["]], description: "이전 책으로 이동" },
+  { keys: [["Shift", "]"]], description: "시리즈 다음 권" },
+  { keys: [["Shift", "["]], description: "시리즈 이전 권" },
   { keys: [["\\"]], description: "랜덤 책으로 이동" },
   { keys: [["A"]], description: "자동 다음 책 토글" },
   { keys: [["+"], ["="]], description: "이미지 확대" },
@@ -34,7 +36,7 @@ const keybindings = [
   { keys: [["`"]], description: "책 정보 보기/숨기기" },
   { keys: [["Shift", "Delete"]], description: "현재 책 삭제" },
   { keys: [["Esc"]], description: "라이브러리로 돌아가기" },
-  { keys: [["Enter"]], description: "전체화면/창 모드 전환" },
+  { keys: [["Enter"], ["F11"]], description: "전체화면/창 모드 전환" },
   { keys: [["휠 클릭"]], description: "완전 전체화면/창 모드 전환" },
 ];
 </script>
@@ -59,13 +61,17 @@ const keybindings = [
         <div>
           <h3 class="mb-2 font-semibold">기본 조작</h3>
           <ul class="text-muted-foreground list-inside list-disc text-sm">
-            <li>화면의 좌우 가장자리를 클릭하여 페이지를 넘길 수 있습니다.</li>
+            <li>
+              화면의 좌우 가장자리를 클릭하여 페이지를 넘길 수 있습니다.
+              (읽기 방향 설정에 따라 방향이 달라집니다)
+            </li>
             <li>화면 상단/하단에 마우스를 올리면 컨트롤 바가 나타납니다.</li>
             <li>
               컨트롤 바의 슬라이더를 이용해 원하는 페이지로 빠르게 이동할 수
               있습니다.
             </li>
             <li>확대된 이미지를 마우스로 드래그하여 이동할 수 있습니다.</li>
+            <li>더블 페이지 모드에서는 두 페이지를 동시에 볼 수 있습니다.</li>
             <li>
               페이지를 이동하면 확대/축소 상태가 자동으로 초기화됩니다. (웹툰
               모드 제외)
