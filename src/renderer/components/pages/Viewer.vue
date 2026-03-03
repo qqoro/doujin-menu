@@ -86,6 +86,7 @@ const {
   panX,
   panY,
   viewerHideNavigationOverlay,
+  hidePageNumber,
 } = storeToRefs(store);
 
 const { screenRotation } = storeToRefs(uiStore);
@@ -836,7 +837,7 @@ useWindowEvent("mousedown", handleMouseDown);
       </div>
       <Transition name="fade">
         <div
-          v-if="!showControls"
+          v-if="!showControls && !hidePageNumber"
           class="text-muted-foreground/50 fixed top-4 left-4 flex flex-col gap-1 text-lg font-bold"
         >
           <div>{{ currentPage }} / {{ totalPages }}</div>

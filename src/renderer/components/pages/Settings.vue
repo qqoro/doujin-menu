@@ -166,6 +166,7 @@ const viewerAutoFitZoom = ref(true);
 const viewerRestoreLastSession = ref(true);
 const viewerExcludeCompleted = ref(false);
 const viewerHideNavigationOverlay = ref(false);
+const viewerHidePageNumber = ref(false);
 const viewerOpenInFullscreen = ref(false);
 
 // 화면 회전 설정 상태
@@ -220,6 +221,7 @@ onMounted(async () => {
   viewerExcludeCompleted.value = config.viewerExcludeCompleted === true;
   viewerHideNavigationOverlay.value =
     config.viewerHideNavigationOverlay === true;
+  viewerHidePageNumber.value = config.viewerHidePageNumber === true;
   viewerOpenInFullscreen.value = config.viewerOpenInFullscreen === true;
 
   // 화면 회전 설정 불러오기
@@ -386,6 +388,11 @@ const onViewerExcludeCompletedChange = (value: boolean) => {
 const onViewerHideNavigationOverlayChange = (value: boolean) => {
   viewerHideNavigationOverlay.value = value;
   saveConfig("viewerHideNavigationOverlay", value);
+};
+
+const onViewerHidePageNumberChange = (value: boolean) => {
+  viewerHidePageNumber.value = value;
+  saveConfig("viewerHidePageNumber", value);
 };
 
 const onViewerOpenInFullscreenChange = (value: boolean) => {
@@ -1045,6 +1052,18 @@ const resetAllData = async () => {
                   />
                 </SettingItem>
                 <SettingItem
+                  label-for="hide-page-number"
+                  title="페이지 번호 숨기기"
+                  subtitle="뷰어 좌측 상단에 표시되는 페이지 번호를 숨깁니다."
+                >
+                  <Switch
+                    id="hide-page-number"
+                    :model-value="viewerHidePageNumber"
+                    class="justify-self-end"
+                    @update:model-value="onViewerHidePageNumberChange"
+                  />
+                </SettingItem>
+                <SettingItem
                   label-for="open-in-fullscreen"
                   title="뷰어 진입 시 전체 화면"
                   subtitle="만화책을 열 때 자동으로 전체 화면 모드로 진입합니다. (F11 또는 휠 클릭으로 전환 가능)"
@@ -1088,7 +1107,7 @@ const resetAllData = async () => {
                 >
                   <Input
                     id="download-pattern-input"
-                    placeholder="%artist% - %title%"
+                    placeholder="[%artist%] %title% (%id%)"
                     class="col-span-1"
                     :model-value="downloadPattern"
                     @update:model-value="
@@ -1104,9 +1123,26 @@ const resetAllData = async () => {
                     <li><code>%id%</code>: 갤러리 ID</li>
                     <li><code>%language%</code>: 언어</li>
                     <li><code>%groups%</code>: 그룹</li>
+                    <li><code>%series%</code>: 시리즈</li>
+                    <li><code>%character%</code>: 캐릭터</li>
+                    <li><code>%type%</code>: 타입</li>
+                  </ul>
+                  <p class="mt-2 font-semibold">Fallback 문법</p>
+                  <p class="mt-1">
+                    <code>%변수1|변수2%</code> 형식으로 사용하면, 첫 번째 변수가
+                    없을 때 두 번째 변수를 대신 사용합니다.
+                  </p>
+                  <ul class="ml-4 list-inside list-disc">
+                    <li>
+                      <code>%artist|groups%</code>: 작가명 (없으면 그룹명)
+                    </li>
+                    <li>
+                      <code>%artist|groups|series%</code>: 작가 → 그룹 → 시리즈
+                      순
+                    </li>
                   </ul>
                   <p class="mt-2">
-                    예시: <code>%artist% - %title% (%id%)</code>
+                    예시: <code>[%artist|groups%] %title% (%id%)</code>
                   </p>
                 </div>
                 <SettingItem

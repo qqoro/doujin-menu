@@ -48,6 +48,7 @@ interface Config {
   screenRotation?: 0 | 90 | 180 | 270; // 화면 회전 각도
   viewerHideNavigationOverlay?: boolean; // 네비게이션 오버레이 숨김
   viewerOpenInFullscreen?: boolean; // 뷰어 진입 시 자동 전체 화면
+  viewerHidePageNumber?: boolean; // 페이지 번호 숨김
 }
 
 const defaults: Config = {
@@ -62,7 +63,7 @@ const defaults: Config = {
   viewerExcludeCompleted: false,
   downloadPath: "",
   downloaderLanguage: "all",
-  downloadPattern: "%artist% - %title%",
+  downloadPattern: "[%artist%] %title% (%id%)",
   createInfoTxtFile: true,
   compressDownload: false,
   compressFormat: "cbz",
@@ -83,6 +84,7 @@ const defaults: Config = {
   screenRotation: 0,
   viewerHideNavigationOverlay: false,
   viewerOpenInFullscreen: false,
+  viewerHidePageNumber: false,
 };
 
 export const store = new Store<Config>({
