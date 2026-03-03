@@ -430,6 +430,10 @@ useScrollRestoration(".flex-grow.overflow-y-auto");
             <h3 class="text-foreground text-base font-semibold">검색 팁</h3>
             <ul class="list-inside list-disc">
               <li>
+                <kbd>Ctrl</kbd>+<kbd>F</kbd>로 검색창에 빠르게 포커스할 수
+                있습니다.
+              </li>
+              <li>
                 검색창에 제목, 작가, 태그, 시리즈를 입력하여 검색할 수 있습니다.
               </li>
               <li><code>tag:태그명</code>: 특정 태그로 검색합니다.</li>

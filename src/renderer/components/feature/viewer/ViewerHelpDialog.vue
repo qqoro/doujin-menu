@@ -33,6 +33,10 @@ const keybindings = [
   { keys: [["Ctrl", "휠"]], description: "이미지 확대/축소" },
   { keys: [["Ctrl", "1-9"]], description: "자동 넘김 시작 (1-9초 간격)" },
   { keys: [["Ctrl", "0"]], description: "자동 넘김 중지" },
+  {
+    keys: [["Ctrl", "Shift", "0"]],
+    description: "자동 넘김 현재 페이지에서 종료",
+  },
   { keys: [["`"]], description: "책 정보 보기/숨기기" },
   { keys: [["Shift", "Delete"]], description: "현재 책 삭제" },
   { keys: [["Esc"]], description: "라이브러리로 돌아가기" },
@@ -62,8 +66,11 @@ const keybindings = [
           <h3 class="mb-2 font-semibold">기본 조작</h3>
           <ul class="text-muted-foreground list-inside list-disc text-sm">
             <li>
-              화면의 좌우 가장자리를 클릭하여 페이지를 넘길 수 있습니다.
-              (읽기 방향 설정에 따라 방향이 달라집니다)
+              화면의 좌우 가장자리를 클릭하여 페이지를 넘길 수 있습니다. (읽기
+              방향 설정에 따라 방향이 달라집니다)
+            </li>
+            <li>
+              마우스 휠로 페이지를 넘길 수 있습니다. (웹툰 모드 제외)
             </li>
             <li>화면 상단/하단에 마우스를 올리면 컨트롤 바가 나타납니다.</li>
             <li>
@@ -79,6 +86,10 @@ const keybindings = [
             <li>
               웹툰 모드에서는 확대/축소 기능을 사용할 수 있으며, 스크롤 시에도
               줌 레벨이 유지됩니다.
+            </li>
+            <li>
+              웹툰 태그가 있는 책을 열면 자동으로 웹툰 모드로 전환됩니다. (다른
+              책으로 이동하거나 뷰어를 나가면 원래 설정으로 복원됩니다)
             </li>
           </ul>
         </div>

@@ -81,6 +81,11 @@ const searchInDownloader = (text: string, prefix: string) => {
           <div class="flex flex-1 flex-col gap-3">
             <h3 class="text-2xl leading-tight font-bold">{{ book.title }}</h3>
 
+            <!-- 메타데이터 안내 -->
+            <p class="text-muted-foreground text-xs">
+              메타데이터를 클릭하면 복사, 우클릭하면 다운로더에서 검색합니다.
+            </p>
+
             <!-- Hitomi ID -->
             <div v-if="book.hitomi_id" class="flex items-center gap-2 text-sm">
               <Icon
