@@ -569,6 +569,12 @@ onMounted(async () => {
   if (config.viewerOpenInFullscreen === true) {
     ipcRenderer.send("set-fullscreen-window", true);
   }
+
+  // 뷰어 진입 시 초기 타이머 설정 (마우스 움직임 없으면 3초 후 컨트롤 숨김)
+  cursorHideTimer = setTimeout(() => {
+    showCursor.value = false;
+    showControls.value = false;
+  }, 3000);
 });
 
 // webtoonRef 변경 시 store에 동기화
