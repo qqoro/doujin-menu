@@ -721,6 +721,22 @@ useWindowEvent("mousedown", handleMouseDown);
                   <p class="flex items-center gap-1">다음 책 <kbd>]</kbd></p>
                 </TooltipContent>
               </Tooltip>
+              <!-- 랜덤 책 버튼 -->
+              <Tooltip>
+                <TooltipTrigger as-child>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    style="-webkit-app-region: no-drag"
+                    @click="store.loadNextBook('random')"
+                  >
+                    <Icon icon="solar:shuffle-bold-duotone" class="h-6 w-6" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p class="flex items-center gap-1">랜덤 책 <kbd>\</kbd></p>
+                </TooltipContent>
+              </Tooltip>
               <!-- 시리즈 네비게이션 버튼 -->
               <div
                 v-if="book?.series_collection_id"
