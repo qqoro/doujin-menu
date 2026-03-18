@@ -55,7 +55,8 @@ const SCROLL_SPEED_MULTIPLIER = 3;
 const handleWheelScroll = (event: WheelEvent) => {
   const container = event.currentTarget as HTMLElement;
   event.preventDefault();
-  container.scrollLeft += (event.deltaY + event.deltaX) * SCROLL_SPEED_MULTIPLIER;
+  container.scrollLeft +=
+    (event.deltaY + event.deltaX) * SCROLL_SPEED_MULTIPLIER;
 };
 
 // Intersection Observer 관련

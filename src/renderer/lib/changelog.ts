@@ -15,6 +15,19 @@ export interface Changelog {
  */
 export const changelogData: Changelog[] = [
   {
+    version: "1.15.0",
+    changes: [
+      {
+        type: "feature",
+        title: "✨ 새로운 기능",
+        items: [
+          "단축키를 원하는 대로 변경할 수 있는 기능이 추가되었습니다. (설정 → 단축키)",
+          "뷰어에서 현재 페이지를 외부 프로그램으로 열 수 있는 기능이 추가되었습니다. (설정 → 뷰어에서 외부 프로그램 경로 설정)",
+        ],
+      },
+    ],
+  },
+  {
     version: "1.14.0",
     changes: [
       {

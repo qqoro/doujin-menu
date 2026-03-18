@@ -2,6 +2,7 @@
 import { Toaster } from "@/components/ui/sonner";
 import { useKeybindings } from "@/composable/useKeybindings";
 import { useTheme } from "@/composable/useTheme";
+import type { KeybindingOverride } from "@/lib/keybindings/types";
 import { useKeybindingStore } from "@/store/keybindingStore";
 import { useUiStore } from "@/store/uiStore";
 import { onMounted } from "vue";
@@ -32,7 +33,9 @@ onMounted(async () => {
 
   // 저장된 단축키 오버라이드 적용
   if (config.keybindingOverrides) {
-    keybindingStore.loadOverrides(config.keybindingOverrides);
+    keybindingStore.loadOverrides(
+      config.keybindingOverrides as KeybindingOverride[],
+    );
   }
 
   // 화면 회전 설정 로드
