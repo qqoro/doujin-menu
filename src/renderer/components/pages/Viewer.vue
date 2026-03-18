@@ -6,6 +6,7 @@ import {
   deleteBook,
   getBook,
   ipcRenderer,
+  openWithExternalProgram,
 } from "@/api";
 import BookDetailDialog from "@/components/feature/BookDetailDialog.vue";
 import ViewerHelpDialog from "@/components/feature/viewer/ViewerHelpDialog.vue";
@@ -196,6 +197,7 @@ const openSetting = ref(false);
 const isHelpOpen = ref(false);
 const isDetailOpen = ref(false);
 const isDeleteDialogOpen = ref(false);
+const externalProgramPath = ref("");
 
 // 이미지 드래그 상태
 const isDragging = ref(false);
@@ -228,6 +230,16 @@ const handleMouseMove = (e: MouseEvent) => {
     return;
   }
   showControls.value = false;
+};
+
+// 외부 프로그램으로 현재 페이지 열기
+const openInExternalProgram = async () => {
+  if (!book.value || !externalProgramPath.value) return;
+  try {
+    await openWithExternalProgram(book.value.id, currentPage.value - 1);
+  } catch (error) {
+    store.showToastMessage((error as Error).message);
+  }
 };
 
 const handleDeleteBook = async () => {
@@ -569,6 +581,7 @@ onMounted(async () => {
   if (config.viewerOpenInFullscreen === true) {
     ipcRenderer.send("set-fullscreen-window", true);
   }
+  externalProgramPath.value = (config.externalProgramPath as string) || "";
 
   // 뷰어 진입 시 초기 타이머 설정 (마우스 움직임 없으면 3초 후 컨트롤 숨김)
   cursorHideTimer = setTimeout(() => {
@@ -1014,6 +1027,26 @@ useWindowEvent("mousedown", handleMouseDown);
         </TooltipProvider>
         <!-- 읽기 & 자동넘김 설정 -->
         <div class="flex items-center gap-2">
+          <TooltipProvider v-if="externalProgramPath">
+            <Tooltip>
+              <TooltipTrigger as-child>
+                <Button
+                  variant="outline"
+                  size="icon"
+                  @click="openInExternalProgram"
+                >
+                  <Icon icon="solar:monitor-bold-duotone" class="h-5 w-5" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>
+                <p>
+                  {{
+                    externalProgramPath.split("\\").pop()?.split("/").pop()
+                  }}(으)로 열기
+                </p>
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
           <TooltipProvider>
             <Tooltip>
               <TooltipTrigger as-child>

@@ -393,6 +393,14 @@ export interface IpcChannels {
     request: string; // password
     response: { success: boolean; valid?: boolean; error?: string };
   };
+  "select-external-program": {
+    request: void;
+    response: { success: boolean; data?: string; error?: string };
+  };
+  "open-with-external-program": {
+    request: { bookId: number; pageIndex: number };
+    response: { success: boolean; error?: string };
+  };
 
   // Directory handlers
   "add-books-from-directory": {

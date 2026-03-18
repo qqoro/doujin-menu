@@ -1,9 +1,14 @@
 import type { BrowserWindow, IpcMainInvokeEvent } from "electron";
 import { app, ipcMain, shell } from "electron";
 import fg from "fast-glob";
+import { spawn } from "child_process";
+import { existsSync } from "fs";
 import fs from "fs/promises";
 import hitomi from "node-hitomi";
 import path from "path";
+import * as yauzl from "yauzl";
+import db from "../db/index.js";
+import { naturalSort } from "../utils/index.js";
 import { console } from "../main.js";
 import { store as configStore } from "./configHandler.js";
 
@@ -225,6 +230,7 @@ export function registerEtcHandlers(win: BrowserWindow) {
       const tempPath = [
         path.join(app.getPath("userData"), "downloader_temp_thumbnails"),
         path.join(app.getPath("userData"), "temp_cover"),
+        path.join(app.getPath("userData"), "temp_external"),
       ];
       const totalSize = (
         await Promise.all(tempPath.map((path) => getDirSize(path)))
@@ -240,6 +246,7 @@ export function registerEtcHandlers(win: BrowserWindow) {
       const tempPath = [
         path.join(app.getPath("userData"), "downloader_temp_thumbnails"),
         path.join(app.getPath("userData"), "temp_cover"),
+        path.join(app.getPath("userData"), "temp_external"),
       ];
 
       for (const temp of tempPath) {
@@ -263,4 +270,156 @@ export function registerEtcHandlers(win: BrowserWindow) {
   ipcMain.handle("generate-missing-info-files", (event, pattern: string) =>
     handleGenerateMissingInfoFiles(event, pattern),
   );
+
+  ipcMain.handle(
+    "open-with-external-program",
+    async (
+      _event,
+      { bookId, pageIndex }: { bookId: number; pageIndex: number },
+    ) => {
+      try {
+        // 설정에서 프로그램 경로 가져오기
+        const programPath = configStore.get("externalProgramPath", "");
+        if (!programPath) {
+          return {
+            success: false,
+            error: "외부 프로그램이 설정되지 않았습니다.",
+          };
+        }
+        if (!existsSync(programPath)) {
+          return { success: false, error: "프로그램을 찾을 수 없습니다." };
+        }
+
+        // 책 정보 조회
+        const book = await db("Book").where("id", bookId).first();
+        if (!book || !book.path) {
+          return { success: false, error: "책을 찾을 수 없습니다." };
+        }
+
+        const bookPath = book.path;
+        let imagePath: string;
+
+        // 폴더 형식인 경우
+        const isDirectory = await fs
+          .stat(bookPath)
+          .then((stat) => stat.isDirectory())
+          .catch(() => false);
+
+        if (isDirectory) {
+          const files = await fs.readdir(bookPath);
+          const imageFiles = files
+            .filter((file) => file.match(/\.(jpg|jpeg|png|webp|gif|bmp)$/i))
+            .sort(naturalSort);
+
+          if (pageIndex < 0 || pageIndex >= imageFiles.length) {
+            return { success: false, error: "페이지를 찾을 수 없습니다." };
+          }
+          imagePath = path.join(bookPath, imageFiles[pageIndex]);
+        } else if (/\.(cbz|zip)$/i.exec(bookPath)) {
+          // ZIP/CBZ 형식인 경우: 임시 파일로 추출
+          imagePath = await extractPageFromZip(bookPath, bookId, pageIndex);
+        } else {
+          return { success: false, error: "지원하지 않는 형식입니다." };
+        }
+
+        // 외부 프로그램 실행 (fire-and-forget)
+        const child = spawn(programPath, [imagePath], {
+          detached: true,
+          stdio: "ignore",
+        });
+        child.unref();
+
+        return { success: true };
+      } catch (error) {
+        console.error("[EtcHandler] 외부 프로그램 실행 실패:", error);
+        return { success: false, error: (error as Error).message };
+      }
+    },
+  );
+}
+
+/**
+ * ZIP/CBZ에서 특정 페이지를 임시 파일로 추출
+ */
+function extractPageFromZip(
+  zipPath: string,
+  bookId: number,
+  pageIndex: number,
+): Promise<string> {
+  return new Promise((resolve, reject) => {
+    yauzl.open(
+      zipPath,
+      { lazyEntries: true, autoClose: false },
+      (err, zipfile) => {
+        if (err) return reject(new Error("ZIP 파일을 열 수 없습니다."));
+
+        const imageEntries: { fileName: string; entry: yauzl.Entry }[] = [];
+        zipfile.on("entry", (entry) => {
+          if (!entry.fileName.endsWith("/")) {
+            const ext = path.extname(entry.fileName).toLowerCase();
+            if (
+              [".jpg", ".jpeg", ".png", ".webp", ".gif", ".bmp"].includes(ext)
+            ) {
+              imageEntries.push({ fileName: entry.fileName, entry });
+            }
+          }
+          zipfile.readEntry();
+        });
+
+        zipfile.on("end", async () => {
+          imageEntries.sort((a, b) => naturalSort(a.fileName, b.fileName));
+
+          if (pageIndex < 0 || pageIndex >= imageEntries.length) {
+            zipfile.close();
+            return reject(new Error("페이지를 찾을 수 없습니다."));
+          }
+
+          const targetEntry = imageEntries[pageIndex];
+          const ext = path.extname(targetEntry.fileName).toLowerCase();
+          const tempDir = path.join(app.getPath("userData"), "temp_external");
+          await fs.mkdir(tempDir, { recursive: true });
+          const tempFilePath = path.join(
+            tempDir,
+            `${bookId}_${pageIndex}${ext}`,
+          );
+
+          // 이미 추출된 파일이 있으면 재사용
+          if (existsSync(tempFilePath)) {
+            zipfile.close();
+            return resolve(tempFilePath);
+          }
+
+          zipfile.openReadStream(targetEntry.entry, (streamErr, readStream) => {
+            if (streamErr) {
+              zipfile.close();
+              return reject(new Error("이미지 추출에 실패했습니다."));
+            }
+
+            const chunks: Buffer[] = [];
+            readStream.on("data", (chunk) => chunks.push(chunk));
+            readStream.on("end", async () => {
+              zipfile.close();
+              try {
+                await fs.writeFile(tempFilePath, Buffer.concat(chunks));
+                resolve(tempFilePath);
+              } catch {
+                reject(new Error("임시 파일 저장에 실패했습니다."));
+              }
+            });
+            readStream.on("error", () => {
+              zipfile.close();
+              reject(new Error("이미지 스트림 읽기 실패"));
+            });
+          });
+        });
+
+        zipfile.on("error", () => {
+          zipfile.close();
+          reject(new Error("ZIP 파일 읽기 오류"));
+        });
+
+        zipfile.readEntry();
+      },
+    );
+  });
 }

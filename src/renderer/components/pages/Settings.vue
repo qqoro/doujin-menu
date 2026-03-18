@@ -169,6 +169,7 @@ const viewerHideNavigationOverlay = ref(false);
 const viewerHidePageNumber = ref(false);
 const viewerHideToast = ref(false);
 const viewerOpenInFullscreen = ref(false);
+const externalProgramPath = ref("");
 
 // 화면 회전 설정 상태
 const uiStore = useUiStore();
@@ -225,6 +226,9 @@ onMounted(async () => {
   viewerHidePageNumber.value = config.viewerHidePageNumber === true;
   viewerHideToast.value = config.viewerHideToast === true;
   viewerOpenInFullscreen.value = config.viewerOpenInFullscreen === true;
+
+  // 외부 프로그램 설정 불러오기
+  externalProgramPath.value = (config.externalProgramPath as string) || "";
 
   // 화면 회전 설정 불러오기
   screenRotation.value = (config.screenRotation as 0 | 90 | 180 | 270) || 0;
@@ -405,6 +409,22 @@ const onViewerHideToastChange = (value: boolean) => {
 const onViewerOpenInFullscreenChange = (value: boolean) => {
   viewerOpenInFullscreen.value = value;
   saveConfig("viewerOpenInFullscreen", value);
+};
+
+// 외부 프로그램 선택
+const onSelectExternalProgram = async () => {
+  const result = await ipcRenderer.invoke("select-external-program");
+  if (result.success && result.data) {
+    externalProgramPath.value = result.data;
+    toast.success("외부 프로그램이 설정되었습니다.");
+  }
+};
+
+// 외부 프로그램 초기화
+const onClearExternalProgram = async () => {
+  externalProgramPath.value = "";
+  await saveConfig("externalProgramPath", "");
+  toast.success("외부 프로그램 설정이 초기화되었습니다.");
 };
 
 // 데이터베이스 백업
@@ -1093,6 +1113,41 @@ const resetAllData = async () => {
                     class="justify-self-end"
                     @update:model-value="onViewerOpenInFullscreenChange"
                   />
+                </SettingItem>
+                <SettingItem
+                  label-for="external-program"
+                  title="외부 프로그램"
+                  subtitle="뷰어에서 현재 페이지를 외부 프로그램으로 열 수 있습니다."
+                >
+                  <div class="flex items-center gap-2 justify-self-end">
+                    <span
+                      v-if="externalProgramPath"
+                      class="text-muted-foreground max-w-48 truncate text-xs"
+                      :title="externalProgramPath"
+                    >
+                      {{
+                        externalProgramPath.split("\\").pop()?.split("/").pop()
+                      }}
+                    </span>
+                    <span v-else class="text-muted-foreground text-xs">
+                      미설정
+                    </span>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      @click="onSelectExternalProgram"
+                    >
+                      선택
+                    </Button>
+                    <Button
+                      v-if="externalProgramPath"
+                      size="sm"
+                      variant="ghost"
+                      @click="onClearExternalProgram"
+                    >
+                      초기화
+                    </Button>
+                  </div>
                 </SettingItem>
               </CardContent>
             </Card>

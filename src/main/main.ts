@@ -8,6 +8,7 @@ import {
 } from "electron";
 import log from "electron-log";
 import windowStateKeeper from "electron-window-state";
+import { rmSync } from "fs";
 import fs from "fs/promises";
 import path from "path"; // path 모듈 전체 임포트
 import * as yauzl from "yauzl";
@@ -388,6 +389,16 @@ app.whenReady().then(async () => {
         error,
       );
       return new Response("Internal server error", { status: 500 });
+    }
+  });
+
+  // 앱 종료 시 외부 프로그램 임시 파일 정리
+  app.on("before-quit", () => {
+    const tempExternalDir = path.join(app.getPath("userData"), "temp_external");
+    try {
+      rmSync(tempExternalDir, { recursive: true, force: true });
+    } catch {
+      // 폴더가 없으면 무시
     }
   });
 

@@ -166,6 +166,22 @@ export function openLogFolder() {
   ipcRenderer.send("open-log-folder");
 }
 
+// 외부 프로그램 API
+export async function openWithExternalProgram(
+  bookId: number,
+  pageIndex: number,
+) {
+  const result = await ipcRenderer.invoke("open-with-external-program", {
+    bookId,
+    pageIndex,
+  });
+  if (result.success) {
+    return true;
+  } else {
+    throw new Error(result.error || "외부 프로그램 실행에 실패했습니다.");
+  }
+}
+
 export function closeCurrentWindow() {
   ipcRenderer.send("close-current-window");
 }

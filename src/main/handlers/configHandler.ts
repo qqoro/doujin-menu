@@ -50,6 +50,7 @@ interface Config {
   viewerOpenInFullscreen?: boolean; // 뷰어 진입 시 자동 전체 화면
   viewerHidePageNumber?: boolean; // 페이지 번호 숨김
   viewerHideToast?: boolean; // 토스트 숨김
+  externalProgramPath?: string; // 외부 프로그램 실행 경로
 }
 
 const defaults: Config = {
@@ -281,6 +282,28 @@ export const handleRemoveLibraryFolder = async (folderPath: string) => {
   }
 };
 
+export const handleSelectExternalProgram = async (
+  event: Electron.IpcMainInvokeEvent,
+) => {
+  const webContents = event.sender;
+  const { filePaths } = await dialog.showOpenDialog(
+    BrowserWindow.fromWebContents(webContents)!,
+    {
+      title: "외부 프로그램 선택",
+      properties: ["openFile"],
+      filters: [{ name: "실행 파일", extensions: ["exe"] }],
+    },
+  );
+
+  if (!filePaths || filePaths.length === 0) {
+    return { success: false, error: "No program selected." };
+  }
+
+  const programPath = filePaths[0];
+  store.set("externalProgramPath", programPath);
+  return { success: true, data: programPath };
+};
+
 export const handleBackupDatabase = async (
   event: Electron.IpcMainInvokeEvent,
 ) => {
@@ -445,5 +468,9 @@ export function registerConfigHandlers() {
   // 비밀번호 검증
   ipcMain.handle("verify-lock-password", (_event, password) =>
     handleVerifyLockPassword(password),
+  );
+  // 외부 프로그램 선택
+  ipcMain.handle("select-external-program", (event) =>
+    handleSelectExternalProgram(event),
   );
 }
