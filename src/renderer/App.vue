@@ -1,24 +1,25 @@
 <script setup lang="ts">
 import { Toaster } from "@/components/ui/sonner";
+import { useKeybindings } from "@/composable/useKeybindings";
+import { useTheme } from "@/composable/useTheme";
+import { useKeybindingStore } from "@/store/keybindingStore";
 import { useUiStore } from "@/store/uiStore";
 import { onMounted } from "vue";
 import { RouterView } from "vue-router";
 import { toast } from "vue-sonner";
 import { ipcRenderer } from "./api";
-import { useWindowEvent } from "./composable/useWindowEvent";
-import { useTheme } from "./composable/useTheme";
-const keyHandler = (event: KeyboardEvent) => {
-  if (
-    (event.ctrlKey && event.key.toLowerCase() === "r") ||
-    event.key.toLowerCase() === "f5"
-  ) {
-    location.reload();
-  } else if (event.ctrlKey && event.key.toLowerCase() === "w") {
-    window.close();
-  }
-};
-useWindowEvent("keydown", keyHandler);
 
+// 앱 전역 단축키 등록 (새로고침, 창 닫기)
+useKeybindings("global", {
+  "global:refresh": () => {
+    location.reload();
+  },
+  "global:close-window": () => {
+    window.close();
+  },
+});
+
+const keybindingStore = useKeybindingStore();
 const uiStore = useUiStore();
 const { initializeTheme } = useTheme();
 
@@ -26,8 +27,15 @@ onMounted(async () => {
   // 테마 초기화
   await initializeTheme();
 
-  // 화면 회전 설정 로드
+  // 앱 설정 로드 (단축키 오버라이드, 화면 회전 등)
   const config = await ipcRenderer.invoke("get-config");
+
+  // 저장된 단축키 오버라이드 적용
+  if (config.keybindingOverrides) {
+    keybindingStore.loadOverrides(config.keybindingOverrides);
+  }
+
+  // 화면 회전 설정 로드
   const savedRotation = (config.screenRotation as 0 | 90 | 180 | 270) || 0;
   uiStore.setScreenRotation(savedRotation);
 

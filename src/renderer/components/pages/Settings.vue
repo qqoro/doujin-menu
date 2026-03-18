@@ -58,6 +58,7 @@ import {
   updatePreset,
 } from "../../api";
 import EtcView from "../feature/settings/EtcView.vue";
+import KeybindingSettings from "../feature/settings/KeybindingSettings.vue";
 import LicenseViewDialog from "../feature/settings/LicenseViewDialog.vue"; // New import
 import PresetFormDialog from "../feature/settings/PresetFormDialog.vue";
 import SettingItem from "../feature/settings/SettingItem.vue";
@@ -566,6 +567,10 @@ const resetAllData = async () => {
             <TabsTrigger value="viewer" class="justify-start p-3">
               <Icon icon="solar:display-linear" class="h-5 w-5" />
               뷰어
+            </TabsTrigger>
+            <TabsTrigger value="keybindings" class="justify-start p-3">
+              <Icon icon="solar:keyboard-linear" class="h-5 w-5" />
+              단축키
             </TabsTrigger>
             <TabsTrigger value="downloader" class="justify-start p-3">
               <Icon icon="solar:download-square-linear" class="h-5 w-5" />
@@ -1151,6 +1156,10 @@ const resetAllData = async () => {
                 </SettingItem>
               </CardContent>
             </Card>
+          </TabsContent>
+
+          <TabsContent value="keybindings" class="mt-0">
+            <KeybindingSettings />
           </TabsContent>
 
           <TabsContent value="downloader" class="mt-0">

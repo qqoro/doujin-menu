@@ -37,8 +37,8 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+import { useKeybindings } from "@/composable/useKeybindings";
 import { useWindowEvent } from "@/composable/useWindowEvent";
-import { hasOpenDialog } from "@/lib/utils";
 import { useUiStore } from "@/store/uiStore";
 import { useViewerStore } from "@/store/viewerStore";
 import { Icon } from "@iconify/vue";
@@ -286,149 +286,6 @@ const handleDeleteBook = async () => {
   }
 };
 
-const handleKeyDown = async (e: KeyboardEvent) => {
-  if (e.key === "F11") {
-    e.preventDefault();
-    ipcRenderer.send("fullscreen-toggle-window");
-    return;
-  }
-
-  if (e.key === "Escape") {
-    // 다이얼로그가 열려있으면 기본 동작(다이얼로그 닫기)만 수행
-    if (hasOpenDialog()) {
-      return;
-    }
-    e.preventDefault();
-    // 다이얼로그가 없으면 뒤로 가기
-    if (isNewWindow.value) {
-      closeCurrentWindow();
-    } else {
-      router.back();
-    }
-    return;
-  }
-
-  // Shift + Delete: 책 삭제
-  if (e.shiftKey && e.key === "Delete") {
-    e.preventDefault();
-    isDeleteDialogOpen.value = true;
-    return;
-  }
-
-  if (e.key === "Enter") {
-    e.preventDefault();
-    ipcRenderer.send("maximize-toggle-window");
-    return;
-  }
-
-  if (e.key === "\\") {
-    e.preventDefault();
-    store.loadNextBook("random");
-    return;
-  }
-
-  if (e.key.toLowerCase() === "a") {
-    store.toggleAutoNextBook();
-  }
-
-  // 확대/축소 단축키
-  if (e.key === "+" || e.key === "=") {
-    e.preventDefault();
-    store.zoomIn();
-    return;
-  }
-  if (e.key === "-" || e.key === "_") {
-    e.preventDefault();
-    store.zoomOut();
-    return;
-  }
-  if (e.key === "0" && !e.ctrlKey) {
-    e.preventDefault();
-    store.resetZoom();
-    return;
-  }
-
-  if (e.ctrlKey && e.key >= "1" && e.key <= "9") {
-    e.preventDefault();
-    store.startAutoPlayWithInterval(Number(e.key));
-    return;
-  }
-  if (e.ctrlKey && e.key === "0") {
-    e.preventDefault();
-    store.stopAutoPlay();
-    return;
-  }
-
-  if (e.key === "Home") {
-    e.preventDefault();
-    store.goToPage(1);
-    return;
-  }
-  if (e.key === "End") {
-    e.preventDefault();
-    store.goToPage(totalPages.value);
-    return;
-  }
-  if (e.key === "[" || e.key === "{") {
-    e.preventDefault();
-    if (e.key === "{") {
-      // Shift+[: 시리즈 이전 권
-      store.loadPrevBookInSeries();
-    } else {
-      // [: 이전 책
-      store.loadPrevBook();
-    }
-    return;
-  }
-  if (e.key === "]" || e.key === "}") {
-    e.preventDefault();
-    if (e.key === "}") {
-      // Shift+]: 시리즈 다음 권
-      store.loadNextBookInSeries();
-    } else {
-      // ]: 다음 책
-      store.loadNextBook("next"); // Always sequential for shortcut
-    }
-    return;
-  }
-  if (e.key === " ") {
-    store.nextPage();
-    return;
-  }
-  if (e.key === "`") {
-    e.preventDefault();
-    isDetailOpen.value = !isDetailOpen.value;
-    return;
-  }
-
-  // 웹툰 모드에서는 ArrowUp/ArrowDown/PageUp/PageDown 키의 기본 스크롤 동작 허용
-  if (e.key === "ArrowRight" || e.key === "ArrowDown" || e.key === "PageDown") {
-    // 웹툰 모드에서 ArrowDown/PageDown은 스크롤만 (페이지 이동 안함)
-    if (
-      readingMode.value === "webtoon" &&
-      (e.key === "ArrowDown" || e.key === "PageDown")
-    ) {
-      return;
-    }
-    e.preventDefault();
-    store.nextPage();
-  } else if (
-    e.key === "ArrowLeft" ||
-    e.key === "ArrowUp" ||
-    e.key === "PageUp"
-  ) {
-    // 웹툰 모드에서 ArrowUp/PageUp은 스크롤만 (페이지 이동 안함)
-    if (
-      readingMode.value === "webtoon" &&
-      (e.key === "ArrowUp" || e.key === "PageUp")
-    ) {
-      return;
-    }
-    e.preventDefault();
-    store.prevPage();
-  }
-};
-
 const handleWheel = (e: WheelEvent) => {
   // Ctrl + 휠로 확대/축소 (모든 모드에서 동작)
   if (e.ctrlKey) {
@@ -612,10 +469,119 @@ useWindowEvent("mousemove", (e) => {
   handleMouseMove(e);
   handleMouseMoveForDrag(e);
 });
-useWindowEvent("keydown", useThrottleFn(handleKeyDown, 100, true));
 useWindowEvent("wheel", useThrottleFn(handleWheel, 100, true));
 useWindowEvent("mouseup", handleMouseUp);
 useWindowEvent("mousedown", handleMouseDown);
+
+// 뷰어 단축키 등록
+useKeybindings(
+  "viewer",
+  {
+    "viewer:fullscreen": () => {
+      ipcRenderer.send("fullscreen-toggle-window");
+    },
+    "viewer:escape": () => {
+      // hasOpenDialog() 가드는 composable에서 처리
+      if (isNewWindow.value) {
+        closeCurrentWindow();
+      } else {
+        router.back();
+      }
+    },
+    "viewer:delete-book": () => {
+      isDeleteDialogOpen.value = true;
+    },
+    "viewer:maximize-toggle": () => {
+      ipcRenderer.send("maximize-toggle-window");
+    },
+    "viewer:random-book": () => {
+      store.loadNextBook("random");
+    },
+    "viewer:toggle-auto-next": () => {
+      store.toggleAutoNextBook();
+    },
+    "viewer:zoom-in": () => {
+      store.zoomIn();
+    },
+    "viewer:zoom-out": () => {
+      store.zoomOut();
+    },
+    "viewer:zoom-reset": (e) => {
+      if (e.ctrlKey) return; // Ctrl+0은 auto-flip-stop
+      store.resetZoom();
+    },
+    "viewer:auto-flip-1": () => {
+      store.startAutoPlayWithInterval(1);
+    },
+    "viewer:auto-flip-2": () => {
+      store.startAutoPlayWithInterval(2);
+    },
+    "viewer:auto-flip-3": () => {
+      store.startAutoPlayWithInterval(3);
+    },
+    "viewer:auto-flip-4": () => {
+      store.startAutoPlayWithInterval(4);
+    },
+    "viewer:auto-flip-5": () => {
+      store.startAutoPlayWithInterval(5);
+    },
+    "viewer:auto-flip-6": () => {
+      store.startAutoPlayWithInterval(6);
+    },
+    "viewer:auto-flip-7": () => {
+      store.startAutoPlayWithInterval(7);
+    },
+    "viewer:auto-flip-8": () => {
+      store.startAutoPlayWithInterval(8);
+    },
+    "viewer:auto-flip-9": () => {
+      store.startAutoPlayWithInterval(9);
+    },
+    "viewer:auto-flip-stop": () => {
+      store.stopAutoPlay();
+    },
+    "viewer:first-page": () => {
+      store.goToPage(1); // 1-based
+    },
+    "viewer:last-page": () => {
+      store.goToPage(totalPages.value); // 1-based
+    },
+    "viewer:prev-book": () => {
+      store.loadPrevBook();
+    },
+    "viewer:next-book": () => {
+      store.loadNextBook("next");
+    },
+    "viewer:prev-series": () => {
+      store.loadPrevBookInSeries();
+    },
+    "viewer:next-series": () => {
+      store.loadNextBookInSeries();
+    },
+    "viewer:book-info": () => {
+      isDetailOpen.value = !isDetailOpen.value;
+    },
+    "viewer:next-page": (e) => {
+      // 웹툰 모드에서 ArrowDown/PageDown은 스크롤만 (페이지 이동 안함)
+      if (
+        store.readingMode === "webtoon" &&
+        ["ArrowDown", "PageDown"].includes(e.key)
+      )
+        return;
+      store.nextPage();
+    },
+    "viewer:prev-page": (e) => {
+      // 웹툰 모드에서 ArrowUp/PageUp은 스크롤만 (페이지 이동 안함)
+      if (
+        store.readingMode === "webtoon" &&
+        ["ArrowUp", "PageUp"].includes(e.key)
+      )
+        return;
+      store.prevPage();
+    },
+  },
+  { throttle: 100 },
+);
 </script>
 
 <template>

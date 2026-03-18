@@ -51,6 +51,7 @@ interface Config {
   viewerHidePageNumber?: boolean; // 페이지 번호 숨김
   viewerHideToast?: boolean; // 토스트 숨김
   externalProgramPath?: string; // 외부 프로그램 실행 경로
+  keybindingOverrides?: { actionId: string; keys: string[] }[]; // 키 바인딩 사용자 재정의
 }
 
 const defaults: Config = {

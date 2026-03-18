@@ -19,9 +19,9 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
+import { useKeybindings } from "@/composable/useKeybindings";
 import { useQueryAndParams } from "@/composable/useQueryAndParams";
 import { useScrollRestoration } from "@/composable/useScrollRestoration";
-import { useWindowEvent } from "@/composable/useWindowEvent";
 import { useLibraryScanStore } from "@/store/libraryScanStore";
 import { Icon } from "@iconify/vue";
 import {
@@ -396,11 +396,11 @@ const handleShowPreview = (book: Book) => {
   showBookPreviewDialog.value = true;
 };
 
-useWindowEvent("keydown", (e: KeyboardEvent) => {
-  if (e.ctrlKey && e.key === "f") {
-    e.preventDefault();
+// 라이브러리 단축키 등록
+useKeybindings("library", {
+  "library:search-focus": () => {
     searchInputRef.value?.focus();
-  }
+  },
 });
 
 // 스크롤 위치 복원

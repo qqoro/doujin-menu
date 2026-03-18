@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { computed } from "vue";
 import {
   Dialog,
   DialogContent,
@@ -8,40 +9,27 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { Icon } from "@iconify/vue";
+import { useKeybindingStore } from "@/store/keybindingStore";
+import { getKeyLabel } from "@/lib/keybindings/utils";
 
 const emit = defineEmits<{ (e: "update:open", value: boolean): void }>();
 
-const keybindings = [
-  {
-    keys: [["→"], ["↓"], ["PageDown"], ["Space"]],
-    description: "다음 페이지",
-    line: true,
-  },
-  { keys: [["←"], ["↑"], ["PageUp"]], description: "이전 페이지", line: true },
-  { keys: [["↑"], ["↓"]], description: "(웹툰 모드) 스크롤" },
-  { keys: [["Home"]], description: "첫 페이지로 이동" },
-  { keys: [["End"]], description: "마지막 페이지로 이동" },
-  { keys: [["]"]], description: "다음 책으로 이동" },
-  { keys: [["["]], description: "이전 책으로 이동" },
-  { keys: [["Shift", "]"]], description: "시리즈 다음 권" },
-  { keys: [["Shift", "["]], description: "시리즈 이전 권" },
-  { keys: [["\\"]], description: "랜덤 책으로 이동" },
-  { keys: [["A"]], description: "자동 다음 책 토글" },
-  { keys: [["+"], ["="]], description: "이미지 확대" },
-  { keys: [["-"], ["_"]], description: "이미지 축소" },
-  { keys: [["0"]], description: "확대/축소 초기화" },
+const store = useKeybindingStore();
+
+// store에서 뷰어 바인딩을 가져와 기존 도움말 형식으로 변환
+// 각 key는 정규화된 문자열(예: 'Ctrl+1', 'ArrowRight')이므로
+// getKeyLabel로 표시용 라벨로 변환 후 1개짜리 배열로 감쌈
+const viewerBindings = computed(() => {
+  return store.getBindingsForContext("viewer").map((binding) => ({
+    keys: binding.keys.map((key) => [getKeyLabel(key)]),
+    description: binding.description,
+  }));
+});
+
+// 마우스 관련 항목은 keybinding 시스템 밖이므로 별도 정적 배열 유지
+const mouseBindings = [
   { keys: [["Ctrl", "휠"]], description: "이미지 확대/축소" },
-  { keys: [["Ctrl", "1-9"]], description: "자동 넘김 시작 (1-9초 간격)" },
-  { keys: [["Ctrl", "0"]], description: "자동 넘김 중지" },
-  {
-    keys: [["Ctrl", "Shift", "0"]],
-    description: "자동 넘김 현재 페이지에서 종료",
-  },
-  { keys: [["`"]], description: "책 정보 보기/숨기기" },
-  { keys: [["Shift", "Delete"]], description: "현재 책 삭제" },
-  { keys: [["Esc"]], description: "라이브러리로 돌아가기" },
-  { keys: [["Enter"], ["F11"]], description: "전체화면/창 모드 전환" },
-  { keys: [["휠 클릭"]], description: "완전 전체화면/창 모드 전환" },
+  { keys: [["휠 클릭"]], description: "전체화면 전환" },
 ];
 </script>
 
@@ -95,11 +83,41 @@ const keybindings = [
         <div>
           <h3 class="mb-2 font-semibold">단축키</h3>
           <div class="grid grid-cols-1 gap-x-8 gap-y-2 text-sm sm:grid-cols-2">
+            <!-- keybinding store에서 동적으로 가져온 뷰어 단축키 -->
             <div
-              v-for="kb in keybindings"
+              v-for="kb in viewerBindings"
               :key="kb.description"
               class="flex items-center justify-between"
-              :class="{ 'col-span-full': kb.line }"
+            >
+              <span class="text-muted-foreground">{{ kb.description }}</span>
+              <div class="flex flex-wrap items-center gap-1">
+                <template
+                  v-for="(keyGroup, groupIndex) in kb.keys"
+                  :key="groupIndex"
+                >
+                  <span class="flex items-center gap-1">
+                    <template v-for="(key, index) in keyGroup" :key="key">
+                      <kbd>{{ key }}</kbd>
+                      <span
+                        v-if="
+                          keyGroup.length !== 1 && index !== keyGroup.length - 1
+                        "
+                        >+</span
+                      >
+                    </template>
+                  </span>
+                  <span v-if="groupIndex < kb.keys.length - 1" class="mx-1"
+                    >or</span
+                  >
+                </template>
+              </div>
+            </div>
+
+            <!-- 마우스 관련 항목은 keybinding 시스템 밖이므로 별도 렌더링 -->
+            <div
+              v-for="kb in mouseBindings"
+              :key="kb.description"
+              class="flex items-center justify-between"
             >
               <span class="text-muted-foreground">{{ kb.description }}</span>
               <div class="flex flex-wrap items-center gap-1">

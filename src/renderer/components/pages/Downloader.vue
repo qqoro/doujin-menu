@@ -20,6 +20,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
+import { useKeybindings } from "@/composable/useKeybindings";
 import { useScrollRestoration } from "@/composable/useScrollRestoration";
 import { useSearchPersistence } from "@/composable/useSearchPersistence";
 import { useDownloadQueueStore } from "@/store/downloadQueueStore";
@@ -144,23 +145,14 @@ const handleBookDeleted = (galleryId: number) => {
   delete downloadStatuses[galleryId];
 };
 
-const handleKeyDown = (event: KeyboardEvent) => {
-  // 입력 요소에 포커스가 있을 때는 단축키 비활성화
-  const target = event.target as HTMLElement;
-  if (
-    target.tagName === "INPUT" ||
-    target.tagName === "TEXTAREA" ||
-    target.isContentEditable
-  ) {
-    return;
-  }
-
-  if (event.key.toLowerCase() === "v" && !event.ctrlKey && !event.shiftKey) {
+// 다운로더 단축키 등록 (미리보기 토글)
+useKeybindings("downloader", {
+  "downloader:preview-toggle": () => {
     if (selectedGallery.value) {
       isPreviewDialogOpen.value = !isPreviewDialogOpen.value;
     }
-  }
-};
+  },
+});
 
 // 큐 상태를 downloadStatuses에 반영하는 함수
 const syncQueueToStatuses = () => {
@@ -264,15 +256,12 @@ onMounted(() => {
       downloaderLanguage.value = lang as string;
     }
   });
-
-  window.addEventListener("keydown", handleKeyDown);
 });
 
 onUnmounted(() => {
   if (observer) {
     observer.disconnect();
   }
-  window.removeEventListener("keydown", handleKeyDown);
 
   // 큐 store cleanup
   downloadQueueStore.cleanup();
