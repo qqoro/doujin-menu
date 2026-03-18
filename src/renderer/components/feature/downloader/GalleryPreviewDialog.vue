@@ -50,11 +50,12 @@ const previewImageUrls = ref<string[]>([]);
 const isLoadingImages = ref(false);
 const imageLoadError = ref<string | null>(null);
 
-// 가로 스크롤 핸들러
+// 가로 스크롤 핸들러 (속도 배율 적용)
+const SCROLL_SPEED_MULTIPLIER = 3;
 const handleWheelScroll = (event: WheelEvent) => {
   const container = event.currentTarget as HTMLElement;
   event.preventDefault();
-  container.scrollLeft += event.deltaY + event.deltaX;
+  container.scrollLeft += (event.deltaY + event.deltaX) * SCROLL_SPEED_MULTIPLIER;
 };
 
 // Intersection Observer 관련
