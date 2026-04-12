@@ -491,6 +491,9 @@ useKeybindings(
     "viewer:delete-book": () => {
       isDeleteDialogOpen.value = true;
     },
+    "viewer:toggle-favorite": () => {
+      store.toggleFavorite();
+    },
     "viewer:maximize-toggle": () => {
       ipcRenderer.send("maximize-toggle-window");
     },

@@ -170,6 +170,12 @@ export const defaultActions: ActionDefinition[] = [
     context: "viewer",
     defaultKeys: ["F11"],
   },
+  {
+    id: "viewer:toggle-favorite",
+    description: "즐겨찾기 추가/제거",
+    context: "viewer",
+    defaultKeys: ["f"],
+  },
 
   // === 라이브러리 ===
   {
@@ -177,6 +183,18 @@ export const defaultActions: ActionDefinition[] = [
     description: "검색창 포커스",
     context: "library",
     defaultKeys: ["Ctrl+f"],
+  },
+  {
+    id: "library:sort-order-toggle",
+    description: "정렬 순서 전환 (오름차순/내림차순)",
+    context: "library",
+    defaultKeys: ["s"],
+  },
+  {
+    id: "library:quit-app",
+    description: "앱 종료",
+    context: "library",
+    defaultKeys: ["Ctrl+q"],
   },
 
   // === 레이아웃 ===

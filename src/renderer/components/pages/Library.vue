@@ -401,6 +401,12 @@ useKeybindings("library", {
   "library:search-focus": () => {
     searchInputRef.value?.focus();
   },
+  "library:sort-order-toggle": () => {
+    toggleSortOrder();
+  },
+  "library:quit-app": () => {
+    ipcRenderer.send("close-window");
+  },
 });
 
 // 스크롤 위치 복원
