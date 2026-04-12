@@ -411,6 +411,20 @@ export async function runSeriesDetectionForBook(
 }
 
 /**
+ * 책 추가 시 자동 시리즈 감지 및 생성
+ */
+export async function autoDetectSeriesForBook(bookId: number) {
+  const result = await ipcRenderer.invoke(
+    "auto-detect-series-for-book",
+    bookId,
+  );
+  if (!result.success) {
+    throw new Error(result.error || "자동 시리즈 감지 실패");
+  }
+  return result;
+}
+
+/**
  * 시리즈에 책 추가
  */
 export async function addBookToSeries(

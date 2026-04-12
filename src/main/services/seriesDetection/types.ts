@@ -67,3 +67,15 @@ export interface DetectionResult {
   // 걸린 시간 (ms)
   duration: number;
 }
+
+// 증분 감지 결과
+export interface IncrementalDetectionResult {
+  // 기존 시리즈에 추가된 책 수
+  addedToExisting: number;
+  // 새로 생성된 시리즈 수
+  newSeriesCreated: number;
+  // 매칭되지 않은 책 수
+  unmatched: number;
+  // 걸린 시간 (ms)
+  duration: number;
+}

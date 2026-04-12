@@ -13,8 +13,7 @@ import { console } from "../main.js";
 import { ParsedMetadata, parseInfoTxt } from "../parsers/infoTxtParser.js";
 import type { LibraryScanProgress } from "../../types/ipc.js";
 import { naturalSort } from "../utils/index.js";
-import { store as configStore } from "./configHandler.js";
-import { handleRunSeriesDetection } from "./seriesCollectionHandler.js";
+import { handleAutoDetectSeriesForBook } from "./seriesCollectionHandler.js";
 import {
   generateThumbnailForBook,
   handleGenerateThumbnail,
@@ -822,22 +821,27 @@ export async function scanDirectory(directoryPath: string): Promise<{
         deletedCount: totalDeletedCount,
       });
 
-      const seriesSettings = configStore.get("seriesDetectionSettings", {
-        minConfidence: 0.7,
-        minBooks: 2,
-      });
+      // 증분 시리즈 감지: 새로 추가된 책에 대해서만 개별 감지 실행
+      let seriesCreated = 0;
+      let seriesMatched = 0;
 
-      await handleRunSeriesDetection(seriesSettings)
-        .then((result) => {
-          if (result.success && result.data) {
-            console.log(
-              `[Main] 자동 시리즈 감지 완료: ${result.data.created_count}개 시리즈 생성, ${result.data.processed_books}권 처리`,
-            );
+      for (const bookId of allNewlyAddedBookIds) {
+        try {
+          const result = await handleAutoDetectSeriesForBook(bookId);
+          if (result.matched) {
+            if (result.action === "new_series") seriesCreated++;
+            else seriesMatched++;
           }
-        })
-        .catch((error) => {
-          console.error(`[Main] 자동 시리즈 감지 실패:`, error);
-        });
+        } catch (error) {
+          console.error(`[Main] 책 ${bookId} 시리즈 감지 실패:`, error);
+        }
+      }
+
+      if (seriesCreated > 0 || seriesMatched > 0) {
+        console.log(
+          `[Main] 증분 시리즈 감지 완료: ${seriesCreated}개 새 시리즈 생성, ${seriesMatched}개 기존 시리즈에 추가`,
+        );
+      }
     }
 
     // 5단계: 완료

@@ -33,6 +33,7 @@ import { registerPresetHandlers } from "./handlers/presetHandler.js";
 import {
   registerSeriesCollectionHandlers,
   handleRunSeriesDetection,
+  rebuildPrefixIndex,
 } from "./handlers/seriesCollectionHandler.js";
 import { registerStatisticsHandlers } from "./handlers/statisticsHandler.js";
 import {
@@ -185,12 +186,15 @@ function createWindow() {
       });
 
       handleRunSeriesDetection(seriesSettings)
-        .then((result) => {
+        .then(async (result) => {
           if (result.success && result.data) {
             console.log(
               `[Main] 시리즈 감지 완료: ${result.data.created_count}개 시리즈 생성`,
             );
           }
+          // 전체 재감지 후 접두사 인덱스 구축
+          await rebuildPrefixIndex();
+          console.log("[Main] 접두사 인덱스 구축 완료");
         })
         .catch((err) => {
           console.error("[Main] 시리즈 감지 실패:", err);

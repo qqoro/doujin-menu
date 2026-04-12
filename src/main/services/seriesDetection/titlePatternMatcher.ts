@@ -5,6 +5,7 @@
 
 import log from "electron-log";
 import type { TitleParseResult } from "./types.js";
+import { preprocessTitle } from "./titlePreprocessor.js";
 
 const SPIN_OFF_KEYWORDS = [
   "외전",
@@ -18,11 +19,13 @@ const SPIN_OFF_KEYWORDS = [
 ];
 
 // 권수 패턴 정규식들
+// 주의: \b는 [a-zA-Z0-9_]만 인식하므로 한글(권, 화) 뒤에 \b를 쓰면 매칭 실패함
+// 한글 접미사가 있는 패턴은 (?:\s|$)를 사용하여 단어 경계를 처리
 const VOLUME_PATTERNS = [
   // [시리즈명] 1권, [시리즈명] 제1권
-  { regex: /^(.+?)\s*[제]?(\d+)권\b/i, confidence: 0.95 },
+  { regex: /^(.+?)\s*[제]?(\d+)권(?:\s|$)/i, confidence: 0.95 },
   // [시리즈명] 1화, [시리즈명] 제1화
-  { regex: /^(.+?)\s*[제]?(\d+)화\b/i, confidence: 0.95 },
+  { regex: /^(.+?)\s*[제]?(\d+)화(?:\s|$)/i, confidence: 0.95 },
   // [시리즈명] Vol.1, [시리즈명] Vol 1
   { regex: /^(.+?)\s*Vol\.?\s*(\d+)\b/i, confidence: 0.9 },
   // [시리즈명] v.1, [시리즈명] v1 (소문자 v 패턴)
@@ -38,7 +41,7 @@ const VOLUME_PATTERNS = [
   // [시리즈명] - 1, [시리즈명] -1
   { regex: /^(.+?)\s*-\s*(\d+)\b/i, confidence: 0.8 },
   // [시리즈명] (1), [시리즈명](1)
-  { regex: /^(.+?)\s+\((\d+)\)\b/i, confidence: 0.8 },
+  { regex: /^(.+?)\s+\((\d+)\)\s*$/i, confidence: 0.8 },
   // [시리즈명] 01, [시리즈명] 001 (2-3자리 숫자)
   { regex: /^(.+?)\s+(\d{2,3})\b/i, confidence: 0.7 },
   // [시리즈명] 1 (한 자리 숫자)
@@ -138,10 +141,11 @@ function extractKoreanOrder(
 ): { number: number; prefix: string } | null {
   for (const [order, number] of Object.entries(KOREAN_ORDER)) {
     // "시리즈명 상", "시리즈명 상권", "시리즈명 (상)", "시리즈명 상편" 패턴
-    const pattern1 = new RegExp(`^(.+?)\\s*${order}\\s*$`);
-    const pattern2 = new RegExp(`^(.+?)\\s*${order}권\\s*$`);
+    // 주의: \s+를 사용하여 "외전"의 "전"이 오탐지되지 않도록 공백 필수
+    const pattern1 = new RegExp(`^(.+?)\\s+${order}\\s*$`);
+    const pattern2 = new RegExp(`^(.+?)\\s+${order}권\\s*$`);
     const pattern3 = new RegExp(`^(.+?)\\s*\\(${order}\\)\\s*$`);
-    const pattern4 = new RegExp(`^(.+?)\\s*${order}편\\s*$`);
+    const pattern4 = new RegExp(`^(.+?)\\s+${order}편\\s*$`);
 
     const match =
       title.match(pattern1) ||
@@ -181,7 +185,10 @@ const LOG_SAMPLE_RATE = 100; // 100개 중 1개만 로그 출력
  * 제목에서 시리즈 패턴을 파싱
  */
 export function parseTitlePattern(title: string): TitleParseResult {
-  const trimmedTitle = title.trim();
+  // 원본 제목 보존
+  const originalTitle = title.trim();
+  // 전처리: 전각→반각, 장식문자 제거, 공백 정리
+  const trimmedTitle = preprocessTitle(originalTitle);
 
   // | 기호가 있으면 한글 부분 우선 파싱
   const titleToParse = extractKoreanTitle(trimmedTitle);
@@ -227,8 +234,13 @@ export function parseTitlePattern(title: string): TitleParseResult {
   }
 
   // 0-2. 외전/오마케 패턴 우선 시도
+  // 주의: \b는 [a-zA-Z0-9_]만 인식하므로 한글 키워드에는 사용 불가
   for (const keyword of SPIN_OFF_KEYWORDS) {
-    const keywordSuffixRegex = new RegExp(`(.+?)\\s*\\b${keyword}\\b$`, "i");
+    // 영문 키워드는 \b 사용, 한글 키워드는 공백/시작 기반 매칭
+    const isEnglish = /^[a-zA-Z]/.test(keyword);
+    const keywordSuffixRegex = isEnglish
+      ? new RegExp(`(.+?)\\s*\\b${keyword}\\b$`, "i")
+      : new RegExp(`(.+?)\\s+${keyword}\\s*$`);
     const match = titleToParse.match(keywordSuffixRegex);
 
     if (match) {
@@ -338,11 +350,14 @@ export function parseTitlePattern(title: string): TitleParseResult {
  * 두 제목의 공통 접두어를 추출
  */
 export function extractCommonPrefix(title1: string, title2: string): string {
-  const len = Math.min(title1.length, title2.length);
+  // 비교 전 전처리
+  const normalized1 = preprocessTitle(title1);
+  const normalized2 = preprocessTitle(title2);
+  const len = Math.min(normalized1.length, normalized2.length);
   let commonLength = 0;
 
   for (let i = 0; i < len; i++) {
-    if (title1[i] === title2[i]) {
+    if (normalized1[i] === normalized2[i]) {
       commonLength = i + 1;
     } else {
       break;
@@ -350,7 +365,7 @@ export function extractCommonPrefix(title1: string, title2: string): string {
   }
 
   // 단어 경계에서 자르기 (공백, 괄호, 하이픈 등)
-  const prefix = title1.substring(0, commonLength);
+  const prefix = normalized1.substring(0, commonLength);
   const boundaryMatch = new RegExp(/^(.+?)[\s\-([{「]?$/).exec(prefix);
 
   return boundaryMatch ? boundaryMatch[1].trim() : prefix.trim();

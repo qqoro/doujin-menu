@@ -599,6 +599,15 @@ export interface IpcChannels {
       error?: string;
     };
   };
+  "auto-detect-series-for-book": {
+    request: number;
+    response: {
+      success: boolean;
+      matched: boolean;
+      action?: "added_to_existing" | "new_series";
+      error?: string;
+    };
+  };
   "add-book-to-series": {
     request: {
       bookId: number;

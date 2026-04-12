@@ -3,6 +3,7 @@ import type { Book } from "../../../src/main/db/types";
 import {
   detectSeriesCandidates,
   detectSeriesForBook,
+  detectSeriesIncremental,
 } from "../../../src/main/services/seriesDetection/seriesDetector";
 
 // electron-log를 모의(mock) 처리하여 테스트 실행 중 로그 출력을 방지합니다.
@@ -66,7 +67,7 @@ describe("seriesDetector/detectSeriesCandidates", () => {
 
     expect(result.candidates).toHaveLength(1);
     const candidate = result.candidates[0];
-    expect(candidate.seriesName).toBe("테스트 시리즈 1"); // 정렬 후 첫번째 책의 제목
+    expect(candidate.seriesName).toBe("테스트 시리즈"); // 파싱된 접두사
     expect(candidate.books).toHaveLength(3);
     expect(candidate.books.map((b) => b.book.title)).toEqual([
       "테스트 시리즈 1",
@@ -187,7 +188,7 @@ describe("seriesDetector/detectSeriesCandidates", () => {
     const candidate = result.candidates[0];
     expect(candidate.books).toHaveLength(3);
     expect(candidate.books.map((b) => b.volumeNumber)).toEqual([1, 2, 3]);
-    expect(candidate.seriesName).toBe("Project 2024 Vol. 1");
+    expect(candidate.seriesName).toBe("Project 2024");
   });
 
   it("작가와 제목 유사도 기반으로 그룹화해야 합니다 (패턴 실패시)", async () => {
@@ -204,9 +205,11 @@ describe("seriesDetector/detectSeriesCandidates", () => {
 
     expect(result.candidates).toHaveLength(1);
     const candidate = result.candidates[0];
-    expect(candidate.seriesName).toBe("아티스트 시리즈 - 에피소드 알파");
+    // localeCompare 한글 정렬: ㅂ(베타) < ㅇ(알파) 이므로 베타가 먼저 정렬됨
+    // 공통 접두사는 "아티스트 시리즈" (단어 경계에서 잘림)
+    expect(candidate.seriesName).toBe("아티스트 시리즈");
     expect(candidate.books).toHaveLength(2);
-    expect(candidate.books.map((b) => b.book.id)).toEqual([10, 11]);
+    expect(candidate.books.map((b) => b.book.id).sort()).toEqual([10, 11]);
     expect(
       candidate.detectionReason.some((r) => r.type === "artist_match"),
     ).toBe(true);
@@ -236,7 +239,7 @@ describe("seriesDetector/detectSeriesCandidates", () => {
     const result = await detectSeriesCandidates(books);
     expect(result.candidates).toHaveLength(1);
     const candidate = result.candidates[0];
-    expect(candidate.seriesName).toBe("웹툰 시리즈 1화");
+    expect(candidate.seriesName).toBe("웹툰 시리즈");
     expect(candidate.books).toHaveLength(3);
     expect(candidate.books.map((b) => b.volumeNumber)).toEqual([1, 2, 3]);
   });
@@ -250,7 +253,7 @@ describe("seriesDetector/detectSeriesCandidates", () => {
     const result = await detectSeriesCandidates(books);
     expect(result.candidates).toHaveLength(1);
     const candidate = result.candidates[0];
-    expect(candidate.seriesName).toBe("특수기호 시리즈 ①");
+    expect(candidate.seriesName).toBe("특수기호 시리즈");
     expect(candidate.books.map((b) => b.volumeNumber)).toEqual([1, 2]);
   });
 
@@ -264,7 +267,7 @@ describe("seriesDetector/detectSeriesCandidates", () => {
     const result = await detectSeriesCandidates(books);
     expect(result.candidates).toHaveLength(1);
     const candidate = result.candidates[0];
-    expect(candidate.seriesName).toBe("순서 시리즈 (상)");
+    expect(candidate.seriesName).toBe("순서 시리즈");
     expect(candidate.books.map((b) => b.volumeNumber)).toEqual([1, 3]);
   });
 
@@ -278,8 +281,8 @@ describe("seriesDetector/detectSeriesCandidates", () => {
     const result = await detectSeriesCandidates(books);
     expect(result.candidates).toHaveLength(1);
     const candidate = result.candidates[0];
-    // 파싱 시 '나의 시리즈'를 접두어로 사용하므로, 정렬 후 첫 책의 전체 제목이 시리즈명이 됨
-    expect(candidate.seriesName).toBe("My Series | 나의 시리즈 1");
+    // 파싱 시 '나의 시리즈'를 접두어로 사용
+    expect(candidate.seriesName).toBe("나의 시리즈");
     expect(candidate.books).toHaveLength(2);
     expect(candidate.books.map((b) => b.volumeNumber)).toEqual([1, 2]);
   });
@@ -298,7 +301,7 @@ describe("seriesDetector/detectSeriesCandidates", () => {
     expect(result.candidates).toHaveLength(1);
     const candidate = result.candidates[0];
     expect(candidate.books).toHaveLength(4);
-    expect(candidate.seriesName).toBe("스페셜 시리즈 1");
+    expect(candidate.seriesName).toBe("스페셜 시리즈");
     // 정렬 순서: 권 번호 우선, 그 다음 제목순
     expect(candidate.books.map((b) => b.book.title)).toEqual([
       "스페셜 시리즈 1",
@@ -347,6 +350,129 @@ describe("seriesDetector/detectSeriesCandidates", () => {
     expect(vol1?.volumeNumber).toBe(1);
     expect(vol2?.volumeNumber).toBe(2);
     expect(vol3?.volumeNumber).toBe(3);
+  });
+
+  it("orderIndex가 정렬 순서와 일치해야 합니다", async () => {
+    const books: Book[] = [
+      createMockBook(1, "순서 테스트 3"),
+      createMockBook(2, "순서 테스트 1"),
+      createMockBook(3, "순서 테스트 2"),
+    ];
+
+    const result = await detectSeriesCandidates(books);
+    expect(result.candidates).toHaveLength(1);
+
+    const candidate = result.candidates[0];
+    // 정렬 후 orderIndex가 1, 2, 3 순서여야 함
+    expect(candidate.books.map((b) => b.orderIndex)).toEqual([1, 2, 3]);
+    expect(candidate.books.map((b) => b.volumeNumber)).toEqual([1, 2, 3]);
+    expect(candidate.books.map((b) => b.book.id)).toEqual([2, 3, 1]);
+  });
+
+  it("외전/오마케가 포함된 시리즈의 orderIndex가 올바르게 매겨져야 합니다", async () => {
+    const books: Book[] = [
+      createMockBook(1, "정렬 시리즈 1"),
+      createMockBook(2, "정렬 시리즈 2"),
+      createMockBook(3, "정렬 시리즈 외전"),
+      createMockBook(4, "정렬 시리즈 오마케"),
+    ];
+
+    const result = await detectSeriesCandidates(books);
+    expect(result.candidates).toHaveLength(1);
+
+    const candidate = result.candidates[0];
+    // 모든 orderIndex가 정렬 순서와 일치해야 함
+    expect(candidate.books.map((b) => b.orderIndex)).toEqual([1, 2, 3, 4]);
+    // 권 번호 있는 책이 먼저, 없는 책이 제목순으로 뒤에
+    expect(candidate.books.map((b) => b.volumeNumber)).toEqual([
+      1,
+      2,
+      null,
+      null,
+    ]);
+  });
+
+  it("동일 접두어를 가진 대량의 책을 올바르게 그룹화해야 합니다", async () => {
+    const books: Book[] = Array.from({ length: 10 }, (_, i) =>
+      createMockBook(i + 1, `긴 시리즈 ${i + 1}`),
+    );
+
+    const result = await detectSeriesCandidates(books);
+    expect(result.candidates).toHaveLength(1);
+    expect(result.candidates[0].books).toHaveLength(10);
+    expect(result.candidates[0].books.map((b) => b.volumeNumber)).toEqual([
+      1, 2, 3, 4, 5, 6, 7, 8, 9, 10,
+    ]);
+  });
+
+  it("비슷하지만 다른 시리즈를 구분해야 합니다", async () => {
+    const books: Book[] = [
+      createMockBook(1, "시리즈 A 1"),
+      createMockBook(2, "시리즈 A 2"),
+      createMockBook(3, "시리즈 B 1"),
+      createMockBook(4, "시리즈 B 2"),
+    ];
+
+    const result = await detectSeriesCandidates(books);
+    expect(result.candidates).toHaveLength(2);
+    expect(result.candidates[0].books).toHaveLength(2);
+    expect(result.candidates[1].books).toHaveLength(2);
+  });
+
+  it("EP/ep 패턴을 인식해야 합니다", async () => {
+    const books: Book[] = [
+      createMockBook(1, "에피소드 EP 1"),
+      createMockBook(2, "에피소드 EP 2"),
+      createMockBook(3, "에피소드 EP 3"),
+    ];
+
+    const result = await detectSeriesCandidates(books);
+    expect(result.candidates).toHaveLength(1);
+    expect(result.candidates[0].books.map((b) => b.volumeNumber)).toEqual([
+      1, 2, 3,
+    ]);
+  });
+
+  it("동일 작가의 시리즈가 작가 매칭 없이도 감지되어야 합니다", async () => {
+    const books: Book[] = [
+      createMockBook(1, "작가 시리즈 1", ["공통 작가"]),
+      createMockBook(2, "작가 시리즈 2", ["공통 작가"]),
+      createMockBook(3, "작가 시리즈 3", ["공통 작가"]),
+    ];
+
+    // requireArtistMatch=false (기본값) 이어도 제목 패턴으로 감지
+    const result = await detectSeriesCandidates(books);
+    expect(result.candidates).toHaveLength(1);
+    expect(result.candidates[0].books).toHaveLength(3);
+  });
+
+  it("대괄호로 시리즈명이 표시된 경우를 인식해야 합니다", async () => {
+    const books: Book[] = [
+      createMockBook(1, "[작가명] 시리즈 1화"),
+      createMockBook(2, "[작가명] 시리즈 2화"),
+      createMockBook(3, "[작가명] 시리즈 3화"),
+    ];
+
+    const result = await detectSeriesCandidates(books);
+    expect(result.candidates).toHaveLength(1);
+    expect(result.candidates[0].books).toHaveLength(3);
+    expect(result.candidates[0].books.map((b) => b.volumeNumber)).toEqual([
+      1, 2, 3,
+    ]);
+  });
+
+  it("두 자리 숫자 권수를 올바르게 인식해야 합니다", async () => {
+    const books: Book[] = [
+      createMockBook(1, "긴 시리즈 09"),
+      createMockBook(2, "긴 시리즈 10"),
+      createMockBook(3, "긴 시리즈 11"),
+    ];
+
+    const result = await detectSeriesCandidates(books);
+    expect(result.candidates).toHaveLength(1);
+    expect(result.candidates[0].books.map((b) => b.volumeNumber)).toEqual([
+      9, 10, 11,
+    ]);
   });
 });
 
@@ -409,5 +535,103 @@ describe("seriesDetector/detectSeriesForBook", () => {
     const candidate = await detectSeriesForBook(lowConfidenceBook, allBooks);
 
     expect(candidate).toBeNull();
+  });
+});
+
+describe("seriesDetector/detectSeriesCandidates - Pass 2 대소문자", () => {
+  it("작가명의 대소문자가 달라도 같은 작가로 그룹화해야 합니다 (Pass 2)", async () => {
+    const books: Book[] = [
+      createMockBook(1, "케이스 시리즈 - 알파", ["Artist A"]),
+      createMockBook(2, "케이스 시리즈 - 베타", ["artist a"]),
+    ];
+
+    // Pass 2 경로: 제목 패턴으로 매칭 실패 후 작가+유사도로 그룹화
+    const result = await detectSeriesCandidates(books, { minConfidence: 0.5 });
+    expect(result.candidates).toHaveLength(1);
+    expect(result.candidates[0].books).toHaveLength(2);
+  });
+});
+
+describe("seriesDetector/detectSeriesIncremental", () => {
+  it("기존 시리즈에 새 책을 추가해야 합니다", async () => {
+    const mockIndex = {
+      addBook: vi.fn().mockReturnValue({
+        prefix: "시리즈",
+        existingBookIds: [1, 2],
+        seriesId: 42, // 기존 시리즈 ID
+      }),
+    };
+
+    const newBooks = [createMockBook(3, "시리즈 3")];
+    const result = await detectSeriesIncremental(newBooks, mockIndex);
+
+    expect(result.addedToExisting).toBe(1);
+    expect(result.newSeriesCreated).toBe(0);
+    expect(result.unmatched).toBe(0);
+  });
+
+  it("새 시리즈를 생성해야 합니다 (기존 미할당 책과 매칭)", async () => {
+    const callCount = { value: 0 };
+    const mockIndex = {
+      addBook: vi.fn().mockImplementation(() => {
+        callCount.value++;
+        // 첫 번째 책: 매칭 없음, 새 접두사
+        if (callCount.value === 1) {
+          return { prefix: "새시리즈", existingBookIds: [1], seriesId: null };
+        }
+        // 두 번째 책: 같은 접두사, 매칭 있음
+        return { prefix: "새시리즈", existingBookIds: [1], seriesId: null };
+      }),
+    };
+
+    const newBooks = [
+      createMockBook(2, "새시리즈 1"),
+      createMockBook(3, "새시리즈 2"),
+    ];
+    const result = await detectSeriesIncremental(newBooks, mockIndex, {
+      minBooks: 2,
+    });
+
+    expect(result.newSeriesCreated).toBe(1);
+    expect(result.addedToExisting).toBe(0);
+  });
+
+  it("매칭되지 않은 책은 unmatched로 카운트해야 합니다", async () => {
+    const mockIndex = {
+      addBook: vi.fn().mockReturnValue({
+        prefix: "독립책",
+        existingBookIds: [],
+        seriesId: null,
+      }),
+    };
+
+    const newBooks = [createMockBook(1, "완전 독립적인 제목")];
+    const result = await detectSeriesIncremental(newBooks, mockIndex);
+
+    expect(result.unmatched).toBe(1);
+    expect(result.addedToExisting).toBe(0);
+    expect(result.newSeriesCreated).toBe(0);
+  });
+
+  it("minBooks 미만이면 새 시리즈를 생성하지 않아야 합니다", async () => {
+    const mockIndex = {
+      addBook: vi.fn().mockReturnValue({
+        prefix: "부족시리즈",
+        existingBookIds: [],
+        seriesId: null,
+      }),
+    };
+
+    // minBooks=3이지만 같은 접두사 책이 2개뿐
+    const newBooks = [
+      createMockBook(1, "부족시리즈 1"),
+      createMockBook(2, "부족시리즈 2"),
+    ];
+    const result = await detectSeriesIncremental(newBooks, mockIndex, {
+      minBooks: 3,
+    });
+
+    expect(result.newSeriesCreated).toBe(0);
+    expect(result.unmatched).toBe(2);
   });
 });

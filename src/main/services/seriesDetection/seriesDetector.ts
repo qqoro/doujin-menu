@@ -14,6 +14,7 @@ import type {
   DetectionOptions,
   DetectionReason,
   DetectionResult,
+  IncrementalDetectionResult,
   SeriesCandidate,
 } from "./types.js";
 
@@ -113,6 +114,11 @@ export async function detectSeriesCandidates(
       return a.book.title.localeCompare(b.book.title);
     });
 
+    // 정렬 후 orderIndex를 실제 정렬 순서에 맞게 재계산
+    booksWithScore.forEach((b, i) => {
+      b.orderIndex = i + 1;
+    });
+
     log.debug(
       `[시리즈 감지] 그룹 "${group.seriesName}" 정렬 후:`,
       booksWithScore.map((b) => ({
@@ -153,12 +159,9 @@ export async function detectSeriesCandidates(
     }
 
     // 후보 생성
-    // 시리즈명은 첫 번째 책(order_index 기준)의 제목 사용
-    const firstBook = booksWithScore.length > 0 ? booksWithScore[0] : null;
-    const seriesName = firstBook ? firstBook.book.title : group.seriesName;
-
+    // 시리즈명은 파싱된 접두사 사용 (원본 제목 대신)
     const candidate: SeriesCandidate = {
-      seriesName,
+      seriesName: group.seriesName,
       books: booksWithScore,
       confidence: 0, // 나중에 계산
       detectionReason: detectionReasons,
@@ -222,6 +225,11 @@ export async function detectSeriesCandidates(
       return a.book.title.localeCompare(b.book.title);
     });
 
+    // 정렬 후 orderIndex를 실제 정렬 순서에 맞게 재계산
+    booksWithScore.forEach((b, i) => {
+      b.orderIndex = i + 1;
+    });
+
     const detectionReasons: DetectionReason[] = [];
     if (group.books[0].artists?.[0]) {
       detectionReasons.push({
@@ -230,12 +238,9 @@ export async function detectSeriesCandidates(
       });
     }
 
-    // 시리즈명은 첫 번째 책 제목 사용
-    const firstBook = booksWithScore.length > 0 ? booksWithScore[0] : null;
-    const seriesName = firstBook ? firstBook.book.title : group.seriesName;
-
+    // 시리즈명은 공통 접두사 사용
     const candidate: SeriesCandidate = {
-      seriesName,
+      seriesName: group.seriesName,
       books: booksWithScore,
       confidence: 0,
       detectionReason: detectionReasons,
@@ -260,6 +265,7 @@ export async function detectSeriesCandidates(
 
 /**
  * 제목 패턴으로 그룹화
+ * 대소문자 구분 없이 접두사를 비교합니다.
  */
 function groupByTitlePattern(
   books: Book[],
@@ -276,24 +282,32 @@ function groupByTitlePattern(
       continue;
     }
 
-    if (!groups.has(seriesName)) {
-      groups.set(seriesName, []);
-      groupConfidence.set(seriesName, 0);
+    // 대소문자 무시: 맵 키는 소문자로 통일
+    const groupKey = seriesName.toLowerCase();
+
+    if (!groups.has(groupKey)) {
+      groups.set(groupKey, []);
+      groupConfidence.set(groupKey, 0);
     }
-    groups.get(seriesName)!.push(book);
+    groups.get(groupKey)!.push(book);
 
     // 그룹의 신뢰도를 가장 높은 책의 신뢰도로 업데이트합니다.
-    if (parseResult.confidence > groupConfidence.get(seriesName)!) {
-      groupConfidence.set(seriesName, parseResult.confidence);
+    if (parseResult.confidence > groupConfidence.get(groupKey)!) {
+      groupConfidence.set(groupKey, parseResult.confidence);
     }
   }
 
   // 2. 신뢰도 임계값을 넘는 그룹만 필터링합니다.
   const finalGroups: Array<{ seriesName: string; books: Book[] }> = [];
-  for (const [seriesName, bookList] of groups.entries()) {
+  for (const [groupKey, bookList] of groups.entries()) {
     // 그룹 내에 신뢰도 높은 책이 하나라도 있으면 유효한 그룹으로 판단합니다.
-    if (groupConfidence.get(seriesName)! >= 0.6) {
-      finalGroups.push({ seriesName, books: bookList });
+    if (groupConfidence.get(groupKey)! >= 0.6) {
+      // seriesName은 첫 번째 책의 원본 접두사를 사용 (대소문자 보존)
+      const firstBookPrefix = parseTitlePattern(bookList[0].title).prefix;
+      finalGroups.push({
+        seriesName: firstBookPrefix || groupKey,
+        books: bookList,
+      });
     }
   }
 
@@ -349,16 +363,17 @@ function groupByArtistAndSimilarity(
 ): Array<{ seriesName: string; books: Book[] }> {
   const groups: Array<{ seriesName: string; books: Book[] }> = [];
 
-  // 작가별로 먼저 분류
+  // 작가별로 먼저 분류 (대소문자 무시)
   const artistGroups = new Map<string, Book[]>();
 
   for (const book of books) {
     const artists = book.artists?.map((a) => a.name) || [];
     for (const artist of artists) {
-      if (!artistGroups.has(artist)) {
-        artistGroups.set(artist, []);
+      const key = artist.toLowerCase();
+      if (!artistGroups.has(key)) {
+        artistGroups.set(key, []);
       }
-      artistGroups.get(artist)!.push(book);
+      artistGroups.get(key)!.push(book);
     }
   }
 
@@ -403,7 +418,8 @@ export async function detectSeriesForBook(
     if (book.id === targetBook.id) return false;
 
     const otherParse = parseTitlePattern(book.title);
-    if (otherParse.prefix !== parseResult.prefix) return false;
+    if (otherParse.prefix.toLowerCase() !== parseResult.prefix.toLowerCase())
+      return false;
 
     // 작가 일치 확인 (옵션)
     if (opts.requireArtistMatch && !hasSameArtists(targetBook, book)) {
@@ -451,4 +467,84 @@ export async function detectSeriesForBook(
   }
 
   return null;
+}
+
+/**
+ * 증분 감지: PrefixIndex를 활용하여 새 책들을 기존 시리즈에 매칭
+ * 전체 재감지 없이 O(1) 조회로 새 책을 처리합니다.
+ *
+ * @param newBooks - 새로 추가된 책 목록
+ * @param prefixIndex - 접두사 인덱스
+ * @param options - 감지 옵션
+ * @returns 매칭 결과 (DB 저장은 호출자가 담당)
+ */
+export async function detectSeriesIncremental(
+  newBooks: Book[],
+  prefixIndex: {
+    addBook(book: Book): {
+      prefix: string;
+      existingBookIds: number[];
+      seriesId: number | null;
+    };
+  },
+  options: Partial<DetectionOptions> = {},
+): Promise<IncrementalDetectionResult> {
+  const startTime = Date.now();
+  const opts = { ...DEFAULT_OPTIONS, ...options };
+
+  let addedToExisting = 0;
+  let newSeriesCreated = 0;
+  let unmatched = 0;
+
+  // 접두사별로 새 책 그룹화
+  const newBookGroups = new Map<string, Book[]>();
+
+  for (const book of newBooks) {
+    const result = prefixIndex.addBook(book);
+
+    if (result.seriesId !== null) {
+      // 기존 시리즈에 추가 가능
+      addedToExisting++;
+    } else if (result.existingBookIds.length > 0) {
+      // 기존 미할당 책과 매칭 → 새 시리즈 후보
+      const key = result.prefix.toLowerCase();
+      if (!newBookGroups.has(key)) {
+        newBookGroups.set(key, []);
+      }
+      newBookGroups.get(key)!.push(book);
+    } else {
+      // 매칭 없음 → 새 접두사
+      const key = result.prefix.toLowerCase();
+      if (!newBookGroups.has(key)) {
+        newBookGroups.set(key, []);
+      }
+      newBookGroups.get(key)!.push(book);
+    }
+  }
+
+  // 새 책끼리 시리즈를 형성할 수 있는지 확인
+  for (const [, books] of newBookGroups) {
+    if (books.length >= opts.minBooks) {
+      // 파싱 신뢰도 확인
+      const highConfBooks = books.filter((b) => {
+        const parseResult = parseTitlePattern(b.title);
+        return parseResult.confidence >= 0.6;
+      });
+
+      if (highConfBooks.length >= opts.minBooks) {
+        newSeriesCreated++;
+      } else {
+        unmatched += books.length;
+      }
+    } else {
+      unmatched += books.length;
+    }
+  }
+
+  return {
+    addedToExisting,
+    newSeriesCreated,
+    unmatched,
+    duration: Date.now() - startTime,
+  };
 }
