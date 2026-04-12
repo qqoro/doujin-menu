@@ -61,6 +61,17 @@ vi.mock("electron-log", () => ({
   },
 }));
 
+// electron-window-state mock 처리
+vi.mock("electron-window-state", () => ({
+  default: vi.fn(() => ({
+    manage: vi.fn(),
+    x: 0,
+    y: 0,
+    width: 1000,
+    height: 800,
+  })),
+}));
+
 // fs/promises mock 설정
 vi.mock("fs/promises", () => ({
   lstat: vi.fn(),

@@ -23,6 +23,72 @@ vi.mock("../../../src/main/db/index.js", () => ({
   default: mockDb,
 }));
 
+// Electron app mock 처리
+vi.mock("electron", () => ({
+  app: {
+    getPath: vi.fn(() => "/mock/user/data"),
+    getAppPath: vi.fn(() => "/mock/app"),
+    getVersion: vi.fn(() => "1.0.0"),
+    requestSingleInstanceLock: vi.fn(() => true),
+    quit: vi.fn(),
+    on: vi.fn(),
+    whenReady: vi.fn(() => Promise.resolve()),
+  },
+  ipcMain: {
+    handle: vi.fn(),
+    on: vi.fn(),
+  },
+  shell: {
+    openExternal: vi.fn(),
+  },
+  BrowserWindow: vi.fn(),
+  protocol: {
+    handle: vi.fn(),
+  },
+}));
+
+// electron-store mock 처리
+vi.mock("electron-store", () => ({
+  default: vi.fn(() => ({
+    get: vi.fn(),
+    set: vi.fn(),
+    delete: vi.fn(),
+    store: {},
+  })),
+}));
+
+// electron-window-state mock 처리
+vi.mock("electron-window-state", () => ({
+  default: vi.fn(() => ({
+    manage: vi.fn(),
+    x: 0,
+    y: 0,
+    width: 1000,
+    height: 800,
+  })),
+}));
+
+// electron-updater mock 처리
+vi.mock("electron-updater", () => ({
+  default: {
+    autoUpdater: {
+      checkForUpdates: vi.fn(),
+      on: vi.fn(),
+    },
+  },
+}));
+
+// electron-log mock 처리
+vi.mock("electron-log", () => ({
+  default: {
+    initialize: vi.fn(),
+    info: vi.fn(),
+    error: vi.fn(),
+    warn: vi.fn(),
+    debug: vi.fn(),
+  },
+}));
+
 // 테스트 대상 함수 import (모킹 후에 import 해야 함)
 const {
   handleGetPresets,
