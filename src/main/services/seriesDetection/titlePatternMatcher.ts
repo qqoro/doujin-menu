@@ -83,24 +83,6 @@ const KOREAN_ORDER: Record<string, number> = {
   후: 2,
 };
 
-// 대괄호/괄호로 묶인 패턴
-const BRACKET_PATTERNS = [
-  // [시리즈명] 나머지
-  { regex: /^\[(.+?)\]\s*(.*)$/, confidence: 0.85 },
-  // (시리즈명) 나머지
-  { regex: /^\((.+?)\)\s*(.*)$/, confidence: 0.8 },
-  // 「시리즈명」나머지
-  { regex: /^「(.+?)」\s*(.*)$/, confidence: 0.85 },
-];
-
-// 구분자 기반 패턴
-const SEPARATOR_PATTERNS = [
-  // 시리즈명 : 부제
-  { regex: /^(.+?)\s*[:：]\s*(.+)$/, confidence: 0.7 },
-  // 시리즈명 - 부제
-  { regex: /^(.+?)\s*[-－—]\s*(.+)$/, confidence: 0.65 },
-];
-
 // 한글 숫자 매핑
 const KOREAN_NUMBERS: Record<string, number> = {
   일: 1,
@@ -203,14 +185,13 @@ export function parseTitlePattern(title: string): TitleParseResult {
   const circledResult = extractCircledNumber(titleToParse);
   if (circledResult) {
     const result = {
-      prefix: circledResult.prefix,
       volumeNumber: circledResult.number,
       originalTitle: trimmedTitle,
       confidence: 0.95,
     };
     if (shouldLog) {
       log.debug(
-        `[시리즈 감지] 파싱 결과 (특수기호): "${trimmedTitle}" → 시리즈명: "${result.prefix}", 권수: ${result.volumeNumber}`,
+        `[시리즈 감지] 파싱 결과 (특수기호): "${trimmedTitle}" → 권수: ${result.volumeNumber}`,
       );
     }
     return result;
@@ -220,14 +201,13 @@ export function parseTitlePattern(title: string): TitleParseResult {
   const koreanOrderResult = extractKoreanOrder(titleToParse);
   if (koreanOrderResult) {
     const result = {
-      prefix: koreanOrderResult.prefix,
       volumeNumber: koreanOrderResult.number,
       originalTitle: trimmedTitle,
       confidence: 0.9,
     };
     if (shouldLog) {
       log.debug(
-        `[시리즈 감지] 파싱 결과 (한글순서): "${trimmedTitle}" → 시리즈명: "${result.prefix}", 권수: ${result.volumeNumber}`,
+        `[시리즈 감지] 파싱 결과 (한글순서): "${trimmedTitle}" → 권수: ${result.volumeNumber}`,
       );
     }
     return result;
@@ -247,14 +227,13 @@ export function parseTitlePattern(title: string): TitleParseResult {
       const prefix = match[1].trim();
       if (prefix.length > 1) {
         const result = {
-          prefix,
           volumeNumber: null,
           originalTitle: trimmedTitle,
           confidence: 0.7,
         };
         if (shouldLog) {
           log.debug(
-            `[시리즈 감지] 파싱 결과 (외전): "${trimmedTitle}" → 시리즈명: "${result.prefix}", 신뢰도: ${result.confidence}`,
+            `[시리즈 감지] 파싱 결과 (외전): "${trimmedTitle}" → 신뢰도: ${result.confidence}`,
           );
         }
         return result;
@@ -271,14 +250,13 @@ export function parseTitlePattern(title: string): TitleParseResult {
 
       if (prefix.length > 0 && volumeNumber > 0) {
         const result = {
-          prefix,
           volumeNumber,
           originalTitle: trimmedTitle,
           confidence: pattern.confidence,
         };
         if (shouldLog) {
           log.debug(
-            `[시리즈 감지] 파싱 결과 (권수패턴): "${trimmedTitle}" → 시리즈명: "${result.prefix}", 권수: ${result.volumeNumber}`,
+            `[시리즈 감지] 파싱 결과 (권수패턴): "${trimmedTitle}" → 권수: ${result.volumeNumber}`,
           );
         }
         return result;
@@ -286,51 +264,8 @@ export function parseTitlePattern(title: string): TitleParseResult {
     }
   }
 
-  // 2. 대괄호/괄호 패턴 시도
-  for (const pattern of BRACKET_PATTERNS) {
-    const match = titleToParse.match(pattern.regex);
-    if (match) {
-      const seriesName = match[1].trim();
-      const remainder = match[2].trim();
-
-      // 나머지 부분에서 권수 추출 시도
-      const volumeMatch = remainder.match(/^[제]?(\d+)권?$/);
-      const volumeNumber = volumeMatch ? parseInt(volumeMatch[1], 10) : null;
-
-      if (seriesName.length > 0) {
-        return {
-          prefix: seriesName,
-          volumeNumber,
-          originalTitle: trimmedTitle,
-          confidence: volumeNumber
-            ? pattern.confidence
-            : pattern.confidence * 0.8,
-        };
-      }
-    }
-  }
-
-  // 3. 구분자 기반 패턴 시도
-  for (const pattern of SEPARATOR_PATTERNS) {
-    const match = titleToParse.match(pattern.regex);
-    if (match) {
-      const prefix = match[1].trim();
-
-      if (prefix.length > 2) {
-        // 너무 짧은 접두어는 제외
-        return {
-          prefix,
-          volumeNumber: null,
-          originalTitle: trimmedTitle,
-          confidence: pattern.confidence,
-        };
-      }
-    }
-  }
-
-  // 4. 패턴이 발견되지 않으면 전체 제목을 접두어로
+  // 2. 패턴이 발견되지 않으면 낮은 신뢰도로 반환
   const result = {
-    prefix: titleToParse,
     volumeNumber: null,
     originalTitle: trimmedTitle,
     confidence: 0.3, // 낮은 신뢰도
@@ -339,7 +274,7 @@ export function parseTitlePattern(title: string): TitleParseResult {
   // 로그 샘플링 (100개 중 1개만 출력)
   if (shouldLog) {
     log.debug(
-      `[시리즈 감지] 파싱 결과: "${trimmedTitle}" → 시리즈명: "${result.prefix}", 권수: ${result.volumeNumber}, 신뢰도: ${result.confidence}`,
+      `[시리즈 감지] 파싱 결과: "${trimmedTitle}" → 권수: ${result.volumeNumber}, 신뢰도: ${result.confidence}`,
     );
   }
 
@@ -434,4 +369,177 @@ export function extractNumbers(title: string): number[] {
 export function hasSeriesPattern(title: string): boolean {
   const parseResult = parseTitlePattern(title);
   return parseResult.confidence > 0.6;
+}
+
+/**
+ * 비교 기반 그룹화를 위한 제목 비교 키
+ */
+export interface ComparisonKey {
+  full: string;
+  korean: string | null;
+}
+
+/**
+ * Union-Find 자료구조
+ * 비교 기반 그룹화에서 원소들을 병합하는 데 사용
+ */
+export class UnionFind {
+  private parent: number[];
+  private rank: number[];
+
+  constructor(n: number) {
+    this.parent = Array.from({ length: n }, (_, i) => i);
+    this.rank = new Array(n).fill(0);
+  }
+
+  find(x: number): number {
+    if (this.parent[x] !== x) this.parent[x] = this.find(this.parent[x]);
+    return this.parent[x];
+  }
+
+  union(x: number, y: number): void {
+    const px = this.find(x);
+    const py = this.find(y);
+    if (px === py) return;
+    if (this.rank[px] < this.rank[py]) {
+      this.parent[px] = py;
+    } else if (this.rank[px] > this.rank[py]) {
+      this.parent[py] = px;
+    } else {
+      this.parent[py] = px;
+      this.rank[px]++;
+    }
+  }
+
+  getGroups(): Map<number, number[]> {
+    const groups = new Map<number, number[]>();
+    for (let i = 0; i < this.parent.length; i++) {
+      const root = this.find(i);
+      if (!groups.has(root)) groups.set(root, []);
+      groups.get(root)!.push(i);
+    }
+    return groups;
+  }
+}
+
+/**
+ * 제목을 비교용 키로 변환
+ * | 기호가 있으면 한글 부분도 별도 추출
+ */
+export function computeComparisonKey(title: string): ComparisonKey {
+  const full = preprocessTitle(title).toLowerCase();
+  const pipeIndex = full.indexOf("|");
+  if (pipeIndex !== -1) {
+    const korean = full.substring(pipeIndex + 1).trim();
+    return { full, korean: korean.length > 0 ? korean : null };
+  }
+  return { full, korean: null };
+}
+
+/**
+ * 두 문자열의 LCP 길이 계산
+ */
+function lcpLength(a: string, b: string): number {
+  const len = Math.min(a.length, b.length);
+  let lcp = 0;
+  for (let i = 0; i < len; i++) {
+    if (a[i] === b[i]) lcp = i + 1;
+    else break;
+  }
+  return lcp;
+}
+
+/**
+ * 두 제목이 같은 시리즈인지 판정
+ * full과 korean 중 더 유리한 쪽을 선택하여 규칙 적용
+ */
+export function shouldGroupTitles(
+  key1: ComparisonKey,
+  key2: ComparisonKey,
+  vol1: number | null = null,
+  vol2: number | null = null,
+): boolean {
+  const fullLCP = lcpLength(key1.full, key2.full);
+  const koreanLCP =
+    key1.korean && key2.korean ? lcpLength(key1.korean, key2.korean) : 0;
+
+  // 더 긴 LCP를 가진 쌍(full 또는 korean)을 선택
+  let bestLCP: number;
+  let norm1: string;
+  let norm2: string;
+  let len1: number;
+  let len2: number;
+
+  if (koreanLCP > fullLCP) {
+    // korean 기준이 더 유리
+    bestLCP = koreanLCP;
+    norm1 = key1.korean!;
+    norm2 = key2.korean!;
+    len1 = norm1.length;
+    len2 = norm2.length;
+  } else {
+    // full 기준 사용
+    bestLCP = fullLCP;
+    norm1 = key1.full;
+    norm2 = key2.full;
+    len1 = norm1.length;
+    len2 = norm2.length;
+  }
+
+  // 규칙 1: 공통 접두사가 너무 짧음
+  if (bestLCP < 3) return false;
+
+  // 짧은 쪽 대비 LCP 비율 계산 (이후 규칙에서 사용)
+  const shorterLen = Math.min(len1, len2);
+  const lcpRatio = bestLCP / shorterLen;
+
+  // 규칙 2: 한쪽이 다른 쪽의 접두사
+  if (len1 === bestLCP || len2 === bestLCP) {
+    return true;
+  }
+
+  const suffix1 = norm1.substring(bestLCP);
+  const suffix2 = norm2.substring(bestLCP);
+  const stripped1 = suffix1.replace(/\d+/g, "").replace(/\s+/g, " ").trim();
+  const stripped2 = suffix2.replace(/\d+/g, "").replace(/\s+/g, " ").trim();
+
+  // 규칙 3: 숫자 제거 후 접미사 동일 (LCP 비율이 충분히 높은 경우만)
+  if (stripped1 === stripped2 && lcpRatio >= 0.8) return true;
+
+  // 규칙 4: 둘 다 권수 있고 LCP ≥ 짧은 쪽의 75%
+  if (vol1 !== null && vol2 !== null) {
+    if (lcpRatio >= 0.75) return true;
+  }
+
+  // 규칙 5: 한쪽에만 숫자가 삽입된 경우 (비슷한 긴 제목)
+  // 숫자와 추가 공백을 제거한 전체 문자열이 충분히 유사하면 같은 그룹
+  // 짧은 제목은 오탐지 위험이 높으므로 최소 길이 조건 적용
+  if (bestLCP >= 3 && shorterLen >= 5) {
+    const fullStripped1 = norm1.replace(/\d+/g, "").replace(/\s+/g, " ");
+    const fullStripped2 = norm2.replace(/\d+/g, "").replace(/\s+/g, " ");
+    const strippedLCP = lcpLength(fullStripped1, fullStripped2);
+    const shorterStripped = Math.min(
+      fullStripped1.length,
+      fullStripped2.length,
+    );
+    if (shorterStripped > 0 && strippedLCP / shorterStripped >= 0.8) {
+      return true;
+    }
+  }
+
+  // 규칙 6: 외전/오마케 키워드가 접미사에 포함된 경우
+  // 공통 접두사 이후 접미사가 알려진 spin-off 키워드면 같은 그룹
+  const lowerSuffix1 = suffix1.toLowerCase().trim();
+  const lowerSuffix2 = suffix2.toLowerCase().trim();
+  const isSpinOff1 = SPIN_OFF_KEYWORDS.some(
+    (kw) => lowerSuffix1 === kw || lowerSuffix1.endsWith(" " + kw),
+  );
+  const isSpinOff2 = SPIN_OFF_KEYWORDS.some(
+    (kw) => lowerSuffix2 === kw || lowerSuffix2.endsWith(" " + kw),
+  );
+  if ((isSpinOff1 || isSpinOff2) && bestLCP >= 3) {
+    return true;
+  }
+
+  return false;
 }

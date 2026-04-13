@@ -9,7 +9,7 @@ import type {
 } from "../db/types.js";
 import { console } from "../main.js";
 import { detectSeriesForBook } from "../services/seriesDetection/seriesDetector.js";
-import { parseTitlePattern } from "../services/seriesDetection/titlePatternMatcher.js";
+import { computeComparisonKey } from "../services/seriesDetection/titlePatternMatcher.js";
 import { PrefixIndex } from "../services/seriesDetection/prefixIndex.js";
 import type { DetectionOptions } from "../services/seriesDetection/types.js";
 import { store } from "./configHandler.js";
@@ -536,82 +536,80 @@ export async function handleAutoDetectSeriesForBook(bookId: number) {
           : [],
       }) as Book;
 
-    // 제목에서 접두사 추출
-    const parseResult = parseTitlePattern(
-      (targetBook as Record<string, unknown>).title as string,
-    );
-    const prefix = parseResult.prefix;
-
     // 1. PrefixIndex로 기존 시리즈 O(1) 조회 (인덱스가 있으면 활용)
-    if (prefix) {
-      const index = getPrefixIndex();
-      if (index) {
-        const lookup = index.addBook(convertBook(targetBook));
-        if (lookup.seriesId !== null) {
-          // 기존 시리즈에 추가
-          const maxOrder = await db("Book")
-            .where("series_collection_id", lookup.seriesId)
-            .max("series_order_index as max")
-            .first();
-          const nextOrder =
-            ((maxOrder as { max: number | null } | undefined)?.max || 0) + 1;
+    const index = getPrefixIndex();
+    if (index) {
+      const lookup = index.addBook(convertBook(targetBook));
+      const prefix = lookup.prefix;
 
-          await db("Book").where("id", bookId).update({
-            series_collection_id: lookup.seriesId,
-            series_order_index: nextOrder,
-          });
+      if (lookup.seriesId !== null) {
+        // 기존 시리즈에 추가
+        const maxOrder = await db("Book")
+          .where("series_collection_id", lookup.seriesId)
+          .max("series_order_index as max")
+          .first();
+        const nextOrder =
+          ((maxOrder as { max: number | null } | undefined)?.max || 0) + 1;
 
-          index.setSeriesForPrefix(prefix, lookup.seriesId);
-          return { success: true, matched: true, action: "added_to_existing" };
-        }
+        await db("Book").where("id", bookId).update({
+          series_collection_id: lookup.seriesId,
+          series_order_index: nextOrder,
+        });
 
-        // 기존 미할당 책과 매칭 → 새 시리즈 생성
-        if (lookup.existingBookIds.length > 0) {
-          const allBooks = await db("Book")
-            .select(
-              "Book.*",
-              db.raw("GROUP_CONCAT(DISTINCT Artist.name) as artists"),
-              db.raw("GROUP_CONCAT(DISTINCT Tag.name) as tags"),
-            )
-            .leftJoin("BookArtist", "Book.id", "BookArtist.book_id")
-            .leftJoin("Artist", "BookArtist.artist_id", "Artist.id")
-            .leftJoin("BookTag", "Book.id", "BookTag.book_id")
-            .leftJoin("Tag", "BookTag.tag_id", "Tag.id")
-            .whereNull("Book.series_collection_id")
-            .groupBy("Book.id");
-
-          const candidate = await detectSeriesForBook(
-            convertBook(targetBook),
-            allBooks.map(convertBook),
-            seriesSettings,
-          );
-
-          if (candidate && candidate.books.length >= seriesSettings.minBooks) {
-            await db.transaction(async (trx) => {
-              const [seriesId] = await trx("SeriesCollection").insert({
-                name: candidate.seriesName,
-                confidence_score: candidate.confidence,
-                is_auto_generated: true,
-                is_manually_edited: false,
-                created_at: trx.fn.now(),
-                updated_at: trx.fn.now(),
-              });
-
-              for (const bookWithScore of candidate.books) {
-                await trx("Book").where("id", bookWithScore.book.id).update({
-                  series_collection_id: seriesId,
-                  series_order_index: bookWithScore.orderIndex,
-                });
-              }
-              index.setSeriesForPrefix(prefix, seriesId);
-            });
-            return { success: true, matched: true, action: "new_series" };
-          }
-        }
-        return { success: true, matched: false };
+        index.setSeriesForPrefix(prefix, lookup.seriesId);
+        return { success: true, matched: true, action: "added_to_existing" };
       }
 
-      // PrefixIndex가 없으면 DB 쿼리로 폴백
+      // 기존 미할당 책과 매칭 → 새 시리즈 생성
+      if (lookup.existingBookIds.length > 0) {
+        const allBooks = await db("Book")
+          .select(
+            "Book.*",
+            db.raw("GROUP_CONCAT(DISTINCT Artist.name) as artists"),
+            db.raw("GROUP_CONCAT(DISTINCT Tag.name) as tags"),
+          )
+          .leftJoin("BookArtist", "Book.id", "BookArtist.book_id")
+          .leftJoin("Artist", "BookArtist.artist_id", "Artist.id")
+          .leftJoin("BookTag", "Book.id", "BookTag.book_id")
+          .leftJoin("Tag", "BookTag.tag_id", "Tag.id")
+          .whereNull("Book.series_collection_id")
+          .groupBy("Book.id");
+
+        const candidate = await detectSeriesForBook(
+          convertBook(targetBook),
+          allBooks.map(convertBook),
+          seriesSettings,
+        );
+
+        if (candidate && candidate.books.length >= seriesSettings.minBooks) {
+          await db.transaction(async (trx) => {
+            const [seriesId] = await trx("SeriesCollection").insert({
+              name: candidate.seriesName,
+              confidence_score: candidate.confidence,
+              is_auto_generated: true,
+              is_manually_edited: false,
+              created_at: trx.fn.now(),
+              updated_at: trx.fn.now(),
+            });
+
+            for (const bookWithScore of candidate.books) {
+              await trx("Book").where("id", bookWithScore.book.id).update({
+                series_collection_id: seriesId,
+                series_order_index: bookWithScore.orderIndex,
+              });
+            }
+            index.setSeriesForPrefix(prefix, seriesId);
+          });
+          return { success: true, matched: true, action: "new_series" };
+        }
+      }
+      return { success: true, matched: false };
+    }
+
+    // PrefixIndex가 없으면 DB 쿼리로 폴백
+    const title = (targetBook as Record<string, unknown>).title as string;
+    const prefix = computeComparisonKey(title).full;
+    if (prefix) {
       const existingSeries = await db("SeriesCollection")
         .whereRaw("LOWER(name) = ?", [prefix.toLowerCase()])
         .where("is_auto_generated", true)

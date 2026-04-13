@@ -6,8 +6,6 @@ import type { Book } from "../../db/types.js";
 
 // 제목 파싱 결과
 export interface TitleParseResult {
-  // 공통 접두어 (시리즈명으로 사용될 부분)
-  prefix: string;
   // 권수/에피소드 번호
   volumeNumber: number | null;
   // 원본 제목

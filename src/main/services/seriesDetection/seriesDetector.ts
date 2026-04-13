@@ -8,7 +8,13 @@ import {
   getCommonTagsFromBooks,
   hasSameArtists,
 } from "./similarityCalculator.js";
-import { findCommonPrefix, parseTitlePattern } from "./titlePatternMatcher.js";
+import {
+  computeComparisonKey,
+  findCommonPrefix,
+  parseTitlePattern,
+  shouldGroupTitles,
+  UnionFind,
+} from "./titlePatternMatcher.js";
 import type {
   BookWithScore,
   DetectionOptions,
@@ -42,8 +48,8 @@ export async function detectSeriesCandidates(
   const candidates: SeriesCandidate[] = [];
   const processedBookIds = new Set<number>();
 
-  // 1. 제목 패턴 기반 그룹화
-  const patternGroups = groupByTitlePattern(books);
+  // 1. LCP 비교 기반 그룹화
+  const patternGroups = groupByComparison(books);
 
   for (const group of patternGroups) {
     if (group.books.length < opts.minBooks) continue;
@@ -264,54 +270,73 @@ export async function detectSeriesCandidates(
 }
 
 /**
- * 제목 패턴으로 그룹화
- * 대소문자 구분 없이 접두사를 비교합니다.
+ * LCP 비교 기반 그룹화
+ * 정렬 후 인접한 제목 쌍의 공통 접두사를 분석하여 그룹화
  */
-function groupByTitlePattern(
+function groupByComparison(
   books: Book[],
 ): Array<{ seriesName: string; books: Book[] }> {
-  const groups = new Map<string, Book[]>();
-  const groupConfidence = new Map<string, number>();
+  if (books.length < 2) return [];
 
-  // 1. 모든 책을 접두사 기준으로 그룹화하고, 그룹별 최고 신뢰도를 추적합니다.
-  for (const book of books) {
-    const parseResult = parseTitlePattern(book.title);
-    const seriesName = parseResult.prefix;
+  // 비교 키 + 권수 정보 계산
+  const entries = books.map((book) => ({
+    book,
+    key: computeComparisonKey(book.title),
+    volumeInfo: parseTitlePattern(book.title),
+  }));
 
-    if (!seriesName) {
-      continue;
-    }
+  // 비교 키로 정렬
+  entries.sort((a, b) => a.key.full.localeCompare(b.key.full));
 
-    // 대소문자 무시: 맵 키는 소문자로 통일
-    const groupKey = seriesName.toLowerCase();
+  // Union-Find 초기화
+  const uf = new UnionFind(entries.length);
 
-    if (!groups.has(groupKey)) {
-      groups.set(groupKey, []);
-      groupConfidence.set(groupKey, 0);
-    }
-    groups.get(groupKey)!.push(book);
-
-    // 그룹의 신뢰도를 가장 높은 책의 신뢰도로 업데이트합니다.
-    if (parseResult.confidence > groupConfidence.get(groupKey)!) {
-      groupConfidence.set(groupKey, parseResult.confidence);
-    }
-  }
-
-  // 2. 신뢰도 임계값을 넘는 그룹만 필터링합니다.
-  const finalGroups: Array<{ seriesName: string; books: Book[] }> = [];
-  for (const [groupKey, bookList] of groups.entries()) {
-    // 그룹 내에 신뢰도 높은 책이 하나라도 있으면 유효한 그룹으로 판단합니다.
-    if (groupConfidence.get(groupKey)! >= 0.6) {
-      // seriesName은 첫 번째 책의 원본 접두사를 사용 (대소문자 보존)
-      const firstBookPrefix = parseTitlePattern(bookList[0].title).prefix;
-      finalGroups.push({
-        seriesName: firstBookPrefix || groupKey,
-        books: bookList,
-      });
+  // 인접 쌍 비교
+  for (let i = 0; i < entries.length - 1; i++) {
+    if (
+      shouldGroupTitles(
+        entries[i].key,
+        entries[i + 1].key,
+        entries[i].volumeInfo.volumeNumber,
+        entries[i + 1].volumeInfo.volumeNumber,
+      )
+    ) {
+      uf.union(i, i + 1);
     }
   }
 
-  return finalGroups;
+  // 그룹 추출
+  const groups: Array<{ seriesName: string; books: Book[] }> = [];
+  for (const [, indices] of uf.getGroups()) {
+    if (indices.length < 2) continue;
+    const groupBooks = indices.map((i) => entries[i].book);
+
+    // 시리즈명: 원본 제목과 한글 추출 제목 중 더 유의미한 것 선택
+    const originalPrefix =
+      findCommonPrefix(groupBooks.map((b) => b.title)) || groupBooks[0].title;
+
+    // | 가 있는 제목들의 한글 부분으로도 시리즈명 계산
+    const koreanTitles = groupBooks.map((b) => {
+      const pipeIdx = b.title.indexOf("|");
+      if (pipeIdx !== -1) {
+        const korean = b.title.substring(pipeIdx + 1).trim();
+        return korean.length > 0 ? korean : null;
+      }
+      return null;
+    });
+    if (koreanTitles.every((t) => t !== null)) {
+      const koreanPrefix = findCommonPrefix(koreanTitles as string[]);
+      // 한글 접두사가 더 길면 한글 시리즈명 사용
+      if (koreanPrefix && koreanPrefix.length > originalPrefix.length) {
+        groups.push({ seriesName: koreanPrefix, books: groupBooks });
+        continue;
+      }
+    }
+
+    groups.push({ seriesName: originalPrefix, books: groupBooks });
+  }
+
+  return groups;
 }
 
 /**
@@ -397,6 +422,7 @@ function groupByArtistAndSimilarity(
 
 /**
  * 특정 책에 대해서만 시리즈 감지 (증분 모드)
+ * LCP 비교 기반으로 대상 책과 비슷한 책들을 찾음
  */
 export async function detectSeriesForBook(
   targetBook: Book,
@@ -405,21 +431,26 @@ export async function detectSeriesForBook(
 ): Promise<SeriesCandidate | null> {
   const opts = { ...DEFAULT_OPTIONS, ...options };
 
-  // 제목 패턴 파싱
-  const parseResult = parseTitlePattern(targetBook.title);
+  const targetKey = computeComparisonKey(targetBook.title);
+  const targetVol = parseTitlePattern(targetBook.title);
 
-  if (parseResult.confidence < 0.6) {
-    // 패턴이 약하면 null 반환
-    return null;
-  }
-
-  // 같은 패턴의 다른 책들 찾기
+  // 대상 책과 LCP가 유의미한 다른 책들 찾기
   const similarBooks = allBooks.filter((book) => {
     if (book.id === targetBook.id) return false;
 
-    const otherParse = parseTitlePattern(book.title);
-    if (otherParse.prefix.toLowerCase() !== parseResult.prefix.toLowerCase())
+    const otherKey = computeComparisonKey(book.title);
+    const otherVol = parseTitlePattern(book.title);
+
+    if (
+      !shouldGroupTitles(
+        targetKey,
+        otherKey,
+        targetVol.volumeNumber,
+        otherVol.volumeNumber,
+      )
+    ) {
       return false;
+    }
 
     // 작가 일치 확인 (옵션)
     if (opts.requireArtistMatch && !hasSameArtists(targetBook, book)) {
@@ -430,7 +461,6 @@ export async function detectSeriesForBook(
   });
 
   if (similarBooks.length < opts.minBooks - 1) {
-    // 최소 책 수 미달
     return null;
   }
 
@@ -453,11 +483,14 @@ export async function detectSeriesForBook(
     return 0;
   });
 
+  const seriesName =
+    findCommonPrefix(candidateBooks.map((b) => b.title)) || targetBook.title;
+
   const candidate: SeriesCandidate = {
-    seriesName: parseResult.prefix,
+    seriesName,
     books: booksWithScore,
     confidence: 0,
-    detectionReason: [{ type: "title_pattern", pattern: parseResult.prefix }],
+    detectionReason: [{ type: "title_pattern", pattern: seriesName }],
   };
 
   candidate.confidence = calculateCandidateConfidence(candidate);

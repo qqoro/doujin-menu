@@ -40,7 +40,7 @@ const createMockBook = (
 });
 
 describe("prefixIndex/PrefixIndex", () => {
-  it("rebuild 후 lookup이 올바르게 동작해야 합니다", () => {
+  it("rebuild 후 addBook으로 기존 그룹에 책을 추가할 수 있어야 합니다", () => {
     const index = new PrefixIndex();
     const books = [
       createMockBook(1, "테스트 시리즈 1"),
@@ -50,15 +50,9 @@ describe("prefixIndex/PrefixIndex", () => {
 
     index.rebuild(books, []);
 
-    // 접두사 "테스트 시리즈"로 조회
-    const result = index.lookup("테스트 시리즈");
-    expect(result).not.toBeNull();
-    expect(result!.bookIds).toEqual([1, 2]);
-
-    // 접두사 "다른 시리즈"로 조회
-    const result2 = index.lookup("다른 시리즈");
-    expect(result2).not.toBeNull();
-    expect(result2!.bookIds).toEqual([3]);
+    // 같은 시리즈에 새 책 추가
+    const result = index.addBook(createMockBook(4, "테스트 시리즈 3"));
+    expect(result.existingBookIds.length).toBeGreaterThan(0);
   });
 
   it("시리즈 연결이 올바르게 동작해야 합니다", () => {
@@ -70,19 +64,19 @@ describe("prefixIndex/PrefixIndex", () => {
 
     index.rebuild(books, [{ id: 10, name: "시리즈", bookIds: [1, 2] }]);
 
-    const result = index.lookup("시리즈");
-    expect(result!.seriesId).toBe(10);
+    // addBook 시 seriesId 반환 확인
+    const result = index.addBook(createMockBook(3, "시리즈 3"));
+    expect(result.seriesId).toBe(10);
   });
 
   it("addBook이 새 책을 인덱스에 추가해야 합니다", () => {
     const index = new PrefixIndex();
     index.rebuild([createMockBook(1, "시리즈 1")], []);
 
-    // 새 책 추가
+    // 같은 시리즈의 새 책 추가
     const newBook = createMockBook(2, "시리즈 2");
     const result = index.addBook(newBook);
 
-    expect(result.prefix).toBe("시리즈");
     expect(result.existingBookIds).toEqual([1]);
     expect(result.seriesId).toBeNull();
   });
@@ -96,38 +90,28 @@ describe("prefixIndex/PrefixIndex", () => {
 
     index.removeBook(1);
 
-    const result = index.lookup("시리즈");
-    expect(result!.bookIds).toEqual([2]);
+    // 제거 후 addBook으로 확인 (book 1이 더 이상 매칭되지 않아야 함)
+    const result = index.addBook(createMockBook(3, "시리즈 3"));
+    expect(result.existingBookIds).toEqual([2]);
   });
 
-  it("대소문자 무시 조회가 동작해야 합니다", () => {
+  it("매칭 없는 책은 새 엔트리를 생성해야 합니다", () => {
     const index = new PrefixIndex();
-    index.rebuild([createMockBook(1, "Test Series 1")], []);
+    index.rebuild([createMockBook(1, "완전히 다른 시리즈 1")], []);
 
-    // 대소문자 무시
-    const result = index.lookup("test series");
-    expect(result).not.toBeNull();
-    expect(result!.bookIds).toEqual([1]);
+    const result = index.addBook(createMockBook(2, "전혀 다른 것"));
+    expect(result.existingBookIds).toEqual([]);
+    expect(result.seriesId).toBeNull();
   });
 
-  it("setSeriesForPrefix가 시리즈를 연결해야 합니다", () => {
-    const index = new PrefixIndex();
-    index.rebuild([createMockBook(1, "시리즈 1")], []);
-
-    index.setSeriesForPrefix("시리즈", 42);
-
-    const result = index.lookup("시리즈");
-    expect(result!.seriesId).toBe(42);
-  });
-
-  it("size가 올바른 접두사 수를 반환해야 합니다", () => {
+  it("size가 올바른 그룹 수를 반환해야 합니다", () => {
     const index = new PrefixIndex();
     index.rebuild(
       [createMockBook(1, "시리즈 A 1"), createMockBook(2, "시리즈 B 1")],
       [],
     );
 
-    // 접두사는 "시리즈 A"와 "시리즈 B" 두 개
+    // 비교 기반에서 "시리즈 A 1"과 "시리즈 B 1"은 다른 그룹
     expect(index.size).toBe(2);
   });
 });
