@@ -1,25 +1,30 @@
 /**
- * 접두사 인덱스
- * 시리즈 감지 성능 향상을 위해 책 제목의 파싱된 접두사를 인덱싱
- * O(1) 접두사 조회로 증분 감지 지원
+ * 비교 기반 인덱스
+ * 시리즈 감지 성능 향상을 위해 비교 키를 인덱싱
+ * O(n) 비교 사용 (증분 감지에서만 호출)
  */
 
 import type { Book } from "../../db/types.js";
-import { parseTitlePattern } from "./titlePatternMatcher.js";
+import {
+  computeComparisonKey,
+  type ComparisonKey,
+  parseTitlePattern,
+  shouldGroupTitles,
+} from "./titlePatternMatcher.js";
 
-interface PrefixEntry {
+interface IndexEntry {
   bookIds: Set<number>;
   seriesId: number | null;
+  key: ComparisonKey;
 }
 
 /**
- * 접두사 기반 인덱스
- * 책 제목에서 파싱된 접두사를 키로 하여 O(1) 조회를 지원합니다.
+ * 비교 기반 인덱스
+ * 책 제목의 비교 키를 기반으로 인덱싱합니다.
  * 앱 시작 시 1회 구축하고, 세션 내에서 증분 업데이트합니다.
  */
 export class PrefixIndex {
-  // 소문자 접두사 → { bookIds, seriesId }
-  private index = new Map<string, PrefixEntry>();
+  private entries: IndexEntry[] = [];
 
   /**
    * 전체 인덱스를 재구축합니다.
@@ -29,47 +34,44 @@ export class PrefixIndex {
     books: Book[],
     seriesCollections: Array<{ id: number; name: string; bookIds?: number[] }>,
   ): void {
-    this.index.clear();
+    this.entries = [];
 
-    // 책들의 접두사 인덱싱
+    // 책들을 비교 키 기반으로 그룹화
     for (const book of books) {
-      const parseResult = parseTitlePattern(book.title);
-      if (!parseResult.prefix) continue;
+      const key = computeComparisonKey(book.title);
+      const vol = parseTitlePattern(book.title);
 
-      const key = parseResult.prefix.toLowerCase();
-      if (!this.index.has(key)) {
-        this.index.set(key, { bookIds: new Set(), seriesId: null });
+      let matched = false;
+      for (const entry of this.entries) {
+        if (shouldGroupTitles(entry.key, key, null, vol.volumeNumber)) {
+          entry.bookIds.add(book.id);
+          matched = true;
+          break;
+        }
       }
-      this.index.get(key)!.bookIds.add(book.id);
+      if (!matched) {
+        this.entries.push({
+          bookIds: new Set([book.id]),
+          seriesId: null,
+          key,
+        });
+      }
     }
 
     // 기존 시리즈와 연결
     for (const series of seriesCollections) {
-      const key = series.name.toLowerCase();
-      if (this.index.has(key)) {
-        this.index.get(key)!.seriesId = series.id;
-      } else {
-        // 시리즈는 있지만 아직 인덱스에 없는 경우 (빈 시리즈 등)
-        this.index.set(key, {
-          bookIds: new Set(series.bookIds || []),
-          seriesId: series.id,
-        });
+      const seriesKey = computeComparisonKey(series.name);
+      for (const entry of this.entries) {
+        // 시리즈명이 그룹의 비교 키와 유사하거나, 책 ID가 포함되면 연결
+        if (
+          shouldGroupTitles(seriesKey, entry.key) ||
+          [...entry.bookIds].some((id) => series.bookIds?.includes(id))
+        ) {
+          entry.seriesId = series.id;
+          break;
+        }
       }
     }
-  }
-
-  /**
-   * 접두사로 기존 책/시리즈를 조회합니다. O(1).
-   */
-  lookup(
-    prefix: string,
-  ): { bookIds: number[]; seriesId: number | null } | null {
-    const entry = this.index.get(prefix.toLowerCase());
-    if (!entry) return null;
-    return {
-      bookIds: Array.from(entry.bookIds),
-      seriesId: entry.seriesId,
-    };
   }
 
   /**
@@ -80,33 +82,44 @@ export class PrefixIndex {
     existingBookIds: number[];
     seriesId: number | null;
   } {
-    const parseResult = parseTitlePattern(book.title);
-    const prefix = parseResult.prefix || book.title;
-    const key = prefix.toLowerCase();
+    const key = computeComparisonKey(book.title);
+    const vol = parseTitlePattern(book.title);
 
-    if (!this.index.has(key)) {
-      this.index.set(key, { bookIds: new Set(), seriesId: null });
+    for (const entry of this.entries) {
+      if (shouldGroupTitles(entry.key, key, null, vol.volumeNumber)) {
+        entry.bookIds.add(book.id);
+        return {
+          prefix: key.full,
+          existingBookIds: [...entry.bookIds].filter((id) => id !== book.id),
+          seriesId: entry.seriesId,
+        };
+      }
     }
 
-    const entry = this.index.get(key)!;
-    entry.bookIds.add(book.id);
+    // 매칭 없음 → 새 엔트리
+    this.entries.push({
+      bookIds: new Set([book.id]),
+      seriesId: null,
+      key,
+    });
 
     return {
-      prefix,
-      existingBookIds: Array.from(entry.bookIds).filter((id) => id !== book.id),
-      seriesId: entry.seriesId,
+      prefix: key.full,
+      existingBookIds: [],
+      seriesId: null,
     };
   }
 
   /**
-   * 접두사에 시리즈 ID를 연결합니다.
+   * 특정 접두사(비교 키 full)에 해당하는 엔트리의 시리즈 ID를 설정합니다.
+   * 새 시리즈가 생성되었을 때 인덱스에 반영하기 위해 사용합니다.
    */
   setSeriesForPrefix(prefix: string, seriesId: number): void {
-    const key = prefix.toLowerCase();
-    if (!this.index.has(key)) {
-      this.index.set(key, { bookIds: new Set(), seriesId });
-    } else {
-      this.index.get(key)!.seriesId = seriesId;
+    for (const entry of this.entries) {
+      if (entry.key.full === prefix) {
+        entry.seriesId = seriesId;
+        return;
+      }
     }
   }
 
@@ -114,15 +127,15 @@ export class PrefixIndex {
    * 인덱스에서 책을 제거합니다.
    */
   removeBook(bookId: number): void {
-    for (const entry of this.index.values()) {
+    for (const entry of this.entries) {
       entry.bookIds.delete(bookId);
     }
   }
 
   /**
-   * 인덱스에 등록된 접두사 수
+   * 인덱스 크기
    */
   get size(): number {
-    return this.index.size;
+    return this.entries.length;
   }
 }

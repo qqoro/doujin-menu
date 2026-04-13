@@ -206,8 +206,8 @@ describe("seriesDetector/detectSeriesCandidates", () => {
     expect(result.candidates).toHaveLength(1);
     const candidate = result.candidates[0];
     // localeCompare 한글 정렬: ㅂ(베타) < ㅇ(알파) 이므로 베타가 먼저 정렬됨
-    // 공통 접두사는 "아티스트 시리즈" (단어 경계에서 잘림)
-    expect(candidate.seriesName).toBe("아티스트 시리즈");
+    // 비교 기반 그룹화에서는 공통 접두사가 "아티스트 시리즈 - 에피소드"로 추출됨
+    expect(candidate.seriesName).toBe("아티스트 시리즈 - 에피소드");
     expect(candidate.books).toHaveLength(2);
     expect(candidate.books.map((b) => b.book.id).sort()).toEqual([10, 11]);
     expect(
