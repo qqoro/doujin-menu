@@ -47,6 +47,7 @@ import { toast } from "vue-sonner";
 import type { Book, FilterParams } from "../../../types/ipc";
 import {
   getRandomBook,
+  getPresets,
   ipcRenderer,
   openBookFolder,
   toggleBookFavorite,
@@ -210,6 +211,15 @@ debouncedWatch(
 
 const libraryDirectories = computed(() => config.value?.libraryFolders || []);
 
+// 프리셋 데이터 (프리셋 순환 단축키용)
+const { data: presets } = useQuery({
+  queryKey: ["presets"],
+  queryFn: getPresets,
+});
+
+// 프리셋 순환 추적
+const currentPresetIndex = ref(-1);
+
 const queryKey = computed(
   () =>
     [
@@ -334,6 +344,62 @@ const toggleSortOrder = () => {
   sortOrder.value = sortOrder.value === "asc" ? "desc" : "asc";
 };
 
+// 즐겨찾기 필터 토글
+const toggleFavoriteFilter = () => {
+  isFavorite.value = isFavorite.value === "favorite" ? "all" : "favorite";
+  toast.info(isFavorite.value === "favorite" ? "즐겨찾기만 표시" : "전체 표시");
+};
+
+// 읽음 상태 순환 (모두 → 읽음 → 안읽음)
+const cycleReadStatus = () => {
+  const cycle: Record<string, "all" | "read" | "unread"> = {
+    all: "read",
+    read: "unread",
+    unread: "all",
+  };
+  const labels: Record<string, string> = {
+    all: "모두",
+    read: "읽음",
+    unread: "안읽음",
+  };
+  readStatus.value = cycle[readStatus.value] || "all";
+  toast.info(`읽음 상태: ${labels[readStatus.value]}`);
+};
+
+// 프리셋 순환
+const cyclePreset = () => {
+  if (!presets.value || presets.value.length === 0) {
+    toast.info("저장된 프리셋이 없습니다.");
+    return;
+  }
+  currentPresetIndex.value =
+    (currentPresetIndex.value + 1) % presets.value.length;
+  const preset = presets.value[currentPresetIndex.value];
+  searchQuery.value = preset.query;
+  toast.info(`프리셋: ${preset.name}`);
+};
+
+// 라이브러리 폴더 순환 ([ / ] 키)
+const cycleLibrary = (direction: 1 | -1) => {
+  const dirs = libraryDirectories.value;
+  if (dirs.length === 0) return;
+
+  // 현재 선택된 라이브러리의 인덱스 찾기
+  const currentIndex =
+    libraryPath.value === "all" ? -1 : dirs.indexOf(libraryPath.value);
+  // 순환: all(-1) → 0 → 1 → ... → N-1 → all(-1)
+  const totalOptions = dirs.length + 1; // all + 각 폴더
+  const currentSlot = currentIndex === -1 ? 0 : currentIndex + 1;
+  const nextSlot = (currentSlot + direction + totalOptions) % totalOptions;
+
+  libraryPath.value = nextSlot === 0 ? "all" : dirs[nextSlot - 1];
+  toast.info(
+    libraryPath.value === "all"
+      ? "모든 라이브러리"
+      : libraryPath.value.split(/[/\\]/).pop() || libraryPath.value,
+  );
+};
+
 const openRandomBookFromCurrentView = async () => {
   try {
     const randomBook = await getRandomBook(
@@ -407,6 +473,11 @@ useKeybindings("library", {
   "library:quit-app": () => {
     ipcRenderer.send("close-window");
   },
+  "library:toggle-favorite": toggleFavoriteFilter,
+  "library:cycle-read-status": cycleReadStatus,
+  "library:cycle-preset": cyclePreset,
+  "library:prev-library": () => cycleLibrary(-1),
+  "library:next-library": () => cycleLibrary(1),
 });
 
 // 스크롤 위치 복원
@@ -433,6 +504,17 @@ useScrollRestoration(".flex-grow.overflow-y-auto");
           </template>
           <div class="text-muted-foreground space-y-4 text-sm">
             <p>이 화면에서는 추가된 만화책들을 관리하고 열람할 수 있습니다.</p>
+            <h3 class="text-foreground text-base font-semibold">
+              키보드 단축키
+            </h3>
+            <ul class="list-inside list-disc">
+              <li><kbd>Ctrl</kbd>+<kbd>F</kbd>: 검색창 포커스</li>
+              <li><kbd>S</kbd>: 정렬 순서 전환 (오름차순/내림차순)</li>
+              <li><kbd>F</kbd>: 즐겨찾기 필터 토글</li>
+              <li><kbd>R</kbd>: 읽음 상태 순환 (모두→읽음→안읽음)</li>
+              <li><kbd>P</kbd>: 프리셋 순환</li>
+              <li><kbd>[</kbd> / <kbd>]</kbd>: 이전/다음 라이브러리 폴더</li>
+            </ul>
             <h3 class="text-foreground text-base font-semibold">검색 팁</h3>
             <ul class="list-inside list-disc">
               <li>
