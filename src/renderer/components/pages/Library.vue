@@ -209,7 +209,9 @@ debouncedWatch(
   { debounce: 1000 },
 );
 
-const libraryDirectories = computed(() => config.value?.libraryFolders || []);
+const libraryDirectories = computed(
+  () => (config.value as any)?.libraryFolders || ([] as string[]),
+);
 
 // 프리셋 데이터 (프리셋 순환 단축키용)
 const { data: presets } = useQuery({
