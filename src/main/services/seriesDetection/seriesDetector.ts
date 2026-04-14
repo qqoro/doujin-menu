@@ -32,6 +32,54 @@ const DEFAULT_OPTIONS: DetectionOptions = {
   protectManualEdits: true,
 };
 
+/**
+ * 권수 없는 책을 1권으로 처리하고, 정렬 후 orderIndex를 재계산합니다.
+ * detectSeriesCandidates(2곳)와 detectSeriesForBook에서 공통 사용합니다.
+ */
+function sortAndIndexBooks(booksWithScore: BookWithScore[]): void {
+  // 숫자 없는 책을 1권으로 처리하는 로직
+  const booksWithVolume = booksWithScore.filter((b) => b.volumeNumber !== null);
+  const booksWithoutVolume = booksWithScore.filter(
+    (b) => b.volumeNumber === null,
+  );
+
+  // 권수 없는 책이 있고, 명시적 1권이 없을 때 첫 번째 비스핀오프 책을 1권으로 처리
+  if (booksWithoutVolume.length >= 1 && booksWithVolume.length > 0) {
+    const hasExplicitVolumeOne = booksWithVolume.some(
+      (b) => b.volumeNumber === 1,
+    );
+
+    if (!hasExplicitVolumeOne) {
+      // 외전/오마케가 아닌 첫 번째 권수 없는 책을 1권으로 설정
+      const firstNonSpinOff = booksWithoutVolume.find((b) => {
+        const parseResult = parseTitlePattern(b.book.title);
+        const isSpinOff =
+          parseResult.volumeNumber === null && parseResult.confidence >= 0.7;
+        return !isSpinOff;
+      });
+
+      if (firstNonSpinOff) {
+        firstNonSpinOff.volumeNumber = 1;
+        firstNonSpinOff.orderIndex = 1;
+      }
+    }
+  }
+
+  booksWithScore.sort((a, b) => {
+    if (a.volumeNumber !== null && b.volumeNumber !== null) {
+      return a.volumeNumber - b.volumeNumber;
+    }
+    if (a.volumeNumber !== null) return -1;
+    if (b.volumeNumber !== null) return 1;
+    return a.book.title.localeCompare(b.book.title);
+  });
+
+  // 정렬 후 orderIndex를 실제 정렬 순서에 맞게 재계산
+  booksWithScore.forEach((b, i) => {
+    b.orderIndex = i + 1;
+  });
+}
+
 // 성능 최적화: 최대 그룹 크기 (이 이상이면 건너뜀)
 const MAX_GROUP_SIZE = 500;
 
@@ -81,49 +129,7 @@ export async function detectSeriesCandidates(
       };
     });
 
-    // 숫자 없는 책을 1권으로 처리하는 로직
-    const booksWithVolume = booksWithScore.filter(
-      (b) => b.volumeNumber !== null,
-    );
-    const booksWithoutVolume = booksWithScore.filter(
-      (b) => b.volumeNumber === null,
-    );
-
-    // 숫자가 없는 책이 한 권만 있고, 1권이 명시적으로 없을 때
-    if (booksWithoutVolume.length === 1 && booksWithVolume.length > 0) {
-      const hasExplicitVolumeOne = booksWithVolume.some(
-        (b) => b.volumeNumber === 1,
-      );
-
-      if (!hasExplicitVolumeOne) {
-        // 1권이 없으면 숫자 없는 책을 1권으로 설정
-        booksWithoutVolume[0].volumeNumber = 1;
-        booksWithoutVolume[0].orderIndex = 1;
-      }
-    }
-
-    log.debug(
-      `[시리즈 감지] 그룹 "${group.seriesName}" 정렬 전:`,
-      booksWithScore.map((b) => ({
-        title: b.book.title,
-        volumeNumber: b.volumeNumber,
-        orderIndex: b.orderIndex,
-      })),
-    );
-
-    booksWithScore.sort((a, b) => {
-      if (a.volumeNumber !== null && b.volumeNumber !== null) {
-        return a.volumeNumber - b.volumeNumber;
-      }
-      if (a.volumeNumber !== null) return -1;
-      if (b.volumeNumber !== null) return 1;
-      return a.book.title.localeCompare(b.book.title);
-    });
-
-    // 정렬 후 orderIndex를 실제 정렬 순서에 맞게 재계산
-    booksWithScore.forEach((b, i) => {
-      b.orderIndex = i + 1;
-    });
+    sortAndIndexBooks(booksWithScore);
 
     log.debug(
       `[시리즈 감지] 그룹 "${group.seriesName}" 정렬 후:`,
@@ -203,38 +209,7 @@ export async function detectSeriesCandidates(
       };
     });
 
-    // 숫자 없는 책을 1권으로 처리하는 로직 추가
-    const booksWithVolume = booksWithScore.filter(
-      (b) => b.volumeNumber !== null,
-    );
-    const booksWithoutVolume = booksWithScore.filter(
-      (b) => b.volumeNumber === null,
-    );
-
-    if (booksWithoutVolume.length === 1 && booksWithVolume.length > 0) {
-      const hasExplicitVolumeOne = booksWithVolume.some(
-        (b) => b.volumeNumber === 1,
-      );
-
-      if (!hasExplicitVolumeOne) {
-        booksWithoutVolume[0].volumeNumber = 1;
-        booksWithoutVolume[0].orderIndex = 1;
-      }
-    }
-
-    booksWithScore.sort((a, b) => {
-      if (a.volumeNumber !== null && b.volumeNumber !== null) {
-        return a.volumeNumber - b.volumeNumber;
-      }
-      if (a.volumeNumber !== null) return -1;
-      if (b.volumeNumber !== null) return 1;
-      return a.book.title.localeCompare(b.book.title);
-    });
-
-    // 정렬 후 orderIndex를 실제 정렬 순서에 맞게 재계산
-    booksWithScore.forEach((b, i) => {
-      b.orderIndex = i + 1;
-    });
+    sortAndIndexBooks(booksWithScore);
 
     const detectionReasons: DetectionReason[] = [];
     if (group.books[0].artists?.[0]) {
@@ -476,12 +451,7 @@ export async function detectSeriesForBook(
     };
   });
 
-  booksWithScore.sort((a, b) => {
-    if (a.volumeNumber !== null && b.volumeNumber !== null) {
-      return a.volumeNumber - b.volumeNumber;
-    }
-    return 0;
-  });
+  sortAndIndexBooks(booksWithScore);
 
   const seriesName =
     findCommonPrefix(candidateBooks.map((b) => b.title)) || targetBook.title;
