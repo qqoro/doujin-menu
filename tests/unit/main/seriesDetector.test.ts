@@ -100,6 +100,29 @@ describe("seriesDetector/detectSeriesCandidates", () => {
     expect(candidate.books[2].volumeNumber).toBe(3);
   });
 
+  it("권수 없는 책이 2권 이상이어도 첫 번째 책을 1권으로 처리해야 합니다", async () => {
+    const books: Book[] = [
+      createMockBook(1, "중복 시리즈 2"),
+      createMockBook(2, "중복 시리즈"), // 1권으로 처리
+      createMockBook(3, "중복 시리즈"), // 중복, null 유지
+      createMockBook(4, "중복 시리즈 3"),
+    ];
+
+    const result = await detectSeriesCandidates(books, { minBooks: 2 });
+
+    expect(result.candidates).toHaveLength(1);
+    const candidate = result.candidates[0];
+    expect(candidate.books).toHaveLength(4);
+    // 첫 번째 비스핀오프 권수없는 책이 1권으로 설정됨
+    expect(candidate.books[0].volumeNumber).toBe(1);
+    expect(candidate.books[0].orderIndex).toBe(1);
+    // 나머지는 권수 순서대로
+    expect(candidate.books[1].volumeNumber).toBe(2);
+    expect(candidate.books[2].volumeNumber).toBe(3);
+    // 마지막 중복 책은 여전히 null
+    expect(candidate.books[3].volumeNumber).toBe(null);
+  });
+
   it("1권이 명시적으로 존재할 때, 권 번호 없는 책을 1권으로 지정하지 않아야 합니다", async () => {
     // 영어 제목을 사용하여 한글/숫자 경계 문제 회피
     const books: Book[] = [
@@ -535,6 +558,104 @@ describe("seriesDetector/detectSeriesForBook", () => {
     const candidate = await detectSeriesForBook(lowConfidenceBook, allBooks);
 
     expect(candidate).toBeNull();
+  });
+
+  it("권수가 있는 책이 먼저 정렬되고, 권수가 없는 책은 제목순으로 뒤에 정렬되어야 합니다", async () => {
+    const targetBook = createMockBook(1, "정렬 테스트 2");
+    const allBooks = [
+      targetBook,
+      createMockBook(2, "정렬 테스트 외전"),
+      createMockBook(3, "정렬 테스트 1"),
+    ];
+
+    const candidate = await detectSeriesForBook(targetBook, allBooks, {
+      minConfidence: 0.1,
+    });
+
+    expect(candidate).not.toBeNull();
+    // 정렬 순서: 1권 → 2권 → 외전(null)
+    expect(candidate!.books.map((b) => b.book.id)).toEqual([3, 1, 2]);
+  });
+
+  it("정렬 후 orderIndex가 1부터 순차적으로 매겨져야 합니다", async () => {
+    // 불연속 권수(5, 10)로 volumeNumber != orderIndex 상황 유도
+    const targetBook = createMockBook(1, "순서책 10");
+    const allBooks = [
+      targetBook,
+      createMockBook(2, "순서책 5"),
+      createMockBook(3, "순서책 오마케"),
+    ];
+
+    const candidate = await detectSeriesForBook(targetBook, allBooks, {
+      minConfidence: 0.1,
+    });
+
+    expect(candidate).not.toBeNull();
+    // 정렬 순서: 5권 → 10권 → 오마케(null)
+    expect(candidate!.books.map((b) => b.book.id)).toEqual([2, 1, 3]);
+    // orderIndex는 정렬 순서 기반 1, 2, 3 이어야 함 (volumeNumber 5, 10과 무관)
+    expect(candidate!.books.map((b) => b.orderIndex)).toEqual([1, 2, 3]);
+    expect(candidate!.books.map((b) => b.volumeNumber)).toEqual([5, 10, null]);
+  });
+
+  it("1권이 명시적으로 없을 때, 권 번호 없는 책을 1권으로 처리해야 합니다", async () => {
+    const targetBook = createMockBook(1, "NoVol Series 2");
+    const allBooks = [
+      targetBook,
+      createMockBook(2, "NoVol Series"), // 권수 없음 → 1권으로 처리
+      createMockBook(3, "NoVol Series 3"),
+    ];
+
+    const candidate = await detectSeriesForBook(targetBook, allBooks, {
+      minConfidence: 0.1,
+    });
+
+    expect(candidate).not.toBeNull();
+    const noVolBook = candidate!.books.find(
+      (b) => b.book.title === "NoVol Series",
+    );
+    expect(noVolBook?.volumeNumber).toBe(1);
+    expect(noVolBook?.orderIndex).toBe(1);
+  });
+
+  it("물결표가 포함된 긴 제목의 권수 없는 책이 1권으로 정렬되어야 합니다", async () => {
+    const targetBook = createMockBook(
+      1,
+      "Test Title ~Subtitle A~ 테스트 ~부제 설명~",
+    );
+    const allBooks = [
+      targetBook,
+      createMockBook(2, "Test Title 2 ~Subtitle A~ 테스트 2 ~부제 설명~"),
+      createMockBook(3, "Test Title 3 ~Subtitle A~ 테스트 3 ~부제 설명~"),
+      createMockBook(4, "test title 4 ~Subtitle A~ 테스트 4 ~부제 설명~"),
+    ];
+
+    const candidate = await detectSeriesForBook(targetBook, allBooks, {
+      minConfidence: 0.1,
+    });
+
+    expect(candidate).not.toBeNull();
+    expect(candidate!.books[0].book.id).toBe(1);
+    expect(candidate!.books[0].volumeNumber).toBe(1);
+    expect(candidate!.books[0].orderIndex).toBe(1);
+    expect(candidate!.books.map((b) => b.volumeNumber)).toEqual([1, 2, 3, 4]);
+  });
+
+  it("detectSeriesCandidates에서 입력 순서와 무관하게 올바르게 정렬되어야 합니다", async () => {
+    const books: Book[] = [
+      createMockBook(4, "test title 4 ~Subtitle A~ 테스트 4 ~부제 설명~"),
+      createMockBook(1, "Test Title ~Subtitle A~ 테스트 ~부제 설명~"),
+      createMockBook(3, "Test Title 3 ~Subtitle A~ 테스트 3 ~부제 설명~"),
+      createMockBook(2, "Test Title 2 ~Subtitle A~ 테스트 2 ~부제 설명~"),
+    ];
+
+    const result = await detectSeriesCandidates(books, { minConfidence: 0.1 });
+
+    expect(result.candidates).toHaveLength(1);
+    const candidate = result.candidates[0];
+    expect(candidate.books.map((b) => b.book.id)).toEqual([1, 2, 3, 4]);
+    expect(candidate.books.map((b) => b.volumeNumber)).toEqual([1, 2, 3, 4]);
+    expect(candidate.books.map((b) => b.orderIndex)).toEqual([1, 2, 3, 4]);
   });
 });
 
