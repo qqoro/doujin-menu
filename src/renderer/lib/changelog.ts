@@ -15,6 +15,29 @@ export interface Changelog {
  */
 export const changelogData: Changelog[] = [
   {
+    version: "1.16.0",
+    changes: [
+      {
+        type: "feature",
+        title: "✨ 새로운 기능",
+        items: [
+          "라이브러리에서 정렬 전환(S), 필터/탐색(f, r, p, [, ]) 단축키가 추가되었습니다.",
+          "뷰어에서 즐겨찾기(F) 단축키가 추가되었습니다.",
+          "시리즈 자동 감지가 더 정확해졌습니다.",
+          "시리즈 감지 속도가 향상되었습니다.",
+        ],
+      },
+      {
+        type: "fix",
+        title: "🐛 버그 수정",
+        items: [
+          "시리즈 내 책 순서가 올바르지 않던 문제를 수정했습니다.",
+          "앱 시작 시 검색 인덱스 구축으로 인해 화면이 멈추던 문제를 수정했습니다.",
+        ],
+      },
+    ],
+  },
+  {
     version: "1.15.0",
     changes: [
       {
