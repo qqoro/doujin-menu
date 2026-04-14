@@ -196,6 +196,36 @@ export const defaultActions: ActionDefinition[] = [
     context: "library",
     defaultKeys: ["Ctrl+q"],
   },
+  {
+    id: "library:toggle-favorite",
+    description: "즐겨찾기 필터 토글",
+    context: "library",
+    defaultKeys: ["f"],
+  },
+  {
+    id: "library:cycle-read-status",
+    description: "읽음 상태 순환 (모두→읽음→안읽음)",
+    context: "library",
+    defaultKeys: ["r"],
+  },
+  {
+    id: "library:cycle-preset",
+    description: "프리셋 순환",
+    context: "library",
+    defaultKeys: ["p"],
+  },
+  {
+    id: "library:prev-library",
+    description: "이전 라이브러리 폴더",
+    context: "library",
+    defaultKeys: ["["],
+  },
+  {
+    id: "library:next-library",
+    description: "다음 라이브러리 폴더",
+    context: "library",
+    defaultKeys: ["]"],
+  },
 
   // === 레이아웃 ===
   {
