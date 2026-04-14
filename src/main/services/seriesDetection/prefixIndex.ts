@@ -18,6 +18,13 @@ interface IndexEntry {
   key: ComparisonKey;
 }
 
+/** 직렬화된 인덱스 엔트리 (postMessage 전송용) */
+export interface SerializedIndexEntry {
+  bookIds: number[];
+  seriesId: number | null;
+  key: ComparisonKey;
+}
+
 /**
  * 비교 기반 인덱스
  * 책 제목의 비교 키를 기반으로 인덱싱합니다.
@@ -137,5 +144,28 @@ export class PrefixIndex {
    */
   get size(): number {
     return this.entries.length;
+  }
+
+  /**
+   * 인덱스 엔트리를 직렬화합니다 (워커 → 메인 전송용).
+   */
+  serialize(): SerializedIndexEntry[] {
+    return this.entries.map((entry) => ({
+      bookIds: [...entry.bookIds],
+      seriesId: entry.seriesId,
+      key: entry.key,
+    }));
+  }
+
+  /**
+   * 직렬화된 데이터로부터 인덱스를 복원합니다.
+   * DB 조회 없이 워커에서 전송한 데이터로 인덱스를 재구축합니다.
+   */
+  loadEntries(data: SerializedIndexEntry[]): void {
+    this.entries = data.map((entry) => ({
+      bookIds: new Set(entry.bookIds),
+      seriesId: entry.seriesId,
+      key: entry.key,
+    }));
   }
 }

@@ -2,6 +2,8 @@ import log from "electron-log";
 import knex from "knex";
 import { parentPort } from "worker_threads";
 import type { Book } from "../db/types.js";
+import { PrefixIndex } from "../services/seriesDetection/prefixIndex.js";
+import type { SerializedIndexEntry } from "../services/seriesDetection/prefixIndex.js";
 import { detectSeriesCandidates } from "../services/seriesDetection/seriesDetector.js";
 import type { DetectionOptions } from "../services/seriesDetection/types.js";
 
@@ -138,6 +140,62 @@ if (parentPort) {
           }
         });
 
+        // 7. PrefixIndex 구축 (메인 스레드 DB 조회 대체)
+        let indexEntries: SerializedIndexEntry[] | null = null;
+        try {
+          // 전체 책 조회 (시리즈 할당 여부 관계없이)
+          const allBooks = await db("Book")
+            .select(
+              "Book.*",
+              db.raw("GROUP_CONCAT(DISTINCT Artist.name) as artists"),
+              db.raw("GROUP_CONCAT(DISTINCT Tag.name) as tags"),
+            )
+            .leftJoin("BookArtist", "Book.id", "BookArtist.book_id")
+            .leftJoin("Artist", "BookArtist.artist_id", "Artist.id")
+            .leftJoin("BookTag", "Book.id", "BookTag.book_id")
+            .leftJoin("Tag", "BookTag.tag_id", "Tag.id")
+            .groupBy("Book.id");
+
+          const allBooksWithArrays: Book[] = allBooks.map(
+            (
+              book: Record<string, unknown> & { artists?: string; tags?: string },
+            ) =>
+              ({
+                ...book,
+                artists: book.artists
+                  ? book.artists
+                      .split(",")
+                      .map((name: string) => ({ id: 0, name }))
+                  : [],
+                tags: book.tags
+                  ? book.tags
+                      .split(",")
+                      .map((name: string) => ({ id: 0, name, color: null }))
+                  : [],
+              }) as Book,
+          );
+
+          // 전체 시리즈 + bookIds 조회
+          const allSeriesData = await Promise.all(
+            (
+              await db("SeriesCollection").select("id", "name")
+            ).map(async (s: { id: number; name: string }) => {
+              const bookIds = (
+                await db("Book")
+                  .where("series_collection_id", s.id)
+                  .select("id")
+              ).map((b: { id: number }) => b.id);
+              return { id: s.id, name: s.name, bookIds };
+            }),
+          );
+
+          const index = new PrefixIndex();
+          index.rebuild(allBooksWithArrays, allSeriesData);
+          indexEntries = index.serialize();
+        } catch (indexError) {
+          log.error("[Worker] PrefixIndex 구축 실패 (무시하고 계속):", indexError);
+        }
+
         parentPort?.postMessage({
           success: true,
           data: {
@@ -145,6 +203,7 @@ if (parentPort) {
             processed_books: result.processedBooks,
             duration: result.duration,
             series: createdSeries,
+            indexEntries,
           },
         });
       } catch (error) {

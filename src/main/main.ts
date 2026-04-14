@@ -34,6 +34,7 @@ import {
   registerSeriesCollectionHandlers,
   handleRunSeriesDetection,
   rebuildPrefixIndex,
+  loadPrefixIndexFromData,
 } from "./handlers/seriesCollectionHandler.js";
 import { registerStatisticsHandlers } from "./handlers/statisticsHandler.js";
 import {
@@ -192,9 +193,14 @@ function createWindow() {
               `[Main] 시리즈 감지 완료: ${result.data.created_count}개 시리즈 생성`,
             );
           }
-          // 전체 재감지 후 접두사 인덱스 구축
-          await rebuildPrefixIndex();
-          console.log("[Main] 접두사 인덱스 구축 완료");
+          // 워커에서 전송한 인덱스 데이터로 복원 (DB 조회 없음)
+          if (result.success && result.data?.indexEntries) {
+            loadPrefixIndexFromData(result.data.indexEntries);
+          } else {
+            // 워커에서 인덱스 구축 실패 시 폴백으로 DB 조회
+            await rebuildPrefixIndex();
+            console.log("[Main] 접두사 인덱스 구축 완료 (폴백)");
+          }
         })
         .catch((err) => {
           console.error("[Main] 시리즈 감지 실패:", err);

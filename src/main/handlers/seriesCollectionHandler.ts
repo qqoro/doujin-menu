@@ -11,6 +11,7 @@ import { console } from "../main.js";
 import { detectSeriesForBook } from "../services/seriesDetection/seriesDetector.js";
 import { computeComparisonKey } from "../services/seriesDetection/titlePatternMatcher.js";
 import { PrefixIndex } from "../services/seriesDetection/prefixIndex.js";
+import type { SerializedIndexEntry } from "../services/seriesDetection/prefixIndex.js";
 import type { DetectionOptions } from "../services/seriesDetection/types.js";
 import { store } from "./configHandler.js";
 
@@ -76,6 +77,21 @@ export async function rebuildPrefixIndex(): Promise<PrefixIndex> {
  */
 export function getPrefixIndex(): PrefixIndex | null {
   return prefixIndex;
+}
+
+/**
+ * 워커에서 전송한 직렬화 데이터로 PrefixIndex를 복원합니다.
+ * DB 조회 없이 메인 스레드 블로킹 없이 인덱스를 재구축합니다.
+ */
+export function loadPrefixIndexFromData(
+  entries: SerializedIndexEntry[],
+): void {
+  const index = new PrefixIndex();
+  index.loadEntries(entries);
+  prefixIndex = index;
+  console.log(
+    `[SeriesCollection] PrefixIndex 복원 완료 (${entries.length}개 엔트리)`,
+  );
 }
 
 /**
