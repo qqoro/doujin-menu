@@ -9,7 +9,7 @@ import { scanDirectory } from "./directoryHandler.js";
 import { handleGenerateThumbnail } from "./thumbnailHandler.js";
 
 // 라이브러리 뷰 설정 타입
-interface LibraryViewSettings {
+export interface LibraryViewSettings {
   sortBy: string;
   sortOrder: "asc" | "desc";
   readStatus: "all" | "read" | "unread";
@@ -17,13 +17,13 @@ interface LibraryViewSettings {
 }
 
 // 시리즈 감지 설정 타입
-interface SeriesDetectionSettings {
+export interface SeriesDetectionSettings {
   minConfidence: number;
   minBooks: number;
 }
 
 // 설정 파일의 타입을 정의합니다.
-interface Config {
+export interface Config {
   theme?: "light" | "dark" | "auto";
   colorTheme?: string; // 모든 tweakcn 테마 지원
   autoLoadLibrary?: boolean;
@@ -53,6 +53,12 @@ interface Config {
   externalProgramPath?: string; // 외부 프로그램 실행 경로
   keybindingOverrides?: { actionId: string; keys: string[] }[]; // 키 바인딩 사용자 재정의
   enableReadingHistory?: boolean; // 읽음 기록
+  viewerAutoPlayInterval?: number; // 자동 재생 간격 (ms)
+  viewerAutoNextBook?: boolean; // 자동 다음 책 이동
+  viewerAutoNextBookMode?: "next" | "random"; // 자동 다음 책 모드
+  viewerAutoPlayStopPage?: number | null; // 자동 재생 정지 페이지
+  viewerShowCoverAlone?: boolean; // 표지 단독 표시
+  viewerReadingMode?: "ltr" | "rtl" | "webtoon"; // 뷰어 읽기 모드
 }
 
 const defaults: Config = {
