@@ -52,6 +52,7 @@ interface Config {
   viewerHideToast?: boolean; // 토스트 숨김
   externalProgramPath?: string; // 외부 프로그램 실행 경로
   keybindingOverrides?: { actionId: string; keys: string[] }[]; // 키 바인딩 사용자 재정의
+  enableReadingHistory?: boolean; // 읽음 기록
 }
 
 const defaults: Config = {
@@ -89,6 +90,7 @@ const defaults: Config = {
   viewerOpenInFullscreen: false,
   viewerHidePageNumber: false,
   viewerHideToast: false,
+  enableReadingHistory: true,
 };
 
 export const store = new Store<Config>({
