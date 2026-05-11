@@ -158,7 +158,10 @@ if (parentPort) {
 
           const allBooksWithArrays: Book[] = allBooks.map(
             (
-              book: Record<string, unknown> & { artists?: string; tags?: string },
+              book: Record<string, unknown> & {
+                artists?: string;
+                tags?: string;
+              },
             ) =>
               ({
                 ...book,
@@ -177,23 +180,26 @@ if (parentPort) {
 
           // 전체 시리즈 + bookIds 조회
           const allSeriesData = await Promise.all(
-            (
-              await db("SeriesCollection").select("id", "name")
-            ).map(async (s: { id: number; name: string }) => {
-              const bookIds = (
-                await db("Book")
-                  .where("series_collection_id", s.id)
-                  .select("id")
-              ).map((b: { id: number }) => b.id);
-              return { id: s.id, name: s.name, bookIds };
-            }),
+            (await db("SeriesCollection").select("id", "name")).map(
+              async (s: { id: number; name: string }) => {
+                const bookIds = (
+                  await db("Book")
+                    .where("series_collection_id", s.id)
+                    .select("id")
+                ).map((b: { id: number }) => b.id);
+                return { id: s.id, name: s.name, bookIds };
+              },
+            ),
           );
 
           const index = new PrefixIndex();
           index.rebuild(allBooksWithArrays, allSeriesData);
           indexEntries = index.serialize();
         } catch (indexError) {
-          log.error("[Worker] PrefixIndex 구축 실패 (무시하고 계속):", indexError);
+          log.error(
+            "[Worker] PrefixIndex 구축 실패 (무시하고 계속):",
+            indexError,
+          );
         }
 
         parentPort?.postMessage({

@@ -83,9 +83,7 @@ export function getPrefixIndex(): PrefixIndex | null {
  * 워커에서 전송한 직렬화 데이터로 PrefixIndex를 복원합니다.
  * DB 조회 없이 메인 스레드 블로킹 없이 인덱스를 재구축합니다.
  */
-export function loadPrefixIndexFromData(
-  entries: SerializedIndexEntry[],
-): void {
+export function loadPrefixIndexFromData(entries: SerializedIndexEntry[]): void {
   const index = new PrefixIndex();
   index.loadEntries(entries);
   prefixIndex = index;

@@ -1,4 +1,6 @@
 // IPC 통신을 위한 타입 정의
+import type { Gallery } from "node-hitomi";
+import type { Config } from "../main/handlers/configHandler.js";
 
 export interface FilterParams {
   searchQuery?: string;
@@ -341,7 +343,7 @@ export interface IpcChannels {
   // Config handlers
   "get-config": {
     request: void;
-    response: Record<string, unknown>;
+    response: Config;
   };
   "get-config-value": {
     request: string; // key
@@ -443,7 +445,7 @@ export interface IpcChannels {
     request: number; // galleryId
     response: {
       success: boolean;
-      data?: unknown; // Gallery + thumbnailUrl
+      data?: Gallery & { thumbnailUrl: string };
       error?: string;
     };
   };
