@@ -775,6 +775,11 @@ export const handleOpenBookFolder = async (bookPath: string) => {
 
 export const handleAddBookHistory = async (bookId: number) => {
   try {
+    // 읽음 기록 비활성화 시 건너뛰기
+    if (!configStore.get("enableReadingHistory", true)) {
+      return { success: true, skipped: true };
+    }
+
     if (!bookId) {
       return { success: false, error: "Book ID is required." };
     }

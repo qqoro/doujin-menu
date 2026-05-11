@@ -145,6 +145,7 @@ const theme = useColorMode();
 const { setTheme } = useTheme();
 const colorTheme = ref<ColorTheme>("cosmic-night");
 const autoLoadLibrary = ref(true);
+const enableReadingHistory = ref(true);
 const libraryFolders = ref<LibraryFolder[]>([]);
 const createInfoTxtFile = ref(true);
 const downloadPattern = ref("%artist% - %title%");
@@ -205,6 +206,7 @@ onMounted(async () => {
   theme.value = (config.theme as "light" | "dark" | "auto") || "auto";
   colorTheme.value = (config.colorTheme as ColorTheme) || "cosmic-night";
   autoLoadLibrary.value = config.autoLoadLibrary !== false;
+  enableReadingHistory.value = config.enableReadingHistory !== false;
   createInfoTxtFile.value = config.createInfoTxtFile !== false;
   downloadPattern.value =
     (config.downloadPattern as string) || "%artist% - %title%";
@@ -291,6 +293,11 @@ const onColorThemeChange = async (newTheme: AcceptableValue) => {
 const onAutoLoadChange = (value: boolean) => {
   autoLoadLibrary.value = value;
   saveConfig("autoLoadLibrary", value);
+};
+
+const onEnableReadingHistoryChange = (value: boolean) => {
+  enableReadingHistory.value = value;
+  saveConfig("enableReadingHistory", value);
 };
 
 const onCreateInfoTxtFileChange = (value: boolean) => {
@@ -672,6 +679,18 @@ const resetAllData = async () => {
                     :model-value="autoLoadLibrary"
                     class="justify-self-end"
                     @update:model-value="onAutoLoadChange"
+                  />
+                </SettingItem>
+                <SettingItem
+                  label-for="enable-reading-history"
+                  title="읽음 기록"
+                  subtitle="책을 열람한 기록을 저장합니다."
+                >
+                  <Switch
+                    id="enable-reading-history"
+                    :model-value="enableReadingHistory"
+                    class="justify-self-end"
+                    @update:model-value="onEnableReadingHistoryChange"
                   />
                 </SettingItem>
                 <SettingItem
