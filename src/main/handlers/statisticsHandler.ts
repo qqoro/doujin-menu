@@ -36,32 +36,32 @@ export const handleGetStatistics = async () => {
       ? (totalBooksResult.count as number)
       : 0;
 
-    // 가장 많이 등장하는 태그 (상위 10개)
+    // 가장 많이 등장하는 태그 (상위 100개)
     const topTags = await db("Tag as T")
       .select("T.name")
       .count("BT.book_id as count")
       .join("BookTag as BT", "T.id", "BT.tag_id")
       .groupBy("T.name")
       .orderBy("count", "desc")
-      .limit(10);
+      .limit(100);
 
-    // 가장 많이 등장하는 작가 (상위 10개)
+    // 가장 많이 등장하는 작가 (상위 100개)
     const topArtists = await db("Artist as A")
       .select("A.name")
       .count("BA.book_id as count")
       .join("BookArtist as BA", "A.id", "BA.artist_id")
       .groupBy("A.name")
       .orderBy("count", "desc")
-      .limit(10);
+      .limit(100);
 
-    // 가장 자주 본 책 (상위 10개)
+    // 가장 자주 본 책 (상위 100개)
     const mostViewedBooks = await db("BookHistory as BH")
       .select("B.id", "B.title")
       .count("BH.book_id as view_count")
       .join("Book as B", "B.id", "BH.book_id")
       .groupBy("B.id", "B.title")
       .orderBy("view_count", "desc")
-      .limit(10);
+      .limit(100);
 
     // 가장 긴 책 (페이지 수 기준)
     const longestBook = await db("Book")
@@ -191,32 +191,32 @@ export const handleGetStatistics = async () => {
 
     const readPages = completedPages + readingPages;
 
-    // 가장 많이 등장하는 그룹 (상위 10개)
+    // 가장 많이 등장하는 그룹 (상위 100개)
     const topGroups = await db("Group as G")
       .select("G.name")
       .count("BG.book_id as count")
       .join("BookGroup as BG", "G.id", "BG.group_id")
       .groupBy("G.name")
       .orderBy("count", "desc")
-      .limit(10);
+      .limit(100);
 
-    // 가장 많이 등장하는 캐릭터 (상위 10개)
+    // 가장 많이 등장하는 캐릭터 (상위 100개)
     const topCharacters = await db("Character as C")
       .select("C.name")
       .count("BC.book_id as count")
       .join("BookCharacter as BC", "C.id", "BC.character_id")
       .groupBy("C.name")
       .orderBy("count", "desc")
-      .limit(10);
+      .limit(100);
 
-    // 가장 많은 책이 있는 시리즈 (상위 5개)
+    // 가장 많은 책이 있는 시리즈 (상위 100개)
     const topSeries = await db("Series as S")
       .select("S.name")
       .count("BS.book_id as count")
       .join("BookSeries as BS", "S.id", "BS.series_id")
       .groupBy("S.name")
       .orderBy("count", "desc")
-      .limit(5);
+      .limit(100);
 
     // 타입별 분포
     const typeDistribution = await db("Book")
