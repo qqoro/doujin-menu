@@ -8,7 +8,115 @@ import { console } from "../main.js";
 import { naturalSort } from "../utils/index.js";
 import { store as configStore } from "./configHandler.js";
 
+export interface ParsedSearchTerms {
+  titleTerms: string[];
+  idTerms: string[];
+  artistTerms: string[];
+  tagTerms: string[];
+  seriesTerms: string[];
+  groupTerms: string[];
+  typeTerms: string[];
+  languageTerms: string[];
+  characterTerms: string[];
+}
+
+const PREFIXED_TERM_REGEX =
+  /(id|artist|group|type|language|series|character|tag):(.+?)(?=\s+(?!(?:id|artist|group|type|language|series|character|tag|male|female):)|\s*(?:id|artist|group|type|language|series|character|tag|male|female):|$)/g;
+
+// 검색어 문자열을 프리픽스별로 분류하여 반환
+export function parseSearchQuery(searchQuery: string): ParsedSearchTerms {
+  const result: ParsedSearchTerms = {
+    titleTerms: [],
+    idTerms: [],
+    artistTerms: [],
+    tagTerms: [],
+    seriesTerms: [],
+    groupTerms: [],
+    typeTerms: [],
+    languageTerms: [],
+    characterTerms: [],
+  };
+
+  if (!searchQuery) return result;
+
+  const lowerCaseQuery = searchQuery.toLowerCase();
+  const rawTitleTerms: string[] = [];
+
+  let lastIndex = 0;
+  let match;
+
+  while ((match = PREFIXED_TERM_REGEX.exec(lowerCaseQuery)) !== null) {
+    const prefix = match[1];
+    const value = match[2].trim();
+
+    const leadingText = lowerCaseQuery
+      .substring(lastIndex, match.index)
+      .trim();
+    if (leadingText) {
+      rawTitleTerms.push(
+        ...leadingText.split(" ").filter((t) => t.length > 0),
+      );
+    }
+
+    switch (prefix) {
+      case "id":
+        result.idTerms.push(value);
+        break;
+      case "artist":
+        result.artistTerms.push(value);
+        break;
+      case "group":
+        result.groupTerms.push(value);
+        break;
+      case "type":
+        result.typeTerms.push(value);
+        break;
+      case "language":
+        result.languageTerms.push(value);
+        break;
+      case "series":
+        result.seriesTerms.push(value);
+        break;
+      case "character":
+        result.characterTerms.push(value);
+        break;
+      case "tag":
+        result.tagTerms.push(value);
+        break;
+    }
+    lastIndex = PREFIXED_TERM_REGEX.lastIndex;
+  }
+
+  const remainingText = lowerCaseQuery.substring(lastIndex).trim();
+  if (remainingText) {
+    rawTitleTerms.push(
+      ...remainingText.split(" ").filter((t) => t.length > 0),
+    );
+  }
+
+  // male:/female: 접두사가 있는 항목은 tagTerms로 이동
+  for (const term of rawTitleTerms) {
+    if (term.startsWith("male:") || term.startsWith("female:")) {
+      result.tagTerms.push(term);
+    } else {
+      result.titleTerms.push(term);
+    }
+  }
+
+  return result;
+}
+
 const createKoreanRegexp = () => /^.+\|\s?(.+)$/;
+
+// 한국어 우선 제목 설정이 활성화된 경우 "영어 | 한글" 형식에서 한글 부분만 추출
+export function extractKoreanTitle(
+  title: string,
+  prioritizeKorean: boolean,
+): string {
+  if (!prioritizeKorean) return title;
+  const match = createKoreanRegexp().exec(title);
+  return match?.[1]?.trim() ?? title;
+}
 
 function buildFilteredQuery(filter: FilterParams | null) {
   const {
@@ -46,77 +154,17 @@ function buildFilteredQuery(filter: FilterParams | null) {
   }
 
   if (searchQuery) {
-    const lowerCaseQuery = searchQuery.toLowerCase();
-    const titleTerms: string[] = [];
-    const idTerms: string[] = [];
-    const artistTerms: string[] = [];
-    const tagTerms: string[] = [];
-    const seriesTerms: string[] = [];
-    const groupTerms: string[] = [];
-    const typeTerms: string[] = [];
-    const languageTerms: string[] = [];
-    const characterTerms: string[] = [];
-
-    const prefixedTermRegex =
-      /(id|artist|group|type|language|series|character|tag):(.+?)(?=\s*(?:id|artist|group|type|language|series|character|tag|male|female):|$)/g;
-
-    let lastIndex = 0;
-    let match;
-
-    while ((match = prefixedTermRegex.exec(lowerCaseQuery)) !== null) {
-      const prefix = match[1];
-      const value = match[2].trim();
-
-      const leadingText = lowerCaseQuery
-        .substring(lastIndex, match.index)
-        .trim();
-      if (leadingText) {
-        titleTerms.push(...leadingText.split(" ").filter((t) => t.length > 0));
-      }
-
-      switch (prefix) {
-        case "id":
-          idTerms.push(value);
-          break;
-        case "artist":
-          artistTerms.push(value);
-          break;
-        case "group":
-          groupTerms.push(value);
-          break;
-        case "type":
-          typeTerms.push(value);
-          break;
-        case "language":
-          languageTerms.push(value);
-          break;
-        case "series":
-          seriesTerms.push(value);
-          break;
-        case "character":
-          characterTerms.push(value);
-          break;
-        case "tag":
-          tagTerms.push(value);
-          break;
-      }
-      lastIndex = prefixedTermRegex.lastIndex;
-    }
-
-    const remainingText = lowerCaseQuery.substring(lastIndex).trim();
-    if (remainingText) {
-      titleTerms.push(...remainingText.split(" ").filter((t) => t.length > 0));
-    }
-
-    const unhandledTerms = [...titleTerms];
-    titleTerms.length = 0;
-    for (const term of unhandledTerms) {
-      if (term.startsWith("male:") || term.startsWith("female:")) {
-        tagTerms.push(term);
-      } else {
-        titleTerms.push(term);
-      }
-    }
+    const {
+      titleTerms,
+      idTerms,
+      artistTerms,
+      tagTerms,
+      seriesTerms,
+      groupTerms,
+      typeTerms,
+      languageTerms,
+      characterTerms,
+    } = parseSearchQuery(searchQuery);
 
     if (idTerms.length > 0) {
       mainQuery.whereIn("sub.hitomi_id", idTerms);
@@ -240,35 +288,25 @@ export const handleGetBooks = async (
     false,
   );
 
-  const formattedBooks = books.map((book) => {
-    let displayTitle = book.title;
-    if (prioritizeKoreanTitles) {
-      const koreanPart = createKoreanRegexp().exec(book.title);
-      if (koreanPart?.[1]) {
-        displayTitle = koreanPart[1].trim();
-      }
-    }
-
-    return {
-      ...book,
-      title: displayTitle,
-      artists: book.artists
-        ? book.artists.split(",").map((name: string) => ({ name }))
-        : [],
-      tags: book.tags
-        ? book.tags.split(",").map((name: string) => ({ name }))
-        : [],
-      series: book.series
-        ? book.series.split(",").map((name: string) => ({ name }))
-        : [],
-      groups: book.groups
-        ? book.groups.split(",").map((name: string) => ({ name }))
-        : [],
-      characters: book.characters
-        ? book.characters.split(",").map((name: string) => ({ name }))
-        : [],
-    };
-  });
+  const formattedBooks = books.map((book) => ({
+    ...book,
+    title: extractKoreanTitle(book.title, prioritizeKoreanTitles),
+    artists: book.artists
+      ? book.artists.split(",").map((name: string) => ({ name }))
+      : [],
+    tags: book.tags
+      ? book.tags.split(",").map((name: string) => ({ name }))
+      : [],
+    series: book.series
+      ? book.series.split(",").map((name: string) => ({ name }))
+      : [],
+    groups: book.groups
+      ? book.groups.split(",").map((name: string) => ({ name }))
+      : [],
+    characters: book.characters
+      ? book.characters.split(",").map((name: string) => ({ name }))
+      : [],
+  }));
 
   return {
     data: formattedBooks,
@@ -289,17 +327,9 @@ export const handleGetBook = async (bookId: number) => {
     false,
   );
 
-  let displayTitle = book.title;
-  if (prioritizeKoreanTitles) {
-    const koreanPart = createKoreanRegexp().exec(book.title);
-    if (koreanPart?.[1]) {
-      displayTitle = koreanPart[1].trim();
-    }
-  }
-
   return {
     ...book,
-    title: displayTitle,
+    title: extractKoreanTitle(book.title, prioritizeKoreanTitles),
     artists: book.artists
       ? book.artists.split(",").map((name: string) => ({ name }))
       : [],
