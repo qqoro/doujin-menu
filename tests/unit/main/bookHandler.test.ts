@@ -415,12 +415,22 @@ function buildFilteredQuery(db: Knex, filter: any) {
     }
     if (artistTerms.length > 0) {
       for (const artist of artistTerms) {
-        mainQuery.whereRaw("LOWER(sub.artists) LIKE ?", [`%${artist}%`]);
+        mainQuery.whereExists(function () {
+          this.from("BookArtist")
+            .innerJoin("Artist", "BookArtist.artist_id", "Artist.id")
+            .whereRaw("BookArtist.book_id = sub.id")
+            .whereRaw("LOWER(Artist.name) = ?", [artist]);
+        });
       }
     }
     if (groupTerms.length > 0) {
       for (const group of groupTerms) {
-        mainQuery.whereRaw("LOWER(sub.groups) LIKE ?", [`%${group}%`]);
+        mainQuery.whereExists(function () {
+          this.from("BookGroup")
+            .innerJoin("Group", "BookGroup.group_id", "Group.id")
+            .whereRaw("BookGroup.book_id = sub.id")
+            .whereRaw("LOWER(`Group`.name) = ?", [group]);
+        });
       }
     }
     if (typeTerms.length > 0) {
@@ -438,17 +448,32 @@ function buildFilteredQuery(db: Knex, filter: any) {
     }
     if (characterTerms.length > 0) {
       for (const character of characterTerms) {
-        mainQuery.whereRaw("LOWER(sub.characters) LIKE ?", [`%${character}%`]);
+        mainQuery.whereExists(function () {
+          this.from("BookCharacter")
+            .innerJoin("Character", "BookCharacter.character_id", "Character.id")
+            .whereRaw("BookCharacter.book_id = sub.id")
+            .whereRaw("LOWER(`Character`.name) = ?", [character]);
+        });
       }
     }
     if (tagTerms.length > 0) {
       for (const tag of tagTerms) {
-        mainQuery.whereRaw("LOWER(sub.tags) LIKE ?", [`%${tag}%`]);
+        mainQuery.whereExists(function () {
+          this.from("BookTag")
+            .innerJoin("Tag", "BookTag.tag_id", "Tag.id")
+            .whereRaw("BookTag.book_id = sub.id")
+            .whereRaw("LOWER(Tag.name) = ?", [tag]);
+        });
       }
     }
     if (seriesTerms.length > 0) {
       for (const seriesName of seriesTerms) {
-        mainQuery.whereRaw("LOWER(sub.series) LIKE ?", [`%${seriesName}%`]);
+        mainQuery.whereExists(function () {
+          this.from("BookSeries")
+            .innerJoin("Series", "BookSeries.series_id", "Series.id")
+            .whereRaw("BookSeries.book_id = sub.id")
+            .whereRaw("LOWER(Series.name) = ?", [seriesName]);
+        });
       }
     }
     if (titleTerms.length > 0) {
@@ -565,8 +590,8 @@ describe("buildFilteredQuery - 실제 DB 통합 테스트", () => {
     });
   });
 
-  describe("GROUP_CONCAT + LIKE 부분일치 버그 확인", () => {
-    it("artist:abc → 'abc'만 매칭되어야 하지만 'xabc'도 매칭됨 (버그)", async () => {
+  describe("관계 데이터 정확 일치 검색 (EXISTS 서브쿼리)", () => {
+    it("artist:abc → 'abc'만 매칭, 'xabc'는 불일치", async () => {
       const artist1 = await seedArtist(db, "abc");
       const artist2 = await seedArtist(db, "xabc");
       const book1 = await seedBook(db, { path: "/a" });
@@ -576,12 +601,10 @@ describe("buildFilteredQuery - 실제 DB 통합 테스트", () => {
 
       const ids = await getResultIds(buildFilteredQuery(db, { searchQuery: "artist:abc" }));
 
-      // 의도: [book1.id] (abc만), 실제: [book1.id, book2.id] (xabc도 매칭)
-      // 리팩토링 후 이 테스트를 [book1.id]로 수정하면 됨
-      expect(ids).toEqual([book1.id, book2.id].sort());
+      expect(ids).toEqual([book1.id]);
     });
 
-    it("tag:nurse → 'nurse'만 매칭되어야 하지만 'unnurse'도 매칭됨 (버그)", async () => {
+    it("tag:nurse → 'nurse'만 매칭, 'unnurse'는 불일치", async () => {
       const tag1 = await seedTag(db, "nurse");
       const tag2 = await seedTag(db, "unnurse");
       const book1 = await seedBook(db, { path: "/a" });
@@ -591,10 +614,10 @@ describe("buildFilteredQuery - 실제 DB 통합 테스트", () => {
 
       const ids = await getResultIds(buildFilteredQuery(db, { searchQuery: "tag:nurse" }));
 
-      expect(ids).toEqual([book1.id, book2.id].sort());
+      expect(ids).toEqual([book1.id]);
     });
 
-    it("series:series1 → 'series1'만 매칭되어야 하지만 'xseries1'도 매칭됨 (버그)", async () => {
+    it("series:series1 → 'series1'만 매칭, 'xseries1'는 불일치", async () => {
       const series1 = await seedSeries(db, "series1");
       const series2 = await seedSeries(db, "xseries1");
       const book1 = await seedBook(db, { path: "/a" });
@@ -604,10 +627,10 @@ describe("buildFilteredQuery - 실제 DB 통합 테스트", () => {
 
       const ids = await getResultIds(buildFilteredQuery(db, { searchQuery: "series:series1" }));
 
-      expect(ids).toEqual([book1.id, book2.id].sort());
+      expect(ids).toEqual([book1.id]);
     });
 
-    it("group:group1 → 'group1'만 매칭되어야 하지만 'xgroup1'도 매칭됨 (버그)", async () => {
+    it("group:group1 → 'group1'만 매칭, 'xgroup1'는 불일치", async () => {
       const group1 = await seedGroup(db, "group1");
       const group2 = await seedGroup(db, "xgroup1");
       const book1 = await seedBook(db, { path: "/a" });
@@ -617,10 +640,10 @@ describe("buildFilteredQuery - 실제 DB 통합 테스트", () => {
 
       const ids = await getResultIds(buildFilteredQuery(db, { searchQuery: "group:group1" }));
 
-      expect(ids).toEqual([book1.id, book2.id].sort());
+      expect(ids).toEqual([book1.id]);
     });
 
-    it("character:char1 → 'char1'만 매칭되어야 하지만 'xchar1'도 매칭됨 (버그)", async () => {
+    it("character:char1 → 'char1'만 매칭, 'xchar1'는 불일치", async () => {
       const char1 = await seedCharacter(db, "char1");
       const char2 = await seedCharacter(db, "xchar1");
       const book1 = await seedBook(db, { path: "/a" });
@@ -630,7 +653,7 @@ describe("buildFilteredQuery - 실제 DB 통합 테스트", () => {
 
       const ids = await getResultIds(buildFilteredQuery(db, { searchQuery: "character:char1" }));
 
-      expect(ids).toEqual([book1.id, book2.id].sort());
+      expect(ids).toEqual([book1.id]);
     });
   });
 
