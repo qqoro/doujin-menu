@@ -44,6 +44,11 @@ const routes: RouteRecordRaw[] = [
         name: "SeriesManager",
         component: () => import("./components/pages/SeriesManager.vue"),
       },
+      {
+        path: "/browse",
+        name: "Browse",
+        component: () => import("./components/pages/Browse.vue"),
+      },
     ],
   },
   {

@@ -36,6 +36,7 @@ import {
   rebuildPrefixIndex,
   loadPrefixIndexFromData,
 } from "./handlers/seriesCollectionHandler.js";
+import { registerBrowseHandlers } from "./handlers/browseHandler.js";
 import { registerStatisticsHandlers } from "./handlers/statisticsHandler.js";
 import {
   handleGenerateThumbnail,
@@ -221,6 +222,7 @@ app.whenReady().then(async () => {
   registerEtcHandlers(mainWindow);
   registerPresetHandlers();
   registerSeriesCollectionHandlers();
+  registerBrowseHandlers();
   registerStatisticsHandlers();
   registerThumbnailHandlers();
   registerWindowHandlers(mainWindow, createViewerWindow, viewerWindows);

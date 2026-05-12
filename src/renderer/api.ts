@@ -553,3 +553,24 @@ export async function getSeriesBooks(seriesId: number) {
     throw new Error(result.error || "시리즈 책 목록 조회 실패");
   }
 }
+
+// 탐색 페이지 - 엔티티별 목록 조회 (이름 + 책 개수)
+export async function getArtistsWithCount() {
+  return ipcRenderer.invoke("get-artists-with-count");
+}
+
+export async function getTagsWithCount() {
+  return ipcRenderer.invoke("get-tags-with-count");
+}
+
+export async function getSeriesWithCount() {
+  return ipcRenderer.invoke("get-series-with-count");
+}
+
+export async function getCharactersWithCount() {
+  return ipcRenderer.invoke("get-characters-with-count");
+}
+
+export async function getGroupsWithCount() {
+  return ipcRenderer.invoke("get-groups-with-count");
+}
