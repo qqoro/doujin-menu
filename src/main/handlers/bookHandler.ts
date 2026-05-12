@@ -123,12 +123,22 @@ function buildFilteredQuery(filter: FilterParams | null) {
     }
     if (artistTerms.length > 0) {
       for (const artist of artistTerms) {
-        mainQuery.whereRaw("LOWER(sub.artists) LIKE ?", [`%${artist}%`]);
+        mainQuery.whereExists(function () {
+          this.from("BookArtist")
+            .innerJoin("Artist", "BookArtist.artist_id", "Artist.id")
+            .whereRaw("BookArtist.book_id = sub.id")
+            .whereRaw("LOWER(Artist.name) = ?", [artist]);
+        });
       }
     }
     if (groupTerms.length > 0) {
       for (const group of groupTerms) {
-        mainQuery.whereRaw("LOWER(sub.groups) LIKE ?", [`%${group}%`]);
+        mainQuery.whereExists(function () {
+          this.from("BookGroup")
+            .innerJoin("Group", "BookGroup.group_id", "Group.id")
+            .whereRaw("BookGroup.book_id = sub.id")
+            .whereRaw("LOWER(`Group`.name) = ?", [group]);
+        });
       }
     }
     if (typeTerms.length > 0) {
@@ -146,17 +156,32 @@ function buildFilteredQuery(filter: FilterParams | null) {
     }
     if (characterTerms.length > 0) {
       for (const character of characterTerms) {
-        mainQuery.whereRaw("LOWER(sub.characters) LIKE ?", [`%${character}%`]);
+        mainQuery.whereExists(function () {
+          this.from("BookCharacter")
+            .innerJoin("Character", "BookCharacter.character_id", "Character.id")
+            .whereRaw("BookCharacter.book_id = sub.id")
+            .whereRaw("LOWER(`Character`.name) = ?", [character]);
+        });
       }
     }
     if (tagTerms.length > 0) {
       for (const tag of tagTerms) {
-        mainQuery.whereRaw("LOWER(sub.tags) LIKE ?", [`%${tag}%`]);
+        mainQuery.whereExists(function () {
+          this.from("BookTag")
+            .innerJoin("Tag", "BookTag.tag_id", "Tag.id")
+            .whereRaw("BookTag.book_id = sub.id")
+            .whereRaw("LOWER(Tag.name) = ?", [tag]);
+        });
       }
     }
     if (seriesTerms.length > 0) {
       for (const seriesName of seriesTerms) {
-        mainQuery.whereRaw("LOWER(sub.series) LIKE ?", [`%${seriesName}%`]);
+        mainQuery.whereExists(function () {
+          this.from("BookSeries")
+            .innerJoin("Series", "BookSeries.series_id", "Series.id")
+            .whereRaw("BookSeries.book_id = sub.id")
+            .whereRaw("LOWER(Series.name) = ?", [seriesName]);
+        });
       }
     }
     if (titleTerms.length > 0) {
