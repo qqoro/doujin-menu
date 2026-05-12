@@ -1,272 +1,189 @@
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import type { Knex } from "knex";
+import {
+  parseSearchQuery,
+  extractKoreanTitle,
+} from "../../../src/main/handlers/bookHandler.js";
 
-describe("bookHandler", () => {
-  describe("createKoreanRegexp", () => {
-    // 한국어 제목 추출 정규식 테스트
-    const createKoreanRegexp = () => /^.+\|\s?(.+)$/;
+// ========== 유닛 테스트: 순수 함수 ==========
 
-    it("'영어 | 한글' 형식에서 한글 부분을 추출해야 함", () => {
-      const regex = createKoreanRegexp();
-      const title = "English Title | 한글 제목";
-      const match = regex.exec(title);
+describe("parseSearchQuery", () => {
+  it("빈 문자열 → 모든 항목 빈 배열", () => {
+    const result = parseSearchQuery("");
+    expect(result.titleTerms).toEqual([]);
+    expect(result.idTerms).toEqual([]);
+    expect(result.artistTerms).toEqual([]);
+    expect(result.tagTerms).toEqual([]);
+    expect(result.seriesTerms).toEqual([]);
+    expect(result.groupTerms).toEqual([]);
+    expect(result.typeTerms).toEqual([]);
+    expect(result.languageTerms).toEqual([]);
+    expect(result.characterTerms).toEqual([]);
+  });
 
-      expect(match).not.toBeNull();
-      expect(match![1]).toBe("한글 제목");
+  describe("단일 프리픽스 파싱", () => {
+    it("artist:작가명", () => {
+      const result = parseSearchQuery("artist:홍길동");
+      expect(result.artistTerms).toEqual(["홍길동"]);
+      expect(result.titleTerms).toEqual([]);
     });
 
-    it("'영어|한글' 형식 (공백 없음)에서도 한글 부분을 추출해야 함", () => {
-      const regex = createKoreanRegexp();
-      const title = "English Title|한글제목";
-      const match = regex.exec(title);
-
-      expect(match).not.toBeNull();
-      expect(match![1]).toBe("한글제목");
+    it("tag:태그명", () => {
+      const result = parseSearchQuery("tag: nurse");
+      expect(result.tagTerms).toEqual(["nurse"]);
     });
 
-    it("파이프가 없는 제목은 매칭되지 않아야 함", () => {
-      const regex = createKoreanRegexp();
-      const title = "Only English Title";
-      const match = regex.exec(title);
-
-      expect(match).toBeNull();
+    it("series:시리즈명", () => {
+      const result = parseSearchQuery("series:시리즈1");
+      expect(result.seriesTerms).toEqual(["시리즈1"]);
     });
 
-    it("파이프만 있고 뒤에 텍스트가 없으면 매칭되지 않음", () => {
-      const regex = createKoreanRegexp();
-      const title = "English Title |";
-      const match = regex.exec(title);
-
-      // 정규식 /^.+\|\s?(.+)$/는 파이프 뒤에 최소 1개 이상의 문자가 필요함
-      expect(match).toBeNull();
+    it("group:그룹명", () => {
+      const result = parseSearchQuery("group:그룹A");
+      expect(result.groupTerms).toEqual(["그룹a"]);
     });
 
-    it("파이프가 여러 개 있으면 마지막 파이프 이후를 추출해야 함", () => {
-      const regex = createKoreanRegexp();
-      const title = "Part1 | Part2 | 한글제목";
-      const match = regex.exec(title);
-
-      expect(match).not.toBeNull();
-      expect(match![1]).toBe("한글제목");
+    it("character:캐릭터명", () => {
+      const result = parseSearchQuery("character:캐릭터1");
+      expect(result.characterTerms).toEqual(["캐릭터1"]);
     });
 
-    it("한글 부분에 공백이 있어도 제대로 추출해야 함", () => {
-      const regex = createKoreanRegexp();
-      const title = "English | 한글 제목 테스트";
-      const match = regex.exec(title);
+    it("language:korean", () => {
+      const result = parseSearchQuery("language:korean");
+      expect(result.languageTerms).toEqual(["korean"]);
+    });
 
-      expect(match).not.toBeNull();
-      expect(match![1]).toBe("한글 제목 테스트");
+    it("type:doujinshi", () => {
+      const result = parseSearchQuery("type:doujinshi");
+      expect(result.typeTerms).toEqual(["doujinshi"]);
+    });
+
+    it("id:12345", () => {
+      const result = parseSearchQuery("id:12345");
+      expect(result.idTerms).toEqual(["12345"]);
     });
   });
 
-  describe("검색 쿼리 파싱 로직", () => {
-    // 검색 쿼리 파싱 정규식
-    const prefixedTermRegex =
-      /(id|artist|group|type|language|series|character|tag):(.+?)(?=\s*(?:id|artist|group|type|language|series|character|tag|male|female):|$)/g;
-
-    it("'artist:작가명' 형식을 올바르게 파싱해야 함", () => {
-      const query = "artist:작가1";
-      const matches = Array.from(query.matchAll(prefixedTermRegex));
-
-      expect(matches).toHaveLength(1);
-      expect(matches[0][1]).toBe("artist");
-      expect(matches[0][2]).toBe("작가1");
+  describe("대소문자 무시", () => {
+    it("ARTIST:ABC → 소문자로 변환", () => {
+      const result = parseSearchQuery("ARTIST:ABC");
+      expect(result.artistTerms).toEqual(["abc"]);
     });
 
-    it("'tag:태그명' 형식을 올바르게 파싱해야 함", () => {
-      const query = "tag:태그1";
-      const matches = Array.from(query.matchAll(prefixedTermRegex));
-
-      expect(matches).toHaveLength(1);
-      expect(matches[0][1]).toBe("tag");
-      expect(matches[0][2]).toBe("태그1");
-    });
-
-    it("여러 프리픽스를 포함한 쿼리를 파싱해야 함", () => {
-      const query = "artist:작가1 tag:태그1 type:만화";
-      const matches = Array.from(query.matchAll(prefixedTermRegex));
-
-      expect(matches).toHaveLength(3);
-      expect(matches[0][1]).toBe("artist");
-      expect(matches[0][2]).toBe("작가1");
-      expect(matches[1][1]).toBe("tag");
-      expect(matches[1][2]).toBe("태그1");
-      expect(matches[2][1]).toBe("type");
-      expect(matches[2][2]).toBe("만화");
-    });
-
-    it("'id:123' 형식을 올바르게 파싱해야 함", () => {
-      const query = "id:12345";
-      const matches = Array.from(query.matchAll(prefixedTermRegex));
-
-      expect(matches).toHaveLength(1);
-      expect(matches[0][1]).toBe("id");
-      expect(matches[0][2]).toBe("12345");
-    });
-
-    it("'series:시리즈명' 형식을 올바르게 파싱해야 함", () => {
-      const query = "series:시리즈1";
-      const matches = Array.from(query.matchAll(prefixedTermRegex));
-
-      expect(matches).toHaveLength(1);
-      expect(matches[0][1]).toBe("series");
-      expect(matches[0][2]).toBe("시리즈1");
-    });
-
-    it("'group:그룹명' 형식을 올바르게 파싱해야 함", () => {
-      const query = "group:그룹1";
-      const matches = Array.from(query.matchAll(prefixedTermRegex));
-
-      expect(matches).toHaveLength(1);
-      expect(matches[0][1]).toBe("group");
-      expect(matches[0][2]).toBe("그룹1");
-    });
-
-    it("'character:캐릭터명' 형식을 올바르게 파싱해야 함", () => {
-      const query = "character:캐릭터1";
-      const matches = Array.from(query.matchAll(prefixedTermRegex));
-
-      expect(matches).toHaveLength(1);
-      expect(matches[0][1]).toBe("character");
-      expect(matches[0][2]).toBe("캐릭터1");
-    });
-
-    it("'language:언어명' 형식을 올바르게 파싱해야 함", () => {
-      const query = "language:korean";
-      const matches = Array.from(query.matchAll(prefixedTermRegex));
-
-      expect(matches).toHaveLength(1);
-      expect(matches[0][1]).toBe("language");
-      expect(matches[0][2]).toBe("korean");
-    });
-
-    it("프리픽스 없는 텍스트는 매칭되지 않아야 함", () => {
-      const query = "일반 검색어";
-      const matches = Array.from(query.matchAll(prefixedTermRegex));
-
-      expect(matches).toHaveLength(0);
-    });
-
-    it("프리픽스와 일반 텍스트가 섞인 쿼리를 파싱해야 함", () => {
-      const query = "일반검색 artist:작가1 태그검색";
-      const matches = Array.from(query.matchAll(prefixedTermRegex));
-
-      expect(matches).toHaveLength(1);
-      expect(matches[0][1]).toBe("artist");
-      // 정규식은 다음 프리픽스나 문자열 끝까지 매칭하므로 "작가1 태그검색"이 됨
-      expect(matches[0][2]).toBe("작가1 태그검색");
-    });
-
-    it("공백 없이 연속된 프리픽스를 파싱해야 함", () => {
-      const query = "artist:작가1tag:태그1";
-      const matches = Array.from(query.matchAll(prefixedTermRegex));
-
-      expect(matches).toHaveLength(2);
-      expect(matches[0][1]).toBe("artist");
-      expect(matches[0][2]).toBe("작가1");
-      expect(matches[1][1]).toBe("tag");
-      expect(matches[1][2]).toBe("태그1");
-    });
-
-    it("프리픽스 값에 공백이 포함되어도 다음 프리픽스 전까지 파싱해야 함", () => {
-      const query = "artist:작가 이름 tag:태그1";
-      const matches = Array.from(query.matchAll(prefixedTermRegex));
-
-      expect(matches).toHaveLength(2);
-      expect(matches[0][1]).toBe("artist");
-      expect(matches[0][2]).toBe("작가 이름");
-      expect(matches[1][1]).toBe("tag");
-      expect(matches[1][2]).toBe("태그1");
+    it("Type:Doujinshi → 소문자로 변환", () => {
+      const result = parseSearchQuery("Type:Doujinshi");
+      expect(result.typeTerms).toEqual(["doujinshi"]);
     });
   });
 
-  describe("male/female 태그 파싱", () => {
-    it("'male:태그' 형식을 인식해야 함", () => {
-      const term = "male:근육";
-      expect(term.startsWith("male:")).toBe(true);
-      expect(term.split(":")[1]).toBe("근육");
+  describe("male/female 태그", () => {
+    it("male:근육 → tagTerms에 분류", () => {
+      const result = parseSearchQuery("male:근육");
+      expect(result.tagTerms).toEqual(["male:근육"]);
+      expect(result.titleTerms).toEqual([]);
     });
 
-    it("'female:태그' 형식을 인식해야 함", () => {
-      const term = "female:안경";
-      expect(term.startsWith("female:")).toBe(true);
-      expect(term.split(":")[1]).toBe("안경");
-    });
-
-    it("일반 태그는 male/female로 시작하지 않아야 함", () => {
-      const term = "일반태그";
-      expect(term.startsWith("male:")).toBe(false);
-      expect(term.startsWith("female:")).toBe(false);
+    it("female:안경 → tagTerms에 분류", () => {
+      const result = parseSearchQuery("female:안경");
+      expect(result.tagTerms).toEqual(["female:안경"]);
     });
   });
 
-  describe("제목 변환 로직 (prioritizeKoreanTitles)", () => {
-    const createKoreanRegexp = () => /^.+\|\s?(.+)$/;
-
-    it("prioritizeKoreanTitles가 활성화되면 한글 부분만 반환해야 함", () => {
-      const title = "English Title | 한글 제목";
-      const prioritizeKoreanTitles = true;
-
-      let displayTitle = title;
-      if (prioritizeKoreanTitles) {
-        const koreanPart = createKoreanRegexp().exec(title);
-        if (koreanPart?.[1]) {
-          displayTitle = koreanPart[1].trim();
-        }
-      }
-
-      expect(displayTitle).toBe("한글 제목");
+  describe("일반 검색어 (프리픽스 없음)", () => {
+    it("프리픽스 없는 텍스트 → titleTerms", () => {
+      const result = parseSearchQuery("테스트 검색어");
+      expect(result.titleTerms).toEqual(["테스트", "검색어"]);
     });
 
-    it("prioritizeKoreanTitles가 비활성화되면 원본 제목을 유지해야 함", () => {
-      const title = "English Title | 한글 제목";
-      const prioritizeKoreanTitles = false;
-
-      let displayTitle = title;
-      if (prioritizeKoreanTitles) {
-        const koreanPart = createKoreanRegexp().exec(title);
-        if (koreanPart?.[1]) {
-          displayTitle = koreanPart[1].trim();
-        }
-      }
-
-      expect(displayTitle).toBe("English Title | 한글 제목");
+    it("프리픽스 앞의 텍스트도 titleTerms에 포함", () => {
+      const result = parseSearchQuery("일반검색 artist:작가1");
+      expect(result.titleTerms).toEqual(["일반검색"]);
+      expect(result.artistTerms).toEqual(["작가1"]);
     });
 
-    it("파이프가 없는 제목은 그대로 유지해야 함", () => {
-      const title = "Only English Title";
-      const prioritizeKoreanTitles = true;
+    it("프리픽스 뒤의 텍스트도 titleTerms에 포함", () => {
+      const result = parseSearchQuery("artist:작가1 태그검색");
+      expect(result.artistTerms).toEqual(["작가1"]);
+      expect(result.titleTerms).toEqual(["태그검색"]);
+    });
+  });
 
-      let displayTitle = title;
-      if (prioritizeKoreanTitles) {
-        const koreanPart = createKoreanRegexp().exec(title);
-        if (koreanPart?.[1]) {
-          displayTitle = koreanPart[1].trim();
-        }
-      }
-
-      expect(displayTitle).toBe("Only English Title");
+  describe("다중 프리픽스", () => {
+    it("여러 프리픽스를 한 번에 파싱", () => {
+      const result = parseSearchQuery(
+        "artist:작가1 tag:태그1 type:manga language:korean",
+      );
+      expect(result.artistTerms).toEqual(["작가1"]);
+      expect(result.tagTerms).toEqual(["태그1"]);
+      expect(result.typeTerms).toEqual(["manga"]);
+      expect(result.languageTerms).toEqual(["korean"]);
     });
 
-    it("한글 부분에 공백이 있으면 trim 처리되어야 함", () => {
-      const title = "English |  한글 제목  ";
-      const prioritizeKoreanTitles = true;
+    it("동일 프리픽스 여러 개 → 배열에 누적", () => {
+      const result = parseSearchQuery("artist:alpha artist:beta");
+      expect(result.artistTerms).toEqual(["alpha", "beta"]);
+    });
+  });
 
-      let displayTitle = title;
-      if (prioritizeKoreanTitles) {
-        const koreanPart = createKoreanRegexp().exec(title);
-        if (koreanPart?.[1]) {
-          displayTitle = koreanPart[1].trim();
-        }
-      }
+  describe("프리픽스 값 경계", () => {
+    it("프리픽스 값에 공백이 있으면 첫 단어만 캡처", () => {
+      const result = parseSearchQuery("artist:작가 이름 tag:태그1");
+      expect(result.artistTerms).toEqual(["작가"]);
+      expect(result.titleTerms).toEqual(["이름"]);
+      expect(result.tagTerms).toEqual(["태그1"]);
+    });
 
-      expect(displayTitle).toBe("한글 제목");
+    it("공백 없이 연속된 프리픽스도 분리", () => {
+      const result = parseSearchQuery("artist:작가1tag:태그1");
+      expect(result.artistTerms).toEqual(["작가1"]);
+      expect(result.tagTerms).toEqual(["태그1"]);
     });
   });
 });
 
-// ========== 통합 테스트: buildFilteredQuery (실제 인메모리 DB) ==========
+describe("extractKoreanTitle", () => {
+  it("prioritizeKorean=false → 원본 제목 그대로 반환", () => {
+    expect(extractKoreanTitle("English Title | 한글 제목", false)).toBe(
+      "English Title | 한글 제목",
+    );
+  });
+
+  it("'영어 | 한글' 형식에서 한글 부분만 추출", () => {
+    expect(extractKoreanTitle("English Title | 한글 제목", true)).toBe(
+      "한글 제목",
+    );
+  });
+
+  it("'영어|한글' 공백 없이도 추출", () => {
+    expect(extractKoreanTitle("English Title|한글제목", true)).toBe("한글제목");
+  });
+
+  it("파이프가 없는 제목 → 원본 그대로", () => {
+    expect(extractKoreanTitle("Only English Title", true)).toBe(
+      "Only English Title",
+    );
+  });
+
+  it("파이프 뒤에 내용이 없으면 원본 그대로", () => {
+    expect(extractKoreanTitle("English Title |", true)).toBe(
+      "English Title |",
+    );
+  });
+
+  it("파이프가 여러 개면 마지막 파이프 이후 추출", () => {
+    expect(extractKoreanTitle("Part1 | Part2 | 한글제목", true)).toBe(
+      "한글제목",
+    );
+  });
+
+  it("한글 부분 공백 trim 처리", () => {
+    expect(extractKoreanTitle("English |  한글 제목  ", true)).toBe(
+      "한글 제목",
+    );
+  });
+});
+
+// ========== 통합 테스트: handleGetBooks (실제 인메모리 DB) ==========
 
 import {
   createTestDb,
@@ -301,209 +218,28 @@ vi.mock("../../../src/main/handlers/configHandler.js", () => ({
   store: { get: vi.fn() },
 }));
 
+// DB 모듈을 인메모리 DB로 교체 (getter 패턴)
+const dbRef: { current: Knex | null } = { current: null };
+vi.mock("../../../src/main/db/index.js", () => ({
+  get default() {
+    return dbRef.current!;
+  },
+}));
+
+import { handleGetBooks, handleGetBook } from "../../../src/main/handlers/bookHandler.js";
+import { store as configStore } from "../../../src/main/handlers/configHandler.js";
+
 let db: Knex;
 
-// buildFilteredQuery 로직 재현 (bookHandler.ts와 동일)
-function buildFilteredQuery(db: Knex, filter: any) {
-  const {
-    searchQuery = "",
-    readStatus = "all",
-    isFavorite = false,
-    libraryPath = "",
-  } = filter || {};
-
-  const subquery = db("Book")
-    .select(
-      "Book.*",
-      db.raw("GROUP_CONCAT(DISTINCT Artist.name) as artists"),
-      db.raw("GROUP_CONCAT(DISTINCT Tag.name) as tags"),
-      db.raw("GROUP_CONCAT(DISTINCT Series.name) as series"),
-      db.raw("GROUP_CONCAT(DISTINCT `Group`.name) as groups"),
-      db.raw("GROUP_CONCAT(DISTINCT `Character`.name) as characters"),
-    )
-    .leftJoin("BookArtist", "Book.id", "BookArtist.book_id")
-    .leftJoin("Artist", "BookArtist.artist_id", "Artist.id")
-    .leftJoin("BookTag", "Book.id", "BookTag.book_id")
-    .leftJoin("Tag", "BookTag.tag_id", "Tag.id")
-    .leftJoin("BookSeries", "Book.id", "BookSeries.book_id")
-    .leftJoin("Series", "BookSeries.series_id", "Series.id")
-    .leftJoin("BookGroup", "Book.id", "BookGroup.book_id")
-    .leftJoin("Group", "BookGroup.group_id", "Group.id")
-    .leftJoin("BookCharacter", "Book.id", "BookCharacter.book_id")
-    .leftJoin("Character", "BookCharacter.character_id", "Character.id")
-    .groupBy("Book.id");
-
-  const mainQuery = db(subquery.as("sub"));
-
-  if (libraryPath && libraryPath !== "all") {
-    mainQuery.where("sub.path", "like", `${libraryPath}%`);
-  }
-
-  if (searchQuery) {
-    const lowerCaseQuery = searchQuery.toLowerCase();
-    const titleTerms: string[] = [];
-    const idTerms: string[] = [];
-    const artistTerms: string[] = [];
-    const tagTerms: string[] = [];
-    const seriesTerms: string[] = [];
-    const groupTerms: string[] = [];
-    const typeTerms: string[] = [];
-    const languageTerms: string[] = [];
-    const characterTerms: string[] = [];
-
-    const prefixedTermRegex =
-      /(id|artist|group|type|language|series|character|tag):(.+?)(?=\s*(?:id|artist|group|type|language|series|character|tag|male|female):|$)/g;
-
-    let lastIndex = 0;
-    let match;
-
-    while ((match = prefixedTermRegex.exec(lowerCaseQuery)) !== null) {
-      const prefix = match[1];
-      const value = match[2].trim();
-
-      const leadingText = lowerCaseQuery.substring(lastIndex, match.index).trim();
-      if (leadingText) {
-        titleTerms.push(...leadingText.split(" ").filter((t) => t.length > 0));
-      }
-
-      switch (prefix) {
-        case "id":
-          idTerms.push(value);
-          break;
-        case "artist":
-          artistTerms.push(value);
-          break;
-        case "group":
-          groupTerms.push(value);
-          break;
-        case "type":
-          typeTerms.push(value);
-          break;
-        case "language":
-          languageTerms.push(value);
-          break;
-        case "series":
-          seriesTerms.push(value);
-          break;
-        case "character":
-          characterTerms.push(value);
-          break;
-        case "tag":
-          tagTerms.push(value);
-          break;
-      }
-      lastIndex = prefixedTermRegex.lastIndex;
-    }
-
-    const remainingText = lowerCaseQuery.substring(lastIndex).trim();
-    if (remainingText) {
-      titleTerms.push(...remainingText.split(" ").filter((t) => t.length > 0));
-    }
-
-    const unhandledTerms = [...titleTerms];
-    titleTerms.length = 0;
-    for (const term of unhandledTerms) {
-      if (term.startsWith("male:") || term.startsWith("female:")) {
-        tagTerms.push(term);
-      } else {
-        titleTerms.push(term);
-      }
-    }
-
-    if (idTerms.length > 0) {
-      mainQuery.whereIn("sub.hitomi_id", idTerms);
-    }
-    if (artistTerms.length > 0) {
-      for (const artist of artistTerms) {
-        mainQuery.whereExists(function () {
-          this.from("BookArtist")
-            .innerJoin("Artist", "BookArtist.artist_id", "Artist.id")
-            .whereRaw("BookArtist.book_id = sub.id")
-            .whereRaw("LOWER(Artist.name) = ?", [artist]);
-        });
-      }
-    }
-    if (groupTerms.length > 0) {
-      for (const group of groupTerms) {
-        mainQuery.whereExists(function () {
-          this.from("BookGroup")
-            .innerJoin("Group", "BookGroup.group_id", "Group.id")
-            .whereRaw("BookGroup.book_id = sub.id")
-            .whereRaw("LOWER(`Group`.name) = ?", [group]);
-        });
-      }
-    }
-    if (typeTerms.length > 0) {
-      for (const type of typeTerms) {
-        mainQuery.whereRaw("LOWER(sub.type) LIKE ?", [`%${type}%`]);
-      }
-    }
-    if (languageTerms.length > 0) {
-      for (const language of languageTerms) {
-        mainQuery.whereRaw(
-          "LOWER(sub.language_name_english) LIKE ? OR LOWER(sub.language_name_local) LIKE ?",
-          [`%${language}%`, `%${language}%`],
-        );
-      }
-    }
-    if (characterTerms.length > 0) {
-      for (const character of characterTerms) {
-        mainQuery.whereExists(function () {
-          this.from("BookCharacter")
-            .innerJoin("Character", "BookCharacter.character_id", "Character.id")
-            .whereRaw("BookCharacter.book_id = sub.id")
-            .whereRaw("LOWER(`Character`.name) = ?", [character]);
-        });
-      }
-    }
-    if (tagTerms.length > 0) {
-      for (const tag of tagTerms) {
-        mainQuery.whereExists(function () {
-          this.from("BookTag")
-            .innerJoin("Tag", "BookTag.tag_id", "Tag.id")
-            .whereRaw("BookTag.book_id = sub.id")
-            .whereRaw("LOWER(Tag.name) = ?", [tag]);
-        });
-      }
-    }
-    if (seriesTerms.length > 0) {
-      for (const seriesName of seriesTerms) {
-        mainQuery.whereExists(function () {
-          this.from("BookSeries")
-            .innerJoin("Series", "BookSeries.series_id", "Series.id")
-            .whereRaw("BookSeries.book_id = sub.id")
-            .whereRaw("LOWER(Series.name) = ?", [seriesName]);
-        });
-      }
-    }
-    if (titleTerms.length > 0) {
-      for (const titleTerm of titleTerms) {
-        mainQuery.whereRaw("LOWER(sub.title) LIKE ?", [`%${titleTerm}%`]);
-      }
-    }
-  }
-
-  if (readStatus === "read") {
-    mainQuery.whereNotNull("sub.last_read_at");
-  } else if (readStatus === "unread") {
-    mainQuery.whereNull("sub.last_read_at");
-  }
-
-  if (isFavorite) {
-    mainQuery.where("sub.is_favorite", true);
-  }
-
-  return mainQuery;
+async function getResultIds(params: any): Promise<number[]> {
+  const result = await handleGetBooks({ ...params, pageSize: 1000 });
+  return result.data.map((b: any) => b.id).sort();
 }
 
-async function getResultIds(query: Knex.QueryBuilder): Promise<number[]> {
-  const results = await query.select("sub.id");
-  return results.map((r: any) => r.id).sort();
-}
-
-describe("buildFilteredQuery - 실제 DB 통합 테스트", () => {
+describe("handleGetBooks - 통합 테스트", () => {
   beforeAll(async () => {
     db = await createTestDb();
+    dbRef.current = db;
   });
 
   beforeEach(async () => {
@@ -514,84 +250,101 @@ describe("buildFilteredQuery - 실제 DB 통합 테스트", () => {
     await db.destroy();
   });
 
-  describe("기본 필터 (검색어 없음)", () => {
-    it("필터 없으면 모든 책을 반환", async () => {
+  describe("기본 필터", () => {
+    it("필터 없으면 모든 책 반환", async () => {
       await seedBook(db, { path: "/a" });
       await seedBook(db, { path: "/b" });
-      await seedBook(db, { path: "/c" });
 
-      const ids = await getResultIds(buildFilteredQuery(db, null));
-      expect(ids).toHaveLength(3);
+      const ids = await getResultIds(null);
+      expect(ids).toHaveLength(2);
     });
 
-    it("readStatus=read: 읽은 책만", async () => {
+    it("readStatus=read → 읽은 책만", async () => {
       await seedBook(db, { path: "/a", last_read_at: new Date("2024-01-01") });
       await seedBook(db, { path: "/b", last_read_at: null });
 
-      const ids = await getResultIds(buildFilteredQuery(db, { readStatus: "read" }));
+      const ids = await getResultIds({ readStatus: "read" });
       expect(ids).toHaveLength(1);
     });
 
-    it("readStatus=unread: 안 읽은 책만", async () => {
+    it("readStatus=unread → 안 읽은 책만", async () => {
       await seedBook(db, { path: "/a", last_read_at: new Date("2024-01-01") });
       await seedBook(db, { path: "/b", last_read_at: null });
       await seedBook(db, { path: "/c", last_read_at: null });
 
-      const ids = await getResultIds(buildFilteredQuery(db, { readStatus: "unread" }));
+      const ids = await getResultIds({ readStatus: "unread" });
       expect(ids).toHaveLength(2);
     });
 
-    it("isFavorite=true: 즐겨찾기만", async () => {
+    it("isFavorite=true → 즐겨찾기만", async () => {
       await seedBook(db, { path: "/a", is_favorite: true });
       await seedBook(db, { path: "/b", is_favorite: false });
 
-      const ids = await getResultIds(buildFilteredQuery(db, { isFavorite: true }));
+      const ids = await getResultIds({ isFavorite: true });
       expect(ids).toHaveLength(1);
+    });
+
+    it("libraryPath 지정 → 해당 경로의 책만", async () => {
+      await seedBook(db, { path: "/library/a/book1" });
+      await seedBook(db, { path: "/library/b/book2" });
+
+      const ids = await getResultIds({ libraryPath: "/library/a" });
+      expect(ids).toHaveLength(1);
+    });
+
+    it("libraryPath=all → 전체 조회", async () => {
+      await seedBook(db, { path: "/library/a/book1" });
+      await seedBook(db, { path: "/library/b/book2" });
+
+      const ids = await getResultIds({ libraryPath: "all" });
+      expect(ids).toHaveLength(2);
     });
   });
 
-  describe("hitomi_id 검색", () => {
-    it("id:12345 → 해당 책만 매칭", async () => {
+  describe("검색어 필터", () => {
+    it("id:12345 → 해당 hitomi_id 책만", async () => {
       await seedBook(db, { path: "/a", hitomi_id: "12345" });
       await seedBook(db, { path: "/b", hitomi_id: "67890" });
 
-      const ids = await getResultIds(buildFilteredQuery(db, { searchQuery: "id:12345" }));
+      const ids = await getResultIds({ searchQuery: "id:12345" });
       expect(ids).toHaveLength(1);
     });
-  });
 
-  describe("type 검색", () => {
     it("type:doujinshi → 해당 타입만", async () => {
       await seedBook(db, { path: "/a", type: "doujinshi" });
       await seedBook(db, { path: "/b", type: "manga" });
 
-      const ids = await getResultIds(buildFilteredQuery(db, { searchQuery: "type:doujinshi" }));
+      const ids = await getResultIds({ searchQuery: "type:doujinshi" });
       expect(ids).toHaveLength(1);
     });
-  });
 
-  describe("language 검색", () => {
     it("language:korean → 한국어 책만", async () => {
-      await seedBook(db, { path: "/a", language_name_english: "korean", language_name_local: "한국어" });
-      await seedBook(db, { path: "/b", language_name_english: "japanese", language_name_local: "日本語" });
+      await seedBook(db, {
+        path: "/a",
+        language_name_english: "korean",
+        language_name_local: "한국어",
+      });
+      await seedBook(db, {
+        path: "/b",
+        language_name_english: "japanese",
+        language_name_local: "日本語",
+      });
 
-      const ids = await getResultIds(buildFilteredQuery(db, { searchQuery: "language:korean" }));
+      const ids = await getResultIds({ searchQuery: "language:korean" });
       expect(ids).toHaveLength(1);
     });
-  });
 
-  describe("제목 검색", () => {
     it("일반 검색어 → 제목 LIKE 검색", async () => {
       await seedBook(db, { path: "/a", title: "테스트 도서 1" });
       await seedBook(db, { path: "/b", title: "다른 책" });
 
-      const ids = await getResultIds(buildFilteredQuery(db, { searchQuery: "테스트" }));
+      const ids = await getResultIds({ searchQuery: "테스트" });
       expect(ids).toHaveLength(1);
     });
   });
 
-  describe("관계 데이터 정확 일치 검색 (EXISTS 서브쿼리)", () => {
-    it("artist:abc → 'abc'만 매칭, 'xabc'는 불일치", async () => {
+  describe("관계 데이터 정확 일치 (EXISTS 서브쿼리)", () => {
+    it("artist:abc → 'abc'만 매칭, 'xabc' 불일치", async () => {
       const artist1 = await seedArtist(db, "abc");
       const artist2 = await seedArtist(db, "xabc");
       const book1 = await seedBook(db, { path: "/a" });
@@ -599,12 +352,11 @@ describe("buildFilteredQuery - 실제 DB 통합 테스트", () => {
       await linkBookArtist(db, book1.id, artist1.id);
       await linkBookArtist(db, book2.id, artist2.id);
 
-      const ids = await getResultIds(buildFilteredQuery(db, { searchQuery: "artist:abc" }));
-
+      const ids = await getResultIds({ searchQuery: "artist:abc" });
       expect(ids).toEqual([book1.id]);
     });
 
-    it("tag:nurse → 'nurse'만 매칭, 'unnurse'는 불일치", async () => {
+    it("tag:nurse → 'nurse'만 매칭, 'unnurse' 불일치", async () => {
       const tag1 = await seedTag(db, "nurse");
       const tag2 = await seedTag(db, "unnurse");
       const book1 = await seedBook(db, { path: "/a" });
@@ -612,12 +364,11 @@ describe("buildFilteredQuery - 실제 DB 통합 테스트", () => {
       await linkBookTag(db, book1.id, tag1.id);
       await linkBookTag(db, book2.id, tag2.id);
 
-      const ids = await getResultIds(buildFilteredQuery(db, { searchQuery: "tag:nurse" }));
-
+      const ids = await getResultIds({ searchQuery: "tag:nurse" });
       expect(ids).toEqual([book1.id]);
     });
 
-    it("series:series1 → 'series1'만 매칭, 'xseries1'는 불일치", async () => {
+    it("series:series1 → 'series1'만 매칭", async () => {
       const series1 = await seedSeries(db, "series1");
       const series2 = await seedSeries(db, "xseries1");
       const book1 = await seedBook(db, { path: "/a" });
@@ -625,12 +376,11 @@ describe("buildFilteredQuery - 실제 DB 통합 테스트", () => {
       await linkBookSeries(db, book1.id, series1.id);
       await linkBookSeries(db, book2.id, series2.id);
 
-      const ids = await getResultIds(buildFilteredQuery(db, { searchQuery: "series:series1" }));
-
+      const ids = await getResultIds({ searchQuery: "series:series1" });
       expect(ids).toEqual([book1.id]);
     });
 
-    it("group:group1 → 'group1'만 매칭, 'xgroup1'는 불일치", async () => {
+    it("group:group1 → 'group1'만 매칭", async () => {
       const group1 = await seedGroup(db, "group1");
       const group2 = await seedGroup(db, "xgroup1");
       const book1 = await seedBook(db, { path: "/a" });
@@ -638,12 +388,11 @@ describe("buildFilteredQuery - 실제 DB 통합 테스트", () => {
       await linkBookGroup(db, book1.id, group1.id);
       await linkBookGroup(db, book2.id, group2.id);
 
-      const ids = await getResultIds(buildFilteredQuery(db, { searchQuery: "group:group1" }));
-
+      const ids = await getResultIds({ searchQuery: "group:group1" });
       expect(ids).toEqual([book1.id]);
     });
 
-    it("character:char1 → 'char1'만 매칭, 'xchar1'는 불일치", async () => {
+    it("character:char1 → 'char1'만 매칭", async () => {
       const char1 = await seedCharacter(db, "char1");
       const char2 = await seedCharacter(db, "xchar1");
       const book1 = await seedBook(db, { path: "/a" });
@@ -651,13 +400,12 @@ describe("buildFilteredQuery - 실제 DB 통합 테스트", () => {
       await linkBookCharacter(db, book1.id, char1.id);
       await linkBookCharacter(db, book2.id, char2.id);
 
-      const ids = await getResultIds(buildFilteredQuery(db, { searchQuery: "character:char1" }));
-
+      const ids = await getResultIds({ searchQuery: "character:char1" });
       expect(ids).toEqual([book1.id]);
     });
   });
 
-  describe("다중 관계 — 한 책에 여러 artist/tag", () => {
+  describe("다중 관계", () => {
     it("한 책에 artist 2명 → 둘 중 하나로 검색 시 매칭", async () => {
       const artist1 = await seedArtist(db, "artist_a");
       const artist2 = await seedArtist(db, "artist_b");
@@ -665,87 +413,27 @@ describe("buildFilteredQuery - 실제 DB 통합 테스트", () => {
       await linkBookArtist(db, book1.id, artist1.id);
       await linkBookArtist(db, book1.id, artist2.id);
 
-      const idsA = await getResultIds(buildFilteredQuery(db, { searchQuery: "artist:artist_a" }));
-      const idsB = await getResultIds(buildFilteredQuery(db, { searchQuery: "artist:artist_b" }));
-
-      expect(idsA).toEqual([book1.id]);
-      expect(idsB).toEqual([book1.id]);
+      expect(
+        (await getResultIds({ searchQuery: "artist:artist_a" })).sort(),
+      ).toEqual([book1.id]);
+      expect(
+        (await getResultIds({ searchQuery: "artist:artist_b" })).sort(),
+      ).toEqual([book1.id]);
     });
 
-    it("한 책에 tag 3개 → 하나로 검색 시 매칭", async () => {
-      const tag1 = await seedTag(db, "tag_x");
-      const tag2 = await seedTag(db, "tag_y");
-      const tag3 = await seedTag(db, "tag_z");
-      const book1 = await seedBook(db, { path: "/a" });
-      await linkBookTag(db, book1.id, tag1.id);
-      await linkBookTag(db, book1.id, tag2.id);
-      await linkBookTag(db, book1.id, tag3.id);
-
-      const ids = await getResultIds(buildFilteredQuery(db, { searchQuery: "tag:tag_y" }));
-      expect(ids).toEqual([book1.id]);
-    });
-  });
-
-  describe("관계 없는 책", () => {
-    it("artist/tag 없는 책은 artist 검색에 걸리지 않음", async () => {
-      const artist1 = await seedArtist(db, "solo_artist");
-      const bookWithArtist = await seedBook(db, { path: "/a" });
-      const bookNoArtist = await seedBook(db, { path: "/b" });
-      await linkBookArtist(db, bookWithArtist.id, artist1.id);
-
-      const ids = await getResultIds(buildFilteredQuery(db, { searchQuery: "artist:solo_artist" }));
-      expect(ids).toEqual([bookWithArtist.id]);
-    });
-
-    it("tag 없는 책은 tag 검색에 걸리지 않음", async () => {
-      const tag1 = await seedTag(db, "solo_tag");
-      const bookWithTag = await seedBook(db, { path: "/a" });
-      const bookNoTag = await seedBook(db, { path: "/b" });
-      await linkBookTag(db, bookWithTag.id, tag1.id);
-
-      const ids = await getResultIds(buildFilteredQuery(db, { searchQuery: "tag:solo_tag" }));
-      expect(ids).toEqual([bookWithTag.id]);
-    });
-  });
-
-  describe("대소문자 무시", () => {
-    it("artist:ABC → 'abc' 아티스트 매칭", async () => {
-      const artist1 = await seedArtist(db, "abc");
-      const book1 = await seedBook(db, { path: "/a" });
-      await linkBookArtist(db, book1.id, artist1.id);
-
-      const ids = await getResultIds(buildFilteredQuery(db, { searchQuery: "artist:ABC" }));
-      expect(ids).toEqual([book1.id]);
-    });
-
-    it("TYPE:DOUJINSHI → 소문자 type 매칭", async () => {
-      await seedBook(db, { path: "/a", type: "doujinshi" });
-
-      const ids = await getResultIds(buildFilteredQuery(db, { searchQuery: "type:DOUJINSHI" }));
-      expect(ids).toHaveLength(1);
-    });
-  });
-
-  describe("동일 프리픽스 다중 조건 (AND)", () => {
     it("artist:a artist:b → 두 아티스트 모두 있는 책만", async () => {
       const artistA = await seedArtist(db, "alpha");
       const artistB = await seedArtist(db, "beta");
-      const artistC = await seedArtist(db, "gamma");
-      const book1 = await seedBook(db, { path: "/a" }); // alpha + beta
-      const book2 = await seedBook(db, { path: "/b" }); // alpha만
-      const book3 = await seedBook(db, { path: "/c" }); // beta만
-      await linkBookArtist(db, book1.id, artistA.id);
-      await linkBookArtist(db, book1.id, artistB.id);
-      await linkBookArtist(db, book2.id, artistA.id);
-      await linkBookArtist(db, book3.id, artistB.id);
-      // book4: gamma만
-      const book4 = await seedBook(db, { path: "/d" });
-      await linkBookArtist(db, book4.id, artistC.id);
+      const bookBoth = await seedBook(db, { path: "/a" });
+      const bookOnlyA = await seedBook(db, { path: "/b" });
+      await linkBookArtist(db, bookBoth.id, artistA.id);
+      await linkBookArtist(db, bookBoth.id, artistB.id);
+      await linkBookArtist(db, bookOnlyA.id, artistA.id);
 
-      const ids = await getResultIds(
-        buildFilteredQuery(db, { searchQuery: "artist:alpha artist:beta" }),
-      );
-      expect(ids).toEqual([book1.id]);
+      const ids = await getResultIds({
+        searchQuery: "artist:alpha artist:beta",
+      });
+      expect(ids).toEqual([bookBoth.id]);
     });
   });
 
@@ -755,7 +443,7 @@ describe("buildFilteredQuery - 실제 DB 통합 테스트", () => {
       const book1 = await seedBook(db, { path: "/a" });
       await linkBookTag(db, book1.id, tag1.id);
 
-      const ids = await getResultIds(buildFilteredQuery(db, { searchQuery: "male:근육" }));
+      const ids = await getResultIds({ searchQuery: "male:근육" });
       expect(ids).toEqual([book1.id]);
     });
 
@@ -764,71 +452,37 @@ describe("buildFilteredQuery - 실제 DB 통합 테스트", () => {
       const book1 = await seedBook(db, { path: "/a" });
       await linkBookTag(db, book1.id, tag1.id);
 
-      const ids = await getResultIds(buildFilteredQuery(db, { searchQuery: "female:안경" }));
+      const ids = await getResultIds({ searchQuery: "female:안경" });
       expect(ids).toEqual([book1.id]);
     });
   });
 
-  describe("프리픽스 + 일반 검색어 혼합", () => {
-    it("'검색어 artist:abc' → 제목에 '검색어' + artist에 'abc'인 책", async () => {
+  describe("대소문자 무시", () => {
+    it("artist:ABC → 'abc' 아티스트 매칭", async () => {
       const artist1 = await seedArtist(db, "abc");
-      const book1 = await seedBook(db, { path: "/a", title: "검색어 포함 제목" });
-      const book2 = await seedBook(db, { path: "/b", title: "검색어 포함 제목" });
+      const book1 = await seedBook(db, { path: "/a" });
+      await linkBookArtist(db, book1.id, artist1.id);
+
+      const ids = await getResultIds({ searchQuery: "artist:ABC" });
+      expect(ids).toEqual([book1.id]);
+    });
+  });
+
+  describe("혼합 검색", () => {
+    it("검색어 + artist → 제목과 artist 모두 만족하는 책만", async () => {
+      const artist1 = await seedArtist(db, "abc");
+      const book1 = await seedBook(db, { path: "/a", title: "검색어 포함" });
+      const book2 = await seedBook(db, { path: "/b", title: "검색어 포함" });
       const book3 = await seedBook(db, { path: "/c", title: "다른 제목" });
       await linkBookArtist(db, book1.id, artist1.id);
       await linkBookArtist(db, book2.id, artist1.id);
 
-      // book1: 제목에 '검색어' 있고 artist abc ✓
-      // book2: 제목에 '검색어' 있고 artist abc ✓
-      // book3: 제목에 '검색어' 없음 ✗
-      const ids = await getResultIds(
-        buildFilteredQuery(db, { searchQuery: "검색어 artist:abc" }),
-      );
-      expect(ids).toEqual([book1.id, book2.id].sort());
-    });
-  });
-
-  describe("검색 결과 없음", () => {
-    it("존재하지 않는 artist → 빈 결과", async () => {
-      const artist1 = await seedArtist(db, "real_artist");
-      const book1 = await seedBook(db, { path: "/a" });
-      await linkBookArtist(db, book1.id, artist1.id);
-
-      const ids = await getResultIds(buildFilteredQuery(db, { searchQuery: "artist:nonexistent" }));
-      expect(ids).toHaveLength(0);
+      const ids = await getResultIds({ searchQuery: "검색어 artist:abc" });
+      expect(ids.sort()).toEqual([book1.id, book2.id].sort());
     });
 
-    it("존재하지 않는 제목 → 빈 결과", async () => {
-      await seedBook(db, { path: "/a", title: "테스트 도서" });
-
-      const ids = await getResultIds(buildFilteredQuery(db, { searchQuery: "절대없는제목" }));
-      expect(ids).toHaveLength(0);
-    });
-  });
-
-  describe("libraryPath 필터", () => {
-    it("libraryPath 지정 → path LIKE 필터", async () => {
-      await seedBook(db, { path: "/library/a/book1" });
-      await seedBook(db, { path: "/library/b/book2" });
-
-      const ids = await getResultIds(
-        buildFilteredQuery(db, { libraryPath: "/library/a" }),
-      );
-      expect(ids).toHaveLength(1);
-    });
-
-    it("libraryPath=all → 전체 조회", async () => {
-      await seedBook(db, { path: "/library/a/book1" });
-      await seedBook(db, { path: "/library/b/book2" });
-
-      const ids = await getResultIds(buildFilteredQuery(db, { libraryPath: "all" }));
-      expect(ids).toHaveLength(2);
-    });
-  });
-
-  describe("필터 조합", () => {
     it("검색어 + readStatus + isFavorite 조합", async () => {
-      await seedBook(db, {
+      const book1 = await seedBook(db, {
         path: "/a",
         title: "테스트",
         is_favorite: true,
@@ -847,17 +501,611 @@ describe("buildFilteredQuery - 실제 DB 통합 테스트", () => {
         last_read_at: new Date("2024-01-01"),
       });
 
-      // title에 '테스트' + 읽음 + 즐겨찾기
-      const ids = await getResultIds(
-        buildFilteredQuery(db, {
-          searchQuery: "테스트",
-          readStatus: "read",
-          isFavorite: true,
-        }),
-      );
-      // book1만 모든 조건 만족
-      const book1 = await db("Book").where("path", "/a").first();
+      const ids = await getResultIds({
+        searchQuery: "테스트",
+        readStatus: "read",
+        isFavorite: true,
+      });
       expect(ids).toEqual([book1.id]);
+    });
+  });
+
+  describe("검색 결과 없음", () => {
+    it("존재하지 않는 artist → 빈 결과", async () => {
+      const ids = await getResultIds({ searchQuery: "artist:nonexistent" });
+      expect(ids).toHaveLength(0);
+    });
+
+    it("존재하지 않는 제목 → 빈 결과", async () => {
+      await seedBook(db, { path: "/a", title: "테스트 도서" });
+
+      const ids = await getResultIds({ searchQuery: "절대없는제목" });
+      expect(ids).toHaveLength(0);
+    });
+  });
+
+  describe("빈 DB", () => {
+    it("책이 없으면 빈 배열 반환", async () => {
+      const ids = await getResultIds(null);
+      expect(ids).toHaveLength(0);
+    });
+
+    it("빈 DB에서 검색해도 빈 배열", async () => {
+      const ids = await getResultIds({ searchQuery: "아무거나" });
+      expect(ids).toHaveLength(0);
+    });
+  });
+
+  describe("정렬", () => {
+    it("sortBy=added_at, sortOrder=desc → 최근 추가 순", async () => {
+      const book1 = await seedBook(db, { path: "/a" });
+      const book2 = await seedBook(db, { path: "/b" });
+      const book3 = await seedBook(db, { path: "/c" });
+
+      const result = await handleGetBooks({
+        sortBy: "added_at",
+        sortOrder: "desc",
+        pageSize: 1000,
+      });
+      const ids = result.data.map((b: any) => b.id);
+      expect(ids).toEqual([book3.id, book2.id, book1.id]);
+    });
+
+    it("sortBy=added_at, sortOrder=asc → 오래된 순", async () => {
+      const book1 = await seedBook(db, { path: "/a" });
+      const book2 = await seedBook(db, { path: "/b" });
+      const book3 = await seedBook(db, { path: "/c" });
+
+      const result = await handleGetBooks({
+        sortBy: "added_at",
+        sortOrder: "asc",
+        pageSize: 1000,
+      });
+      const ids = result.data.map((b: any) => b.id);
+      expect(ids).toEqual([book1.id, book2.id, book3.id]);
+    });
+
+    it("sortBy=hitomi_id, sortOrder=desc → 큰 ID 순", async () => {
+      const book1 = await seedBook(db, { path: "/a", hitomi_id: "100" });
+      const book2 = await seedBook(db, { path: "/b", hitomi_id: "300" });
+      const book3 = await seedBook(db, { path: "/c", hitomi_id: "200" });
+
+      const result = await handleGetBooks({
+        sortBy: "hitomi_id",
+        sortOrder: "desc",
+        pageSize: 1000,
+      });
+      const ids = result.data.map((b: any) => b.id);
+      expect(ids).toEqual([book2.id, book3.id, book1.id]);
+    });
+
+    it("sortBy=hitomi_id, sortOrder=asc → 작은 ID 순", async () => {
+      const book1 = await seedBook(db, { path: "/a", hitomi_id: "100" });
+      const book2 = await seedBook(db, { path: "/b", hitomi_id: "300" });
+      const book3 = await seedBook(db, { path: "/c", hitomi_id: "200" });
+
+      const result = await handleGetBooks({
+        sortBy: "hitomi_id",
+        sortOrder: "asc",
+        pageSize: 1000,
+      });
+      const ids = result.data.map((b: any) => b.id);
+      expect(ids).toEqual([book1.id, book3.id, book2.id]);
+    });
+
+    it("sortBy=random → 결과는 전체 수와 동일", async () => {
+      await seedBook(db, { path: "/a" });
+      await seedBook(db, { path: "/b" });
+      await seedBook(db, { path: "/c" });
+
+      const result = await handleGetBooks({
+        sortBy: "random",
+        pageSize: 1000,
+      });
+      expect(result.data).toHaveLength(3);
+    });
+  });
+
+  describe("페이지네이션", () => {
+    it("pageSize=2, pageParam=0 → 2개 + hasNextPage=true", async () => {
+      await seedBook(db, { path: "/a" });
+      await seedBook(db, { path: "/b" });
+      await seedBook(db, { path: "/c" });
+
+      const result = await handleGetBooks({ pageSize: 2, pageParam: 0 });
+      expect(result.data).toHaveLength(2);
+      expect(result.hasNextPage).toBe(true);
+      expect(result.nextPage).toBe(1);
+    });
+
+    it("pageSize=2, pageParam=1 → 마지막 1개 + hasNextPage=false", async () => {
+      await seedBook(db, { path: "/a" });
+      await seedBook(db, { path: "/b" });
+      await seedBook(db, { path: "/c" });
+
+      const result = await handleGetBooks({ pageSize: 2, pageParam: 1 });
+      expect(result.data).toHaveLength(1);
+      expect(result.hasNextPage).toBe(false);
+    });
+
+    it("pageSize가 전체보다 크면 hasNextPage=false", async () => {
+      await seedBook(db, { path: "/a" });
+      await seedBook(db, { path: "/b" });
+
+      const result = await handleGetBooks({ pageSize: 100, pageParam: 0 });
+      expect(result.data).toHaveLength(2);
+      expect(result.hasNextPage).toBe(false);
+    });
+
+    it("빈 DB에서 페이지네이션 → hasNextPage=false", async () => {
+      const result = await handleGetBooks({ pageSize: 10, pageParam: 0 });
+      expect(result.data).toHaveLength(0);
+      expect(result.hasNextPage).toBe(false);
+    });
+  });
+
+  describe("결과 형식", () => {
+    it("관계 데이터가 있으면 배열로 반환", async () => {
+      const artist1 = await seedArtist(db, "artist1");
+      const artist2 = await seedArtist(db, "artist2");
+      const tag1 = await seedTag(db, "tag1");
+      const series1 = await seedSeries(db, "series1");
+      const group1 = await seedGroup(db, "group1");
+      const char1 = await seedCharacter(db, "char1");
+      const book = await seedBook(db, { path: "/a" });
+      await linkBookArtist(db, book.id, artist1.id);
+      await linkBookArtist(db, book.id, artist2.id);
+      await linkBookTag(db, book.id, tag1.id);
+      await linkBookSeries(db, book.id, series1.id);
+      await linkBookGroup(db, book.id, group1.id);
+      await linkBookCharacter(db, book.id, char1.id);
+
+      const result = await handleGetBooks({ pageSize: 1000 });
+      const b = result.data[0];
+
+      expect(b.artists).toEqual([{ name: "artist1" }, { name: "artist2" }]);
+      expect(b.tags).toEqual([{ name: "tag1" }]);
+      expect(b.series).toEqual([{ name: "series1" }]);
+      expect(b.groups).toEqual([{ name: "group1" }]);
+      expect(b.characters).toEqual([{ name: "char1" }]);
+    });
+
+    it("관계 데이터가 없으면 빈 배열", async () => {
+      await seedBook(db, { path: "/a" });
+
+      const result = await handleGetBooks({ pageSize: 1000 });
+      const b = result.data[0];
+
+      expect(b.artists).toEqual([]);
+      expect(b.tags).toEqual([]);
+      expect(b.series).toEqual([]);
+      expect(b.groups).toEqual([]);
+      expect(b.characters).toEqual([]);
+    });
+  });
+
+  describe("한국어 제목 우선 (prioritizeKoreanTitles)", () => {
+    it("설정 ON → '영어 | 한글' 형식에서 한글만 반환", async () => {
+      vi.mocked(configStore.get).mockReturnValue(true);
+      await seedBook(db, { path: "/a", title: "English Title | 한글 제목" });
+
+      const result = await handleGetBooks({ pageSize: 1000 });
+      expect(result.data[0].title).toBe("한글 제목");
+    });
+
+    it("설정 OFF → 원본 제목 그대로", async () => {
+      vi.mocked(configStore.get).mockReturnValue(false);
+      await seedBook(db, { path: "/a", title: "English Title | 한글 제목" });
+
+      const result = await handleGetBooks({ pageSize: 1000 });
+      expect(result.data[0].title).toBe("English Title | 한글 제목");
+    });
+
+    it("파이프 없는 제목 → 설정 ON이어도 원본 유지", async () => {
+      vi.mocked(configStore.get).mockReturnValue(true);
+      await seedBook(db, { path: "/a", title: "그냥 제목" });
+
+      const result = await handleGetBooks({ pageSize: 1000 });
+      expect(result.data[0].title).toBe("그냥 제목");
+    });
+  });
+
+  describe("경계값", () => {
+    it("존재하지 않는 libraryPath → 빈 결과", async () => {
+      await seedBook(db, { path: "/library/a/book1" });
+
+      const ids = await getResultIds({ libraryPath: "/nonexistent" });
+      expect(ids).toHaveLength(0);
+    });
+
+    it("language:한국어 → local_name으로도 검색됨", async () => {
+      await seedBook(db, {
+        path: "/a",
+        language_name_english: "korean",
+        language_name_local: "한국어",
+      });
+
+      const ids = await getResultIds({ searchQuery: "language:한국어" });
+      expect(ids).toHaveLength(1);
+    });
+
+    it("hitomi_id가 null인 책은 id: 검색에서 제외", async () => {
+      await seedBook(db, { path: "/a", hitomi_id: null });
+      await seedBook(db, { path: "/b", hitomi_id: "12345" });
+
+      const ids = await getResultIds({ searchQuery: "id:12345" });
+      expect(ids).toHaveLength(1);
+    });
+
+    it("관계 없는 책은 artist 검색에 걸리지 않음", async () => {
+      const artist1 = await seedArtist(db, "solo");
+      const bookWith = await seedBook(db, { path: "/a" });
+      await seedBook(db, { path: "/b" }); // 관계 없는 책
+      await linkBookArtist(db, bookWith.id, artist1.id);
+
+      const ids = await getResultIds({ searchQuery: "artist:solo" });
+      expect(ids).toEqual([bookWith.id]);
+    });
+
+    it("type 검색은 부분 일치 (LIKE)", async () => {
+      await seedBook(db, { path: "/a", type: "doujinshi" });
+      await seedBook(db, { path: "/b", type: "manga" });
+
+      // 'doujin'으로 검색해도 doujinshi가 매칭
+      const ids = await getResultIds({ searchQuery: "type:doujin" });
+      expect(ids).toHaveLength(1);
+    });
+
+    it("검색어에 공백만 있으면 전체 조회", async () => {
+      await seedBook(db, { path: "/a" });
+      await seedBook(db, { path: "/b" });
+
+      const ids = await getResultIds({ searchQuery: "   " });
+      expect(ids).toHaveLength(2);
+    });
+
+    it("동일한 책에 같은 태그를 여러 번 연결해도 중복 없이 1개만 반환", async () => {
+      const tag1 = await seedTag(db, "solo_tag");
+      const book = await seedBook(db, { path: "/a" });
+      await linkBookTag(db, book.id, tag1.id);
+
+      const ids = await getResultIds({ searchQuery: "tag:solo_tag" });
+      expect(ids).toHaveLength(1);
+    });
+  });
+
+  describe("handleGetBook (단일 책 조회)", () => {
+    it("존재하는 책 → 책 데이터 반환", async () => {
+      const book = await seedBook(db, { path: "/a", title: "테스트 책" });
+
+      const result = await handleGetBook(book.id);
+      expect(result).not.toBeNull();
+      expect(result!.title).toBe("테스트 책");
+      expect(result!.id).toBe(book.id);
+      expect(result!.path).toBe("/a");
+    });
+
+    it("존재하지 않는 책 → null 반환", async () => {
+      const result = await handleGetBook(99999);
+      expect(result).toBeNull();
+    });
+
+    it("ID가 0이어도 null 반환", async () => {
+      const result = await handleGetBook(0);
+      expect(result).toBeNull();
+    });
+
+    it("음수 ID → null 반환", async () => {
+      const result = await handleGetBook(-1);
+      expect(result).toBeNull();
+    });
+
+    // ========== 관계 데이터 ==========
+
+    it("관계 데이터 없으면 모두 빈 배열", async () => {
+      const book = await seedBook(db, { path: "/a" });
+      const result = await handleGetBook(book.id);
+
+      expect(result!.artists).toEqual([]);
+      expect(result!.tags).toEqual([]);
+      expect(result!.series).toEqual([]);
+      expect(result!.groups).toEqual([]);
+      expect(result!.characters).toEqual([]);
+    });
+
+    it("artist 1명 → artists 배열에 1개", async () => {
+      const artist1 = await seedArtist(db, "artist1");
+      const book = await seedBook(db, { path: "/a" });
+      await linkBookArtist(db, book.id, artist1.id);
+
+      const result = await handleGetBook(book.id);
+      expect(result!.artists).toEqual([{ name: "artist1" }]);
+    });
+
+    it("artist 여러 명 → artists 배열에 모두 포함", async () => {
+      const a1 = await seedArtist(db, "alpha");
+      const a2 = await seedArtist(db, "beta");
+      const a3 = await seedArtist(db, "gamma");
+      const book = await seedBook(db, { path: "/a" });
+      await linkBookArtist(db, book.id, a1.id);
+      await linkBookArtist(db, book.id, a2.id);
+      await linkBookArtist(db, book.id, a3.id);
+
+      const result = await handleGetBook(book.id);
+      const names = result!.artists.map((a: any) => a.name).sort();
+      expect(names).toEqual(["alpha", "beta", "gamma"]);
+    });
+
+    it("tag 1개 → tags 배열에 1개", async () => {
+      const tag1 = await seedTag(db, "nurse");
+      const book = await seedBook(db, { path: "/a" });
+      await linkBookTag(db, book.id, tag1.id);
+
+      const result = await handleGetBook(book.id);
+      expect(result!.tags).toEqual([{ name: "nurse" }]);
+    });
+
+    it("tag 여러 개 → tags 배열에 모두 포함", async () => {
+      const t1 = await seedTag(db, "tag_a");
+      const t2 = await seedTag(db, "tag_b");
+      const book = await seedBook(db, { path: "/a" });
+      await linkBookTag(db, book.id, t1.id);
+      await linkBookTag(db, book.id, t2.id);
+
+      const result = await handleGetBook(book.id);
+      const names = result!.tags.map((t: any) => t.name).sort();
+      expect(names).toEqual(["tag_a", "tag_b"]);
+    });
+
+    it("series 1개 → series 배열에 1개", async () => {
+      const s1 = await seedSeries(db, "시리즈1");
+      const book = await seedBook(db, { path: "/a" });
+      await linkBookSeries(db, book.id, s1.id);
+
+      const result = await handleGetBook(book.id);
+      expect(result!.series).toEqual([{ name: "시리즈1" }]);
+    });
+
+    it("group 1개 → groups 배열에 1개", async () => {
+      const g1 = await seedGroup(db, "그룹1");
+      const book = await seedBook(db, { path: "/a" });
+      await linkBookGroup(db, book.id, g1.id);
+
+      const result = await handleGetBook(book.id);
+      expect(result!.groups).toEqual([{ name: "그룹1" }]);
+    });
+
+    it("character 1개 → characters 배열에 1개", async () => {
+      const c1 = await seedCharacter(db, "캐릭터1");
+      const book = await seedBook(db, { path: "/a" });
+      await linkBookCharacter(db, book.id, c1.id);
+
+      const result = await handleGetBook(book.id);
+      expect(result!.characters).toEqual([{ name: "캐릭터1" }]);
+    });
+
+    it("모든 관계 종류가 동시에 있어도 정상 반환", async () => {
+      const artist1 = await seedArtist(db, "artist_x");
+      const tag1 = await seedTag(db, "tag_x");
+      const series1 = await seedSeries(db, "series_x");
+      const group1 = await seedGroup(db, "group_x");
+      const char1 = await seedCharacter(db, "char_x");
+      const book = await seedBook(db, { path: "/a" });
+      await linkBookArtist(db, book.id, artist1.id);
+      await linkBookTag(db, book.id, tag1.id);
+      await linkBookSeries(db, book.id, series1.id);
+      await linkBookGroup(db, book.id, group1.id);
+      await linkBookCharacter(db, book.id, char1.id);
+
+      const result = await handleGetBook(book.id);
+      expect(result!.artists).toEqual([{ name: "artist_x" }]);
+      expect(result!.tags).toEqual([{ name: "tag_x" }]);
+      expect(result!.series).toEqual([{ name: "series_x" }]);
+      expect(result!.groups).toEqual([{ name: "group_x" }]);
+      expect(result!.characters).toEqual([{ name: "char_x" }]);
+    });
+
+    it("다른 책의 관계는 포함되지 않음", async () => {
+      const artistA = await seedArtist(db, "artist_A");
+      const artistB = await seedArtist(db, "artist_B");
+      const bookA = await seedBook(db, { path: "/a" });
+      const bookB = await seedBook(db, { path: "/b" });
+      await linkBookArtist(db, bookA.id, artistA.id);
+      await linkBookArtist(db, bookB.id, artistB.id);
+
+      const resultA = await handleGetBook(bookA.id);
+      const resultB = await handleGetBook(bookB.id);
+
+      expect(resultA!.artists).toEqual([{ name: "artist_A" }]);
+      expect(resultB!.artists).toEqual([{ name: "artist_B" }]);
+    });
+
+    // ========== Book 필드 ==========
+
+    it("모든 Book 필드가 결과에 포함됨", async () => {
+      const book = await seedBook(db, {
+        path: "/a",
+        title: "테스트",
+        cover_path: "/thumb/a.webp",
+        page_count: 42,
+        current_page: 10,
+        is_favorite: true,
+        last_read_at: new Date("2024-06-15"),
+        hitomi_id: "12345",
+        type: "doujinshi",
+        language_name_english: "korean",
+        language_name_local: "한국어",
+      });
+
+      const result = await handleGetBook(book.id);
+      expect(result).not.toBeNull();
+      expect(result!.cover_path).toBe("/thumb/a.webp");
+      expect(result!.page_count).toBe(42);
+      expect(result!.current_page).toBe(10);
+      expect(result!.is_favorite).toBeTruthy();
+      expect(result!.hitomi_id).toBe("12345");
+      expect(result!.type).toBe("doujinshi");
+      expect(result!.language_name_english).toBe("korean");
+      expect(result!.language_name_local).toBe("한국어");
+    });
+
+    it("null 가능 필드가 null이어도 정상 동작", async () => {
+      const book = await seedBook(db, {
+        path: "/a",
+        cover_path: null,
+        page_count: null,
+        current_page: null,
+        last_read_at: null,
+        hitomi_id: null,
+        type: null,
+        language_name_english: null,
+        language_name_local: null,
+      });
+
+      const result = await handleGetBook(book.id);
+      expect(result).not.toBeNull();
+      expect(result!.cover_path).toBeNull();
+      expect(result!.page_count).toBeNull();
+      expect(result!.current_page).toBeNull();
+      expect(result!.last_read_at).toBeNull();
+      expect(result!.hitomi_id).toBeNull();
+      expect(result!.type).toBeNull();
+    });
+
+    // ========== 한국어 제목 ==========
+
+    it("한국어 제목 설정 ON → '영어 | 한글'에서 한글만 반환", async () => {
+      vi.mocked(configStore.get).mockReturnValue(true);
+      const book = await seedBook(db, {
+        path: "/a",
+        title: "English Title | 한글 제목",
+      });
+
+      const result = await handleGetBook(book.id);
+      expect(result!.title).toBe("한글 제목");
+    });
+
+    it("한국어 제목 설정 OFF → 원본 제목 그대로", async () => {
+      vi.mocked(configStore.get).mockReturnValue(false);
+      const book = await seedBook(db, {
+        path: "/a",
+        title: "English Title | 한글 제목",
+      });
+
+      const result = await handleGetBook(book.id);
+      expect(result!.title).toBe("English Title | 한글 제목");
+    });
+
+    it("한국어 제목 설정 ON이어도 파이프 없으면 원본 유지", async () => {
+      vi.mocked(configStore.get).mockReturnValue(true);
+      const book = await seedBook(db, {
+        path: "/a",
+        title: "파이프 없는 제목",
+      });
+
+      const result = await handleGetBook(book.id);
+      expect(result!.title).toBe("파이프 없는 제목");
+    });
+
+    it("파이프 뒤에 공백만 있으면 trim 결과로 빈 문자열 반환", async () => {
+      vi.mocked(configStore.get).mockReturnValue(true);
+      const book = await seedBook(db, {
+        path: "/a",
+        title: "English | ",
+      });
+
+      const result = await handleGetBook(book.id);
+      // 정규식이 공백을 캡처하고 trim 결과가 빈 문자열이 됨
+      expect(result!.title).toBe("");
+    });
+
+    it("파이프가 여러 개면 마지막 기준으로 추출", async () => {
+      vi.mocked(configStore.get).mockReturnValue(true);
+      const book = await seedBook(db, {
+        path: "/a",
+        title: "Part1 | Part2 | 최종 한글",
+      });
+
+      const result = await handleGetBook(book.id);
+      expect(result!.title).toBe("최종 한글");
+    });
+
+    it("한글 제목에 trim 적용", async () => {
+      vi.mocked(configStore.get).mockReturnValue(true);
+      const book = await seedBook(db, {
+        path: "/a",
+        title: "English |  공백 제거  ",
+      });
+
+      const result = await handleGetBook(book.id);
+      expect(result!.title).toBe("공백 제거");
+    });
+
+    // ========== male/female 태그 ==========
+
+    it("male: 접두사 태그도 tags에 정상 포함", async () => {
+      const tag1 = await seedTag(db, "male:근육");
+      const book = await seedBook(db, { path: "/a" });
+      await linkBookTag(db, book.id, tag1.id);
+
+      const result = await handleGetBook(book.id);
+      expect(result!.tags).toEqual([{ name: "male:근육" }]);
+    });
+
+    it("female: 접두사 태그도 tags에 정상 포함", async () => {
+      const tag1 = await seedTag(db, "female:안경");
+      const book = await seedBook(db, { path: "/a" });
+      await linkBookTag(db, book.id, tag1.id);
+
+      const result = await handleGetBook(book.id);
+      expect(result!.tags).toEqual([{ name: "female:안경" }]);
+    });
+
+    it("male/female 일반 태그 혼합 → 모두 tags에 포함", async () => {
+      const t1 = await seedTag(db, "male:근육");
+      const t2 = await seedTag(db, "nurse");
+      const book = await seedBook(db, { path: "/a" });
+      await linkBookTag(db, book.id, t1.id);
+      await linkBookTag(db, book.id, t2.id);
+
+      const result = await handleGetBook(book.id);
+      const names = result!.tags.map((t: any) => t.name).sort();
+      expect(names).toEqual(["male:근육", "nurse"]);
+    });
+
+    // ========== 삭제 후 조회 ==========
+
+    it("삭제된 책 ID → null 반환", async () => {
+      const book = await seedBook(db, { path: "/a" });
+      await db("Book").where("id", book.id).del();
+
+      const result = await handleGetBook(book.id);
+      expect(result).toBeNull();
+    });
+
+    // ========== 다른 책과의 격리 ==========
+
+    it("여러 책 중 정확한 ID의 책만 반환", async () => {
+      const b1 = await seedBook(db, { path: "/a", title: "책 A" });
+      const b2 = await seedBook(db, { path: "/b", title: "책 B" });
+      const b3 = await seedBook(db, { path: "/c", title: "책 C" });
+
+      const result = await handleGetBook(b2.id);
+      expect(result!.title).toBe("책 B");
+      expect(result!.id).toBe(b2.id);
+    });
+
+    it("다른 책에 연결된 artist가 결과에 섞이지 않음", async () => {
+      const artistA = await seedArtist(db, "artist_onlyA");
+      const artistB = await seedArtist(db, "artist_onlyB");
+      const bookA = await seedBook(db, { path: "/a" });
+      const bookB = await seedBook(db, { path: "/b" });
+      await linkBookArtist(db, bookA.id, artistA.id);
+      await linkBookArtist(db, bookB.id, artistB.id);
+
+      const resultA = await handleGetBook(bookA.id);
+      expect(resultA!.artists).toHaveLength(1);
+      expect(resultA!.artists[0].name).toBe("artist_onlyA");
     });
   });
 });
