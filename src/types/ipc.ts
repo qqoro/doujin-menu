@@ -130,6 +130,8 @@ export interface Statistics {
   topGroups: { name: string; count: number }[];
   topCharacters: { name: string; count: number }[];
   topSeries: { name: string; count: number }[];
+  topArtistsByViews: { name: string; view_count: number }[];
+  topTagsByViews: { name: string; view_count: number }[];
   typeDistribution: { type: string; count: number }[];
   mostViewedBooks: { id: number; title: string; view_count: number }[];
   longestBook?: { id: number; title: string; page_count: number };

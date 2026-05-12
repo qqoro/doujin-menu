@@ -323,6 +323,43 @@ const goToViewer = (bookId: number) => {
           </CardContent>
         </Card>
 
+        <!-- 가장 많이 본 태그 -->
+        <Card>
+          <CardHeader>
+            <CardTitle class="flex items-center gap-2">
+              <Icon icon="solar:eye-bold-duotone" class="h-6 w-6" />
+              가장 많이 본 태그
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <ScrollArea class="h-48 w-full rounded-md border p-4">
+              <div
+                v-if="
+                  statistics.topTagsByViews &&
+                  statistics.topTagsByViews.length > 0
+                "
+              >
+                <div
+                  v-for="tag in statistics.topTagsByViews"
+                  :key="tag.name"
+                  class="hover:bg-accent flex cursor-pointer items-center justify-between rounded-md px-3 py-2 transition-colors"
+                  @click="goToLibraryWithSearch('tag:' + tag.name)"
+                >
+                  <div class="flex items-center gap-2">
+                    <Badge variant="secondary">{{ tag.name }}</Badge>
+                  </div>
+                  <div class="text-sm text-gray-500">
+                    {{ tag.view_count }}회
+                  </div>
+                </div>
+              </div>
+              <div v-else class="text-center text-gray-500">
+                아직 조회 기록이 없습니다.
+              </div>
+            </ScrollArea>
+          </CardContent>
+        </Card>
+
         <!-- 가장 좋아하는 작가 -->
         <Card>
           <CardHeader>
@@ -357,6 +394,43 @@ const goToViewer = (bookId: number) => {
               </div>
               <div v-else class="text-center text-gray-500">
                 데이터가 없습니다.
+              </div>
+            </ScrollArea>
+          </CardContent>
+        </Card>
+
+        <!-- 가장 많이 본 작가 -->
+        <Card>
+          <CardHeader>
+            <CardTitle class="flex items-center gap-2">
+              <Icon icon="solar:eye-bold-duotone" class="h-6 w-6" />
+              가장 많이 본 작가
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <ScrollArea class="h-48 w-full rounded-md border p-4">
+              <div
+                v-if="
+                  statistics.topArtistsByViews &&
+                  statistics.topArtistsByViews.length > 0
+                "
+              >
+                <div
+                  v-for="artist in statistics.topArtistsByViews"
+                  :key="artist.name"
+                  class="hover:bg-accent flex cursor-pointer items-center justify-between rounded-md px-3 py-2 transition-colors"
+                  @click="goToLibraryWithSearch('artist:' + artist.name)"
+                >
+                  <div class="flex items-center gap-2">
+                    <Badge variant="secondary">{{ artist.name }}</Badge>
+                  </div>
+                  <div class="text-sm text-gray-500">
+                    {{ artist.view_count }}회
+                  </div>
+                </div>
+              </div>
+              <div v-else class="text-center text-gray-500">
+                아직 조회 기록이 없습니다.
               </div>
             </ScrollArea>
           </CardContent>

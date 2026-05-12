@@ -218,6 +218,28 @@ export const handleGetStatistics = async () => {
       .orderBy("count", "desc")
       .limit(100);
 
+    // 가장 많이 본 작가 (조회수 기반, 상위 100개)
+    const topArtistsByViews = await db("BookHistory as BH")
+      .select("A.name")
+      .count("BH.id as view_count")
+      .join("Book as B", "B.id", "BH.book_id")
+      .join("BookArtist as BA", "B.id", "BA.book_id")
+      .join("Artist as A", "A.id", "BA.artist_id")
+      .groupBy("A.name")
+      .orderBy("view_count", "desc")
+      .limit(100);
+
+    // 가장 많이 본 태그 (조회수 기반, 상위 100개)
+    const topTagsByViews = await db("BookHistory as BH")
+      .select("T.name")
+      .count("BH.id as view_count")
+      .join("Book as B", "B.id", "BH.book_id")
+      .join("BookTag as BT", "B.id", "BT.book_id")
+      .join("Tag as T", "T.id", "BT.tag_id")
+      .groupBy("T.name")
+      .orderBy("view_count", "desc")
+      .limit(100);
+
     // 타입별 분포
     const typeDistribution = await db("Book")
       .select("type")
@@ -244,6 +266,8 @@ export const handleGetStatistics = async () => {
       topGroups,
       topCharacters,
       topSeries,
+      topArtistsByViews,
+      topTagsByViews,
       typeDistribution,
     };
   } catch (error) {
