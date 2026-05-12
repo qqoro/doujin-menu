@@ -46,6 +46,12 @@ const navItems = [
     label: "시리즈",
   },
   {
+    to: "/browse",
+    name: "Browse",
+    icon: "solar:tag-bold-duotone",
+    label: "탐색",
+  },
+  {
     to: "/statistics",
     name: "Statistics",
     icon: "solar:chart-square-bold-duotone",

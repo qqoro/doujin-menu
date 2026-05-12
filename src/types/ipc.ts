@@ -706,6 +706,28 @@ export interface IpcChannels {
     };
   };
 
+  // Browse handlers
+  "get-artists-with-count": {
+    request: void;
+    response: { name: string; count: number }[];
+  };
+  "get-tags-with-count": {
+    request: void;
+    response: { name: string; count: number }[];
+  };
+  "get-series-with-count": {
+    request: void;
+    response: { name: string; count: number }[];
+  };
+  "get-characters-with-count": {
+    request: void;
+    response: { name: string; count: number }[];
+  };
+  "get-groups-with-count": {
+    request: void;
+    response: { name: string; count: number }[];
+  };
+
   // Etc handlers
   "get-app-version": {
     request: void;
