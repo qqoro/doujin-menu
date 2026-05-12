@@ -9,6 +9,7 @@
     "name": "qqoro"
   },
   "scripts": {
+    "predev": "node scripts/rebuild-native.js",
     "dev": "node scripts/dev-server.js",
     "build": "vue-tsc --noEmit && node scripts/build.js && electron-builder --win --publish=never",
     "build:port": "vue-tsc --noEmit && node scripts/build.js && electron-builder --win portable --publish=never",
@@ -18,13 +19,14 @@
     "build:win": "vue-tsc --noEmit && node scripts/build.js && electron-builder --win --publish=never",
     "build:port:win": "vue-tsc --noEmit && node scripts/build.js && electron-builder --win portable --publish=never",
     "prepare": "husky",
-    "postinstall": "electron-builder install-app-deps",
+    "postinstall": "electron-builder install-app-deps && node scripts/rebuild-native.js",
     "format": "prettier --write src",
     "lint": "eslint . --ext .vue,.js,.jsx,.cjs,.mjs,.ts,.tsx,.cts,.mts",
     "lint:fix": "eslint . --ext .vue,.js,.jsx,.cjs,.mjs,.ts,.tsx,.cts,.mts --fix",
     "typecheck": "tsc --noEmit && vue-tsc --noEmit",
-    "test": "vitest",
-    "test:series": "pnpm test tests/unit/main/seriesDetector.test.ts",
+    "pretest": "node scripts/rebuild-native.js --node",
+    "test": "vitest run",
+    "test:series": "node scripts/rebuild-native.js --node && vitest run tests/unit/main/seriesDetector.test.ts",
     "test:coverage": "vitest run --coverage"
   },
   "type": "module",
