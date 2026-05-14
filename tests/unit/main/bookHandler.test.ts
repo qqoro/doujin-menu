@@ -1,5 +1,14 @@
-import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
+import {
+  afterAll,
+  beforeAll,
+  beforeEach,
+  describe,
+  expect,
+  it,
+  vi,
+} from "vitest";
 import type { Knex } from "knex";
+import type { FilterParams } from "../../../src/types/ipc.js";
 import {
   parseSearchQuery,
   extractKoreanTitle,
@@ -165,9 +174,7 @@ describe("extractKoreanTitle", () => {
   });
 
   it("파이프 뒤에 내용이 없으면 원본 그대로", () => {
-    expect(extractKoreanTitle("English Title |", true)).toBe(
-      "English Title |",
-    );
+    expect(extractKoreanTitle("English Title |", true)).toBe("English Title |");
   });
 
   it("파이프가 여러 개면 마지막 파이프 이후 추출", () => {
@@ -226,14 +233,19 @@ vi.mock("../../../src/main/db/index.js", () => ({
   },
 }));
 
-import { handleGetBooks, handleGetBook } from "../../../src/main/handlers/bookHandler.js";
+import {
+  handleGetBooks,
+  handleGetBook,
+} from "../../../src/main/handlers/bookHandler.js";
 import { store as configStore } from "../../../src/main/handlers/configHandler.js";
 
 let db: Knex;
 
-async function getResultIds(params: any): Promise<number[]> {
+async function getResultIds(
+  params: (FilterParams & { pageParam?: number; pageSize?: number }) | null,
+): Promise<number[]> {
   const result = await handleGetBooks({ ...params, pageSize: 1000 });
-  return result.data.map((b: any) => b.id).sort();
+  return result.data.map((b: { id: number }) => b.id).sort();
 }
 
 describe("handleGetBooks - 통합 테스트", () => {
@@ -474,6 +486,7 @@ describe("handleGetBooks - 통합 테스트", () => {
       const book1 = await seedBook(db, { path: "/a", title: "검색어 포함" });
       const book2 = await seedBook(db, { path: "/b", title: "검색어 포함" });
       const book3 = await seedBook(db, { path: "/c", title: "다른 제목" });
+      void book3;
       await linkBookArtist(db, book1.id, artist1.id);
       await linkBookArtist(db, book2.id, artist1.id);
 
@@ -547,7 +560,7 @@ describe("handleGetBooks - 통합 테스트", () => {
         sortOrder: "desc",
         pageSize: 1000,
       });
-      const ids = result.data.map((b: any) => b.id);
+      const ids = result.data.map((b: { id: number }) => b.id);
       expect(ids).toEqual([book3.id, book2.id, book1.id]);
     });
 
@@ -561,7 +574,7 @@ describe("handleGetBooks - 통합 테스트", () => {
         sortOrder: "asc",
         pageSize: 1000,
       });
-      const ids = result.data.map((b: any) => b.id);
+      const ids = result.data.map((b: { id: number }) => b.id);
       expect(ids).toEqual([book1.id, book2.id, book3.id]);
     });
 
@@ -575,7 +588,7 @@ describe("handleGetBooks - 통합 테스트", () => {
         sortOrder: "desc",
         pageSize: 1000,
       });
-      const ids = result.data.map((b: any) => b.id);
+      const ids = result.data.map((b: { id: number }) => b.id);
       expect(ids).toEqual([book2.id, book3.id, book1.id]);
     });
 
@@ -589,7 +602,7 @@ describe("handleGetBooks - 통합 테스트", () => {
         sortOrder: "asc",
         pageSize: 1000,
       });
-      const ids = result.data.map((b: any) => b.id);
+      const ids = result.data.map((b: { id: number }) => b.id);
       expect(ids).toEqual([book1.id, book3.id, book2.id]);
     });
 
@@ -832,7 +845,7 @@ describe("handleGetBooks - 통합 테스트", () => {
       await linkBookArtist(db, book.id, a3.id);
 
       const result = await handleGetBook(book.id);
-      const names = result!.artists.map((a: any) => a.name).sort();
+      const names = result!.artists.map((a: { name: string }) => a.name).sort();
       expect(names).toEqual(["alpha", "beta", "gamma"]);
     });
 
@@ -853,7 +866,7 @@ describe("handleGetBooks - 통합 테스트", () => {
       await linkBookTag(db, book.id, t2.id);
 
       const result = await handleGetBook(book.id);
-      const names = result!.tags.map((t: any) => t.name).sort();
+      const names = result!.tags.map((t: { name: string }) => t.name).sort();
       expect(names).toEqual(["tag_a", "tag_b"]);
     });
 
@@ -1069,7 +1082,7 @@ describe("handleGetBooks - 통합 테스트", () => {
       await linkBookTag(db, book.id, t2.id);
 
       const result = await handleGetBook(book.id);
-      const names = result!.tags.map((t: any) => t.name).sort();
+      const names = result!.tags.map((t: { name: string }) => t.name).sort();
       expect(names).toEqual(["male:근육", "nurse"]);
     });
 
@@ -1086,9 +1099,9 @@ describe("handleGetBooks - 통합 테스트", () => {
     // ========== 다른 책과의 격리 ==========
 
     it("여러 책 중 정확한 ID의 책만 반환", async () => {
-      const b1 = await seedBook(db, { path: "/a", title: "책 A" });
+      await seedBook(db, { path: "/a", title: "책 A" });
       const b2 = await seedBook(db, { path: "/b", title: "책 B" });
-      const b3 = await seedBook(db, { path: "/c", title: "책 C" });
+      await seedBook(db, { path: "/c", title: "책 C" });
 
       const result = await handleGetBook(b2.id);
       expect(result!.title).toBe("책 B");

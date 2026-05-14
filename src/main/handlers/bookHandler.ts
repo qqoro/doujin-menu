@@ -49,13 +49,9 @@ export function parseSearchQuery(searchQuery: string): ParsedSearchTerms {
     const prefix = match[1];
     const value = match[2].trim();
 
-    const leadingText = lowerCaseQuery
-      .substring(lastIndex, match.index)
-      .trim();
+    const leadingText = lowerCaseQuery.substring(lastIndex, match.index).trim();
     if (leadingText) {
-      rawTitleTerms.push(
-        ...leadingText.split(" ").filter((t) => t.length > 0),
-      );
+      rawTitleTerms.push(...leadingText.split(" ").filter((t) => t.length > 0));
     }
 
     switch (prefix) {
@@ -89,9 +85,7 @@ export function parseSearchQuery(searchQuery: string): ParsedSearchTerms {
 
   const remainingText = lowerCaseQuery.substring(lastIndex).trim();
   if (remainingText) {
-    rawTitleTerms.push(
-      ...remainingText.split(" ").filter((t) => t.length > 0),
-    );
+    rawTitleTerms.push(...remainingText.split(" ").filter((t) => t.length > 0));
   }
 
   // male:/female: 접두사가 있는 항목은 tagTerms로 이동
@@ -206,7 +200,11 @@ function buildFilteredQuery(filter: FilterParams | null) {
       for (const character of characterTerms) {
         mainQuery.whereExists(function () {
           this.from("BookCharacter")
-            .innerJoin("Character", "BookCharacter.character_id", "Character.id")
+            .innerJoin(
+              "Character",
+              "BookCharacter.character_id",
+              "Character.id",
+            )
             .whereRaw("BookCharacter.book_id = sub.id")
             .whereRaw("LOWER(`Character`.name) = ?", [character]);
         });
