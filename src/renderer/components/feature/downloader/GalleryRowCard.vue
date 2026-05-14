@@ -13,7 +13,9 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { useGalleryCard } from "@/composable/useGalleryCard";
+import { formatPublishDate } from "@/lib/formatDate";
 import { Icon } from "@iconify/vue";
+import { computed } from "vue";
 import type { Gallery } from "node-hitomi";
 
 interface Props {
@@ -32,6 +34,11 @@ const emit = defineEmits<{
   "preview-gallery": [gallery: Gallery];
   "book-deleted": [galleryId: number];
 }>();
+
+// 업로드 날짜 포맷
+const formattedDate = computed(() =>
+  formatPublishDate(props.gallery.publishedDate),
+);
 
 // composable 사용
 const {
@@ -85,6 +92,7 @@ const {
           props.gallery.languageName?.local ||
           props.gallery.languageName?.english
         }}
+        <template v-if="formattedDate"> | {{ formattedDate }} </template>
       </p>
       <h3 class="text-lg font-bold">{{ props.gallery.title.display }}</h3>
       <!-- 작가/그룹/시리즈/캐릭터/페이지 -->

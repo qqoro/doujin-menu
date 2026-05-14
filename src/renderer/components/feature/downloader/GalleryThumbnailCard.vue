@@ -12,7 +12,9 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
 import { useGalleryCard } from "@/composable/useGalleryCard";
+import { formatPublishDate } from "@/lib/formatDate";
 import { Icon } from "@iconify/vue";
+import { computed } from "vue";
 import type { Gallery } from "node-hitomi";
 
 interface Props {
@@ -31,6 +33,11 @@ const emit = defineEmits<{
   "preview-gallery": [gallery: Gallery];
   "book-deleted": [galleryId: number];
 }>();
+
+// 업로드 날짜 포맷
+const formattedDate = computed(() =>
+  formatPublishDate(props.gallery.publishedDate),
+);
 
 // composable 사용
 const {
@@ -168,6 +175,14 @@ const {
             </button>
             <span v-if="index < props.gallery.characters.length - 1">, </span>
           </template>
+        </p>
+        <!-- 업로드 날짜 -->
+        <p v-if="formattedDate">
+          <Icon
+            icon="solar:calendar-linear"
+            class="mr-1 inline-block h-3 w-3"
+          />
+          {{ formattedDate }}
         </p>
         <!-- 페이지 -->
         <p>
