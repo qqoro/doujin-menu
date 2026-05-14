@@ -59,6 +59,7 @@ export interface Config {
   viewerAutoPlayStopPage?: number | null; // 자동 재생 정지 페이지
   viewerShowCoverAlone?: boolean; // 표지 단독 표시
   viewerReadingMode?: "ltr" | "rtl" | "webtoon"; // 뷰어 읽기 모드
+  lastSeenChangelog?: string; // 마지막으로 확인한 체인지로그 버전
 }
 
 const defaults: Config = {

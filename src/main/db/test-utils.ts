@@ -89,10 +89,15 @@ export async function truncateAll(db: Knex): Promise<void> {
 
 // ========== 시드 헬퍼 ==========
 
+interface DbRow {
+  id: number;
+  [key: string]: unknown;
+}
+
 export async function seedBook(
   db: Knex,
-  overrides: Record<string, any> = {},
-): Promise<any> {
+  overrides: Record<string, unknown> = {},
+): Promise<DbRow> {
   const defaults = {
     title: "Test Book",
     path: `/library/test-book-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
@@ -103,42 +108,46 @@ export async function seedBook(
   return db("Book").where("path", data.path).first();
 }
 
-export async function seedArtist(db: Knex, name: string): Promise<any> {
+export async function seedArtist(db: Knex, name: string): Promise<DbRow> {
   const existing = await db("Artist").where("name", name).first();
   if (existing) return existing;
   const [id] = await db("Artist").insert({ name });
   return db("Artist").where("id", id).first();
 }
 
-export async function seedTag(db: Knex, name: string): Promise<any> {
+export async function seedTag(db: Knex, name: string): Promise<DbRow> {
   const existing = await db("Tag").where("name", name).first();
   if (existing) return existing;
   const [id] = await db("Tag").insert({ name });
   return db("Tag").where("id", id).first();
 }
 
-export async function seedSeries(db: Knex, name: string): Promise<any> {
+export async function seedSeries(db: Knex, name: string): Promise<DbRow> {
   const existing = await db("Series").where("name", name).first();
   if (existing) return existing;
   const [id] = await db("Series").insert({ name });
   return db("Series").where("id", id).first();
 }
 
-export async function seedGroup(db: Knex, name: string): Promise<any> {
+export async function seedGroup(db: Knex, name: string): Promise<DbRow> {
   const existing = await db("Group").where("name", name).first();
   if (existing) return existing;
   const [id] = await db("Group").insert({ name });
   return db("Group").where("id", id).first();
 }
 
-export async function seedCharacter(db: Knex, name: string): Promise<any> {
+export async function seedCharacter(db: Knex, name: string): Promise<DbRow> {
   const existing = await db("Character").where("name", name).first();
   if (existing) return existing;
   const [id] = await db("Character").insert({ name });
   return db("Character").where("id", id).first();
 }
 
-export async function linkBookArtist(db: Knex, bookId: number, artistId: number) {
+export async function linkBookArtist(
+  db: Knex,
+  bookId: number,
+  artistId: number,
+) {
   await db("BookArtist").insert({ book_id: bookId, artist_id: artistId });
 }
 
@@ -146,7 +155,11 @@ export async function linkBookTag(db: Knex, bookId: number, tagId: number) {
   await db("BookTag").insert({ book_id: bookId, tag_id: tagId });
 }
 
-export async function linkBookSeries(db: Knex, bookId: number, seriesId: number) {
+export async function linkBookSeries(
+  db: Knex,
+  bookId: number,
+  seriesId: number,
+) {
   await db("BookSeries").insert({ book_id: bookId, series_id: seriesId });
 }
 
@@ -154,6 +167,13 @@ export async function linkBookGroup(db: Knex, bookId: number, groupId: number) {
   await db("BookGroup").insert({ book_id: bookId, group_id: groupId });
 }
 
-export async function linkBookCharacter(db: Knex, bookId: number, characterId: number) {
-  await db("BookCharacter").insert({ book_id: bookId, character_id: characterId });
+export async function linkBookCharacter(
+  db: Knex,
+  bookId: number,
+  characterId: number,
+) {
+  await db("BookCharacter").insert({
+    book_id: bookId,
+    character_id: characterId,
+  });
 }
