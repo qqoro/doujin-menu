@@ -22,6 +22,13 @@ export interface SeriesDetectionSettings {
   minBooks: number;
 }
 
+// 시리즈 뷰 설정 타입
+export interface SeriesViewSettings {
+  sortBy: string;
+  sortOrder: "asc" | "desc";
+  viewMode: "grid" | "list";
+}
+
 // 설정 파일의 타입을 정의합니다.
 export interface Config {
   theme?: "light" | "dark" | "auto";
@@ -40,6 +47,7 @@ export interface Config {
   compressFormat?: "cbz" | "zip";
   libraryViewSettings?: LibraryViewSettings;
   seriesDetectionSettings?: SeriesDetectionSettings;
+  seriesViewSettings?: SeriesViewSettings;
   prioritizeKoreanTitles?: boolean;
   hideLibraryTags?: boolean;
   useAppLock?: boolean;
@@ -87,6 +95,11 @@ const defaults: Config = {
   seriesDetectionSettings: {
     minConfidence: 0.7,
     minBooks: 2,
+  },
+  seriesViewSettings: {
+    sortBy: "name",
+    sortOrder: "asc",
+    viewMode: "grid",
   },
   prioritizeKoreanTitles: false,
   hideLibraryTags: false,

@@ -86,7 +86,9 @@ onMounted(async () => {
       class="bg-background col-start-2 row-start-2 overflow-y-auto p-6"
     >
       <router-view v-slot="{ Component }">
-        <keep-alive :include="['Library', 'Downloader', 'History']">
+        <keep-alive
+          :include="['Library', 'Downloader', 'History', 'SeriesManager']"
+        >
           <component :is="Component" />
         </keep-alive>
       </router-view>

@@ -287,6 +287,29 @@ export async function clearCompletedDownloads() {
 /**
  * 시리즈 컬렉션 목록 조회
  */
+export interface SeriesCollectionPage {
+  collections: {
+    id: number;
+    name: string;
+    description: string | null;
+    cover_image: string | null;
+    is_auto_generated: boolean;
+    is_manually_edited: boolean;
+    confidence_score: number;
+    book_count: number;
+    created_at: string;
+    updated_at: string;
+  }[];
+  pagination: {
+    page: number;
+    limit: number;
+    totalCount: number;
+    totalPages: number;
+  };
+  hasNextPage: boolean;
+  nextPage?: number;
+}
+
 export async function getSeriesCollections(params?: {
   page?: number;
   limit?: number;
@@ -294,13 +317,16 @@ export async function getSeriesCollections(params?: {
   minConfidence?: number;
   sortBy?: "name" | "book_count" | "confidence" | "created_at";
   sortOrder?: "asc" | "desc";
-}) {
+  searchQuery?: string;
+  pageParam?: number;
+  pageSize?: number;
+}): Promise<SeriesCollectionPage> {
   const result = await ipcRenderer.invoke(
     "get-series-collections",
     params || {},
   );
-  if (result.success) {
-    return result.data;
+  if (result.success && result.data) {
+    return result.data as unknown as SeriesCollectionPage;
   } else {
     throw new Error(result.error || "시리즈 목록 조회 실패");
   }

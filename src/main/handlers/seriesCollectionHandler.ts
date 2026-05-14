@@ -140,46 +140,290 @@ function runSeriesDetectionInWorker(
 }
 
 /**
- * 모든 시리즈 컬렉션 조회 (페이지네이션)
+ * 검색어 프리픽스 정규식 (artist:, tag:, type: 지원)
+ */
+const SERIES_PREFIXED_TERM_REGEX =
+  /(artist|tag|type):(.+?)(?=\s+(?!(?:artist|tag|type):)|\s*(?:artist|tag|type):|$)/g;
+
+/**
+ * 검색어 파싱 결과 타입
+ */
+interface SeriesParsedSearchTerms {
+  /** 시리즈 이름 LIKE 검색어 */
+  nameTerms: string[];
+  /** artist:xxx 프리픽스 필터 */
+  artistTerms: string[];
+  /** tag:xxx 프리픽스 필터 */
+  tagTerms: string[];
+  /** type:xxx 프리픽스 필터 */
+  typeTerms: string[];
+}
+
+/**
+ * 검색어 문자열을 프리픽스별로 분류하여 반환
+ * - artist:xxx, tag:xxx, type:xxx 는 각각의 배열에 추가
+ * - 나머지 텍스트는 nameTerms에 추가하여 시리즈 이름 LIKE 검색에 사용
+ */
+function parseSeriesSearchQuery(searchQuery: string): SeriesParsedSearchTerms {
+  const result: SeriesParsedSearchTerms = {
+    nameTerms: [],
+    artistTerms: [],
+    tagTerms: [],
+    typeTerms: [],
+  };
+
+  if (!searchQuery) return result;
+
+  const lowerCaseQuery = searchQuery.toLowerCase();
+  const rawNameTerms: string[] = [];
+
+  let lastIndex = 0;
+  let match;
+
+  while ((match = SERIES_PREFIXED_TERM_REGEX.exec(lowerCaseQuery)) !== null) {
+    const prefix = match[1];
+    const value = match[2].trim();
+
+    // 프리픽스 앞에 있는 텍스트는 이름 검색어로 처리
+    const leadingText = lowerCaseQuery.substring(lastIndex, match.index).trim();
+    if (leadingText) {
+      rawNameTerms.push(...leadingText.split(" ").filter((t) => t.length > 0));
+    }
+
+    switch (prefix) {
+      case "artist":
+        result.artistTerms.push(value);
+        break;
+      case "tag":
+        result.tagTerms.push(value);
+        break;
+      case "type":
+        result.typeTerms.push(value);
+        break;
+    }
+
+    lastIndex = match.index + match[0].length;
+  }
+
+  // 마지막 프리픽스 이후 남은 텍스트
+  const remainingText = lowerCaseQuery.substring(lastIndex).trim();
+  if (remainingText) {
+    rawNameTerms.push(...remainingText.split(" ").filter((t) => t.length > 0));
+  }
+
+  result.nameTerms = rawNameTerms;
+  return result;
+}
+
+/**
+ * 모든 시리즈 컬렉션 조회 (페이지네이션, 검색 지원)
+ *
+ * 검색 문법:
+ * - 접두어: artist:이름, tag:태그, type:타입
+ * - 접두어 없는 텍스트: 시리즈 이름 LIKE 검색
+ * - 여러 검색어는 AND 결합
+ *
+ * 페이지네이션:
+ * - 기존 page/limit (page는 1-based) 또는 pageParam/pageSize (pageParam은 0-based) 지원
+ * - 둘 다 제공되면 pageParam/pageSize가 우선
  */
 export async function handleGetSeriesCollections(params: {
   page?: number;
   limit?: number;
+  /** 무한 스크롤용 페이지 (0-based). 제공 시 page 대신 사용 */
+  pageParam?: number;
+  /** 무한 스크롤용 페이지 크기. 제공 시 limit 대신 사용 */
+  pageSize?: number;
   filterType?: "all" | "auto" | "manual";
   minConfidence?: number;
   sortBy?: "name" | "book_count" | "confidence" | "created_at";
   sortOrder?: "asc" | "desc";
+  /** 검색어 (artist:xxx, tag:xxx, type:xxx 프리픽스 지원) */
+  searchQuery?: string;
 }) {
   try {
     const {
       page = 1,
       limit = 50,
+      pageParam,
+      pageSize,
       filterType = "all",
       minConfidence = 0,
       sortBy = "name",
       sortOrder = "asc",
+      searchQuery = "",
     } = params;
 
-    const offset = (page - 1) * limit;
+    // 무한 스크롤(pageParam/pageSize) 우선, 없으면 기존 page/limit 사용
+    const effectivePage = pageParam !== undefined ? pageParam : page; // pageParam은 0-based, page는 1-based → offset 계산에서 보정
+    const effectiveLimit = pageSize !== undefined ? pageSize : limit;
+    const isPageParam = pageParam !== undefined;
+    const offset = isPageParam
+      ? effectivePage * effectiveLimit
+      : (effectivePage - 1) * effectiveLimit;
 
-    let query = db("SeriesCollection").select("*");
+    // 검색어 파싱
+    const parsedSearch = parseSeriesSearchQuery(searchQuery);
+    const hasPrefixFilters =
+      parsedSearch.artistTerms.length > 0 ||
+      parsedSearch.tagTerms.length > 0 ||
+      parsedSearch.typeTerms.length > 0;
+
+    // JOIN은 프리픽스 필터(artist, tag, type)가 있을 때만 필요
+    // 이름 검색은 SeriesCollection.name에 대한 단순 WHERE LIKE이므로 JOIN 불필요
+    const needsJoin = hasPrefixFilters;
+
+    // 기본 쿼리: JOIN이 필요하면 명시적으로 테이블명 붙임
+    let query = needsJoin
+      ? db("SeriesCollection").select("SeriesCollection.*")
+      : db("SeriesCollection").select("*");
+
+    // 프리픽스 필터가 있으면 Book JOIN 필요
+    if (needsJoin) {
+      query = query.leftJoin(
+        "Book",
+        "SeriesCollection.id",
+        "Book.series_collection_id",
+      );
+    }
+
+    // 프리픽스 필터 (artist) - Book → BookArtist → Artist JOIN
+    if (parsedSearch.artistTerms.length > 0) {
+      query = query
+        .leftJoin("BookArtist", "Book.id", "BookArtist.book_id")
+        .leftJoin("Artist", "BookArtist.artist_id", "Artist.id");
+    }
+
+    // 프리픽스 필터 (tag) - Book → BookTag → Tag JOIN
+    if (parsedSearch.tagTerms.length > 0) {
+      query = query
+        .leftJoin("BookTag", "Book.id", "BookTag.book_id")
+        .leftJoin("Tag", "BookTag.tag_id", "Tag.id");
+    }
+
+    // 프리픽스 필터 (type) - Book.type 직접 필터
+    if (parsedSearch.typeTerms.length > 0) {
+      // type은 Book 컬럼 직접 접근 (추가 JOIN 불필요)
+    }
+
+    // 시리즈 이름 LIKE 검색 (접두어 없는 텍스트)
+    if (parsedSearch.nameTerms.length > 0) {
+      for (const term of parsedSearch.nameTerms) {
+        query = query.where("SeriesCollection.name", "like", `%${term}%`);
+      }
+    }
+
+    // 프리픽스 필터가 있으면 GROUP BY + HAVING으로 매칭 조건 적용
+    if (hasPrefixFilters) {
+      query = query.groupBy("SeriesCollection.id");
+
+      // 각 프리픽스 필터에 대해 HAVING 조건 생성
+      // SUM(CASE WHEN ...) > 0 으로 해당 조건을 만족하는 레코드가 하나라도 있는지 확인
+      // 파라미터 바인딩을 사용하여 SQL 인젝션 방지
+      const havingClauses: string[] = [];
+      const havingBindings: string[] = [];
+
+      if (parsedSearch.artistTerms.length > 0) {
+        const artistParts: string[] = [];
+        for (const term of parsedSearch.artistTerms) {
+          artistParts.push(
+            "SUM(CASE WHEN LOWER(Artist.name) LIKE ? THEN 1 ELSE 0 END) > 0",
+          );
+          havingBindings.push(`%${term}%`);
+        }
+        havingClauses.push(`(${artistParts.join(" AND ")})`);
+      }
+
+      if (parsedSearch.tagTerms.length > 0) {
+        const tagParts: string[] = [];
+        for (const term of parsedSearch.tagTerms) {
+          tagParts.push(
+            "SUM(CASE WHEN LOWER(Tag.name) LIKE ? THEN 1 ELSE 0 END) > 0",
+          );
+          havingBindings.push(`%${term}%`);
+        }
+        havingClauses.push(`(${tagParts.join(" AND ")})`);
+      }
+
+      if (parsedSearch.typeTerms.length > 0) {
+        const typeParts: string[] = [];
+        for (const term of parsedSearch.typeTerms) {
+          typeParts.push(
+            "SUM(CASE WHEN LOWER(Book.type) LIKE ? THEN 1 ELSE 0 END) > 0",
+          );
+          havingBindings.push(`%${term}%`);
+        }
+        havingClauses.push(`(${typeParts.join(" AND ")})`);
+      }
+
+      if (havingClauses.length > 0) {
+        query = query.havingRaw(havingClauses.join(" AND "), havingBindings);
+      }
+    }
 
     // 필터 적용
     if (filterType === "auto") {
-      query = query.where("is_auto_generated", true);
+      query = query.where("SeriesCollection.is_auto_generated", true);
     } else if (filterType === "manual") {
-      query = query.where("is_manually_edited", true);
+      query = query.where("SeriesCollection.is_manually_edited", true);
     }
 
     if (minConfidence > 0) {
-      query = query.where("confidence_score", ">=", minConfidence);
+      query = query.where(
+        "SeriesCollection.confidence_score",
+        ">=",
+        minConfidence,
+      );
     }
 
-    // 정렬
-    query = query.orderBy(sortBy, sortOrder);
+    // 정렬 (book_count 정렬은 서브쿼리 사용, 나머지는 직접 정렬)
+    if (sortBy === "book_count") {
+      const bookCountSubquery = db("Book")
+        .whereRaw("Book.series_collection_id = SeriesCollection.id")
+        .count("*")
+        .as("book_count");
+      query = query.orderBy(bookCountSubquery, sortOrder);
+    } else {
+      const sortColumn = needsJoin ? `SeriesCollection.${sortBy}` : sortBy;
+      query = query.orderBy(sortColumn, sortOrder);
+    }
 
-    // 페이지네이션
-    const collections = await query.limit(limit).offset(offset);
+    // 전체 개수 (페이지네이션 전에 카운트)
+    let totalCount: number;
+
+    if (hasPrefixFilters) {
+      // HAVING이 있는 경우 서브쿼리로 카운트
+      const countQuery = query.clone();
+      const countResult = await db
+        .from(countQuery.as("filtered"))
+        .count("* as count")
+        .first();
+      totalCount = (countResult as { count: number } | undefined)?.count || 0;
+    } else if (parsedSearch.nameTerms.length > 0) {
+      // 이름 검색만 있는 경우 (JOIN 없이 단순 WHERE LIKE)
+      let totalQuery = db("SeriesCollection").count("* as count");
+
+      for (const term of parsedSearch.nameTerms) {
+        totalQuery = totalQuery.where(
+          "SeriesCollection.name",
+          "like",
+          `%${term}%`,
+        );
+      }
+
+      const totalResult = await totalQuery.first();
+      totalCount = (totalResult as { count: number } | undefined)?.count || 0;
+    } else {
+      // 검색어 없는 일반 카운트
+      const totalCountResult = await db("SeriesCollection")
+        .count("* as count")
+        .first();
+      totalCount =
+        (totalCountResult as { count: number } | undefined)?.count || 0;
+    }
+
+    // 페이지네이션 적용
+    const collections = await query.limit(effectiveLimit).offset(offset);
 
     // 각 시리즈의 책 수 및 첫 번째 책 표지 조회
     const collectionsWithCount = await Promise.all(
@@ -204,23 +448,27 @@ export async function handleGetSeriesCollections(params: {
       }),
     );
 
-    // 전체 개수
-    const totalCountResult = await db("SeriesCollection")
-      .count("* as count")
-      .first();
-    const totalCount =
-      (totalCountResult as { count: number } | undefined)?.count || 0;
+    // 무한 스크롤 지원을 위한 다음 페이지 정보 계산
+    const fetchedCount = collections.length;
+    const hasNextPage = offset + fetchedCount < totalCount;
+    const nextPage = hasNextPage
+      ? isPageParam
+        ? effectivePage + 1
+        : effectivePage + 1
+      : undefined;
 
     return {
       success: true,
       data: {
         collections: collectionsWithCount,
         pagination: {
-          page,
-          limit,
+          page: isPageParam ? effectivePage + 1 : effectivePage,
+          limit: effectiveLimit,
           totalCount,
-          totalPages: Math.ceil(totalCount / limit),
+          totalPages: Math.ceil(totalCount / effectiveLimit),
         },
+        hasNextPage,
+        nextPage,
       },
     };
   } catch (error) {
