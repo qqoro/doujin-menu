@@ -35,18 +35,18 @@ const router = useRouter();
 // URL 상태 동기화
 const tab = ref<TabKey>("artists");
 const letter = ref("");
-const sortBy = ref("name");
+const browseSortBy = ref("name");
 
 const { schWord: searchQuery } = useQueryAndParams({
   defaultOptions: {
     tab: "artists",
-    sortBy: "name",
+    browseSortBy: "name",
     schWord: "",
   },
   queries: {
     tab,
     letter,
-    sortBy,
+    browseSortBy,
   },
 });
 
@@ -106,7 +106,7 @@ const filteredItems = computed(() => {
   }
 
   // 정렬
-  if (sortBy.value === "count") {
+  if (browseSortBy.value === "count") {
     result = [...result].sort((a, b) => b.count - a.count);
   }
   // name 정렬은 DB에서 이미 정렬됨
@@ -150,7 +150,7 @@ const goToLibraryWithSearch = (name: string) => {
         />
         <Input v-model="searchQuery" placeholder="검색..." class="pl-9" />
       </div>
-      <Select v-model="sortBy">
+      <Select v-model="browseSortBy">
         <SelectTrigger class="w-[130px]">
           <SelectValue placeholder="정렬" />
         </SelectTrigger>
