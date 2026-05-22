@@ -1,11 +1,14 @@
 <script setup lang="ts">
+import { Icon } from "@iconify/vue";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import {
   Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { usePreviewViewMode } from "@/composables/usePreviewViewMode";
 import { computed, nextTick, ref, watch } from "vue";
 import type { Book } from "../../../types/ipc";
 
@@ -17,6 +20,9 @@ const props = defineProps<{
 const emit = defineEmits<{
   "update:open": [value: boolean];
 }>();
+
+const { viewMode, scrollToIndex, toggleViewMode, switchToScrollAtIndex } =
+  usePreviewViewMode();
 
 const dialogOpen = computed({
   get: () => props.open,
@@ -51,6 +57,13 @@ const imageRefs = ref<HTMLElement[]>([]);
 const loadedImages = ref<Set<number>>(new Set());
 let observer: IntersectionObserver | null = null;
 
+const getObserverRoot = () => {
+  if (viewMode.value === "scroll") {
+    return document.querySelector(".image-scroll-container");
+  }
+  return document.querySelector(".image-grid-container");
+};
+
 const initIntersectionObserver = () => {
   if (observer) {
     observer.disconnect();
@@ -69,7 +82,7 @@ const initIntersectionObserver = () => {
       });
     },
     {
-      root: document.querySelector(".image-scroll-container"),
+      root: getObserverRoot(),
       rootMargin: "0px",
       threshold: 0.1,
     },
@@ -120,6 +133,33 @@ watch(
   },
   { immediate: true },
 );
+
+// 뷰 모드 전환 시 Observer 재초기화
+watch(viewMode, () => {
+  if (props.open && previewImageUrls.value.length > 0) {
+    nextTick(() => {
+      initIntersectionObserver();
+    });
+  }
+});
+
+// 그리드에서 클릭한 이미지 위치로 스크롤
+watch(scrollToIndex, (index) => {
+  if (index !== null && viewMode.value === "scroll") {
+    nextTick(() => {
+      const container = document.querySelector(".image-scroll-container");
+      const target = container?.querySelector(`[data-index="${index}"]`);
+      if (target) {
+        target.scrollIntoView({
+          behavior: "smooth",
+          inline: "center",
+          block: "nearest",
+        });
+      }
+      scrollToIndex.value = null;
+    });
+  }
+});
 </script>
 
 <template>
@@ -128,8 +168,23 @@ watch(
       class="flex h-[90vh] flex-col sm:max-w-[90vw]"
       @close-auto-focus.prevent
     >
-      <DialogHeader>
+      <DialogHeader class="flex-row items-center justify-between space-y-0">
         <DialogTitle>미리보기: {{ displayTitle }}</DialogTitle>
+        <Button
+          variant="ghost"
+          size="icon"
+          :title="viewMode === 'scroll' ? '그리드 보기' : '가로 스크롤 보기'"
+          @click="toggleViewMode"
+        >
+          <Icon
+            :icon="
+              viewMode === 'scroll'
+                ? 'solar:widget-5-bold-duotone'
+                : 'solar:gallery-wide-bold-duotone'
+            "
+            class="h-5 w-5"
+          />
+        </Button>
       </DialogHeader>
       <div v-if="book" class="flex flex-1 flex-col overflow-hidden">
         <div class="mb-4 flex-shrink-0 space-y-2">
@@ -160,8 +215,9 @@ watch(
           >
             <p>{{ imageLoadError }}</p>
           </div>
+          <!-- 가로 스크롤 뷰 -->
           <div
-            v-else-if="previewImageUrls.length > 0"
+            v-else-if="previewImageUrls.length > 0 && viewMode === 'scroll'"
             class="image-scroll-container flex h-full space-x-4 overflow-x-auto rounded-md border p-2"
             @wheel="handleWheelScroll"
           >
@@ -182,6 +238,34 @@ watch(
               <div
                 v-else
                 class="bg-muted flex h-full w-64 items-center justify-center"
+              >
+                <p class="text-muted-foreground text-sm">로딩 중...</p>
+              </div>
+            </div>
+          </div>
+          <!-- 그리드 뷰 -->
+          <div
+            v-else-if="previewImageUrls.length > 0 && viewMode === 'grid'"
+            class="image-grid-container grid grid-cols-5 gap-2 overflow-y-auto rounded-md border p-2"
+          >
+            <div
+              v-for="(url, index) in previewImageUrls"
+              :key="'grid-' + index"
+              ref="imageRefs"
+              :data-index="index"
+              class="cursor-pointer overflow-hidden rounded"
+              @click="switchToScrollAtIndex(index)"
+            >
+              <img
+                v-if="loadedImages.has(index)"
+                :src="url"
+                :alt="`Preview Image ${index + 1}`"
+                class="aspect-[3/4] w-full object-cover transition-transform duration-200 hover:scale-105"
+                loading="lazy"
+              />
+              <div
+                v-else
+                class="bg-muted flex aspect-[3/4] w-full items-center justify-center"
               >
                 <p class="text-muted-foreground text-sm">로딩 중...</p>
               </div>

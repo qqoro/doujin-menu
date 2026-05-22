@@ -1,13 +1,16 @@
 <script setup lang="ts">
 import { ipcRenderer } from "@/api";
 import ProxiedImage from "@/components/common/ProxiedImage.vue";
+import { Icon } from "@iconify/vue";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import {
   Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { usePreviewViewMode } from "@/composables/usePreviewViewMode";
 import { computed, nextTick, ref, watch } from "vue";
 
 const props = defineProps({
@@ -22,6 +25,9 @@ const props = defineProps({
 });
 
 const emit = defineEmits(["update:open"]);
+
+const { viewMode, scrollToIndex, toggleViewMode, switchToScrollAtIndex } =
+  usePreviewViewMode();
 
 const dialogOpen = computed({
   get: () => props.open,
@@ -64,6 +70,13 @@ const imageRefs = ref<HTMLElement[]>([]);
 const loadedImages = ref<Set<number>>(new Set());
 let observer: IntersectionObserver | null = null;
 
+const getObserverRoot = () => {
+  if (viewMode.value === "scroll") {
+    return document.querySelector(".image-scroll-container");
+  }
+  return document.querySelector(".image-grid-container");
+};
+
 const initIntersectionObserver = () => {
   if (observer) {
     observer.disconnect();
@@ -77,16 +90,12 @@ const initIntersectionObserver = () => {
           );
           if (index !== -1 && !loadedImages.value.has(index)) {
             loadedImages.value.add(index);
-            // 이미지 로드 시작 (ProxiedImage의 lazy prop을 false로 변경)
-            // 여기서는 직접적으로 ProxiedImage의 lazy prop을 변경할 수 없으므로,
-            // v-if를 사용하여 컴포넌트를 다시 렌더링하거나, ProxiedImage 내부에서 IntersectionObserver를 처리해야 합니다.
-            // 현재 구조에서는 ProxiedImage에 lazy prop을 추가하고, 여기서는 해당 이미지가 로드되었음을 표시하는 방식으로 진행합니다.
           }
         }
       });
     },
     {
-      root: document.querySelector(".image-scroll-container"), // 스크롤 컨테이너 지정
+      root: getObserverRoot(),
       rootMargin: "0px",
       threshold: 0.1,
     },
@@ -107,12 +116,12 @@ watch(
     if (newVal && props.gallery) {
       isLoadingImages.value = true;
       imageLoadError.value = null;
-      previewImageUrls.value = []; // 다이얼로그 열릴 때마다 이미지 URL 초기화
-      loadedImages.value.clear(); // 로드된 이미지 상태 초기화
+      previewImageUrls.value = [];
+      loadedImages.value.clear();
 
       try {
         const result = await ipcRenderer.invoke(
-          "get-gallery-image-urls", // 변경된 IPC 이벤트 이름
+          "get-gallery-image-urls",
           props.gallery.id,
         );
         if (result.success && result.data) {
@@ -141,12 +150,32 @@ watch(
   { immediate: true },
 );
 
-// 컴포넌트 언마운트 시 observer 해제
-// onUnmounted(() => {
-//   if (observer) {
-//     observer.disconnect();
-//   }
-// });
+// 뷰 모드 전환 시 Observer 재초기화
+watch(viewMode, () => {
+  if (props.open && previewImageUrls.value.length > 0) {
+    nextTick(() => {
+      initIntersectionObserver();
+    });
+  }
+});
+
+// 그리드에서 클릭한 이미지 위치로 스크롤
+watch(scrollToIndex, (index) => {
+  if (index !== null && viewMode.value === "scroll") {
+    nextTick(() => {
+      const container = document.querySelector(".image-scroll-container");
+      const target = container?.querySelector(`[data-index="${index}"]`);
+      if (target) {
+        target.scrollIntoView({
+          behavior: "smooth",
+          inline: "center",
+          block: "nearest",
+        });
+      }
+      scrollToIndex.value = null;
+    });
+  }
+});
 </script>
 
 <template>
@@ -155,8 +184,23 @@ watch(
       class="flex h-[90vh] flex-col sm:max-w-[90vw]"
       @close-auto-focus.prevent
     >
-      <DialogHeader>
+      <DialogHeader class="flex-row items-center justify-between space-y-0">
         <DialogTitle>미리보기: {{ displayTitle }}</DialogTitle>
+        <Button
+          variant="ghost"
+          size="icon"
+          :title="viewMode === 'scroll' ? '그리드 보기' : '가로 스크롤 보기'"
+          @click="toggleViewMode"
+        >
+          <Icon
+            :icon="
+              viewMode === 'scroll'
+                ? 'solar:widget-5-bold-duotone'
+                : 'solar:gallery-wide-bold-duotone'
+            "
+            class="h-5 w-5"
+          />
+        </Button>
       </DialogHeader>
       <div v-if="gallery" class="flex flex-1 flex-col overflow-hidden">
         <div class="mb-4 flex-shrink-0 space-y-2">
@@ -187,8 +231,9 @@ watch(
           >
             <p>{{ imageLoadError }}</p>
           </div>
+          <!-- 가로 스크롤 뷰 -->
           <div
-            v-else-if="previewImageUrls.length > 0"
+            v-else-if="previewImageUrls.length > 0 && viewMode === 'scroll'"
             class="image-scroll-container flex h-full space-x-4 overflow-x-auto rounded-md border p-2"
             @wheel="handleWheelScroll"
           >
@@ -208,6 +253,36 @@ watch(
                 :lazy="!loadedImages.has(index)"
                 class="max-h-full w-auto object-contain"
               />
+            </div>
+          </div>
+          <!-- 그리드 뷰 -->
+          <div
+            v-else-if="previewImageUrls.length > 0 && viewMode === 'grid'"
+            class="image-grid-container grid grid-cols-5 gap-2 overflow-y-auto rounded-md border p-2"
+          >
+            <div
+              v-for="(url, index) in previewImageUrls"
+              :key="'grid-' + index"
+              ref="imageRefs"
+              :data-index="index"
+              class="cursor-pointer overflow-hidden rounded"
+              @click="switchToScrollAtIndex(index)"
+            >
+              <ProxiedImage
+                v-if="loadedImages.has(index)"
+                :id="gallery.id"
+                :url="url"
+                :referer="refererUrl"
+                :alt="`Preview Image ${index + 1}`"
+                :lazy="false"
+                class="aspect-[3/4] w-full object-cover transition-transform duration-200 hover:scale-105"
+              />
+              <div
+                v-else
+                class="bg-muted flex aspect-[3/4] w-full items-center justify-center"
+              >
+                <p class="text-muted-foreground text-sm">로딩 중...</p>
+              </div>
             </div>
           </div>
           <div
