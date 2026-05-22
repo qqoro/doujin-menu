@@ -21,7 +21,7 @@ export interface ParsedSearchTerms {
 }
 
 const PREFIXED_TERM_REGEX =
-  /(id|artist|group|type|language|series|character|tag):(.+?)(?=\s+(?!(?:id|artist|group|type|language|series|character|tag|male|female):)|\s*(?:id|artist|group|type|language|series|character|tag|male|female):|$)/g;
+  /(id|artist|group|type|language|series|character|tag):(.+?)(?=\s+(?!(?:id|artist|group|type|language|series|character|tag):)|\s*(?:id|artist|group|type|language|series|character|tag):|$)/g;
 
 // 검색어 문자열을 프리픽스별로 분류하여 반환
 export function parseSearchQuery(searchQuery: string): ParsedSearchTerms {

@@ -96,6 +96,25 @@ describe("parseSearchQuery", () => {
       const result = parseSearchQuery("female:안경");
       expect(result.tagTerms).toEqual(["female:안경"]);
     });
+
+    it("tag:female:long_hair → tagTerms에 통째로 분류", () => {
+      const result = parseSearchQuery("tag:female:long_hair");
+      expect(result.tagTerms).toEqual(["female:long_hair"]);
+      expect(result.titleTerms).toEqual([]);
+    });
+
+    it("tag:male:sole_male → tagTerms에 통째로 분류", () => {
+      const result = parseSearchQuery("tag:male:sole_male");
+      expect(result.tagTerms).toEqual(["male:sole_male"]);
+      expect(result.titleTerms).toEqual([]);
+    });
+
+    it("tag:female:안경 tag:male:근육 혼합 검색", () => {
+      const result = parseSearchQuery(
+        "tag:female:안경 tag:male:근육",
+      );
+      expect(result.tagTerms).toEqual(["female:안경", "male:근육"]);
+    });
   });
 
   describe("일반 검색어 (프리픽스 없음)", () => {
