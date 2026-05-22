@@ -3,13 +3,13 @@ import { ipcRenderer } from "@/api";
 import ProxiedImage from "@/components/common/ProxiedImage.vue";
 import { Icon } from "@iconify/vue";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
 import {
   Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { usePreviewViewMode } from "@/composables/usePreviewViewMode";
 import { computed, nextTick, ref, watch } from "vue";
 
@@ -26,8 +26,7 @@ const props = defineProps({
 
 const emit = defineEmits(["update:open"]);
 
-const { viewMode, scrollToIndex, toggleViewMode, switchToScrollAtIndex } =
-  usePreviewViewMode();
+const { viewMode, setViewMode } = usePreviewViewMode();
 
 const dialogOpen = computed({
   get: () => props.open,
@@ -158,24 +157,6 @@ watch(viewMode, () => {
     });
   }
 });
-
-// 그리드에서 클릭한 이미지 위치로 스크롤
-watch(scrollToIndex, (index) => {
-  if (index !== null && viewMode.value === "scroll") {
-    nextTick(() => {
-      const container = document.querySelector(".image-scroll-container");
-      const target = container?.querySelector(`[data-index="${index}"]`);
-      if (target) {
-        target.scrollIntoView({
-          behavior: "smooth",
-          inline: "center",
-          block: "nearest",
-        });
-      }
-      scrollToIndex.value = null;
-    });
-  }
-});
 </script>
 
 <template>
@@ -184,23 +165,8 @@ watch(scrollToIndex, (index) => {
       class="flex h-[90vh] flex-col sm:max-w-[90vw]"
       @close-auto-focus.prevent
     >
-      <DialogHeader class="flex-row items-center justify-between space-y-0">
+      <DialogHeader>
         <DialogTitle>미리보기: {{ displayTitle }}</DialogTitle>
-        <Button
-          variant="ghost"
-          size="icon"
-          :title="viewMode === 'scroll' ? '그리드 보기' : '가로 스크롤 보기'"
-          @click="toggleViewMode"
-        >
-          <Icon
-            :icon="
-              viewMode === 'scroll'
-                ? 'solar:widget-5-bold-duotone'
-                : 'solar:gallery-wide-bold-duotone'
-            "
-            class="h-5 w-5"
-          />
-        </Button>
       </DialogHeader>
       <div v-if="gallery" class="flex flex-1 flex-col overflow-hidden">
         <div class="mb-4 flex-shrink-0 space-y-2">
@@ -218,7 +184,24 @@ watch(scrollToIndex, (index) => {
           </div>
         </div>
 
-        <div class="flex-1 overflow-hidden">
+        <div class="mb-2 flex items-center justify-end">
+          <ToggleGroup
+            type="single"
+            :model-value="viewMode"
+            @update:model-value="setViewMode"
+            variant="outline"
+            size="sm"
+          >
+            <ToggleGroupItem value="scroll">
+              <Icon icon="solar:gallery-wide-bold-duotone" class="h-4 w-4" />
+            </ToggleGroupItem>
+            <ToggleGroupItem value="grid">
+              <Icon icon="solar:widget-5-bold-duotone" class="h-4 w-4" />
+            </ToggleGroupItem>
+          </ToggleGroup>
+        </div>
+
+        <div class="flex-1 overflow-y-auto">
           <div
             v-if="isLoadingImages"
             class="flex h-full items-center justify-center"
@@ -258,7 +241,7 @@ watch(scrollToIndex, (index) => {
           <!-- 그리드 뷰 -->
           <div
             v-else-if="previewImageUrls.length > 0 && viewMode === 'grid'"
-            class="image-grid-container grid grid-cols-5 gap-2 overflow-y-auto rounded-md border p-2"
+            class="image-grid-container grid grid-cols-5 gap-2 rounded-md border p-2"
           >
             <div
               v-for="(url, index) in previewImageUrls"
@@ -266,7 +249,7 @@ watch(scrollToIndex, (index) => {
               ref="imageRefs"
               :data-index="index"
               class="cursor-pointer overflow-hidden rounded"
-              @click="switchToScrollAtIndex(index)"
+              @click="setViewMode('scroll')"
             >
               <ProxiedImage
                 v-if="loadedImages.has(index)"

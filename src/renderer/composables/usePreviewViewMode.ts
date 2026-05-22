@@ -5,20 +5,14 @@ const STORAGE_KEY = "preview-view-mode";
 export function usePreviewViewMode() {
   const saved = localStorage.getItem(STORAGE_KEY);
   const viewMode = ref<"scroll" | "grid">(saved === "grid" ? "grid" : "scroll");
-  const scrollToIndex = ref<number | null>(null);
 
   watch(viewMode, (mode) => {
     localStorage.setItem(STORAGE_KEY, mode);
   });
 
-  function toggleViewMode() {
-    viewMode.value = viewMode.value === "scroll" ? "grid" : "scroll";
+  function setViewMode(mode: "scroll" | "grid") {
+    viewMode.value = mode;
   }
 
-  function switchToScrollAtIndex(index: number) {
-    viewMode.value = "scroll";
-    scrollToIndex.value = index;
-  }
-
-  return { viewMode, scrollToIndex, toggleViewMode, switchToScrollAtIndex };
+  return { viewMode, setViewMode };
 }
