@@ -64,6 +64,15 @@ export async function openBookFolder(bookPath: string) {
   }
 }
 
+export async function rescanBookMetadata(bookId: number) {
+  const result = await ipcRenderer.invoke("rescan-book-metadata", bookId);
+  if (result.success) {
+    return true;
+  } else {
+    throw new Error(result.error || "메타데이터 재스캔에 실패했습니다.");
+  }
+}
+
 export async function deleteBook(bookId: number) {
   const result = await ipcRenderer.invoke("delete-book", bookId);
   if (result.success) {
@@ -315,7 +324,7 @@ export async function getSeriesCollections(params?: {
   limit?: number;
   filterType?: "all" | "auto" | "manual";
   minConfidence?: number;
-  sortBy?: "name" | "book_count" | "confidence" | "created_at";
+  sortBy?: "name" | "book_count" | "confidence_score" | "created_at";
   sortOrder?: "asc" | "desc";
   searchQuery?: string;
   pageParam?: number;

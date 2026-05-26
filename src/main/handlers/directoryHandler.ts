@@ -1060,6 +1060,22 @@ export const handleRescanLibraryFolder = async (folderPath: string) => {
   }
 };
 
+export const handleRescanBookMetadata = async (bookId: number) => {
+  try {
+    const book = await db("Book").where("id", bookId).first();
+    if (!book) {
+      return { success: false, error: "책을 찾을 수 없습니다." };
+    }
+
+    await scanFile(book.path);
+    return { success: true };
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    console.error(`[Main] 책 메타데이터 재스캔 오류 (ID: ${bookId}):`, error);
+    return { success: false, error: message };
+  }
+};
+
 export function registerDirectoryHandlers() {
   ipcMain.handle("add-books-from-directory", (_event) =>
     handleAddBooksFromDirectory(),
@@ -1067,5 +1083,8 @@ export function registerDirectoryHandlers() {
   ipcMain.handle("select-folder", (_event) => handleSelectFolder());
   ipcMain.handle("rescan-library-folder", (_event, folderPath) =>
     handleRescanLibraryFolder(folderPath),
+  );
+  ipcMain.handle("rescan-book-metadata", (_event, bookId: number) =>
+    handleRescanBookMetadata(bookId),
   );
 }

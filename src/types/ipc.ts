@@ -419,6 +419,10 @@ export interface IpcChannels {
     request: string; // folderPath
     response: { success: boolean; error?: string };
   };
+  "rescan-book-metadata": {
+    request: number; // bookId
+    response: { success: boolean; error?: string };
+  };
 
   // Thumbnail handlers
   "generate-thumbnail": {

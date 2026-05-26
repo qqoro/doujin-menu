@@ -62,8 +62,13 @@ const handleCardClick = (event: MouseEvent) => {
   }
 };
 
+const thumbnailKey = ref(0);
+
 const coverUrl = computed(() => {
-  return props.book.cover_path ? `file://${props.book.cover_path}` : "";
+  if (!props.book.cover_path) return "";
+  return thumbnailKey.value
+    ? `file://${props.book.cover_path}?v=${thumbnailKey.value}`
+    : `file://${props.book.cover_path}`;
 });
 
 const validArtists = computed(() => {
@@ -95,6 +100,27 @@ const openBookFolder = () => {
 };
 
 const isDeleteDialogOpen = ref(false);
+const isRescanning = ref(false);
+
+const handleRescanMetadata = async () => {
+  if (isRescanning.value) return;
+  isRescanning.value = true;
+  try {
+    await api.rescanBookMetadata(props.book.id);
+    await queryClient.invalidateQueries({ queryKey: ["books"] });
+    thumbnailKey.value = Date.now();
+    toast.success("메타데이터 재스캔 완료", {
+      description: `${props.book.title}의 메타데이터가 갱신되었습니다.`,
+    });
+  } catch (error) {
+    console.error("메타데이터 재스캔 실패:", error);
+    toast.error("재스캔 실패", {
+      description: "메타데이터를 갱신하는 중 오류가 발생했습니다.",
+    });
+  } finally {
+    isRescanning.value = false;
+  }
+};
 
 const handleDeleteBook = async () => {
   isDeleteDialogOpen.value = true;
@@ -272,6 +298,19 @@ const confirmDeleteBook = async () => {
       <Button size="sm" variant="outline" @click.stop="openBookFolder">
         <Icon icon="solar:folder-open-bold-duotone" class="h-4 w-4" />
         폴더 열기
+      </Button>
+      <Button
+        size="sm"
+        variant="outline"
+        :disabled="isRescanning"
+        @click.stop="handleRescanMetadata"
+      >
+        <Icon
+          icon="solar:refresh-bold-duotone"
+          class="h-4 w-4"
+          :class="{ 'animate-spin': isRescanning }"
+        />
+        재스캔
       </Button>
       <Button size="sm" variant="destructive" @click.stop="handleDeleteBook">
         <Icon
