@@ -1,5 +1,7 @@
 import {
   computed,
+  onActivated,
+  onDeactivated,
   ref,
   watch,
   type MaybeRefOrGetter,
@@ -46,6 +48,15 @@ export function useQueryAndParams<
   const { defaultOptions, queries = {} as T, resetQueries } = options ?? {};
   const route = useRoute();
   const router = useRouter();
+
+  // keep-alive 환경에서 비활성 페이지의 route.query 와쳐 무시
+  const isActive = ref(true);
+  onActivated(() => {
+    isActive.value = true;
+  });
+  onDeactivated(() => {
+    isActive.value = false;
+  });
 
   const currentDefaultOptions = {
     ...(defaultOptions as DefaultOptions<T>),
@@ -152,9 +163,12 @@ export function useQueryAndParams<
   });
 
   // route.query 변경 감지 및 내부 상태 업데이트
+  // keep-alive 비활성 상태에서는 다른 페이지의 URL 변경 무시
   watch(
-    () => route.query,
-    (newQuery) => {
+    [() => route.query, isActive],
+    ([newQuery, active]) => {
+      if (!active) return;
+
       isUpdatingFromRoute = true;
 
       // route.query가 비어있으면 reset 호출
