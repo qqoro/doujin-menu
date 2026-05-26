@@ -122,7 +122,9 @@ function createWindow() {
     y: mainWindowState.y,
     width: mainWindowState.width,
     height: mainWindowState.height,
-    icon: path.join(process.resourcesPath, "static", "icon.ico"),
+    icon: process.resourcesPath
+      ? path.join(process.resourcesPath, "static", "icon.ico")
+      : undefined,
     titleBarStyle: "hidden",
     webPreferences: {
       sandbox: false,

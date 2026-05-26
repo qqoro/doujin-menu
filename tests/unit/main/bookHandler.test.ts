@@ -110,9 +110,7 @@ describe("parseSearchQuery", () => {
     });
 
     it("tag:female:안경 tag:male:근육 혼합 검색", () => {
-      const result = parseSearchQuery(
-        "tag:female:안경 tag:male:근육",
-      );
+      const result = parseSearchQuery("tag:female:안경 tag:male:근육");
       expect(result.tagTerms).toEqual(["female:안경", "male:근육"]);
     });
   });

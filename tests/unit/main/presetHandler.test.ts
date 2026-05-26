@@ -32,7 +32,7 @@ vi.mock("electron", () => ({
     requestSingleInstanceLock: vi.fn(() => true),
     quit: vi.fn(),
     on: vi.fn(),
-    whenReady: vi.fn(() => Promise.resolve()),
+    whenReady: vi.fn(() => new Promise(() => {})),
   },
   ipcMain: {
     handle: vi.fn(),

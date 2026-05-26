@@ -188,9 +188,9 @@ watch(viewMode, () => {
           <ToggleGroup
             type="single"
             :model-value="viewMode"
-            @update:model-value="setViewMode"
             variant="outline"
             size="sm"
+            @update:model-value="setViewMode"
           >
             <ToggleGroupItem value="scroll">
               <Icon icon="solar:gallery-wide-bold-duotone" class="h-4 w-4" />

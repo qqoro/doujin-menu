@@ -1,3 +1,4 @@
+import type { AcceptableValue } from "reka-ui";
 import { ref, watch } from "vue";
 
 const STORAGE_KEY = "preview-view-mode";
@@ -10,8 +11,8 @@ export function usePreviewViewMode() {
     localStorage.setItem(STORAGE_KEY, mode);
   });
 
-  function setViewMode(mode: "scroll" | "grid") {
-    viewMode.value = mode;
+  function setViewMode(mode: AcceptableValue | AcceptableValue[]) {
+    if (mode === "scroll" || mode === "grid") viewMode.value = mode;
   }
 
   return { viewMode, setViewMode };
