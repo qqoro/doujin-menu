@@ -236,7 +236,7 @@ export async function handleGetSeriesCollections(params: {
   pageSize?: number;
   filterType?: "all" | "auto" | "manual";
   minConfidence?: number;
-  sortBy?: "name" | "book_count" | "confidence" | "created_at";
+  sortBy?: "name" | "book_count" | "confidence_score" | "created_at";
   sortOrder?: "asc" | "desc";
   /** 검색어 (artist:xxx, tag:xxx, type:xxx 프리픽스 지원) */
   searchQuery?: string;
@@ -378,11 +378,9 @@ export async function handleGetSeriesCollections(params: {
 
     // 정렬 (book_count 정렬은 서브쿼리 사용, 나머지는 직접 정렬)
     if (sortBy === "book_count") {
-      const bookCountSubquery = db("Book")
-        .whereRaw("Book.series_collection_id = SeriesCollection.id")
-        .count("*")
-        .as("book_count");
-      query = query.orderBy(bookCountSubquery, sortOrder);
+      query = query.orderByRaw(
+        `(SELECT COUNT(*) FROM Book WHERE Book.series_collection_id = SeriesCollection.id) ${sortOrder}`,
+      );
     } else {
       const sortColumn = needsJoin ? `SeriesCollection.${sortBy}` : sortBy;
       query = query.orderBy(sortColumn, sortOrder);

@@ -75,7 +75,9 @@ const loader = ref<HTMLElement | null>(null);
 
 // 필터 및 정렬 상태 (URL 동기화)
 const filterType = ref<"all" | "auto" | "manual">("all");
-const sortBy = ref<"name" | "book_count" | "confidence" | "created_at">("name");
+const sortBy = ref<"name" | "book_count" | "confidence_score" | "created_at">(
+  "name",
+);
 const sortOrder = ref<"asc" | "desc">("asc");
 
 // 뷰 모드 (URL에 저장하지 않고 config에만 저장)
@@ -224,7 +226,7 @@ const {
       sortBy: sortBy.value as
         | "name"
         | "book_count"
-        | "confidence"
+        | "confidence_score"
         | "created_at",
       sortOrder: sortOrder.value,
     });
@@ -342,7 +344,11 @@ const confirmDelete = () => {
 
 // 정렬 기준 설정
 const setSortBy = (column: string) => {
-  sortBy.value = column as "name" | "book_count" | "confidence" | "created_at";
+  sortBy.value = column as
+    | "name"
+    | "book_count"
+    | "confidence_score"
+    | "created_at";
 };
 
 // 정렬 순서 토글
@@ -471,10 +477,10 @@ useScrollRestoration(".flex-grow.overflow-y-auto");
                 class="ml-auto h-4 w-4"
               />
             </DropdownMenuItem>
-            <DropdownMenuItem @click="setSortBy('confidence')">
+            <DropdownMenuItem @click="setSortBy('confidence_score')">
               신뢰도순
               <Icon
-                v-if="sortBy === 'confidence'"
+                v-if="sortBy === 'confidence_score'"
                 icon="solar:check-circle-bold-duotone"
                 class="ml-auto h-4 w-4"
               />

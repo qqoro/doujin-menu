@@ -515,7 +515,7 @@ export interface IpcChannels {
       limit?: number;
       filterType?: "all" | "auto" | "manual";
       minConfidence?: number;
-      sortBy?: "name" | "book_count" | "confidence" | "created_at";
+      sortBy?: "name" | "book_count" | "confidence_score" | "created_at";
       sortOrder?: "asc" | "desc";
     };
     response: {
