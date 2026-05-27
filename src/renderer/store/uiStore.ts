@@ -1,15 +1,24 @@
 import { defineStore } from "pinia";
 import { ref, watch } from "vue";
 
+// 썸네일 줌 기본값 및 범위
+const THUMBNAIL_ZOOM_DEFAULT = 1.0;
+const THUMBNAIL_ZOOM_MIN = 0.4;
+const THUMBNAIL_ZOOM_MAX = 1.5;
+const THUMBNAIL_ZOOM_STEP = 0.1;
+
 export const useUiStore = defineStore("ui", () => {
-  // localStorage에서 초기 값을 가져오거나 false를 기본값으로 사용
   const isSidebarCollapsed = ref(
     JSON.parse(localStorage.getItem("isSidebarCollapsed") || "false"),
   );
   const isLocked = ref(false);
   const screenRotation = ref<0 | 90 | 180 | 270>(0);
 
-  // 상태를 토글하는 액션
+  // 썸네일 줌 배율
+  const thumbnailZoom = ref(
+    Number(localStorage.getItem("thumbnailZoom")) || THUMBNAIL_ZOOM_DEFAULT,
+  );
+
   function toggleSidebar() {
     isSidebarCollapsed.value = !isSidebarCollapsed.value;
   }
@@ -22,14 +31,32 @@ export const useUiStore = defineStore("ui", () => {
     screenRotation.value = rotation;
   }
 
-  // 상태가 변경될 때마다 localStorage에 저장
+  // 썸네일 줌 조절 (줌 인 = 크게, 줌 아웃 = 작게/밀도↑)
+  function setThumbnailZoom(value: number) {
+    thumbnailZoom.value =
+      Math.round(
+        Math.max(THUMBNAIL_ZOOM_MIN, Math.min(THUMBNAIL_ZOOM_MAX, value)) * 10,
+      ) / 10;
+  }
+
+  function zoomIn() {
+    setThumbnailZoom(thumbnailZoom.value + THUMBNAIL_ZOOM_STEP);
+  }
+
+  function zoomOut() {
+    setThumbnailZoom(thumbnailZoom.value - THUMBNAIL_ZOOM_STEP);
+  }
+
   watch(isSidebarCollapsed, (newValue) => {
     localStorage.setItem("isSidebarCollapsed", JSON.stringify(newValue));
   });
 
-  // 화면 회전 상태도 localStorage에 저장
   watch(screenRotation, (newValue) => {
     localStorage.setItem("screenRotation", String(newValue));
+  });
+
+  watch(thumbnailZoom, (newValue) => {
+    localStorage.setItem("thumbnailZoom", String(newValue));
   });
 
   return {
@@ -39,5 +66,9 @@ export const useUiStore = defineStore("ui", () => {
     setLocked,
     screenRotation,
     setScreenRotation,
+    thumbnailZoom,
+    setThumbnailZoom,
+    zoomIn,
+    zoomOut,
   };
 });

@@ -24,11 +24,31 @@ import { useKeybindings } from "@/composable/useKeybindings";
 import { useScrollRestoration } from "@/composable/useScrollRestoration";
 import { useSearchPersistence } from "@/composable/useSearchPersistence";
 import { useDownloadQueueStore } from "@/store/downloadQueueStore";
+import { useUiStore } from "@/store/uiStore";
 import { Icon } from "@iconify/vue";
 import { useInfiniteQuery } from "@tanstack/vue-query";
 import type { Gallery } from "node-hitomi";
 import { AcceptableValue } from "reka-ui";
 import { computed, onMounted, onUnmounted, reactive, ref, watch } from "vue";
+
+const uiStore = useUiStore();
+
+// 썸네일 그리드 줌 스타일
+const downloaderGridStyle = computed(() => ({
+  zoom: uiStore.thumbnailZoom,
+  gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))',
+}));
+
+// Ctrl+Wheel로 썸네일 줌 조절
+const handleGridWheel = (event: WheelEvent) => {
+  if (!event.ctrlKey) return;
+  event.preventDefault();
+  if (event.deltaY < 0) {
+    uiStore.zoomIn();
+  } else {
+    uiStore.zoomOut();
+  }
+};
 import { useRouter } from "vue-router";
 import { toast } from "vue-sonner";
 import PresetDropdown from "../common/PresetDropdown.vue";
@@ -572,18 +592,49 @@ useSearchPersistence(searchQuery, "downloader-search-query");
       <div class="flex flex-col gap-4 lg:col-span-2">
         <div class="flex items-center justify-between">
           <h2 class="text-lg font-semibold">검색 결과</h2>
-          <ToggleGroup
-            :model-value="viewMode"
-            type="single"
-            @update:model-value="handleViewModeChange"
-          >
-            <ToggleGroupItem value="grid" aria-label="썸네일 뷰">
-              <Icon icon="solar:widget-4-bold-duotone" class="h-4 w-4" />
-            </ToggleGroupItem>
-            <ToggleGroupItem value="list" aria-label="리스트 뷰">
-              <Icon icon="solar:list-bold-duotone" class="h-4 w-4" />
-            </ToggleGroupItem>
-          </ToggleGroup>
+          <div class="flex items-center gap-2">
+            <!-- 썸네일 줌 조절 -->
+            <div
+              class="inline-flex h-8 items-center rounded-md border"
+              :class="viewMode !== 'grid' ? 'opacity-50' : ''"
+            >
+              <Button
+                variant="ghost"
+                size="icon"
+                class="h-8 w-8 rounded-r-none border-r"
+                :disabled="viewMode !== 'grid'"
+                @click="uiStore.zoomOut()"
+              >
+                <Icon icon="solar:minus-circle-bold-duotone" class="h-4 w-4" />
+              </Button>
+              <div
+                class="flex w-12 items-center justify-center text-xs tabular-nums"
+              >
+                {{ Math.round(uiStore.thumbnailZoom * 100) }}%
+              </div>
+              <Button
+                variant="ghost"
+                size="icon"
+                class="h-8 w-8 rounded-l-none border-l"
+                :disabled="viewMode !== 'grid'"
+                @click="uiStore.zoomIn()"
+              >
+                <Icon icon="solar:add-circle-bold-duotone" class="h-4 w-4" />
+              </Button>
+            </div>
+            <ToggleGroup
+              :model-value="viewMode"
+              type="single"
+              @update:model-value="handleViewModeChange"
+            >
+              <ToggleGroupItem value="grid" aria-label="썸네일 뷰">
+                <Icon icon="solar:widget-4-bold-duotone" class="h-4 w-4" />
+              </ToggleGroupItem>
+              <ToggleGroupItem value="list" aria-label="리스트 뷰">
+                <Icon icon="solar:list-bold-duotone" class="h-4 w-4" />
+              </ToggleGroupItem>
+            </ToggleGroup>
+          </div>
         </div>
 
         <div
@@ -603,7 +654,9 @@ useSearchPersistence(searchQuery, "downloader-search-query");
           <div v-else-if="allGalleries.length > 0">
             <div
               v-if="viewMode === 'grid'"
-              class="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-2 xl:grid-cols-2 2xl:grid-cols-3"
+              class="grid gap-4"
+              :style="downloaderGridStyle"
+              @wheel="handleGridWheel"
             >
               <GalleryThumbnailCard
                 v-for="item in allGalleries"

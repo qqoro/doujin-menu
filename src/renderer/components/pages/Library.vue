@@ -23,6 +23,7 @@ import { useKeybindings } from "@/composable/useKeybindings";
 import { useQueryAndParams } from "@/composable/useQueryAndParams";
 import { useScrollRestoration } from "@/composable/useScrollRestoration";
 import { useLibraryScanStore } from "@/store/libraryScanStore";
+import { useUiStore } from "@/store/uiStore";
 import { Icon } from "@iconify/vue";
 import {
   useInfiniteQuery,
@@ -61,6 +62,8 @@ import BookRowCard from "../feature/BookRowCard.vue";
 import LibraryScanProgress from "../feature/LibraryScanProgress.vue";
 
 const queryClient = useQueryClient();
+
+const uiStore = useUiStore();
 
 const route = useRoute();
 const router = useRouter();
@@ -482,6 +485,25 @@ useKeybindings("library", {
   "library:next-library": () => cycleLibrary(1),
 });
 
+// Ctrl+Wheel로 썸네일 줌 조절
+const gridRef = ref<HTMLElement | null>(null);
+
+const handleGridWheel = (event: WheelEvent) => {
+  if (!event.ctrlKey) return;
+  event.preventDefault();
+  if (event.deltaY < 0) {
+    uiStore.zoomIn();
+  } else {
+    uiStore.zoomOut();
+  }
+};
+
+// 썸네일 그리드 스타일 (줌 + auto-fill로 카드 자체가 작아짐)
+const gridStyle = computed(() => ({
+  zoom: uiStore.thumbnailZoom,
+  gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))',
+}));
+
 // 스크롤 위치 복원
 useScrollRestoration(".flex-grow.overflow-y-auto");
 </script>
@@ -516,6 +538,7 @@ useScrollRestoration(".flex-grow.overflow-y-auto");
               <li><kbd>R</kbd>: 읽음 상태 순환 (모두→읽음→안읽음)</li>
               <li><kbd>P</kbd>: 프리셋 순환</li>
               <li><kbd>[</kbd> / <kbd>]</kbd>: 이전/다음 라이브러리 폴더</li>
+              <li><kbd>Ctrl</kbd>+<kbd>Wheel</kbd>: 썸네일 밀도 조절</li>
             </ul>
             <h3 class="text-foreground text-base font-semibold">검색 팁</h3>
             <ul class="list-inside list-disc">
@@ -746,6 +769,35 @@ useScrollRestoration(".flex-grow.overflow-y-auto");
         <Icon icon="solar:rocket-bold-duotone" class="h-4 w-4" />
         랜덤
       </Button>
+      <!-- 썸네일 줌 조절 -->
+      <div
+        class="inline-flex h-8 items-center rounded-md border"
+        :class="viewMode !== 'grid' ? 'opacity-50' : ''"
+      >
+        <Button
+          variant="ghost"
+          size="icon"
+          class="h-8 w-8 rounded-r-none border-r"
+          :disabled="viewMode !== 'grid'"
+          @click="uiStore.zoomOut()"
+        >
+          <Icon icon="solar:minus-circle-bold-duotone" class="h-4 w-4" />
+        </Button>
+        <div
+          class="flex w-12 items-center justify-center text-xs tabular-nums"
+        >
+          {{ Math.round(uiStore.thumbnailZoom * 100) }}%
+        </div>
+        <Button
+          variant="ghost"
+          size="icon"
+          class="h-8 w-8 rounded-l-none border-l"
+          :disabled="viewMode !== 'grid'"
+          @click="uiStore.zoomIn()"
+        >
+          <Icon icon="solar:add-circle-bold-duotone" class="h-4 w-4" />
+        </Button>
+      </div>
       <ToggleGroup
         :model-value="viewMode"
         type="single"
@@ -774,7 +826,10 @@ useScrollRestoration(".flex-grow.overflow-y-auto");
     <!-- Grid View -->
     <div
       v-else-if="books.length > 0 && viewMode === 'grid'"
-      class="grid flex-grow grid-cols-1 items-start gap-4 overflow-y-auto sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-6"
+      ref="gridRef"
+      class="grid flex-grow items-start gap-4 overflow-y-auto"
+      :style="gridStyle"
+      @wheel="handleGridWheel"
     >
       <BookCard
         v-for="book in books"
