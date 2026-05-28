@@ -295,6 +295,19 @@ const toggleTag = (tag: string) => {
   searchQuery.value = currentQuery.join(" ");
 };
 
+const excludeTag = (tag: string) => {
+  const excludeTerm = `-tag:${tag}`;
+  const currentQuery = searchQuery.value.split(" ").filter((s) => s !== "");
+  const index = currentQuery.indexOf(excludeTerm);
+
+  if (index > -1) {
+    currentQuery.splice(index, 1);
+  } else {
+    currentQuery.push(excludeTerm);
+  }
+  searchQuery.value = currentQuery.join(" ");
+};
+
 const toggleArtist = (artist: string) => {
   const artistTerm = `artist:${artist}`;
   const currentQuery = searchQuery.value.split(" ").filter((s) => s !== "");
@@ -832,6 +845,7 @@ useScrollRestoration(".flex-grow.overflow-y-auto");
         :external-image-viewer-path="config?.externalImageViewerPath"
         :external-archive-viewer-path="config?.externalArchiveViewerPath"
         @select-tag="toggleTag"
+        @exclude-tag="excludeTag"
         @select-artist="toggleArtist"
         @select-group="toggleGroup"
         @toggle-favorite="handleToggleFavorite"
@@ -862,6 +876,7 @@ useScrollRestoration(".flex-grow.overflow-y-auto");
         :query-key="queryKey"
         :hide-tags="hideLibraryTags"
         @select-tag="toggleTag"
+        @exclude-tag="excludeTag"
         @select-artist="toggleArtist"
         @select-group="toggleGroup"
         @toggle-favorite="handleToggleFavorite"

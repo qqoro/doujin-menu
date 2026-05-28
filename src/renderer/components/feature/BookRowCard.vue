@@ -27,6 +27,7 @@ const props = defineProps<{
 }>();
 const emit = defineEmits([
   "selectTag",
+  "excludeTag",
   "selectArtist",
   "selectGroup",
   "selectSeries",
@@ -258,6 +259,7 @@ const confirmDeleteBook = async () => {
           :key="tag.name"
           :class="getTagDisplayInfo(tag).className"
           @click.stop="emit('selectTag', tag.name)"
+          @contextmenu.prevent.stop="emit('excludeTag', tag.name)"
         >
           {{ getTagDisplayInfo(tag).displayText }}
         </Badge>

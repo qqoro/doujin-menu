@@ -200,6 +200,11 @@ const {
               `${tag.type === 'male' || tag.type === 'female' ? tag.type : 'tag'}:${tag.name}`,
             )
           "
+          @contextmenu.prevent.stop="
+            copyToClipboard(
+              `-${tag.type === 'male' || tag.type === 'female' ? tag.type : 'tag'}:${tag.name}`,
+            )
+          "
           >{{ tag.name }}</Badge
         >
       </div>

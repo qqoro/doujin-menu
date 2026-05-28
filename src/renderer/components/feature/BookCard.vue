@@ -42,6 +42,7 @@ const props = defineProps<{
 }>();
 const emit = defineEmits([
   "selectTag",
+  "excludeTag",
   "selectArtist",
   "selectGroup",
   "toggle-favorite",
@@ -272,6 +273,7 @@ const confirmDeleteBook = async () => {
               :key="tag.name"
               :class="getTagDisplayInfo(tag).className"
               @click.prevent.stop="handleTagClick(tag)"
+              @contextmenu.prevent.stop="emit('excludeTag', tag.name)"
             >
               {{ getTagDisplayInfo(tag).displayText }}
             </Badge>
@@ -297,6 +299,7 @@ const confirmDeleteBook = async () => {
                       :key="`tooltip-${tag}`"
                       :class="getTagDisplayInfo(tag).className"
                       @click.prevent.stop="handleTagClick(tag)"
+                      @contextmenu.prevent.stop="emit('excludeTag', tag.name)"
                     >
                       {{ getTagDisplayInfo(tag).displayText }}
                     </Badge>

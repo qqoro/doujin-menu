@@ -28,6 +28,8 @@ describe("parseSearchQuery", () => {
     expect(result.typeTerms).toEqual([]);
     expect(result.languageTerms).toEqual([]);
     expect(result.characterTerms).toEqual([]);
+    expect(result.exclude.titleTerms).toEqual([]);
+    expect(result.exclude.tagTerms).toEqual([]);
   });
 
   describe("단일 프리픽스 파싱", () => {
@@ -112,6 +114,91 @@ describe("parseSearchQuery", () => {
     it("tag:female:안경 tag:male:근육 혼합 검색", () => {
       const result = parseSearchQuery("tag:female:안경 tag:male:근육");
       expect(result.tagTerms).toEqual(["female:안경", "male:근육"]);
+    });
+  });
+
+  describe("제외(-) 검색 파싱", () => {
+    it("-tag:nurse → exclude.tagTerms에 분류", () => {
+      const result = parseSearchQuery("-tag:nurse");
+      expect(result.tagTerms).toEqual([]);
+      expect(result.exclude.tagTerms).toEqual(["nurse"]);
+    });
+
+    it("-artist:홍길동 → exclude.artistTerms에 분류", () => {
+      const result = parseSearchQuery("-artist:홍길동");
+      expect(result.artistTerms).toEqual([]);
+      expect(result.exclude.artistTerms).toEqual(["홍길동"]);
+    });
+
+    it("-female:ahegao → exclude.tagTerms에 분류", () => {
+      const result = parseSearchQuery("-female:ahegao");
+      expect(result.tagTerms).toEqual([]);
+      expect(result.exclude.tagTerms).toEqual(["female:ahegao"]);
+    });
+
+    it("-male:근육 → exclude.tagTerms에 분류", () => {
+      const result = parseSearchQuery("-male:근육");
+      expect(result.tagTerms).toEqual([]);
+      expect(result.exclude.tagTerms).toEqual(["male:근육"]);
+    });
+
+    it("-type:doujinshi → exclude.typeTerms에 분류", () => {
+      const result = parseSearchQuery("-type:doujinshi");
+      expect(result.typeTerms).toEqual([]);
+      expect(result.exclude.typeTerms).toEqual(["doujinshi"]);
+    });
+
+    it("-language:korean → exclude.languageTerms에 분류", () => {
+      const result = parseSearchQuery("-language:korean");
+      expect(result.languageTerms).toEqual([]);
+      expect(result.exclude.languageTerms).toEqual(["korean"]);
+    });
+
+    it("-series:시리즈1 → exclude.seriesTerms에 분류", () => {
+      const result = parseSearchQuery("-series:시리즈1");
+      expect(result.seriesTerms).toEqual([]);
+      expect(result.exclude.seriesTerms).toEqual(["시리즈1"]);
+    });
+
+    it("-group:그룹A → exclude.groupTerms에 분류", () => {
+      const result = parseSearchQuery("-group:그룹A");
+      expect(result.groupTerms).toEqual([]);
+      expect(result.exclude.groupTerms).toEqual(["그룹a"]);
+    });
+
+    it("-character:캐릭터1 → exclude.characterTerms에 분류", () => {
+      const result = parseSearchQuery("-character:캐릭터1");
+      expect(result.characterTerms).toEqual([]);
+      expect(result.exclude.characterTerms).toEqual(["캐릭터1"]);
+    });
+
+    it("-id:12345 → exclude.idTerms에 분류", () => {
+      const result = parseSearchQuery("-id:12345");
+      expect(result.idTerms).toEqual([]);
+      expect(result.exclude.idTerms).toEqual(["12345"]);
+    });
+
+    it("-테스트 → exclude.titleTerms에 분류", () => {
+      const result = parseSearchQuery("-테스트");
+      expect(result.titleTerms).toEqual([]);
+      expect(result.exclude.titleTerms).toEqual(["테스트"]);
+    });
+
+    it("긍정 + 제외 혼합: artist:홍길동 -tag:nurse", () => {
+      const result = parseSearchQuery("artist:홍길동 -tag:nurse");
+      expect(result.artistTerms).toEqual(["홍길동"]);
+      expect(result.exclude.tagTerms).toEqual(["nurse"]);
+    });
+
+    it("동일 카테고리 긍정+제외: tag:foo -tag:bar", () => {
+      const result = parseSearchQuery("tag:foo -tag:bar");
+      expect(result.tagTerms).toEqual(["foo"]);
+      expect(result.exclude.tagTerms).toEqual(["bar"]);
+    });
+
+    it("다중 제외: -tag:a -tag:b", () => {
+      const result = parseSearchQuery("-tag:a -tag:b");
+      expect(result.exclude.tagTerms).toEqual(["a", "b"]);
     });
   });
 
@@ -483,6 +570,100 @@ describe("handleGetBooks - 통합 테스트", () => {
 
       const ids = await getResultIds({ searchQuery: "female:안경" });
       expect(ids).toEqual([book1.id]);
+    });
+  });
+
+  describe("제외(-) 검색", () => {
+    it("-tag:nurse → 해당 태그 없는 책만 반환", async () => {
+      const tag1 = await seedTag(db, "nurse");
+      const book1 = await seedBook(db, { path: "/a" });
+      const book2 = await seedBook(db, { path: "/b" });
+      await linkBookTag(db, book1.id, tag1.id);
+
+      const ids = await getResultIds({ searchQuery: "-tag:nurse" });
+      expect(ids).toEqual([book2.id]);
+    });
+
+    it("-female:ahegao → female:ahegao 태그 없는 책만 반환", async () => {
+      const tag1 = await seedTag(db, "female:ahegao");
+      const book1 = await seedBook(db, { path: "/a" });
+      const book2 = await seedBook(db, { path: "/b" });
+      await linkBookTag(db, book1.id, tag1.id);
+
+      const ids = await getResultIds({ searchQuery: "-female:ahegao" });
+      expect(ids).toEqual([book2.id]);
+    });
+
+    it("-artist:abc → 해당 아티스트 없는 책만 반환", async () => {
+      const artist1 = await seedArtist(db, "abc");
+      const book1 = await seedBook(db, { path: "/a" });
+      const book2 = await seedBook(db, { path: "/b" });
+      await linkBookArtist(db, book1.id, artist1.id);
+
+      const ids = await getResultIds({ searchQuery: "-artist:abc" });
+      expect(ids).toEqual([book2.id]);
+    });
+
+    it("-type:doujinshi → 해당 타입 제외", async () => {
+      await seedBook(db, { path: "/a", type: "doujinshi" });
+      await seedBook(db, { path: "/b", type: "manga" });
+
+      const ids = await getResultIds({ searchQuery: "-type:doujinshi" });
+      expect(ids).toHaveLength(1);
+    });
+
+    it("긍정 + 제외 조합: artist:abc -tag:nurse", async () => {
+      const artist1 = await seedArtist(db, "abc");
+      const tag1 = await seedTag(db, "nurse");
+      const book1 = await seedBook(db, { path: "/a" });
+      const book2 = await seedBook(db, { path: "/b" });
+      await linkBookArtist(db, book1.id, artist1.id);
+      await linkBookArtist(db, book2.id, artist1.id);
+      await linkBookTag(db, book1.id, tag1.id);
+
+      const ids = await getResultIds({
+        searchQuery: "artist:abc -tag:nurse",
+      });
+      expect(ids).toEqual([book2.id]);
+    });
+
+    it("다중 제외: -tag:a -tag:b", async () => {
+      const tagA = await seedTag(db, "tag_a");
+      const tagB = await seedTag(db, "tag_b");
+      const book1 = await seedBook(db, { path: "/a" });
+      const book2 = await seedBook(db, { path: "/b" });
+      const book3 = await seedBook(db, { path: "/c" });
+      await linkBookTag(db, book1.id, tagA.id);
+      await linkBookTag(db, book2.id, tagB.id);
+
+      const ids = await getResultIds({ searchQuery: "-tag:tag_a -tag:tag_b" });
+      expect(ids).toEqual([book3.id]);
+    });
+
+    it("-id:12345 → 해당 hitomi_id 제외", async () => {
+      await seedBook(db, { path: "/a", hitomi_id: "12345" });
+      await seedBook(db, { path: "/b", hitomi_id: "67890" });
+
+      const ids = await getResultIds({ searchQuery: "-id:12345" });
+      expect(ids).toHaveLength(1);
+    });
+
+    it("제목 제외: -테스트", async () => {
+      await seedBook(db, { path: "/a", title: "테스트 도서" });
+      await seedBook(db, { path: "/b", title: "다른 책" });
+
+      const ids = await getResultIds({ searchQuery: "-테스트" });
+      expect(ids).toHaveLength(1);
+    });
+
+    it("-tag:female:ahegao (프리픽스 포함) → 정상 동작", async () => {
+      const tag1 = await seedTag(db, "female:ahegao");
+      const book1 = await seedBook(db, { path: "/a" });
+      const book2 = await seedBook(db, { path: "/b" });
+      await linkBookTag(db, book1.id, tag1.id);
+
+      const ids = await getResultIds({ searchQuery: "-tag:female:ahegao" });
+      expect(ids).toEqual([book2.id]);
     });
   });
 

@@ -8,7 +8,7 @@ import { console } from "../main.js";
 import { naturalSort } from "../utils/index.js";
 import { store as configStore } from "./configHandler.js";
 
-export interface ParsedSearchTerms {
+export interface ExcludeTerms {
   titleTerms: string[];
   idTerms: string[];
   artistTerms: string[];
@@ -20,8 +20,12 @@ export interface ParsedSearchTerms {
   characterTerms: string[];
 }
 
+export interface ParsedSearchTerms extends ExcludeTerms {
+  exclude: ExcludeTerms;
+}
+
 const PREFIXED_TERM_REGEX =
-  /(id|artist|group|type|language|series|character|tag):(.+?)(?=\s+(?!(?:id|artist|group|type|language|series|character|tag):)|\s*(?:id|artist|group|type|language|series|character|tag):|$)/g;
+  /(-?)(id|artist|group|type|language|series|character|tag):(.+?)(?=\s+(?!(?:-?(?:id|artist|group|type|language|series|character|tag)):)|\s*-?(?:id|artist|group|type|language|series|character|tag):|$)/g;
 
 // 검색어 문자열을 프리픽스별로 분류하여 반환
 export function parseSearchQuery(searchQuery: string): ParsedSearchTerms {
@@ -35,6 +39,17 @@ export function parseSearchQuery(searchQuery: string): ParsedSearchTerms {
     typeTerms: [],
     languageTerms: [],
     characterTerms: [],
+    exclude: {
+      titleTerms: [],
+      idTerms: [],
+      artistTerms: [],
+      tagTerms: [],
+      seriesTerms: [],
+      groupTerms: [],
+      typeTerms: [],
+      languageTerms: [],
+      characterTerms: [],
+    },
   };
 
   if (!searchQuery) return result;
@@ -46,38 +61,40 @@ export function parseSearchQuery(searchQuery: string): ParsedSearchTerms {
   let match;
 
   while ((match = PREFIXED_TERM_REGEX.exec(lowerCaseQuery)) !== null) {
-    const prefix = match[1];
-    const value = match[2].trim();
+    const isNegated = match[1] === "-";
+    const prefix = match[2];
+    const value = match[3].trim();
 
     const leadingText = lowerCaseQuery.substring(lastIndex, match.index).trim();
     if (leadingText) {
       rawTitleTerms.push(...leadingText.split(" ").filter((t) => t.length > 0));
     }
 
+    const target = isNegated ? result.exclude : result;
     switch (prefix) {
       case "id":
-        result.idTerms.push(value);
+        target.idTerms.push(value);
         break;
       case "artist":
-        result.artistTerms.push(value);
+        target.artistTerms.push(value);
         break;
       case "group":
-        result.groupTerms.push(value);
+        target.groupTerms.push(value);
         break;
       case "type":
-        result.typeTerms.push(value);
+        target.typeTerms.push(value);
         break;
       case "language":
-        result.languageTerms.push(value);
+        target.languageTerms.push(value);
         break;
       case "series":
-        result.seriesTerms.push(value);
+        target.seriesTerms.push(value);
         break;
       case "character":
-        result.characterTerms.push(value);
+        target.characterTerms.push(value);
         break;
       case "tag":
-        result.tagTerms.push(value);
+        target.tagTerms.push(value);
         break;
     }
     lastIndex = PREFIXED_TERM_REGEX.lastIndex;
@@ -88,9 +105,16 @@ export function parseSearchQuery(searchQuery: string): ParsedSearchTerms {
     rawTitleTerms.push(...remainingText.split(" ").filter((t) => t.length > 0));
   }
 
-  // male:/female: 접두사가 있는 항목은 tagTerms로 이동
+  // male:/female: 접두사가 있는 항목은 tagTerms로 이동, - 접두사는 제외 조건으로 분류
   for (const term of rawTitleTerms) {
-    if (term.startsWith("male:") || term.startsWith("female:")) {
+    if (term.startsWith("-")) {
+      const stripped = term.slice(1);
+      if (stripped.startsWith("male:") || stripped.startsWith("female:")) {
+        result.exclude.tagTerms.push(stripped);
+      } else if (stripped) {
+        result.exclude.titleTerms.push(stripped);
+      }
+    } else if (term.startsWith("male:") || term.startsWith("female:")) {
       result.tagTerms.push(term);
     } else {
       result.titleTerms.push(term);
@@ -158,6 +182,7 @@ function buildFilteredQuery(filter: FilterParams | null) {
       typeTerms,
       languageTerms,
       characterTerms,
+      exclude,
     } = parseSearchQuery(searchQuery);
 
     if (idTerms.length > 0) {
@@ -233,6 +258,83 @@ function buildFilteredQuery(filter: FilterParams | null) {
     if (titleTerms.length > 0) {
       for (const titleTerm of titleTerms) {
         mainQuery.whereRaw("LOWER(sub.title) LIKE ?", [`%${titleTerm}%`]);
+      }
+    }
+
+    // 제외 조건 적용
+    if (exclude.idTerms.length > 0) {
+      mainQuery.whereNotIn("sub.hitomi_id", exclude.idTerms);
+    }
+    if (exclude.artistTerms.length > 0) {
+      for (const artist of exclude.artistTerms) {
+        mainQuery.whereNotExists(function () {
+          this.from("BookArtist")
+            .innerJoin("Artist", "BookArtist.artist_id", "Artist.id")
+            .whereRaw("BookArtist.book_id = sub.id")
+            .whereRaw("LOWER(Artist.name) = ?", [artist]);
+        });
+      }
+    }
+    if (exclude.groupTerms.length > 0) {
+      for (const group of exclude.groupTerms) {
+        mainQuery.whereNotExists(function () {
+          this.from("BookGroup")
+            .innerJoin("Group", "BookGroup.group_id", "Group.id")
+            .whereRaw("BookGroup.book_id = sub.id")
+            .whereRaw("LOWER(`Group`.name) = ?", [group]);
+        });
+      }
+    }
+    if (exclude.typeTerms.length > 0) {
+      for (const type of exclude.typeTerms) {
+        mainQuery.whereRaw("LOWER(sub.type) NOT LIKE ?", [`%${type}%`]);
+      }
+    }
+    if (exclude.languageTerms.length > 0) {
+      for (const language of exclude.languageTerms) {
+        mainQuery.whereRaw(
+          "LOWER(sub.language_name_english) NOT LIKE ? AND LOWER(sub.language_name_local) NOT LIKE ?",
+          [`%${language}%`, `%${language}%`],
+        );
+      }
+    }
+    if (exclude.characterTerms.length > 0) {
+      for (const character of exclude.characterTerms) {
+        mainQuery.whereNotExists(function () {
+          this.from("BookCharacter")
+            .innerJoin(
+              "Character",
+              "BookCharacter.character_id",
+              "Character.id",
+            )
+            .whereRaw("BookCharacter.book_id = sub.id")
+            .whereRaw("LOWER(`Character`.name) = ?", [character]);
+        });
+      }
+    }
+    if (exclude.tagTerms.length > 0) {
+      for (const tag of exclude.tagTerms) {
+        mainQuery.whereNotExists(function () {
+          this.from("BookTag")
+            .innerJoin("Tag", "BookTag.tag_id", "Tag.id")
+            .whereRaw("BookTag.book_id = sub.id")
+            .whereRaw("LOWER(Tag.name) = ?", [tag]);
+        });
+      }
+    }
+    if (exclude.seriesTerms.length > 0) {
+      for (const seriesName of exclude.seriesTerms) {
+        mainQuery.whereNotExists(function () {
+          this.from("BookSeries")
+            .innerJoin("Series", "BookSeries.series_id", "Series.id")
+            .whereRaw("BookSeries.book_id = sub.id")
+            .whereRaw("LOWER(Series.name) = ?", [seriesName]);
+        });
+      }
+    }
+    if (exclude.titleTerms.length > 0) {
+      for (const titleTerm of exclude.titleTerms) {
+        mainQuery.whereRaw("LOWER(sub.title) NOT LIKE ?", [`%${titleTerm}%`]);
       }
     }
   }
