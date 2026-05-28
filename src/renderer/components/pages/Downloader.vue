@@ -70,7 +70,9 @@ const languageOptions = [
 ];
 
 // 뷰 모드 상태 ("grid": 썸네일, "list": 리스트)
-const viewMode = ref<"grid" | "list">("list");
+const viewMode = ref<"grid" | "list">(
+  (localStorage.getItem("downloaderViewMode") as "grid" | "list") || "list",
+);
 
 // ToggleGroup의 선택 해제 방지
 const handleViewModeChange = (value: AcceptableValue | AcceptableValue[]) => {
@@ -80,6 +82,7 @@ const handleViewModeChange = (value: AcceptableValue | AcceptableValue[]) => {
     (value === "grid" || value === "list")
   ) {
     viewMode.value = value;
+    localStorage.setItem("downloaderViewMode", value);
   }
 };
 
