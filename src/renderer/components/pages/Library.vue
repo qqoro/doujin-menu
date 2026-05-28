@@ -11,14 +11,6 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { useKeybindings } from "@/composable/useKeybindings";
 import { useQueryAndParams } from "@/composable/useQueryAndParams";
 import { useScrollRestoration } from "@/composable/useScrollRestoration";
@@ -30,7 +22,6 @@ import {
   useQuery,
   useQueryClient,
 } from "@tanstack/vue-query";
-import { AcceptableValue } from "reka-ui";
 import { debouncedRef, debouncedWatch } from "@vueuse/core";
 import {
   computed,
@@ -86,17 +77,6 @@ const sortOrder = ref<"asc" | "desc">(
   (route.query.sortOrder as "asc" | "desc") || "desc",
 );
 const viewMode = ref<"grid" | "list">("grid");
-
-// ToggleGroup의 선택 해제 방지
-const handleViewModeChange = (value: AcceptableValue | AcceptableValue[]) => {
-  if (
-    value &&
-    typeof value === "string" &&
-    (value === "grid" || value === "list")
-  ) {
-    viewMode.value = value;
-  }
-};
 
 const { schWord: searchQuery } = useQueryAndParams({
   queries: {
@@ -630,17 +610,6 @@ useScrollRestoration(".flex-grow.overflow-y-auto");
 
     <!-- 검색 및 필터 영역 -->
     <div class="mb-4 flex items-center gap-2">
-      <Select v-model="libraryPath">
-        <SelectTrigger class="w-[280px]">
-          <SelectValue placeholder="라이브러리 선택..." />
-        </SelectTrigger>
-        <SelectContent>
-          <SelectItem value="all">모든 라이브러리</SelectItem>
-          <SelectItem v-for="dir in libraryDirectories" :key="dir" :value="dir">
-            {{ dir }}
-          </SelectItem>
-        </SelectContent>
-      </Select>
       <SmartSearchInput
         ref="searchInputRef"
         v-model="searchQuery"
@@ -769,45 +738,70 @@ useScrollRestoration(".flex-grow.overflow-y-auto");
         <Icon icon="solar:rocket-bold-duotone" class="h-4 w-4" />
         랜덤
       </Button>
-      <!-- 썸네일 줌 조절 -->
-      <div
-        class="inline-flex h-8 items-center rounded-md border"
-        :class="viewMode !== 'grid' ? 'opacity-50' : ''"
-      >
-        <Button
-          variant="ghost"
-          size="icon"
-          class="h-8 w-8 rounded-r-none border-r"
-          :disabled="viewMode !== 'grid'"
-          @click="uiStore.zoomOut()"
-        >
-          <Icon icon="solar:minus-circle-bold-duotone" class="h-4 w-4" />
-        </Button>
-        <div class="flex w-12 items-center justify-center text-xs tabular-nums">
-          {{ Math.round(uiStore.thumbnailZoom * 100) }}%
-        </div>
-        <Button
-          variant="ghost"
-          size="icon"
-          class="h-8 w-8 rounded-l-none border-l"
-          :disabled="viewMode !== 'grid'"
-          @click="uiStore.zoomIn()"
-        >
-          <Icon icon="solar:add-circle-bold-duotone" class="h-4 w-4" />
-        </Button>
-      </div>
-      <ToggleGroup
-        :model-value="viewMode"
-        type="single"
-        @update:model-value="handleViewModeChange"
-      >
-        <ToggleGroupItem value="grid" aria-label="그리드 뷰">
-          <Icon icon="solar:widget-4-bold-duotone" class="h-4 w-4" />
-        </ToggleGroupItem>
-        <ToggleGroupItem value="list" aria-label="리스트 뷰">
-          <Icon icon="solar:list-bold-duotone" class="h-4 w-4" />
-        </ToggleGroupItem>
-      </ToggleGroup>
+      <!-- 더보기 메뉴: 라이브러리 폴더 / 뷰 모드 / 썸네일 줌 -->
+      <DropdownMenu>
+        <DropdownMenuTrigger as-child>
+          <Button variant="outline" size="icon" aria-label="더보기">
+            <Icon icon="solar:menu-dots-bold" class="h-4 w-4" />
+          </Button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end" class="w-64">
+          <DropdownMenuLabel>라이브러리 폴더</DropdownMenuLabel>
+          <DropdownMenuRadioGroup v-model="libraryPath">
+            <DropdownMenuRadioItem value="all">
+              모든 라이브러리
+            </DropdownMenuRadioItem>
+            <DropdownMenuRadioItem
+              v-for="dir in libraryDirectories"
+              :key="dir"
+              :value="dir"
+              class="truncate"
+            >
+              <span class="truncate" :title="dir">{{ dir }}</span>
+            </DropdownMenuRadioItem>
+          </DropdownMenuRadioGroup>
+          <DropdownMenuSeparator />
+          <DropdownMenuLabel>뷰 모드</DropdownMenuLabel>
+          <DropdownMenuRadioGroup v-model="viewMode">
+            <DropdownMenuRadioItem value="grid">
+              <Icon icon="solar:widget-4-bold-duotone" class="mr-2 h-4 w-4" />
+              그리드
+            </DropdownMenuRadioItem>
+            <DropdownMenuRadioItem value="list">
+              <Icon icon="solar:list-bold-duotone" class="mr-2 h-4 w-4" />
+              리스트
+            </DropdownMenuRadioItem>
+          </DropdownMenuRadioGroup>
+          <DropdownMenuSeparator />
+          <DropdownMenuLabel>썸네일 크기</DropdownMenuLabel>
+          <div
+            class="flex items-center justify-between px-2 py-1.5"
+            :class="viewMode !== 'grid' ? 'opacity-50' : ''"
+          >
+            <Button
+              variant="outline"
+              size="icon"
+              class="h-7 w-7"
+              :disabled="viewMode !== 'grid'"
+              @click.stop="uiStore.zoomOut()"
+            >
+              <Icon icon="solar:minus-circle-bold-duotone" class="h-4 w-4" />
+            </Button>
+            <span class="text-xs tabular-nums">
+              {{ Math.round(uiStore.thumbnailZoom * 100) }}%
+            </span>
+            <Button
+              variant="outline"
+              size="icon"
+              class="h-7 w-7"
+              :disabled="viewMode !== 'grid'"
+              @click.stop="uiStore.zoomIn()"
+            >
+              <Icon icon="solar:add-circle-bold-duotone" class="h-4 w-4" />
+            </Button>
+          </div>
+        </DropdownMenuContent>
+      </DropdownMenu>
     </div>
 
     <div
