@@ -36,7 +36,7 @@ const uiStore = useUiStore();
 // 썸네일 그리드 줌 스타일
 const downloaderGridStyle = computed(() => ({
   zoom: uiStore.thumbnailZoom,
-  gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))',
+  gridTemplateColumns: "repeat(auto-fill, minmax(200px, 1fr))",
 }));
 
 // Ctrl+Wheel로 썸네일 줌 조절

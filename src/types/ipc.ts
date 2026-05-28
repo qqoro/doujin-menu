@@ -397,12 +397,20 @@ export interface IpcChannels {
     request: string; // password
     response: { success: boolean; valid?: boolean; error?: string };
   };
-  "select-external-program": {
+  "select-external-image-viewer": {
+    request: void;
+    response: { success: boolean; data?: string; error?: string };
+  };
+  "select-external-archive-viewer": {
     request: void;
     response: { success: boolean; data?: string; error?: string };
   };
   "open-with-external-program": {
     request: { bookId: number; pageIndex: number };
+    response: { success: boolean; error?: string };
+  };
+  "open-book-with-external-viewer": {
+    request: { bookId: number };
     response: { success: boolean; error?: string };
   };
 

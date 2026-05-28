@@ -501,7 +501,7 @@ const handleGridWheel = (event: WheelEvent) => {
 // 썸네일 그리드 스타일 (줌 + auto-fill로 카드 자체가 작아짐)
 const gridStyle = computed(() => ({
   zoom: uiStore.thumbnailZoom,
-  gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))',
+  gridTemplateColumns: "repeat(auto-fill, minmax(200px, 1fr))",
 }));
 
 // 스크롤 위치 복원
@@ -783,9 +783,7 @@ useScrollRestoration(".flex-grow.overflow-y-auto");
         >
           <Icon icon="solar:minus-circle-bold-duotone" class="h-4 w-4" />
         </Button>
-        <div
-          class="flex w-12 items-center justify-center text-xs tabular-nums"
-        >
+        <div class="flex w-12 items-center justify-center text-xs tabular-nums">
           {{ Math.round(uiStore.thumbnailZoom * 100) }}%
         </div>
         <Button
@@ -837,6 +835,8 @@ useScrollRestoration(".flex-grow.overflow-y-auto");
         :book="book"
         :query-key="queryKey"
         :hide-tags="hideLibraryTags"
+        :external-image-viewer-path="config?.externalImageViewerPath"
+        :external-archive-viewer-path="config?.externalArchiveViewerPath"
         @select-tag="toggleTag"
         @select-artist="toggleArtist"
         @select-group="toggleGroup"

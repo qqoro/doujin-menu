@@ -438,7 +438,7 @@ onMounted(async () => {
   if (config.viewerOpenInFullscreen === true) {
     ipcRenderer.send("set-fullscreen-window", true);
   }
-  externalProgramPath.value = (config.externalProgramPath as string) || "";
+  externalProgramPath.value = (config.externalImageViewerPath as string) || "";
 
   // 뷰어 진입 시 초기 타이머 설정 (마우스 움직임 없으면 3초 후 컨트롤 숨김)
   cursorHideTimer = setTimeout(() => {

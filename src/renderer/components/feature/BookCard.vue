@@ -37,6 +37,8 @@ const props = defineProps<{
   book: Book;
   queryKey: readonly unknown[];
   hideTags?: boolean;
+  externalImageViewerPath?: string;
+  externalArchiveViewerPath?: string;
 }>();
 const emit = defineEmits([
   "selectTag",
@@ -129,6 +131,28 @@ const toggleFavorite = () => {
 
 const openBookFolder = () => {
   emit("open-book-folder", props.book.path);
+};
+
+// 외부 뷰어 설정 여부 확인 (아카이브/폴더 유형에 따라 다른 뷰어 경로 사용)
+const hasExternalViewer = computed(() => {
+  const bookPath = props.book.path || "";
+  const isArchive = /\.(cbz|zip)$/i.test(bookPath);
+  if (isArchive) {
+    return !!props.externalArchiveViewerPath;
+  }
+  return !!props.externalImageViewerPath;
+});
+
+// 외부 프로그램으로 책 열기
+const openWithExternalViewer = async () => {
+  try {
+    await api.openBookWithExternalViewer(props.book.id);
+    toast.success("외부 프로그램으로 열었습니다.");
+  } catch (error) {
+    toast.error("외부 프로그램 실행 실패", {
+      description: (error as Error).message,
+    });
+  }
 };
 
 const isDeleteDialogOpen = ref(false);
@@ -304,6 +328,10 @@ const confirmDeleteBook = async () => {
       <ContextMenuItem @click="openInNewWindow">
         <Icon icon="solar:square-top-down-bold-duotone" class="h-4 w-4" />
         새 창으로 열기
+      </ContextMenuItem>
+      <ContextMenuItem v-if="hasExternalViewer" @click="openWithExternalViewer">
+        <Icon icon="solar:monitor-bold-duotone" class="h-4 w-4" />
+        외부 프로그램으로 열기
       </ContextMenuItem>
       <ContextMenuItem @click="emit('show-details', book)">
         <Icon icon="solar:info-circle-bold-duotone" class="h-4 w-4" />

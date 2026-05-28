@@ -58,7 +58,8 @@ export interface Config {
   viewerOpenInFullscreen?: boolean; // 뷰어 진입 시 자동 전체 화면
   viewerHidePageNumber?: boolean; // 페이지 번호 숨김
   viewerHideToast?: boolean; // 토스트 숨김
-  externalProgramPath?: string; // 외부 프로그램 실행 경로
+  externalImageViewerPath?: string; // 이미지 뷰어 경로
+  externalArchiveViewerPath?: string; // 압축파일 뷰어 경로
   keybindingOverrides?: { actionId: string; keys: string[] }[]; // 키 바인딩 사용자 재정의
   enableReadingHistory?: boolean; // 읽음 기록
   viewerAutoPlayInterval?: number; // 자동 재생 간격 (ms)
@@ -116,6 +117,17 @@ const defaults: Config = {
 export const store = new Store<Config>({
   defaults,
 });
+
+// externalProgramPath → externalImageViewerPath 마이그레이션
+const legacyStore = store as unknown as {
+  get: (key: string, defaultValue: string) => string;
+  delete: (key: string) => void;
+};
+const legacyPath = legacyStore.get("externalProgramPath", "");
+if (legacyPath) {
+  store.set("externalImageViewerPath", legacyPath);
+  legacyStore.delete("externalProgramPath");
+}
 
 const isDevelopment = process.env.NODE_ENV === "development";
 const getDbPath = () => {
@@ -305,14 +317,14 @@ export const handleRemoveLibraryFolder = async (folderPath: string) => {
   }
 };
 
-export const handleSelectExternalProgram = async (
+export const handleSelectExternalImageViewer = async (
   event: Electron.IpcMainInvokeEvent,
 ) => {
   const webContents = event.sender;
   const { filePaths } = await dialog.showOpenDialog(
     BrowserWindow.fromWebContents(webContents)!,
     {
-      title: "외부 프로그램 선택",
+      title: "이미지 뷰어 선택",
       properties: ["openFile"],
       filters: [{ name: "실행 파일", extensions: ["exe"] }],
     },
@@ -323,7 +335,29 @@ export const handleSelectExternalProgram = async (
   }
 
   const programPath = filePaths[0];
-  store.set("externalProgramPath", programPath);
+  store.set("externalImageViewerPath", programPath);
+  return { success: true, data: programPath };
+};
+
+export const handleSelectExternalArchiveViewer = async (
+  event: Electron.IpcMainInvokeEvent,
+) => {
+  const webContents = event.sender;
+  const { filePaths } = await dialog.showOpenDialog(
+    BrowserWindow.fromWebContents(webContents)!,
+    {
+      title: "압축파일 뷰어 선택",
+      properties: ["openFile"],
+      filters: [{ name: "실행 파일", extensions: ["exe"] }],
+    },
+  );
+
+  if (!filePaths || filePaths.length === 0) {
+    return { success: false, error: "No program selected." };
+  }
+
+  const programPath = filePaths[0];
+  store.set("externalArchiveViewerPath", programPath);
   return { success: true, data: programPath };
 };
 
@@ -492,8 +526,12 @@ export function registerConfigHandlers() {
   ipcMain.handle("verify-lock-password", (_event, password) =>
     handleVerifyLockPassword(password),
   );
-  // 외부 프로그램 선택
-  ipcMain.handle("select-external-program", (event) =>
-    handleSelectExternalProgram(event),
+  // 이미지 뷰어 선택
+  ipcMain.handle("select-external-image-viewer", (event) =>
+    handleSelectExternalImageViewer(event),
+  );
+  // 압축파일 뷰어 선택
+  ipcMain.handle("select-external-archive-viewer", (event) =>
+    handleSelectExternalArchiveViewer(event),
   );
 }

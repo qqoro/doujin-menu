@@ -171,7 +171,8 @@ const viewerHideNavigationOverlay = ref(false);
 const viewerHidePageNumber = ref(false);
 const viewerHideToast = ref(false);
 const viewerOpenInFullscreen = ref(false);
-const externalProgramPath = ref("");
+const externalImageViewerPath = ref("");
+const externalArchiveViewerPath = ref("");
 
 // 화면 회전 설정 상태
 const uiStore = useUiStore();
@@ -230,8 +231,11 @@ onMounted(async () => {
   viewerHideToast.value = config.viewerHideToast === true;
   viewerOpenInFullscreen.value = config.viewerOpenInFullscreen === true;
 
-  // 외부 프로그램 설정 불러오기
-  externalProgramPath.value = (config.externalProgramPath as string) || "";
+  // 외부 뷰어 설정 불러오기
+  externalImageViewerPath.value =
+    (config.externalImageViewerPath as string) || "";
+  externalArchiveViewerPath.value =
+    (config.externalArchiveViewerPath as string) || "";
 
   // 화면 회전 설정 불러오기
   screenRotation.value = (config.screenRotation as 0 | 90 | 180 | 270) || 0;
@@ -419,20 +423,36 @@ const onViewerOpenInFullscreenChange = (value: boolean) => {
   saveConfig("viewerOpenInFullscreen", value);
 };
 
-// 외부 프로그램 선택
-const onSelectExternalProgram = async () => {
-  const result = await ipcRenderer.invoke("select-external-program");
+// 이미지 뷰어 선택
+const onSelectExternalImageViewer = async () => {
+  const result = await ipcRenderer.invoke("select-external-image-viewer");
   if (result.success && result.data) {
-    externalProgramPath.value = result.data;
-    toast.success("외부 프로그램이 설정되었습니다.");
+    externalImageViewerPath.value = result.data;
+    toast.success("이미지 뷰어가 설정되었습니다.");
   }
 };
 
-// 외부 프로그램 초기화
-const onClearExternalProgram = async () => {
-  externalProgramPath.value = "";
-  await saveConfig("externalProgramPath", "");
-  toast.success("외부 프로그램 설정이 초기화되었습니다.");
+// 이미지 뷰어 초기화
+const onClearExternalImageViewer = async () => {
+  externalImageViewerPath.value = "";
+  await saveConfig("externalImageViewerPath", "");
+  toast.success("이미지 뷰어 설정이 초기화되었습니다.");
+};
+
+// 압축파일 뷰어 선택
+const onSelectExternalArchiveViewer = async () => {
+  const result = await ipcRenderer.invoke("select-external-archive-viewer");
+  if (result.success && result.data) {
+    externalArchiveViewerPath.value = result.data;
+    toast.success("압축파일 뷰어가 설정되었습니다.");
+  }
+};
+
+// 압축파일 뷰어 초기화
+const onClearExternalArchiveViewer = async () => {
+  externalArchiveViewerPath.value = "";
+  await saveConfig("externalArchiveViewerPath", "");
+  toast.success("압축파일 뷰어 설정이 초기화되었습니다.");
 };
 
 // 데이터베이스 백업
@@ -1139,18 +1159,22 @@ const resetAllData = async () => {
                   />
                 </SettingItem>
                 <SettingItem
-                  label-for="external-program"
-                  title="외부 프로그램"
-                  subtitle="뷰어에서 현재 페이지를 외부 프로그램으로 열 수 있습니다."
+                  label-for="external-image-viewer"
+                  title="이미지 뷰어"
+                  subtitle="뷰어에서 현재 페이지를 외부 프로그램으로 열거나, 폴더 형식 책을 외부로 열 때 사용합니다."
                 >
                   <div class="flex items-center gap-2 justify-self-end">
                     <span
-                      v-if="externalProgramPath"
+                      v-if="externalImageViewerPath"
                       class="text-muted-foreground max-w-48 truncate text-xs"
-                      :title="externalProgramPath"
+                      :title="externalImageViewerPath"
                     >
                       {{
-                        externalProgramPath.split("\\").pop()?.split("/").pop()
+                        externalImageViewerPath
+                          .split("\\")
+                          .pop()
+                          ?.split("/")
+                          .pop()
                       }}
                     </span>
                     <span v-else class="text-muted-foreground text-xs">
@@ -1159,15 +1183,54 @@ const resetAllData = async () => {
                     <Button
                       size="sm"
                       variant="outline"
-                      @click="onSelectExternalProgram"
+                      @click="onSelectExternalImageViewer"
                     >
                       선택
                     </Button>
                     <Button
-                      v-if="externalProgramPath"
+                      v-if="externalImageViewerPath"
                       size="sm"
                       variant="ghost"
-                      @click="onClearExternalProgram"
+                      @click="onClearExternalImageViewer"
+                    >
+                      초기화
+                    </Button>
+                  </div>
+                </SettingItem>
+                <SettingItem
+                  label-for="external-archive-viewer"
+                  title="압축파일 뷰어"
+                  subtitle="ZIP/CBZ 형식의 책을 외부 프로그램으로 열 때 사용합니다."
+                >
+                  <div class="flex items-center gap-2 justify-self-end">
+                    <span
+                      v-if="externalArchiveViewerPath"
+                      class="text-muted-foreground max-w-48 truncate text-xs"
+                      :title="externalArchiveViewerPath"
+                    >
+                      {{
+                        externalArchiveViewerPath
+                          .split("\\")
+                          .pop()
+                          ?.split("/")
+                          .pop()
+                      }}
+                    </span>
+                    <span v-else class="text-muted-foreground text-xs">
+                      미설정
+                    </span>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      @click="onSelectExternalArchiveViewer"
+                    >
+                      선택
+                    </Button>
+                    <Button
+                      v-if="externalArchiveViewerPath"
+                      size="sm"
+                      variant="ghost"
+                      @click="onClearExternalArchiveViewer"
                     >
                       초기화
                     </Button>

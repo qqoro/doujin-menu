@@ -279,7 +279,7 @@ export function registerEtcHandlers(win: BrowserWindow) {
     ) => {
       try {
         // 설정에서 프로그램 경로 가져오기
-        const programPath = configStore.get("externalProgramPath", "");
+        const programPath = configStore.get("externalImageViewerPath", "");
         if (!programPath) {
           return {
             success: false,
@@ -324,6 +324,75 @@ export function registerEtcHandlers(win: BrowserWindow) {
 
         // 외부 프로그램 실행 (fire-and-forget)
         const child = spawn(programPath, [imagePath], {
+          detached: true,
+          stdio: "ignore",
+        });
+        child.unref();
+
+        return { success: true };
+      } catch (error) {
+        console.error("[EtcHandler] 외부 프로그램 실행 실패:", error);
+        return { success: false, error: (error as Error).message };
+      }
+    },
+  );
+
+  ipcMain.handle(
+    "open-book-with-external-viewer",
+    async (_event, { bookId }: { bookId: number }) => {
+      try {
+        const book = await db("Book").where("id", bookId).first();
+        if (!book || !book.path) {
+          return { success: false, error: "책을 찾을 수 없습니다." };
+        }
+
+        const bookPath = book.path;
+        const isDirectory = await fs
+          .stat(bookPath)
+          .then((stat) => stat.isDirectory())
+          .catch(() => false);
+        const isArchive = /\.(cbz|zip)$/i.test(bookPath);
+
+        let programPath: string;
+        let targetPath: string;
+
+        if (isArchive) {
+          // 압축 파일인 경우 압축파일 뷰어로 실행
+          programPath = configStore.get("externalArchiveViewerPath", "");
+          if (!programPath) {
+            return {
+              success: false,
+              error: "압축파일 뷰어가 설정되지 않았습니다.",
+            };
+          }
+          targetPath = bookPath;
+        } else if (isDirectory) {
+          // 폴더인 경우 이미지 뷰어로 첫 번째 이미지 파일 실행
+          programPath = configStore.get("externalImageViewerPath", "");
+          if (!programPath) {
+            return {
+              success: false,
+              error: "이미지 뷰어가 설정되지 않았습니다.",
+            };
+          }
+          const files = await fs.readdir(bookPath);
+          const imageFiles = files
+            .filter((file) => file.match(/\.(jpg|jpeg|png|webp|gif|bmp)$/i))
+            .sort(naturalSort);
+          if (imageFiles.length === 0) {
+            return { success: false, error: "이미지 파일을 찾을 수 없습니다." };
+          }
+          targetPath = path.join(bookPath, imageFiles[0]);
+        } else {
+          return { success: false, error: "지원하지 않는 형식입니다." };
+        }
+
+        if (!existsSync(programPath)) {
+          return { success: false, error: "프로그램을 찾을 수 없습니다." };
+        }
+
+        // 외부 뷰어 실행 (fire-and-forget)
+        const child = spawn(programPath, [targetPath], {
           detached: true,
           stdio: "ignore",
         });

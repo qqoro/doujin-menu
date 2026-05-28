@@ -191,6 +191,18 @@ export async function openWithExternalProgram(
   }
 }
 
+// 책 전체를 외부 뷰어로 열기
+export async function openBookWithExternalViewer(bookId: number) {
+  const result = await ipcRenderer.invoke("open-book-with-external-viewer", {
+    bookId,
+  });
+  if (result.success) {
+    return true;
+  } else {
+    throw new Error(result.error || "외부 프로그램 실행에 실패했습니다.");
+  }
+}
+
 export function closeCurrentWindow() {
   ipcRenderer.send("close-current-window");
 }
