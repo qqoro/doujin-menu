@@ -278,6 +278,7 @@ const saveConfig = async (key: string, value: unknown) => {
       description: result.error,
     });
   }
+  queryClient.invalidateQueries({ queryKey: ["config"] });
 };
 
 // 테마 변경 시 저장
@@ -428,6 +429,7 @@ const onSelectExternalImageViewer = async () => {
   const result = await ipcRenderer.invoke("select-external-image-viewer");
   if (result.success && result.data) {
     externalImageViewerPath.value = result.data;
+    queryClient.invalidateQueries({ queryKey: ["config"] });
     toast.success("이미지 뷰어가 설정되었습니다.");
   }
 };
@@ -444,6 +446,7 @@ const onSelectExternalArchiveViewer = async () => {
   const result = await ipcRenderer.invoke("select-external-archive-viewer");
   if (result.success && result.data) {
     externalArchiveViewerPath.value = result.data;
+    queryClient.invalidateQueries({ queryKey: ["config"] });
     toast.success("압축파일 뷰어가 설정되었습니다.");
   }
 };
