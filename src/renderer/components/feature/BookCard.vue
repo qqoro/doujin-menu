@@ -18,12 +18,6 @@ import {
   ContextMenuItem,
   ContextMenuTrigger,
 } from "@/components/ui/context-menu"; // ContextMenu 관련 컴포넌트 임포트
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from "@/components/ui/tooltip";
 import { Icon } from "@iconify/vue";
 import { useQueryClient } from "@tanstack/vue-query";
 import { computed, ref, toRaw } from "vue";
@@ -76,25 +70,16 @@ const handleCardClick = (event: MouseEvent) => {
   }
 };
 
-const MAX_VISIBLE_TAGS = 3;
-
 const thumbnailKey = ref(0);
+
+// 태그 영역 펼침 상태
+const isTagsExpanded = ref(false);
 
 const coverUrl = computed(() => {
   if (!props.book.cover_path) return "";
   return thumbnailKey.value
     ? `file://${props.book.cover_path}?v=${thumbnailKey.value}`
     : `file://${props.book.cover_path}`;
-});
-
-const visibleTags = computed(() => {
-  if (!props.book.tags) return [];
-  return props.book.tags.slice(0, MAX_VISIBLE_TAGS);
-});
-
-const hiddenTagsCount = computed(() => {
-  if (!props.book.tags) return 0;
-  return props.book.tags.length - MAX_VISIBLE_TAGS;
 });
 
 const handleTagClick = (tag: { name: string }) => {
@@ -223,90 +208,89 @@ const confirmDeleteBook = async () => {
           <p class="w-full truncate text-sm font-semibold" :title="book.title">
             {{ book.title }}
           </p>
-          <!-- 작가 정보가 없는 경우 -->
+          <!-- 작가/그룹 정보 -->
           <p
             v-if="!hasCreatorInfo"
             class="text-muted-foreground w-full truncate text-xs"
           >
             작가 정보 없음
           </p>
-          <!-- 작가 정보 -->
           <div
-            v-if="validArtists.length > 0"
-            class="text-muted-foreground flex w-full items-center gap-1 text-xs"
+            v-if="hasCreatorInfo"
+            class="text-muted-foreground flex w-full items-center gap-2 text-xs"
           >
-            <Icon
-              icon="solar:user-bold-duotone"
-              class="h-3 w-3 flex-shrink-0"
-            />
-            <span
-              class="cursor-pointer truncate hover:underline"
-              :title="validArtists.map((a) => a.name).join(', ')"
-              @click.prevent.stop="handleArtistClick(validArtists[0])"
+            <div
+              v-if="validArtists.length > 0"
+              class="flex min-w-0 shrink-0 items-center gap-1"
             >
-              {{ validArtists.map((a) => a.name).join(", ") }}
-            </span>
+              <Icon
+                icon="solar:user-bold-duotone"
+                class="h-3 w-3 flex-shrink-0"
+              />
+              <span
+                class="cursor-pointer truncate hover:underline"
+                :title="validArtists.map((a) => a.name).join(', ')"
+                @click.prevent.stop="handleArtistClick(validArtists[0])"
+              >
+                {{ validArtists.map((a) => a.name).join(", ") }}
+              </span>
+            </div>
+            <div
+              v-if="validGroups.length > 0"
+              class="flex min-w-0 items-center gap-1 overflow-hidden"
+            >
+              <Icon
+                icon="solar:users-group-rounded-bold-duotone"
+                class="h-3 w-3 flex-shrink-0"
+              />
+              <span
+                class="cursor-pointer truncate hover:underline"
+                :title="validGroups.map((g) => g.name).join(', ')"
+                @click.prevent.stop="handleGroupClick(validGroups[0])"
+              >
+                {{ validGroups.map((g) => g.name).join(", ") }}
+              </span>
+            </div>
           </div>
-          <!-- 그룹 정보 -->
+          <!-- 태그 영역: 기본 한 줄 (overflow hidden), + 버튼으로 펼치기 -->
           <div
-            v-if="validGroups.length > 0"
-            class="text-muted-foreground flex w-full items-center gap-1 text-xs"
+            v-if="!hideTags && book.tags?.length"
+            class="flex w-full items-start gap-1"
+            :class="
+              isTagsExpanded ? 'flex-wrap' : 'flex-nowrap overflow-hidden'
+            "
           >
-            <Icon
-              icon="solar:users-group-rounded-bold-duotone"
-              class="h-3 w-3 flex-shrink-0"
-            />
-            <span
-              class="cursor-pointer truncate hover:underline"
-              :title="validGroups.map((g) => g.name).join(', ')"
-              @click.prevent.stop="handleGroupClick(validGroups[0])"
+            <div
+              class="flex min-w-0 flex-1 items-center gap-1"
+              :class="
+                isTagsExpanded ? 'flex-wrap' : 'flex-nowrap overflow-hidden'
+              "
             >
-              {{ validGroups.map((g) => g.name).join(", ") }}
-            </span>
-          </div>
-          <div
-            v-if="!hideTags"
-            class="flex min-h-[42px] w-full flex-wrap items-start gap-1"
-          >
-            <Badge
-              v-for="tag in visibleTags"
-              :key="tag.name"
-              :class="getTagDisplayInfo(tag).className"
-              @click.prevent.stop="handleTagClick(tag)"
-              @contextmenu.prevent.stop="emit('excludeTag', tag.name)"
+              <Badge
+                v-for="tag in book.tags"
+                :key="tag.name"
+                :class="getTagDisplayInfo(tag).className"
+                class="flex-shrink-0"
+                @click.prevent.stop="handleTagClick(tag)"
+                @contextmenu.prevent.stop="emit('excludeTag', tag.name)"
+              >
+                {{ getTagDisplayInfo(tag).displayText }}
+              </Badge>
+            </div>
+            <button
+              v-if="book.tags.length > 1"
+              class="text-muted-foreground hover:text-foreground flex-shrink-0 transition-colors"
+              @click.prevent.stop="isTagsExpanded = !isTagsExpanded"
             >
-              {{ getTagDisplayInfo(tag).displayText }}
-            </Badge>
-            <TooltipProvider v-if="hiddenTagsCount > 0" :delay-duration="100">
-              <Tooltip>
-                <TooltipTrigger as-child>
-                  <Badge
-                    variant="secondary"
-                    class="cursor-pointer"
-                    @click.prevent.stop
-                  >
-                    +{{ hiddenTagsCount }}
-                  </Badge>
-                </TooltipTrigger>
-                <TooltipContent
-                  side="bottom"
-                  class="bg-primary/50 max-w-[300px] p-2 backdrop-blur-md"
-                  @click.prevent.stop
-                >
-                  <div class="flex flex-wrap gap-1">
-                    <Badge
-                      v-for="tag in book.tags"
-                      :key="`tooltip-${tag}`"
-                      :class="getTagDisplayInfo(tag).className"
-                      @click.prevent.stop="handleTagClick(tag)"
-                      @contextmenu.prevent.stop="emit('excludeTag', tag.name)"
-                    >
-                      {{ getTagDisplayInfo(tag).displayText }}
-                    </Badge>
-                  </div>
-                </TooltipContent>
-              </Tooltip>
-            </TooltipProvider>
+              <Icon
+                :icon="
+                  isTagsExpanded
+                    ? 'solar:minus-circle-bold-duotone'
+                    : 'solar:add-circle-bold-duotone'
+                "
+                class="h-[22px] w-[22px]"
+              />
+            </button>
           </div>
         </CardFooter>
       </Card>
