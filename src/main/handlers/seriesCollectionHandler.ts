@@ -56,15 +56,28 @@ export async function rebuildPrefixIndex(): Promise<PrefixIndex> {
 
   const booksWithArrays = books.map(convertBook);
 
-  // 시리즈 컬렉션과 해당 bookIds 조회
-  const seriesData = await Promise.all(
-    (await db("SeriesCollection").select("id", "name")).map(async (s) => {
-      const bookIds = (
-        await db("Book").where("series_collection_id", s.id).select("id")
-      ).map((b: { id: number }) => b.id);
-      return { id: s.id, name: s.name, bookIds };
-    }),
-  );
+  // 시리즈 컬렉션과 해당 bookIds 조회 — JOIN 1회 쿼리로 N+1 해결
+  const seriesRows = await db("SeriesCollection")
+    .select(
+      "SeriesCollection.id",
+      "SeriesCollection.name",
+      "Book.id as book_id",
+    )
+    .leftJoin("Book", "Book.series_collection_id", "SeriesCollection.id");
+
+  const seriesMap = new Map<
+    number,
+    { id: number; name: string; bookIds: number[] }
+  >();
+  for (const row of seriesRows) {
+    if (!seriesMap.has(row.id)) {
+      seriesMap.set(row.id, { id: row.id, name: row.name, bookIds: [] });
+    }
+    if (row.book_id) {
+      seriesMap.get(row.id)!.bookIds.push(row.book_id);
+    }
+  }
+  const seriesData = [...seriesMap.values()];
 
   const index = new PrefixIndex();
   index.rebuild(booksWithArrays, seriesData);
@@ -687,20 +700,7 @@ export async function handleRunSeriesDetectionForBook(
       };
     }
 
-    // 모든 책 조회
-    const allBooks = await db("Book")
-      .select(
-        "Book.*",
-        db.raw("GROUP_CONCAT(DISTINCT Artist.name) as artists"),
-        db.raw("GROUP_CONCAT(DISTINCT Tag.name) as tags"),
-      )
-      .leftJoin("BookArtist", "Book.id", "BookArtist.book_id")
-      .leftJoin("Artist", "BookArtist.artist_id", "Artist.id")
-      .leftJoin("BookTag", "Book.id", "BookTag.book_id")
-      .leftJoin("Tag", "BookTag.tag_id", "Tag.id")
-      .groupBy("Book.id");
-
-    // 배열 변환
+    // 배열 변환 헬퍼
     const convertBook = (
       book: Record<string, unknown> & {
         artists?: string;
@@ -719,6 +719,74 @@ export async function handleRunSeriesDetectionForBook(
           : [],
       }) as Book;
 
+    // PrefixIndex가 있으면 매칭된 책만 로드 (전체 로드 방지)
+    const index = getPrefixIndex();
+    if (index) {
+      const lookup = index.addBook(convertBook(targetBook));
+
+      if (lookup.existingBookIds.length > 0) {
+        const matchedBooks = await db("Book")
+          .select(
+            "Book.*",
+            db.raw("GROUP_CONCAT(DISTINCT Artist.name) as artists"),
+            db.raw("GROUP_CONCAT(DISTINCT Tag.name) as tags"),
+          )
+          .leftJoin("BookArtist", "Book.id", "BookArtist.book_id")
+          .leftJoin("Artist", "BookArtist.artist_id", "Artist.id")
+          .leftJoin("BookTag", "Book.id", "BookTag.book_id")
+          .leftJoin("Tag", "BookTag.tag_id", "Tag.id")
+          .whereIn("Book.id", lookup.existingBookIds)
+          .groupBy("Book.id");
+
+        const candidate = await detectSeriesForBook(
+          convertBook(targetBook),
+          matchedBooks.map(convertBook),
+          options,
+        );
+
+        if (!candidate) {
+          return { success: true, data: null };
+        }
+
+        // 시리즈 생성 및 책 할당
+        await db.transaction(async (trx) => {
+          const [seriesId] = await trx("SeriesCollection").insert({
+            name: candidate.seriesName,
+            confidence_score: candidate.confidence,
+            is_auto_generated: true,
+            is_manually_edited: false,
+            created_at: trx.fn.now(),
+            updated_at: trx.fn.now(),
+          });
+
+          for (const bookWithScore of candidate.books) {
+            await trx("Book").where("id", bookWithScore.book.id).update({
+              series_collection_id: seriesId,
+              series_order_index: bookWithScore.orderIndex,
+            });
+          }
+        });
+
+        return { success: true, data: candidate };
+      }
+
+      // 매칭되는 책이 없음
+      return { success: true, data: null };
+    }
+
+    // PrefixIndex가 없으면 폴백: 전체 책 로드 (이 경로는 드묾)
+    const allBooks = await db("Book")
+      .select(
+        "Book.*",
+        db.raw("GROUP_CONCAT(DISTINCT Artist.name) as artists"),
+        db.raw("GROUP_CONCAT(DISTINCT Tag.name) as tags"),
+      )
+      .leftJoin("BookArtist", "Book.id", "BookArtist.book_id")
+      .leftJoin("Artist", "BookArtist.artist_id", "Artist.id")
+      .leftJoin("BookTag", "Book.id", "BookTag.book_id")
+      .leftJoin("Tag", "BookTag.tag_id", "Tag.id")
+      .groupBy("Book.id");
+
     const candidate = await detectSeriesForBook(
       convertBook(targetBook),
       allBooks.map(convertBook),
@@ -726,18 +794,31 @@ export async function handleRunSeriesDetectionForBook(
     );
 
     if (!candidate) {
-      return {
-        success: true,
-        data: null,
-      };
+      return { success: true, data: null };
     }
 
-    return {
-      success: true,
-      data: candidate,
-    };
+    // 시리즈 생성 및 책 할당
+    await db.transaction(async (trx) => {
+      const [seriesId] = await trx("SeriesCollection").insert({
+        name: candidate.seriesName,
+        confidence_score: candidate.confidence,
+        is_auto_generated: true,
+        is_manually_edited: false,
+        created_at: trx.fn.now(),
+        updated_at: trx.fn.now(),
+      });
+
+      for (const bookWithScore of candidate.books) {
+        await trx("Book").where("id", bookWithScore.book.id).update({
+          series_collection_id: seriesId,
+          series_order_index: bookWithScore.orderIndex,
+        });
+      }
+    });
+
+    return { success: true, data: candidate };
   } catch (error) {
-    console.error("책 시리즈 감지 실패:", error);
+    console.error("시리즈 감지 실행 실패:", error);
     return {
       success: false,
       error: (error as Error).message,
@@ -822,7 +903,8 @@ export async function handleAutoDetectSeriesForBook(bookId: number) {
 
       // 기존 미할당 책과 매칭 → 새 시리즈 생성
       if (lookup.existingBookIds.length > 0) {
-        const allBooks = await db("Book")
+        // PrefixIndex가 식별한 매칭 책만 로드 (전체 미할당 로드 방지)
+        const matchedBooks = await db("Book")
           .select(
             "Book.*",
             db.raw("GROUP_CONCAT(DISTINCT Artist.name) as artists"),
@@ -832,12 +914,12 @@ export async function handleAutoDetectSeriesForBook(bookId: number) {
           .leftJoin("Artist", "BookArtist.artist_id", "Artist.id")
           .leftJoin("BookTag", "Book.id", "BookTag.book_id")
           .leftJoin("Tag", "BookTag.tag_id", "Tag.id")
-          .whereNull("Book.series_collection_id")
+          .whereIn("Book.id", lookup.existingBookIds)
           .groupBy("Book.id");
 
         const candidate = await detectSeriesForBook(
           convertBook(targetBook),
-          allBooks.map(convertBook),
+          matchedBooks.map(convertBook),
           seriesSettings,
         );
 
@@ -894,6 +976,8 @@ export async function handleAutoDetectSeriesForBook(bookId: number) {
     }
 
     // 2. 기존 시리즈에 매칭되지 않으면 새 시리즈 감지 시도
+    // 참고: 이 경로는 PrefixIndex가 없을 때만 실행됩니다.
+    // 스캔 시에는 사전에 PrefixIndex를 구축하므로 거의 실행되지 않습니다.
     // 시리즈에 속하지 않은 다른 책들 조회
     const allBooks = await db("Book")
       .select(

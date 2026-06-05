@@ -178,19 +178,36 @@ if (parentPort) {
               }) as Book,
           );
 
-          // 전체 시리즈 + bookIds 조회
-          const allSeriesData = await Promise.all(
-            (await db("SeriesCollection").select("id", "name")).map(
-              async (s: { id: number; name: string }) => {
-                const bookIds = (
-                  await db("Book")
-                    .where("series_collection_id", s.id)
-                    .select("id")
-                ).map((b: { id: number }) => b.id);
-                return { id: s.id, name: s.name, bookIds };
-              },
-            ),
-          );
+          // 전체 시리즈 + bookIds 조회 — JOIN 1회 쿼리로 N+1 해결
+          const seriesRows = await db("SeriesCollection")
+            .select(
+              "SeriesCollection.id",
+              "SeriesCollection.name",
+              "Book.id as book_id",
+            )
+            .leftJoin(
+              "Book",
+              "Book.series_collection_id",
+              "SeriesCollection.id",
+            );
+
+          const seriesMap = new Map<
+            number,
+            { id: number; name: string; bookIds: number[] }
+          >();
+          for (const row of seriesRows) {
+            if (!seriesMap.has(row.id)) {
+              seriesMap.set(row.id, {
+                id: row.id,
+                name: row.name,
+                bookIds: [],
+              });
+            }
+            if (row.book_id) {
+              seriesMap.get(row.id)!.bookIds.push(row.book_id);
+            }
+          }
+          const allSeriesData = [...seriesMap.values()];
 
           const index = new PrefixIndex();
           index.rebuild(allBooksWithArrays, allSeriesData);

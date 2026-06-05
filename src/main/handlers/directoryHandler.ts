@@ -13,7 +13,11 @@ import { console } from "../main.js";
 import { ParsedMetadata, parseInfoTxt } from "../parsers/infoTxtParser.js";
 import type { LibraryScanProgress } from "../../types/ipc.js";
 import { naturalSort } from "../utils/index.js";
-import { handleAutoDetectSeriesForBook } from "./seriesCollectionHandler.js";
+import {
+  getPrefixIndex,
+  handleAutoDetectSeriesForBook,
+  rebuildPrefixIndex,
+} from "./seriesCollectionHandler.js";
 import {
   generateThumbnailForBook,
   handleGenerateThumbnail,
@@ -804,6 +808,13 @@ export async function scanDirectory(directoryPath: string): Promise<{
 
     // 4단계: 시리즈 자동 감지
     if (allNewlyAddedBookIds.length > 0) {
+      // PrefixIndex가 없으면 먼저 구축 (폴백 경로의 전체 로드 방지)
+      if (!getPrefixIndex()) {
+        console.log("[Main] PrefixIndex가 없음. 스캔 전 구축 시작...");
+        await rebuildPrefixIndex();
+        console.log("[Main] PrefixIndex 구축 완료.");
+      }
+
       console.log(
         `[Main] ${allNewlyAddedBookIds.length}권의 새 책 추가됨. 전체 시리즈 자동 감지 시작...`,
       );
