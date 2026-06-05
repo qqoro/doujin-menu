@@ -15,6 +15,16 @@ export interface Changelog {
  */
 export const changelogData: Changelog[] = [
   {
+    version: "1.19.1-beta.1",
+    changes: [
+      {
+        type: "fix",
+        title: "🐛 버그 수정",
+        items: ["라이브러리 스캔 시 메모리 부족(OOM) 현상이 발생하던 회귀 문제를 수정했습니다."],
+      },
+    ],
+  },
+  {
     version: "1.19.0",
     changes: [
       {
