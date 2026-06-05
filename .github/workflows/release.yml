@@ -62,6 +62,7 @@ jobs:
         with:
           tag_name: ${{ github.ref_name }}
           name: ${{ github.ref_name }}
+          prerelease: ${{ contains(github.ref_name, '-alpha') || contains(github.ref_name, '-beta') || contains(github.ref_name, '-rc') }}
           generate_release_notes: true
           files: |
             artifacts/build_win/doujin-menu-setup-*.exe
