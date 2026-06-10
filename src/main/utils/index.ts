@@ -19,7 +19,7 @@ export function naturalSort(a: string, b: string): number {
       }
     } else {
       // At least one is not a number, compare as strings
-      const cmp = aPart.localeCompare(bPart);
+      const cmp = aPart.localeCompare(bPart, "en");
       if (cmp !== 0) {
         return cmp;
       }
