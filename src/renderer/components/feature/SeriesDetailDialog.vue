@@ -12,8 +12,8 @@ import {
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
-  DialogContent,
   DialogHeader,
+  DialogScrollContent,
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
@@ -62,6 +62,7 @@ const bookToRemove = ref<number | null>(null);
 
 // 드래그 앤 드롭 상태
 const draggedIndex = ref<number | null>(null);
+const dragOverIndex = ref<number | null>(null);
 const books = ref<Book[]>([]);
 
 // 시리즈 상세 조회
@@ -70,6 +71,14 @@ const { data: seriesDetail, refetch } = useQuery({
   queryFn: () => getSeriesCollectionById(props.series!.id),
   enabled: computed(() => props.open && !!props.series),
 });
+
+// 시리즈가 변경되면 기존 데이터 초기화
+watch(
+  () => props.series?.id,
+  () => {
+    books.value = [];
+  },
+);
 
 // 시리즈 상세 데이터가 변경되면 books 배열 업데이트
 watch(
@@ -206,6 +215,26 @@ const confidenceLevel = computed(() => {
   return { label: "낮음", class: "bg-red-500" };
 });
 
+// 썸네일 URL 생성
+const getCoverUrl = (book: Book) => {
+  if (!book.cover_path) return "";
+  return `file://${book.cover_path}`;
+};
+
+// 작가명 표시
+// 참고: 시리즈 상세 API에서는 GROUP_CONCAT으로 인해 artists가 문자열로 내려옴
+const getArtistNames = (book: Book) => {
+  if (!book.artists) return "";
+  // 배열인 경우 (일반 Book 타입)
+  if (Array.isArray(book.artists)) {
+    if (book.artists.length === 0) return "";
+    return book.artists.map((a: { name: string }) => a.name).join(", ");
+  }
+  // 문자열인 경우 (GROUP_CONCAT 결과)
+  const str = String(book.artists);
+  return str || "";
+};
+
 // 드래그 앤 드롭 핸들러
 const handleDragStart = (index: number) => {
   draggedIndex.value = index;
@@ -213,25 +242,59 @@ const handleDragStart = (index: number) => {
 
 const handleDragOver = (e: DragEvent, index: number) => {
   e.preventDefault();
-  if (draggedIndex.value === null || draggedIndex.value === index) return;
+  if (draggedIndex.value === null || draggedIndex.value === index) {
+    dragOverIndex.value = null;
+    return;
+  }
+  dragOverIndex.value = index;
+};
+
+const handleDragLeave = () => {
+  dragOverIndex.value = null;
+};
+
+const handleDrop = (index: number) => {
+  if (draggedIndex.value === null || draggedIndex.value === index) {
+    draggedIndex.value = null;
+    dragOverIndex.value = null;
+    return;
+  }
 
   const newBooks = [...books.value];
   const draggedBook = newBooks[draggedIndex.value];
   newBooks.splice(draggedIndex.value, 1);
   newBooks.splice(index, 0, draggedBook);
-
   books.value = newBooks;
-  draggedIndex.value = index;
+
+  // 서버에 순서 저장
+  if (props.series) {
+    const bookIds = books.value.map((book) => book.id);
+    reorderMutation.mutate({ seriesId: props.series.id, bookIds });
+  }
+
+  draggedIndex.value = null;
+  dragOverIndex.value = null;
 };
 
 const handleDragEnd = () => {
-  if (draggedIndex.value === null || !props.series) return;
+  draggedIndex.value = null;
+  dragOverIndex.value = null;
+};
 
-  // 순서가 변경되었으면 서버에 저장
+// 위/아래 버튼으로 순서 변경
+const moveBook = (index: number, direction: "up" | "down") => {
+  if (!props.series) return;
+  const newIndex = direction === "up" ? index - 1 : index + 1;
+  if (newIndex < 0 || newIndex >= books.value.length) return;
+
+  const newBooks = [...books.value];
+  const temp = newBooks[index];
+  newBooks[index] = newBooks[newIndex];
+  newBooks[newIndex] = temp;
+  books.value = newBooks;
+
   const bookIds = books.value.map((book) => book.id);
   reorderMutation.mutate({ seriesId: props.series.id, bookIds });
-
-  draggedIndex.value = null;
 };
 
 // 책 추가 완료
@@ -247,7 +310,7 @@ const excludeBookIds = computed(() => books.value.map((book) => book.id));
 
 <template>
   <Dialog :open="props.open" @update:open="emit('update:open', $event)">
-    <DialogContent class="flex max-h-[85vh] max-w-[700px] flex-col">
+    <DialogScrollContent class="max-h-[85vh] max-w-[700px]">
       <DialogHeader>
         <DialogTitle class="flex items-center justify-between">
           <span>시리즈 상세</span>
@@ -268,7 +331,7 @@ const excludeBookIds = computed(() => books.value.map((book) => book.id));
         </DialogTitle>
       </DialogHeader>
 
-      <ScrollArea class="-mx-6 flex-1 px-6">
+      <ScrollArea class="max-h-[calc(85vh-120px)] min-w-0">
         <div class="space-y-6 pr-4 pb-4">
           <!-- 시리즈 정보 편집 -->
           <div class="space-y-4">
@@ -350,60 +413,150 @@ const excludeBookIds = computed(() => books.value.map((book) => book.id));
               </Button>
             </div>
 
-            <div class="space-y-2">
-              <div
-                v-for="(book, index) in books"
-                :key="book.id"
-                class="hover:bg-accent group flex items-center gap-3 rounded-lg border p-3 transition-colors"
-                :class="{ 'opacity-50': draggedIndex === index }"
-                draggable="true"
-                @dragstart="handleDragStart(index)"
-                @dragover="handleDragOver($event, index)"
-                @dragend="handleDragEnd"
-              >
-                <!-- 드래그 핸들 -->
-                <div class="shrink-0 cursor-grab active:cursor-grabbing">
-                  <Icon
-                    icon="solar:hamburger-menu-bold-duotone"
-                    class="text-muted-foreground h-5 w-5"
-                  />
-                </div>
-
-                <!-- 순서 -->
+            <div class="space-y-1">
+              <template v-for="(book, index) in books" :key="book.id">
+                <!-- 드롭 위치 표시줄 -->
                 <div
-                  class="bg-primary/10 text-primary flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-sm font-semibold"
-                >
-                  {{ index + 1 }}
-                </div>
+                  v-if="
+                    dragOverIndex === index &&
+                    draggedIndex !== null &&
+                    draggedIndex !== index
+                  "
+                  class="bg-primary h-0.5 rounded-full transition-all"
+                />
 
-                <!-- 책 정보 (클릭 가능) -->
                 <div
-                  class="min-w-0 flex-1 cursor-pointer"
-                  @click="handleBookClick(book.id)"
+                  class="group flex items-stretch gap-3 rounded-lg border p-2 transition-colors"
+                  :class="{
+                    'opacity-40': draggedIndex === index,
+                    'hover:bg-accent/50': draggedIndex !== index,
+                  }"
+                  draggable="true"
+                  @dragstart="handleDragStart(index)"
+                  @dragover="handleDragOver($event, index)"
+                  @dragleave="handleDragLeave"
+                  @drop="handleDrop(index)"
+                  @dragend="handleDragEnd"
                 >
+                  <!-- 썸네일 -->
                   <div
-                    class="hover:text-primary truncate font-medium transition-colors"
+                    class="bg-muted relative h-20 w-14 shrink-0 cursor-pointer overflow-hidden rounded"
+                    @click="handleBookClick(book.id)"
                   >
-                    {{ book.title }}
+                    <img
+                      v-if="getCoverUrl(book)"
+                      :src="getCoverUrl(book)"
+                      :alt="book.title"
+                      class="h-full w-full object-cover"
+                      @error="
+                        (e) =>
+                          ((e.target as HTMLImageElement).style.display =
+                            'none')
+                      "
+                    />
+                    <div
+                      v-else
+                      class="flex h-full w-full items-center justify-center"
+                    >
+                      <Icon
+                        icon="solar:book-bold-duotone"
+                        class="text-muted-foreground/30 h-8 w-8"
+                      />
+                    </div>
                   </div>
-                  <div class="text-muted-foreground text-xs">
-                    {{ book.page_count }}페이지
+
+                  <!-- 책 정보 (클릭 가능) -->
+                  <div
+                    class="min-w-0 flex-1 basis-0 cursor-pointer overflow-hidden py-0.5"
+                    @click="handleBookClick(book.id)"
+                  >
+                    <div
+                      class="hover:text-primary w-full truncate text-sm font-medium transition-colors"
+                    >
+                      {{ book.title }}
+                    </div>
+                    <div
+                      class="text-muted-foreground mt-1 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs"
+                    >
+                      <span
+                        v-if="getArtistNames(book)"
+                        class="flex items-center gap-1"
+                      >
+                        <Icon icon="solar:user-bold-duotone" class="h-3 w-3" />
+                        {{ getArtistNames(book) }}
+                      </span>
+                      <span
+                        v-if="book.page_count"
+                        class="flex items-center gap-1"
+                      >
+                        <Icon
+                          icon="solar:document-text-bold-duotone"
+                          class="h-3 w-3"
+                        />
+                        {{ book.page_count }}페이지
+                      </span>
+                    </div>
+                  </div>
+
+                  <!-- 순서 + 정렬 버튼 -->
+                  <div
+                    class="flex shrink-0 flex-col items-center justify-center gap-0.5"
+                    @click.stop
+                  >
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      class="h-5 w-5"
+                      :disabled="index === 0"
+                      @click="moveBook(index, 'up')"
+                    >
+                      <Icon
+                        icon="solar:alt-arrow-up-bold-duotone"
+                        class="h-3.5 w-3.5"
+                      />
+                    </Button>
+                    <span class="text-muted-foreground text-xs font-semibold">
+                      {{ index + 1 }}
+                    </span>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      class="h-5 w-5"
+                      :disabled="index === books.length - 1"
+                      @click="moveBook(index, 'down')"
+                    >
+                      <Icon
+                        icon="solar:alt-arrow-down-bold-duotone"
+                        class="h-3.5 w-3.5"
+                      />
+                    </Button>
+                  </div>
+
+                  <!-- 드래그 핸들 + 제거 버튼 -->
+                  <div
+                    class="flex shrink-0 flex-col items-center justify-center gap-1"
+                    @click.stop
+                  >
+                    <div class="cursor-grab active:cursor-grabbing">
+                      <Icon
+                        icon="solar:hamburger-menu-bold-duotone"
+                        class="text-muted-foreground h-4 w-4"
+                      />
+                    </div>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      class="text-muted-foreground hover:text-destructive h-6 w-6 opacity-0 transition-opacity group-hover:opacity-100"
+                      @click="handleRemoveBook(book.id)"
+                    >
+                      <Icon
+                        icon="solar:trash-bin-trash-bold-duotone"
+                        class="h-3.5 w-3.5"
+                      />
+                    </Button>
                   </div>
                 </div>
-
-                <!-- 제거 버튼 -->
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  class="shrink-0 opacity-0 transition-opacity group-hover:opacity-100"
-                  @click.stop="handleRemoveBook(book.id)"
-                >
-                  <Icon
-                    icon="solar:trash-bin-trash-bold-duotone"
-                    class="text-destructive h-4 w-4"
-                  />
-                </Button>
-              </div>
+              </template>
 
               <div
                 v-if="!books || books.length === 0"
@@ -415,7 +568,7 @@ const excludeBookIds = computed(() => books.value.map((book) => book.id));
           </div>
         </div>
       </ScrollArea>
-    </DialogContent>
+    </DialogScrollContent>
   </Dialog>
 
   <!-- 책 추가 다이얼로그 -->
