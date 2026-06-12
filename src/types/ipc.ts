@@ -9,6 +9,7 @@ export interface FilterParams {
   sortBy?: string; // title, added_at, last_read_at, artists, page_count, hitomi_id, random
   sortOrder?: "asc" | "desc";
   isFavorite?: boolean;
+  offlineStatus?: "all" | "online" | "offline";
 }
 
 export interface Preset {
@@ -47,6 +48,7 @@ export interface Book {
   page_count?: number;
   current_page?: number;
   is_favorite: boolean;
+  is_offline?: boolean; // 라이브러리 폴더 접근 불가(외장하드 분리 등) 시 true
   last_read_at?: string;
   hitomi_id?: string;
   type?: string;
@@ -425,7 +427,15 @@ export interface IpcChannels {
   };
   "rescan-library-folder": {
     request: string; // folderPath
-    response: { success: boolean; error?: string };
+    response: {
+      success: boolean;
+      added?: number;
+      updated?: number;
+      deleted?: number;
+      offline?: boolean; // 폴더 접근 불가로 오프라인 처리됨
+      offlineCount?: number; // 오프라인 처리된 책 수
+      error?: string;
+    };
   };
   "rescan-book-metadata": {
     request: number; // bookId

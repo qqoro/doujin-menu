@@ -11,3 +11,8 @@ dev.sqlite3-wal
 .idea
 
 licenses.json
+
+.claude/worktrees/
+.superpowers/
+docs/plans/
+*.local.*

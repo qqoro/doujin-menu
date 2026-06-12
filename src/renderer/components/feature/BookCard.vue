@@ -56,12 +56,30 @@ const viewerLink = computed(() => ({
   },
 }));
 
+// 오프라인 상태 여부 (라이브러리 폴더 접근 불가)
+const isOffline = computed(() => !!props.book.is_offline);
+
+// 오프라인 책 열람 시도 시 안내 토스트
+const showOfflineToast = () => {
+  toast.warning("라이브러리 폴더에 접근할 수 없습니다.", {
+    description: "해당 폴더에 접근할 수 있는지 확인한 후 다시 스캔해 주세요.",
+  });
+};
+
 const openInNewWindow = () => {
+  if (isOffline.value) {
+    showOfflineToast();
+    return;
+  }
   const url = `/viewer/${viewerLink.value.params.id}?${new URLSearchParams(viewerLink.value.query).toString()}`;
   api.openNewWindow(url);
 };
 
 const handleCardClick = (event: MouseEvent) => {
+  if (isOffline.value) {
+    showOfflineToast();
+    return;
+  }
   if (event.ctrlKey || event.metaKey) {
     // metaKey for Command key on macOS
     openInNewWindow();
@@ -197,12 +215,21 @@ const confirmDeleteBook = async () => {
         class="flex h-full cursor-pointer flex-col gap-0 overflow-hidden py-0 transition-shadow hover:shadow-lg"
         @click="handleCardClick"
       >
-        <CardContent class="p-0">
+        <CardContent class="relative p-0">
           <img
             :src="coverUrl"
             :alt="book.title"
             class="aspect-[2/3] h-auto w-full object-cover"
+            :class="{ 'opacity-50 grayscale': isOffline }"
           />
+          <Badge
+            v-if="isOffline"
+            variant="secondary"
+            class="absolute top-2 left-2 gap-1"
+          >
+            <Icon icon="solar:plug-circle-bold-duotone" class="h-3 w-3" />
+            오프라인
+          </Badge>
         </CardContent>
         <CardFooter class="flex-grow flex-col items-start gap-1 p-2">
           <p class="w-full truncate text-sm font-semibold" :title="book.title">

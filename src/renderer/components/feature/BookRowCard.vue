@@ -50,12 +50,30 @@ const viewerLink = computed(() => ({
   },
 }));
 
+// 오프라인 상태 여부 (라이브러리 폴더 접근 불가)
+const isOffline = computed(() => !!props.book.is_offline);
+
+// 오프라인 책 열람 시도 시 안내 토스트
+const showOfflineToast = () => {
+  toast.warning("라이브러리 폴더에 접근할 수 없습니다.", {
+    description: "해당 폴더에 접근할 수 있는지 확인한 후 다시 스캔해 주세요.",
+  });
+};
+
 const openInNewWindow = () => {
+  if (isOffline.value) {
+    showOfflineToast();
+    return;
+  }
   const url = `/viewer/${viewerLink.value.params.id}?${new URLSearchParams(viewerLink.value.query).toString()}`;
   api.openNewWindow(url);
 };
 
 const handleCardClick = (event: MouseEvent) => {
+  if (isOffline.value) {
+    showOfflineToast();
+    return;
+  }
   if (event.ctrlKey || event.metaKey) {
     openInNewWindow();
   } else {
@@ -155,7 +173,16 @@ const confirmDeleteBook = async () => {
         :src="coverUrl"
         :alt="book.title"
         class="h-full w-full rounded-md object-cover transition-transform duration-300 hover:scale-110"
+        :class="{ 'opacity-50 grayscale': isOffline }"
       />
+      <Badge
+        v-if="isOffline"
+        variant="secondary"
+        class="absolute top-2 left-2 gap-1"
+      >
+        <Icon icon="solar:plug-circle-bold-duotone" class="h-3 w-3" />
+        오프라인
+      </Badge>
       <div
         v-if="book.is_favorite"
         class="absolute top-2 right-2 rounded-full bg-red-500 p-1 text-white"

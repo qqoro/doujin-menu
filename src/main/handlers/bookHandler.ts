@@ -142,6 +142,7 @@ function buildFilteredQuery(filter: FilterParams | null) {
     readStatus = "all",
     isFavorite = false,
     libraryPath = "",
+    offlineStatus = "all",
   } = filter || {};
 
   const subquery = db("Book")
@@ -347,6 +348,13 @@ function buildFilteredQuery(filter: FilterParams | null) {
 
   if (isFavorite) {
     mainQuery.where("sub.is_favorite", true);
+  }
+
+  // 오프라인 상태 필터 (외장하드 분리 등으로 접근 불가한 책)
+  if (offlineStatus === "online") {
+    mainQuery.where("sub.is_offline", false);
+  } else if (offlineStatus === "offline") {
+    mainQuery.where("sub.is_offline", true);
   }
 
   return mainQuery;

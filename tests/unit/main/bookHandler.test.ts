@@ -415,6 +415,31 @@ describe("handleGetBooks - 통합 테스트", () => {
       const ids = await getResultIds({ libraryPath: "all" });
       expect(ids).toHaveLength(2);
     });
+
+    it("offlineStatus=online → 온라인 책만", async () => {
+      await seedBook(db, { path: "/a", is_offline: false });
+      await seedBook(db, { path: "/b", is_offline: true });
+
+      const ids = await getResultIds({ offlineStatus: "online" });
+      expect(ids).toHaveLength(1);
+    });
+
+    it("offlineStatus=offline → 오프라인 책만", async () => {
+      await seedBook(db, { path: "/a", is_offline: false });
+      await seedBook(db, { path: "/b", is_offline: true });
+      await seedBook(db, { path: "/c", is_offline: true });
+
+      const ids = await getResultIds({ offlineStatus: "offline" });
+      expect(ids).toHaveLength(2);
+    });
+
+    it("offlineStatus 미지정 → 전체 반환", async () => {
+      await seedBook(db, { path: "/a", is_offline: false });
+      await seedBook(db, { path: "/b", is_offline: true });
+
+      const ids = await getResultIds(null);
+      expect(ids).toHaveLength(2);
+    });
   });
 
   describe("검색어 필터", () => {

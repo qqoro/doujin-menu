@@ -105,6 +105,11 @@ export async function generateThumbnailForBook(bookId: number) {
     return null;
   }
 
+  // 오프라인 책은 소스 파일에 접근할 수 없으므로 썸네일 생성 생략
+  if (book.is_offline) {
+    return null;
+  }
+
   let sourcePath: string | null = null;
   const ext = path.extname(book.path).toLowerCase();
 

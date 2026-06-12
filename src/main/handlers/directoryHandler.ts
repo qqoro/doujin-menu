@@ -541,12 +541,106 @@ async function processBatchInTransaction(
   };
 }
 
+// 라이브러리 루트 폴더 접근 가능 여부 확인
+// ENOENT(부재)/EACCES(권한) 등 모든 실패를 "접근 불가"로 보수적으로 처리한다.
+export async function isPathAccessible(dirPath: string): Promise<boolean> {
+  try {
+    await fs.access(dirPath);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+// 모든 창에 books-updated를 전파해 라이브러리 화면 쿼리 캐시를 즉시 무효화
+function broadcastBooksUpdated() {
+  BrowserWindow.getAllWindows().forEach((window) => {
+    window.webContents.send("books-updated");
+  });
+}
+
+// 해당 경로 하위의 모든 책을 오프라인 상태로 표시하고 처리된 개수를 반환
+export async function markBooksOfflineUnderPath(
+  directoryPath: string,
+): Promise<number> {
+  const count = await db("Book")
+    .where("path", "like", `${directoryPath}%`)
+    .where("is_offline", false)
+    .update({ is_offline: true });
+
+  // 화면에 즉시 반영되도록 변경이 있을 때만 브로드캐스트
+  if (count > 0) broadcastBooksUpdated();
+  return count;
+}
+
+// 해당 경로 하위의 모든 오프라인 책을 온라인 상태로 복귀
+export async function restoreBooksOnlineUnderPath(
+  directoryPath: string,
+): Promise<number> {
+  const count = await db("Book")
+    .where("path", "like", `${directoryPath}%`)
+    .where("is_offline", true)
+    .update({ is_offline: false });
+
+  // 화면에 즉시 반영되도록 변경이 있을 때만 브로드캐스트
+  if (count > 0) broadcastBooksUpdated();
+  return count;
+}
+
+// 스캔에서 발견되지 않은 책 정리.
+// 스캔 도중 외장하드가 분리된 경우를 대비해 삭제 직전에 루트 접근을 재확인하고,
+// 접근 불가 시 삭제 대신 오프라인 마킹한다.
+export async function cleanupMissingBooks(
+  directoryPath: string,
+  foundPaths: Set<string>,
+): Promise<{ deleted: number; offline: boolean }> {
+  if (!(await isPathAccessible(directoryPath))) {
+    await markBooksOfflineUnderPath(directoryPath);
+    console.warn(
+      `[Main] 삭제 단계 직전 폴더 접근 불가 감지: ${directoryPath} — 삭제를 건너뛰고 오프라인으로 표시`,
+    );
+    return { deleted: 0, offline: true };
+  }
+
+  let deletedCount = 0;
+  await db.transaction(async (trx) => {
+    const existingBooksInDb = await trx("Book")
+      .select("id", "path", "cover_path")
+      .where("path", "like", `${directoryPath}%`);
+
+    const booksToDelete = existingBooksInDb.filter(
+      (book) => !foundPaths.has(book.path),
+    );
+
+    for (const book of booksToDelete) {
+      await trx("BookArtist").where("book_id", book.id).del();
+      await trx("BookTag").where("book_id", book.id).del();
+      await trx("BookSeries").where("book_id", book.id).del();
+      await trx("BookGroup").where("book_id", book.id).del();
+      await trx("BookCharacter").where("book_id", book.id).del();
+      await trx("Book").where("id", book.id).del();
+      deletedCount++;
+
+      if (book.cover_path) {
+        try {
+          await fs.unlink(book.cover_path);
+        } catch (e) {
+          console.error(`[Main] 썸네일 파일 삭제 실패 ${book.cover_path}:`, e);
+        }
+      }
+    }
+  });
+  return { deleted: deletedCount, offline: false };
+}
+
 export async function scanDirectory(directoryPath: string): Promise<{
   added: number;
   updated: number;
   deleted: number;
   foundPaths: Set<string>;
   bookIdsToGenerateThumbnails: number[];
+  offline?: boolean; // 루트 접근 불가로 오프라인 처리됨
+  offlineCount?: number; // 오프라인 처리된 책 수
 }> {
   const MAX_SCAN_DEPTH = 100;
   const CHUNK_SIZE = 100; // 메모리 최적화를 위한 청크 크기
@@ -590,6 +684,38 @@ export async function scanDirectory(directoryPath: string): Promise<{
   };
 
   try {
+    // 루트 폴더 접근 확인: 외장하드 분리 등으로 접근 불가 시
+    // 삭제 대신 오프라인 마킹 후 조기 반환 (데이터 보존)
+    if (!(await isPathAccessible(directoryPath))) {
+      const offlineCount = await markBooksOfflineUnderPath(directoryPath);
+      console.warn(
+        `[Main] 라이브러리 폴더 접근 불가: ${directoryPath} — ${offlineCount}권을 오프라인으로 표시`,
+      );
+      broadcastScanProgress({
+        folderPath: directoryPath,
+        phase: "completed",
+        progress: 100,
+        currentFile: null,
+        processedCount: 0,
+        totalCount: 0,
+        addedCount: 0,
+        updatedCount: 0,
+        deletedCount: 0,
+      });
+      return {
+        added: 0,
+        updated: 0,
+        deleted: 0,
+        foundPaths: totalFoundBookPathsInScan,
+        bookIdsToGenerateThumbnails: [],
+        offline: true,
+        offlineCount,
+      };
+    }
+
+    // 접근 가능: 이전에 오프라인 처리된 책들을 온라인으로 복귀
+    await restoreBooksOnlineUnderPath(directoryPath);
+
     // 1단계: 파일 수 카운트
     updateProgress("counting");
     console.log(`[Main] 파일 수 카운트 중...`);
@@ -710,37 +836,12 @@ export async function scanDirectory(directoryPath: string): Promise<{
       });
     }
 
-    // 삭제 처리 (기존 방식 유지)
-    await db.transaction(async (trx) => {
-      const existingBooksInDb = await trx("Book")
-        .select("id", "path", "cover_path")
-        .where("path", "like", `${directoryPath}%`);
-
-      const booksToDelete = existingBooksInDb.filter(
-        (book) => !totalFoundBookPathsInScan.has(book.path),
-      );
-
-      for (const book of booksToDelete) {
-        await trx("BookArtist").where("book_id", book.id).del();
-        await trx("BookTag").where("book_id", book.id).del();
-        await trx("BookSeries").where("book_id", book.id).del();
-        await trx("BookGroup").where("book_id", book.id).del();
-        await trx("BookCharacter").where("book_id", book.id).del();
-        await trx("Book").where("id", book.id).del();
-        totalDeletedCount++;
-
-        if (book.cover_path) {
-          try {
-            await fs.unlink(book.cover_path);
-          } catch (e) {
-            console.error(
-              `[Main] 썸네일 파일 삭제 실패 ${book.cover_path}:`,
-              e,
-            );
-          }
-        }
-      }
-    });
+    // 삭제 처리 (삭제 직전 루트 접근 재확인 포함)
+    const cleanupResult = await cleanupMissingBooks(
+      directoryPath,
+      totalFoundBookPathsInScan,
+    );
+    totalDeletedCount = cleanupResult.deleted;
 
     // 3단계: 썸네일 생성
     if (allBookIdsToGenerateThumbnails.length > 0) {
@@ -874,6 +975,7 @@ export async function scanDirectory(directoryPath: string): Promise<{
       deleted: totalDeletedCount,
       foundPaths: totalFoundBookPathsInScan,
       bookIdsToGenerateThumbnails: allBookIdsToGenerateThumbnails,
+      offline: cleanupResult.offline,
     };
   } catch (error) {
     console.error(`[Main] 디렉토리 스캔 중 오류: ${directoryPath}`, error);
@@ -1054,7 +1156,34 @@ export async function scanFile(filePath: string) {
 
 export const handleRescanLibraryFolder = async (folderPath: string) => {
   try {
-    const { added, updated, deleted } = await scanDirectory(folderPath);
+    const { added, updated, deleted, offline } =
+      await scanDirectory(folderPath);
+
+    // 폴더 접근 불가로 오프라인 처리된 경우 썸네일 생성 생략
+    // (소스 파일이 없어 실패만 반복하므로)
+    if (offline) {
+      // 이번에 전환된 수가 아닌 현재 오프라인 상태인 전체 권수를 집계 (재스캔 반복 시에도 정확)
+      const offlineTotalResult = await db("Book")
+        .where("path", "like", `${folderPath}%`)
+        .where("is_offline", true)
+        .count("* as count")
+        .first();
+      const offlineCount = offlineTotalResult
+        ? (offlineTotalResult.count as number)
+        : 0;
+      console.log(
+        `[Main] ${folderPath} 접근 불가 — ${offlineCount}권 오프라인 처리`,
+      );
+      return {
+        success: true,
+        added,
+        updated,
+        deleted,
+        offline: true,
+        offlineCount,
+      };
+    }
+
     const books = await db("Book")
       .select("id")
       .whereLike("path", `${folderPath}%`)
@@ -1063,7 +1192,7 @@ export const handleRescanLibraryFolder = async (folderPath: string) => {
     console.log(
       `[Main] ${folderPath}에 대한 재스캔 완료: 추가 ${added}, 업데이트 ${updated}, 삭제 ${deleted}`,
     );
-    return { success: true, added, updated, deleted };
+    return { success: true, added, updated, deleted, offline: false };
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     console.error(`${folderPath} 폴더 재스캔 오류:`, error);

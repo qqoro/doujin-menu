@@ -72,6 +72,9 @@ const readStatus = ref<"all" | "read" | "unread">(
   (route.query.readStatus as "all" | "read" | "unread") || "all",
 );
 const isFavorite = ref((route.query.isFavorite as string) || "all");
+const offlineStatus = ref<"all" | "online" | "offline">(
+  (route.query.offlineStatus as "all" | "online" | "offline") || "all",
+);
 const sortBy = ref((route.query.sortBy as string) || "added_at");
 const sortOrder = ref<"asc" | "desc">(
   (route.query.sortOrder as "asc" | "desc") || "desc",
@@ -83,6 +86,7 @@ const { schWord: searchQuery } = useQueryAndParams({
     libraryPath,
     readStatus,
     isFavorite,
+    offlineStatus,
     sortBy,
     sortOrder,
   },
@@ -90,6 +94,7 @@ const { schWord: searchQuery } = useQueryAndParams({
     libraryPath: "all",
     readStatus: "all",
     isFavorite: "all",
+    offlineStatus: "all",
     sortBy: "added_at",
     sortOrder: "desc",
   },
@@ -213,6 +218,7 @@ const queryKey = computed(
         searchQuery: debouncedSearchQuery.value,
         libraryPath: libraryPath.value,
         readStatus: readStatus.value,
+        offlineStatus: offlineStatus.value,
         sortBy: sortBy.value,
         sortOrder: sortOrder.value,
         isFavorite: isFavorite.value === "favorite",
@@ -652,6 +658,17 @@ useScrollRestoration(".flex-grow.overflow-y-auto");
             <DropdownMenuRadioItem value="all">모두</DropdownMenuRadioItem>
             <DropdownMenuRadioItem value="favorite"
               >즐겨찾기만</DropdownMenuRadioItem
+            >
+          </DropdownMenuRadioGroup>
+          <DropdownMenuSeparator />
+          <DropdownMenuLabel>오프라인 상태</DropdownMenuLabel>
+          <DropdownMenuRadioGroup v-model="offlineStatus">
+            <DropdownMenuRadioItem value="all">모두</DropdownMenuRadioItem>
+            <DropdownMenuRadioItem value="online"
+              >온라인만</DropdownMenuRadioItem
+            >
+            <DropdownMenuRadioItem value="offline"
+              >오프라인만</DropdownMenuRadioItem
             >
           </DropdownMenuRadioGroup>
         </DropdownMenuContent>

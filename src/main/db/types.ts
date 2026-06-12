@@ -9,6 +9,7 @@ export interface Book {
   last_read_at: string | null;
   current_page: number | null;
   is_favorite: boolean;
+  is_offline?: boolean; // 라이브러리 폴더 접근 불가(외장하드 분리 등) 시 true
   hitomi_id?: string | null;
   series_name?: string; // Series name can be directly on Book for display (패러디 원본용)
   artists?: Artist[];

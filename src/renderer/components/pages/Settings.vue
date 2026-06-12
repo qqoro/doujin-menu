@@ -519,7 +519,11 @@ const removeLibraryFolder = async (folderPath: string) => {
 const rescanLibraryFolder = async (folderPath: string) => {
   toast.info(`'${folderPath}' 폴더를 다시 스캔합니다...`);
   const result = await ipcRenderer.invoke("rescan-library-folder", folderPath);
-  if (result.success) {
+  if (result.success && result.offline) {
+    toast.warning("폴더에 접근할 수 없습니다.", {
+      description: `해당 폴더에 접근할 수 없어 ${result.offlineCount}권을 오프라인으로 표시했습니다.`,
+    });
+  } else if (result.success) {
     await loadLibraryFolders();
     toast.success(`'${folderPath}' 폴더 스캔이 완료되었습니다.`);
   } else {
