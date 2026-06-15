@@ -49,6 +49,11 @@ const routes: RouteRecordRaw[] = [
         name: "Browse",
         component: () => import("./components/pages/Browse.vue"),
       },
+      {
+        path: "/duplicates",
+        name: "Duplicates",
+        component: () => import("./components/pages/Duplicates.vue"),
+      },
     ],
   },
   {

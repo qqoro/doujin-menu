@@ -144,6 +144,37 @@ export interface Statistics {
   };
 }
 
+// ========== 중복 책 정리 ==========
+
+// 중복 그룹 내 개별 사본 정보
+export interface DuplicateBookInfo {
+  id: number;
+  title: string;
+  path: string;
+  isArchive: boolean; // 경로 확장자(.zip/.cbz) 기준 압축파일 여부
+  page_count: number | null;
+  cover_path: string | null;
+  is_offline: boolean;
+  is_favorite: boolean;
+  current_page: number | null;
+  last_read_at: string | null;
+}
+
+// 중복 그룹 (hitomi_id 또는 제목 일치)
+export interface DuplicateGroup {
+  key: string;
+  matchType: "hitomi_id" | "title";
+  books: DuplicateBookInfo[];
+}
+
+// 중복 일괄 삭제 결과 (전체 성공 시에만 success: true, 부분 실패 시 false + errors에 사유 집계)
+export interface DeleteDuplicatesResult {
+  success: boolean;
+  deletedCount: number;
+  failedCount: number;
+  errors: { bookId: number; error: string }[];
+}
+
 // 라이브러리 스캔 진행률 정보
 export interface LibraryScanProgress {
   folderPath: string; // 스캔 중인 폴더 경로
@@ -309,6 +340,17 @@ export interface IpcChannels {
     request: void;
     response: Statistics;
   };
+
+  // 중복 책 정리 핸들러
+  "get-duplicate-groups": {
+    request: void;
+    response: { success: boolean; groups?: DuplicateGroup[]; error?: string };
+  };
+  "delete-duplicate-books": {
+    request: { bookIds: number[]; permanent: boolean };
+    response: DeleteDuplicatesResult;
+  };
+
   "get-library-size": {
     request: void;
     response: number;

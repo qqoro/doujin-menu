@@ -249,8 +249,7 @@ const {
       <AlertDialogHeader>
         <AlertDialogTitle>책을 삭제하시겠습니까?</AlertDialogTitle>
         <AlertDialogDescription>
-          이 작업은 되돌릴 수 없습니다. 데이터베이스에서 책 정보가 삭제되고,
-          물리 파일도 영구적으로 삭제됩니다.
+          데이터베이스에서 책 정보가 삭제되고, 파일은 휴지통으로 이동합니다.
         </AlertDialogDescription>
       </AlertDialogHeader>
       <AlertDialogFooter>

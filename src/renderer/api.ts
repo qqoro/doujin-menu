@@ -1,4 +1,5 @@
 import type {
+  DeleteDuplicatesResult,
   FilterParams,
   Preset,
   TypedIpcRenderer,
@@ -80,6 +81,25 @@ export async function deleteBook(bookId: number) {
   } else {
     throw new Error(result.error || "Failed to delete book");
   }
+}
+
+// 중복 책 그룹 목록 조회
+export async function getDuplicateGroups() {
+  const result = await ipcRenderer.invoke("get-duplicate-groups");
+  if (result.success && result.groups) {
+    return result.groups;
+  } else {
+    throw new Error(result.error || "중복 목록 조회에 실패했습니다.");
+  }
+}
+
+// 선택한 중복 책 일괄 삭제 (부분 실패 허용 — 결과를 그대로 반환)
+// IPC 자체 오류(핸들러 미등록 등)는 throw되므로 호출부에서 try/catch 필요
+export async function deleteDuplicateBooks(
+  bookIds: number[],
+  permanent: boolean,
+): Promise<DeleteDuplicatesResult> {
+  return ipcRenderer.invoke("delete-duplicate-books", { bookIds, permanent });
 }
 
 export function openNewWindow(url: string) {

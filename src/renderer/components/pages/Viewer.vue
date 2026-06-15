@@ -47,6 +47,7 @@ import { useThrottleFn } from "@vueuse/core";
 import { storeToRefs } from "pinia";
 import { computed, onMounted, onUnmounted, ref, watch } from "vue";
 import { useRoute, useRouter } from "vue-router";
+import { toast } from "vue-sonner";
 
 const route = useRoute();
 const router = useRouter();
@@ -248,7 +249,6 @@ const handleDeleteBook = async () => {
   try {
     const currentBookId = bookId.value;
     await deleteBook(currentBookId);
-    isDeleteDialogOpen.value = false;
 
     // 라이브러리 목록 쿼리 무효화
     queryClient.invalidateQueries({ queryKey: ["books"] });
@@ -283,6 +283,11 @@ const handleDeleteBook = async () => {
     }
   } catch (error) {
     console.error("책 삭제 중 오류 발생:", error);
+    toast.error("책 삭제 실패", {
+      description: (error as Error).message,
+    });
+  } finally {
+    isDeleteDialogOpen.value = false;
   }
 };
 
@@ -1240,8 +1245,7 @@ useKeybindings(
         <AlertDialogHeader>
           <AlertDialogTitle>책을 삭제하시겠습니까?</AlertDialogTitle>
           <AlertDialogDescription>
-            이 작업은 되돌릴 수 없습니다. 책과 관련된 모든 데이터가 영구적으로
-            삭제됩니다.
+            책과 관련된 모든 데이터가 삭제되고, 파일은 휴지통으로 이동합니다.
           </AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter>

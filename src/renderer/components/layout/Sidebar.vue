@@ -58,6 +58,12 @@ const navItems = [
     label: "통계",
   },
   {
+    to: "/duplicates",
+    name: "Duplicates",
+    icon: "solar:copy-bold-duotone",
+    label: "중복 정리",
+  },
+  {
     to: "/settings",
     name: "Settings",
     icon: "solar:settings-bold-duotone",

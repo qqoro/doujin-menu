@@ -122,7 +122,8 @@ export function useGalleryCard(
     } catch (error) {
       console.error("책 삭제 실패:", error);
       toast.error("책 삭제 실패", {
-        description: "책을 삭제하는 중 오류가 발생했습니다.",
+        description:
+          (error as Error).message || "책을 삭제하는 중 오류가 발생했습니다.",
       });
     } finally {
       isDeleteDialogOpen.value = false;

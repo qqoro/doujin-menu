@@ -38,6 +38,7 @@ import {
 } from "./handlers/seriesCollectionHandler.js";
 import { registerBrowseHandlers } from "./handlers/browseHandler.js";
 import { registerStatisticsHandlers } from "./handlers/statisticsHandler.js";
+import { registerDuplicatesHandlers } from "./handlers/duplicatesHandler.js";
 import {
   handleGenerateThumbnail,
   registerThumbnailHandlers,
@@ -226,6 +227,7 @@ app.whenReady().then(async () => {
   registerSeriesCollectionHandlers();
   registerBrowseHandlers();
   registerStatisticsHandlers();
+  registerDuplicatesHandlers();
   registerThumbnailHandlers();
   registerWindowHandlers(mainWindow, createViewerWindow, viewerWindows);
 

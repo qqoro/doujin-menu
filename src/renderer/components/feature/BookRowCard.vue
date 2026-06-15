@@ -155,7 +155,8 @@ const confirmDeleteBook = async () => {
   } catch (error) {
     console.error("책 삭제 실패:", error);
     toast.error("책 삭제 실패", {
-      description: "책을 삭제하는 중 오류가 발생했습니다.",
+      description:
+        (error as Error).message || "책을 삭제하는 중 오류가 발생했습니다.",
     });
   } finally {
     isDeleteDialogOpen.value = false;
@@ -360,8 +361,7 @@ const confirmDeleteBook = async () => {
       <AlertDialogHeader>
         <AlertDialogTitle>책을 삭제하시겠습니까?</AlertDialogTitle>
         <AlertDialogDescription>
-          이 작업은 되돌릴 수 없습니다. 데이터베이스에서 책 정보가 삭제되고,
-          물리 파일도 영구적으로 삭제됩니다.
+          데이터베이스에서 책 정보가 삭제되고, 파일은 휴지통으로 이동합니다.
         </AlertDialogDescription>
       </AlertDialogHeader>
       <AlertDialogFooter>

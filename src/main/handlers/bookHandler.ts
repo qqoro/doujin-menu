@@ -1068,7 +1068,10 @@ export const handleClearBookHistory = async () => {
   }
 };
 
-export const handleDeleteBook = async (bookId: number) => {
+export const handleDeleteBook = async (
+  bookId: number,
+  options?: { permanent?: boolean },
+) => {
   try {
     const book = await db("Book").where("id", bookId).first();
 
@@ -1076,8 +1079,41 @@ export const handleDeleteBook = async (bookId: number) => {
       return { success: false, error: "Book not found." };
     }
 
+    // 실제 파일/폴더 삭제 — 기본은 휴지통 이동, permanent 옵션 시 영구 삭제.
+    // 휴지통 이동 실패 시 DB 레코드를 보존해야 하므로 파일 삭제를 먼저 수행한다.
+    if (book.path) {
+      try {
+        const stats = await fs.stat(book.path);
+        if (options?.permanent) {
+          if (stats.isDirectory()) {
+            await fs.rm(book.path, { recursive: true, force: true });
+          } else if (stats.isFile()) {
+            await fs.unlink(book.path);
+          }
+        } else {
+          await shell.trashItem(book.path);
+        }
+      } catch (fileError) {
+        const code = (fileError as NodeJS.ErrnoException).code;
+        // 파일이 이미 없으면(ENOENT) 정상 진행 — DB만 정리
+        if (code !== "ENOENT") {
+          // 파일 삭제 실패(영구/휴지통 공통): DB 레코드를 보존하고 실패 반환.
+          // 파일과 DB가 항상 함께 유지되거나 함께 삭제되도록 일관성을 보장한다.
+          const action = options?.permanent ? "영구 삭제" : "휴지통으로 이동";
+          console.error(
+            `[Main] Failed to delete physical file/folder ${book.path}:`,
+            fileError,
+          );
+          return {
+            success: false,
+            error: `파일을 ${action}하지 못했습니다.`,
+          };
+        }
+      }
+    }
+
     await db.transaction(async (trx) => {
-      // Delete from related tables first
+      // 연관 테이블 먼저 삭제
       await trx("BookArtist").where("book_id", bookId).del();
       await trx("BookTag").where("book_id", bookId).del();
       await trx("BookSeries").where("book_id", bookId).del();
@@ -1085,32 +1121,11 @@ export const handleDeleteBook = async (bookId: number) => {
       await trx("BookCharacter").where("book_id", bookId).del();
       await trx("BookHistory").where("book_id", bookId).del();
 
-      // Finally, delete the book itself
+      // 마지막으로 책 레코드 삭제
       await trx("Book").where("id", bookId).del();
     });
 
-    // Delete physical file/folder
-    if (book.path) {
-      try {
-        const stats = await fs.stat(book.path);
-        if (stats.isDirectory()) {
-          await fs.rm(book.path, { recursive: true, force: true });
-        } else if (stats.isFile()) {
-          await fs.unlink(book.path);
-        }
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      } catch (fileError: any) {
-        if (fileError.code !== "ENOENT") {
-          console.error(
-            `[Main] Failed to delete physical file/folder ${book.path}:`,
-            fileError,
-          );
-          // Do not re-throw, as DB deletion was successful
-        }
-      }
-    }
-
-    // Delete thumbnail file if it exists and is not a placeholder
+    // 썸네일은 캐시 파일이므로 즉시 삭제 (플레이스홀더 제외)
     if (
       book.cover_path &&
       !book.cover_path.startsWith("https://via.placeholder.com")
