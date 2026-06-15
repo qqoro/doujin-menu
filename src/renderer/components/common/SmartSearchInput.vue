@@ -86,6 +86,60 @@ const currentSearchTerm = computed(() => {
   return props.modelValue.substring(lastSpaceIndex + 1);
 });
 
+// 태그 이름에서 성별 접두사(female:/male:)를 떼어낸 핵심 부분을 반환
+const stripGenderPrefix = (name: string): string => {
+  for (const p of implicitTagPrefixes) {
+    if (name.toLowerCase().startsWith(p)) return name.slice(p.length);
+  }
+  return name;
+};
+
+// 프리픽스 없이 입력한 단어에 대해 모든 메타데이터(태그/작가/그룹/시리즈/캐릭터/타입/언어)에서
+// 매칭 후보를 수집한다. 선택 시 검색이 동작하도록 알맞은 프리픽스를 붙여 완성 문자열을 만든다.
+const collectDataSuggestions = (
+  term: string,
+  currentTerms: Set<string>,
+): string[] => {
+  const MAX_SUGGESTIONS = 30;
+  const out: string[] = [];
+
+  const tryPush = (suggestion: string) => {
+    if (out.length >= MAX_SUGGESTIONS) return;
+    if (currentTerms.has(suggestion.toLowerCase())) return;
+    if (out.includes(suggestion)) return;
+    out.push(suggestion);
+  };
+
+  // 태그: 성별 접두사를 떼어낸 부분으로 매칭하되,
+  // 성별 태그는 저장된 형태 그대로(female:xxx), 일반 태그는 tag: 프리픽스를 붙여 제안
+  for (const name of tagNames.value) {
+    if (out.length >= MAX_SUGGESTIONS) break;
+    const core = stripGenderPrefix(name).toLowerCase();
+    if (!core.startsWith(term)) continue;
+    const hasGender = core !== name.toLowerCase();
+    tryPush(hasGender ? name : `tag:${name}`);
+  }
+
+  // 그 외 카테고리: 해당 프리픽스를 붙여 제안
+  const categories: { prefix: string; names: string[] }[] = [
+    { prefix: "artist:", names: artistNames.value },
+    { prefix: "group:", names: groupNames.value },
+    { prefix: "series:", names: seriesNames.value },
+    { prefix: "character:", names: characterNames.value },
+    { prefix: "type:", names: typeNames.value },
+    { prefix: "language:", names: languageNames.value },
+  ];
+  for (const { prefix, names } of categories) {
+    for (const name of names) {
+      if (out.length >= MAX_SUGGESTIONS) break;
+      if (!name.toLowerCase().startsWith(term)) continue;
+      tryPush(`${prefix}${name}`);
+    }
+  }
+
+  return out;
+};
+
 // 프리픽스 제안 (즉시 반응, 데이터 양이 적어 debounce 불필요)
 watch(
   () => props.modelValue,
@@ -172,10 +226,14 @@ watchDebounced(
       // 알 수 없는 프리픽스가 입력된 경우
       suggestions.value = [];
     } else {
-      // 프리픽스가 아직 없는 경우, 제안 가능한 모든 프리픽스를 보여줌
-      suggestions.value = allSuggestiblePrefixes
+      // 프리픽스가 아직 없는 경우: 프리픽스 후보 + 모든 메타데이터 매칭 후보를 함께 제안
+      const prefixSuggestions = allSuggestiblePrefixes
         .filter((p: string) => p.startsWith(term))
         .filter((s: string) => !currentTerms.has(s.toLowerCase()));
+      suggestions.value = [
+        ...prefixSuggestions,
+        ...collectDataSuggestions(term, currentTerms),
+      ];
     }
 
     activeSuggestionIndex.value = -1;
