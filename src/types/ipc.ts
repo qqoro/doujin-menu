@@ -871,6 +871,7 @@ export interface IpcSendChannels {
     autoZip: boolean;
   };
   "cancel-download": string; // galleryId
+  "renderer-ready": void; // 렌더러 준비 완료 신호 (자동 스캔 결과 수신 준비)
 }
 
 // Typed IpcRenderer wrapper

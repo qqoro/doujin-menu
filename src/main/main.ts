@@ -474,24 +474,29 @@ app.whenReady().then(async () => {
   if (config.autoLoadLibrary) {
     const libraryFolders = config.libraryFolders || [];
 
-    // 스캔을 백그라운드에서 비동기로 실행 (UI 로딩을 차단하지 않음)
-    Promise.resolve().then(async () => {
-      for (const folderPath of libraryFolders) {
-        console.log(`[Main] Auto-scanning library folder: ${folderPath}`);
-        await scanDirectory(folderPath);
+    // 렌더러가 진행 배너 리스너를 등록한 뒤 스캔을 시작한다.
+    // 증분 스캔(②)으로 스캔이 매우 빨라 렌더러 준비 전에 끝나면 배너 이벤트를
+    // 놓치므로, renderer-ready 신호를 받은 시점부터 스캔을 돌린다.
+    ipcMain.on("renderer-ready", () => {
+      // 스캔을 백그라운드에서 비동기로 실행 (UI 로딩을 차단하지 않음)
+      Promise.resolve().then(async () => {
+        for (const folderPath of libraryFolders) {
+          console.log(`[Main] Auto-scanning library folder: ${folderPath}`);
+          await scanDirectory(folderPath);
 
-        const books = await db("Book")
-          .select("id")
-          .whereLike("path", `${folderPath}%`)
-          .and.where("cover_path", null);
+          const books = await db("Book")
+            .select("id")
+            .whereLike("path", `${folderPath}%`)
+            .and.where("cover_path", null);
 
-        await Promise.all(
-          books.map((book) => handleGenerateThumbnail(book.id)),
-        );
-      }
+          await Promise.all(
+            books.map((book) => handleGenerateThumbnail(book.id)),
+          );
+        }
 
-      // 스캔 완료 후 UI에 알림
-      mainWindow.webContents.send("library-scan-completed");
+        // 스캔 완료 후 UI에 알림
+        mainWindow.webContents.send("library-scan-completed");
+      });
     });
   }
 });

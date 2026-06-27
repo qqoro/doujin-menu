@@ -76,6 +76,10 @@ onMounted(async () => {
       toast.error(`업데이트 오류: ${error}`);
     }
   });
+
+  // 모든 리스너 등록이 끝난 뒤 준비 신호 전송.
+  // main은 이 신호를 받은 이후에만 자동 스캔 결과를 보내므로 결과 이벤트를 유실하지 않는다.
+  ipcRenderer.send("renderer-ready");
 });
 </script>
 
