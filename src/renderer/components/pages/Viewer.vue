@@ -56,6 +56,12 @@ const uiStore = useUiStore();
 const queryClient = useQueryClient();
 
 const isNewWindow = ref(false);
+const isMaximized = ref(false);
+
+// 새 창 모드용 윈도우 제어
+const minimizeWindow = () => ipcRenderer.send("minimize-window");
+const maximizeToggleWindow = () => ipcRenderer.send("maximize-toggle-window");
+const closeWindow = () => ipcRenderer.send("close-window");
 
 // 히스토리 추가 대기 상태 (페이지를 실제로 봤을 때만 기록하기 위함)
 const pendingHistoryBookId = ref<number | null>(null);
@@ -419,6 +425,11 @@ watch(currentPage, () => {
 
 onMounted(async () => {
   isNewWindow.value = await apiIsNewWindow();
+  // 새 창 모드일 때 최대화 상태 동기화
+  isMaximized.value = await ipcRenderer.invoke("get-window-maximized-state");
+  ipcRenderer.on("window-maximized", (_event, ...args) => {
+    isMaximized.value = args[0] as boolean;
+  });
   store.loadViewerSettings();
   const bookId = Number(route.params.id);
   const filter = route.query.filter;
@@ -465,6 +476,7 @@ onUnmounted(() => {
   store.cleanup();
   store.webtoonScrollRef = null; // ref 제거
   ipcRenderer.send("set-fullscreen-window", false);
+  ipcRenderer.removeAllListeners("window-maximized");
   if (cursorHideTimer !== null) {
     clearTimeout(cursorHideTimer);
   }
@@ -613,191 +625,225 @@ useKeybindings(
     <Transition name="fade">
       <div
         v-if="showControls"
-        class="bg-muted-foreground/50 fixed top-0 right-0 left-0 z-50 p-4 transition-opacity duration-300"
+        class="bg-muted-foreground/65 supports-[backdrop-filter]:bg-muted-foreground/55 fixed top-0 right-0 left-0 z-50 flex h-12 items-center justify-between gap-2 px-3 backdrop-blur-sm transition-opacity duration-300 supports-[backdrop-filter]:backdrop-blur-sm"
         style="-webkit-app-region: drag"
       >
         <TooltipProvider>
-          <div class="flex items-center justify-between gap-2">
-            <div class="flex min-w-0 flex-1 items-center gap-2">
-              <Tooltip>
-                <TooltipTrigger as-child>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    style="-webkit-app-region: no-drag"
-                    @click="isNewWindow ? closeCurrentWindow() : router.back()"
-                  >
-                    <Icon
-                      icon="solar:alt-arrow-left-line-duotone"
-                      class="size-6"
-                    />
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent>
-                  <p v-if="isNewWindow" class="flex items-center gap-1">
-                    창 닫기 <kbd>Esc</kbd>
-                  </p>
-                  <p v-else class="flex items-center gap-1">
-                    라이브러리로 돌아가기 <kbd>Esc</kbd>
-                  </p>
-                </TooltipContent>
-              </Tooltip>
-              <h1 class="truncate text-xl font-bold">
-                {{ bookTitle || "만화책 뷰어" }}
-              </h1>
-            </div>
-            <div class="flex items-center gap-2">
-              <Tooltip>
-                <TooltipTrigger as-child>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    style="-webkit-app-region: no-drag"
-                    @click="store.loadPrevBook()"
-                  >
-                    <Icon
-                      icon="solar:rewind-back-bold-duotone"
-                      class="h-6 w-6"
-                    />
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent>
-                  <p class="flex items-center gap-1">이전 책 <kbd>[</kbd></p>
-                </TooltipContent>
-              </Tooltip>
-              <Tooltip>
-                <TooltipTrigger as-child>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    style="-webkit-app-region: no-drag"
-                    @click="store.toggleAutoPlay"
-                  >
-                    <Icon
-                      :icon="
-                        isAutoPlay
-                          ? 'solar:pause-bold-duotone'
-                          : 'solar:play-bold-duotone'
-                      "
-                      class="h-6 w-6"
-                    />
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent>
-                  <div class="grid grid-cols-2 gap-x-2 gap-y-1">
-                    <span>자동 재생</span>
-                    <div class="flex items-center gap-1">
-                      <kbd>Ctrl</kbd>+<kbd>1-9</kbd>
-                    </div>
-                    <span>정지</span>
-                    <div class="flex items-center gap-1">
-                      <kbd>Ctrl</kbd>+<kbd>0</kbd>
-                    </div>
+          <div class="flex min-w-0 flex-1 items-center gap-1">
+            <Tooltip>
+              <TooltipTrigger as-child>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  class="text-background hover:bg-background/15 hover:text-background size-8"
+                  style="-webkit-app-region: no-drag"
+                  @click="isNewWindow ? closeCurrentWindow() : router.back()"
+                >
+                  <Icon
+                    icon="solar:alt-arrow-left-line-duotone"
+                    class="size-5"
+                  />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>
+                <p v-if="isNewWindow" class="flex items-center gap-1">
+                  창 닫기 <kbd>Esc</kbd>
+                </p>
+                <p v-else class="flex items-center gap-1">
+                  라이브러리로 돌아가기 <kbd>Esc</kbd>
+                </p>
+              </TooltipContent>
+            </Tooltip>
+            <h1 class="text-background truncate px-2 text-xl font-bold">
+              {{ bookTitle || "만화책 뷰어" }}
+            </h1>
+          </div>
+          <div class="flex items-center gap-1">
+            <Tooltip>
+              <TooltipTrigger as-child>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  class="text-background hover:bg-background/15 hover:text-background size-8"
+                  style="-webkit-app-region: no-drag"
+                  @click="store.loadPrevBook()"
+                >
+                  <Icon icon="solar:rewind-back-bold-duotone" class="size-5" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>
+                <p class="flex items-center gap-1">이전 책 <kbd>[</kbd></p>
+              </TooltipContent>
+            </Tooltip>
+            <Tooltip>
+              <TooltipTrigger as-child>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  class="text-background hover:bg-background/15 hover:text-background size-8"
+                  style="-webkit-app-region: no-drag"
+                  @click="store.toggleAutoPlay"
+                >
+                  <Icon
+                    :icon="
+                      isAutoPlay
+                        ? 'solar:pause-bold-duotone'
+                        : 'solar:play-bold-duotone'
+                    "
+                    class="size-5"
+                  />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>
+                <div class="grid grid-cols-2 gap-x-2 gap-y-1">
+                  <span>자동 재생</span>
+                  <div class="flex items-center gap-1">
+                    <kbd>Ctrl</kbd>+<kbd>1-9</kbd>
                   </div>
-                </TooltipContent>
-              </Tooltip>
+                  <span>정지</span>
+                  <div class="flex items-center gap-1">
+                    <kbd>Ctrl</kbd>+<kbd>0</kbd>
+                  </div>
+                </div>
+              </TooltipContent>
+            </Tooltip>
+            <Tooltip>
+              <TooltipTrigger as-child>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  class="text-background hover:bg-background/15 hover:text-background size-8"
+                  style="-webkit-app-region: no-drag"
+                  @click="store.loadNextBook()"
+                >
+                  <Icon
+                    icon="solar:rewind-forward-bold-duotone"
+                    class="size-5"
+                  />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>
+                <p class="flex items-center gap-1">다음 책 <kbd>]</kbd></p>
+              </TooltipContent>
+            </Tooltip>
+            <!-- 랜덤 책 버튼 -->
+            <Tooltip>
+              <TooltipTrigger as-child>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  class="text-background hover:bg-background/15 hover:text-background size-8"
+                  style="-webkit-app-region: no-drag"
+                  @click="store.loadNextBook('random')"
+                >
+                  <Icon icon="solar:shuffle-bold-duotone" class="size-5" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>
+                <p class="flex items-center gap-1">랜덤 책 <kbd>\</kbd></p>
+              </TooltipContent>
+            </Tooltip>
+            <!-- 시리즈 네비게이션 버튼 -->
+            <div
+              v-if="book?.series_collection_id"
+              class="border-background/25 ml-1 flex items-center gap-1 border-l pl-1"
+            >
               <Tooltip>
                 <TooltipTrigger as-child>
                   <Button
                     variant="ghost"
                     size="icon"
+                    class="text-background hover:bg-background/15 hover:text-background size-8"
                     style="-webkit-app-region: no-drag"
-                    @click="store.loadNextBook()"
+                    @click="store.loadPrevBookInSeries()"
                   >
                     <Icon
-                      icon="solar:rewind-forward-bold-duotone"
-                      class="h-6 w-6"
+                      icon="solar:skip-previous-bold-duotone"
+                      class="size-5"
                     />
                   </Button>
                 </TooltipTrigger>
                 <TooltipContent>
-                  <p class="flex items-center gap-1">다음 책 <kbd>]</kbd></p>
+                  <p class="flex items-center gap-1">
+                    시리즈 이전 권 <kbd>Shift</kbd>+<kbd>[</kbd>
+                  </p>
                 </TooltipContent>
               </Tooltip>
-              <!-- 랜덤 책 버튼 -->
               <Tooltip>
                 <TooltipTrigger as-child>
                   <Button
                     variant="ghost"
                     size="icon"
+                    class="text-background hover:bg-background/15 hover:text-background size-8"
                     style="-webkit-app-region: no-drag"
-                    @click="store.loadNextBook('random')"
+                    @click="store.loadNextBookInSeries()"
                   >
-                    <Icon icon="solar:shuffle-bold-duotone" class="h-6 w-6" />
+                    <Icon icon="solar:skip-next-bold-duotone" class="size-5" />
                   </Button>
                 </TooltipTrigger>
                 <TooltipContent>
-                  <p class="flex items-center gap-1">랜덤 책 <kbd>\</kbd></p>
+                  <p class="flex items-center gap-1">
+                    시리즈 다음 권 <kbd>Shift</kbd>+<kbd>]</kbd>
+                  </p>
                 </TooltipContent>
               </Tooltip>
-              <!-- 시리즈 네비게이션 버튼 -->
-              <div
-                v-if="book?.series_collection_id"
-                class="border-muted-foreground/30 ml-2 flex items-center gap-1 border-l pl-2"
+            </div>
+            <Tooltip>
+              <TooltipTrigger as-child>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  class="text-background hover:bg-background/15 hover:text-background size-8"
+                  style="-webkit-app-region: no-drag"
+                  @click="store.toggleFavorite()"
+                >
+                  <Icon
+                    :icon="
+                      is_favorite
+                        ? 'solar:star-bold-duotone'
+                        : 'solar:star-outline'
+                    "
+                    class="size-5"
+                  />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>
+                <p>즐겨찾기</p>
+              </TooltipContent>
+            </Tooltip>
+            <!-- 새 창 모드일 때 윈도우 타이틀바 스타일 창 제어 버튼 -->
+            <div
+              v-if="isNewWindow"
+              class="border-background/25 ml-1 flex items-stretch border-l"
+              style="-webkit-app-region: no-drag"
+            >
+              <button
+                type="button"
+                class="text-background hover:bg-background/15 flex w-9 items-center justify-center transition-colors"
+                title="최소화"
+                @click="minimizeWindow"
               >
-                <Tooltip>
-                  <TooltipTrigger as-child>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      style="-webkit-app-region: no-drag"
-                      @click="store.loadPrevBookInSeries()"
-                    >
-                      <Icon
-                        icon="solar:skip-previous-bold-duotone"
-                        class="h-6 w-6"
-                      />
-                    </Button>
-                  </TooltipTrigger>
-                  <TooltipContent>
-                    <p class="flex items-center gap-1">
-                      시리즈 이전 권 <kbd>Shift</kbd>+<kbd>[</kbd>
-                    </p>
-                  </TooltipContent>
-                </Tooltip>
-                <Tooltip>
-                  <TooltipTrigger as-child>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      style="-webkit-app-region: no-drag"
-                      @click="store.loadNextBookInSeries()"
-                    >
-                      <Icon
-                        icon="solar:skip-next-bold-duotone"
-                        class="h-6 w-6"
-                      />
-                    </Button>
-                  </TooltipTrigger>
-                  <TooltipContent>
-                    <p class="flex items-center gap-1">
-                      시리즈 다음 권 <kbd>Shift</kbd>+<kbd>]</kbd>
-                    </p>
-                  </TooltipContent>
-                </Tooltip>
-              </div>
-              <Tooltip>
-                <TooltipTrigger as-child>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    style="-webkit-app-region: no-drag"
-                    @click="store.toggleFavorite()"
-                  >
-                    <Icon
-                      :icon="
-                        is_favorite
-                          ? 'solar:star-bold-duotone'
-                          : 'solar:star-outline'
-                      "
-                      class="h-6 w-6"
-                    />
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent>
-                  <p>즐겨찾기</p>
-                </TooltipContent>
-              </Tooltip>
+                <Icon icon="lucide:minus" class="size-4" />
+              </button>
+              <button
+                type="button"
+                class="text-background hover:bg-background/15 flex w-9 items-center justify-center transition-colors"
+                :title="isMaximized ? '최대화 복원' : '최대화'"
+                @click="maximizeToggleWindow"
+              >
+                <Icon
+                  :icon="isMaximized ? 'lucide:copy' : 'lucide:square'"
+                  class="size-3.5"
+                />
+              </button>
+              <button
+                type="button"
+                class="text-background hover:bg-destructive hover:text-destructive-foreground flex w-9 items-center justify-center transition-colors"
+                title="닫기"
+                @click="closeWindow"
+              >
+                <Icon icon="lucide:x" class="size-4" />
+              </button>
             </div>
           </div>
         </TooltipProvider>
@@ -854,10 +900,13 @@ useKeybindings(
       <Transition name="fade">
         <div
           v-if="!showControls && !hidePageNumber"
-          class="text-muted-foreground/50 fixed top-4 left-4 flex flex-col gap-1 text-lg font-bold"
+          class="fixed top-4 left-4 z-20 flex flex-col gap-1 text-xl font-bold text-white [text-shadow:0_1px_4px_rgba(0,0,0,0.85)]"
         >
-          <div>{{ currentPage }} / {{ totalPages }}</div>
-          <div v-if="book?.series_collection_id" class="text-sm">
+          <div class="leading-tight">{{ currentPage }} / {{ totalPages }}</div>
+          <div
+            v-if="book?.series_collection_id"
+            class="text-base leading-tight"
+          >
             시리즈 {{ seriesCurrentIndex || "?"
             }}{{ seriesTotalCount > 0 ? `/${seriesTotalCount}` : "" }}권
           </div>
@@ -867,9 +916,9 @@ useKeybindings(
       <Transition name="fade">
         <div
           v-if="!viewerHideToast && showToast && toastMessage"
-          class="text-primary bg-secondary/75 border-secondary/75 fixed top-27 right-12 z-20 flex items-center justify-center gap-2 rounded-lg border px-4 py-2 text-lg font-semibold backdrop-blur-sm"
+          class="text-primary-foreground bg-primary/90 fixed top-15 right-4 z-20 flex items-center justify-center gap-2 rounded-md px-3.5 py-2 text-lg font-semibold shadow-md backdrop-blur-sm"
         >
-          <Icon icon="solar:info-circle-bold-duotone" class="text-xl" />
+          <Icon icon="solar:info-circle-bold-duotone" class="size-5" />
           {{ toastMessage }}
         </div>
       </Transition>
@@ -950,28 +999,29 @@ useKeybindings(
     <Transition name="fade">
       <div
         v-if="showControls"
-        class="bg-muted-foreground/50 fixed right-0 bottom-0 left-0 z-50 flex items-center justify-between gap-4 p-2 transition-opacity duration-300"
+        class="bg-muted-foreground/65 supports-[backdrop-filter]:bg-muted-foreground/55 fixed right-0 bottom-0 left-0 z-50 flex h-12 items-center justify-between gap-4 px-3 backdrop-blur-sm transition-opacity duration-300 supports-[backdrop-filter]:backdrop-blur-sm"
         style="-webkit-app-region: no-drag"
       >
         <!-- 페이지 이동 -->
         <TooltipProvider>
-          <div class="flex flex-1 items-center gap-4">
+          <div class="flex flex-1 items-center gap-3">
             <Tooltip>
               <TooltipTrigger as-child>
                 <Button
                   :disabled="currentPage <= 1 && readingMode !== 'webtoon'"
                   variant="ghost"
                   size="icon"
+                  class="text-background hover:bg-background/15 hover:text-background size-8 shrink-0"
                   @click="store.prevPage()"
                 >
-                  <Icon icon="solar:arrow-left-bold" class="size-6" />
+                  <Icon icon="solar:arrow-left-bold" class="size-5" />
                 </Button>
               </TooltipTrigger>
               <TooltipContent>
                 <p class="flex items-center gap-1">이전 페이지 <kbd>←</kbd></p>
               </TooltipContent>
             </Tooltip>
-            <div class="flex flex-1 items-center gap-4">
+            <div class="flex flex-1 items-center gap-3">
               <Slider
                 :model-value="[currentPage]"
                 :min="1"
@@ -980,6 +1030,9 @@ useKeybindings(
                 class="flex-1"
                 @update:model-value="(v) => store.goToPage(v![0])"
               />
+              <span class="text-background min-w-20 shrink-0 text-center">
+                {{ currentPage }} / {{ totalPages }}
+              </span>
             </div>
             <Tooltip>
               <TooltipTrigger as-child>
@@ -989,9 +1042,10 @@ useKeybindings(
                   "
                   variant="ghost"
                   size="icon"
+                  class="text-background hover:bg-background/15 hover:text-background size-8 shrink-0"
                   @click="store.nextPage()"
                 >
-                  <Icon icon="solar:arrow-right-bold" class="size-6" />
+                  <Icon icon="solar:arrow-right-bold" class="size-5" />
                 </Button>
               </TooltipTrigger>
               <TooltipContent>
@@ -1000,22 +1054,20 @@ useKeybindings(
                 </p>
               </TooltipContent>
             </Tooltip>
-            <span class="min-w-20 text-center"
-              >{{ currentPage }} / {{ totalPages }}</span
-            >
           </div>
         </TooltipProvider>
         <!-- 읽기 & 자동넘김 설정 -->
-        <div class="flex items-center gap-2">
+        <div class="flex items-center gap-1">
           <TooltipProvider v-if="externalProgramPath">
             <Tooltip>
               <TooltipTrigger as-child>
                 <Button
-                  variant="outline"
+                  variant="ghost"
                   size="icon"
+                  class="text-background hover:bg-background/15 hover:text-background size-8"
                   @click="openInExternalProgram"
                 >
-                  <Icon icon="solar:monitor-bold-duotone" class="h-5 w-5" />
+                  <Icon icon="solar:monitor-bold-duotone" class="size-5" />
                 </Button>
               </TooltipTrigger>
               <TooltipContent>
@@ -1031,11 +1083,12 @@ useKeybindings(
             <Tooltip>
               <TooltipTrigger as-child>
                 <Button
-                  variant="outline"
+                  variant="ghost"
                   size="icon"
+                  class="text-background hover:bg-background/15 hover:text-background size-8"
                   @click="isDetailOpen = true"
                 >
-                  <Icon icon="solar:info-circle-bold-duotone" class="h-5 w-5" />
+                  <Icon icon="solar:info-circle-bold-duotone" class="size-5" />
                 </Button>
               </TooltipTrigger>
               <TooltipContent>
@@ -1048,11 +1101,12 @@ useKeybindings(
               <Popover :open="openSetting" @update:open="openSetting = $event">
                 <TooltipTrigger as-child>
                   <PopoverTrigger as-child>
-                    <Button variant="outline" size="icon">
-                      <Icon
-                        icon="solar:settings-bold-duotone"
-                        class="h-5 w-5"
-                      />
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      class="text-background hover:bg-background/15 hover:text-background size-8"
+                    >
+                      <Icon icon="solar:settings-bold-duotone" class="size-5" />
                     </Button>
                   </PopoverTrigger>
                 </TooltipTrigger>
@@ -1235,8 +1289,12 @@ useKeybindings(
             </Tooltip>
           </TooltipProvider>
           <ViewerHelpDialog @update:open="isHelpOpen = $event">
-            <Button variant="outline" size="icon">
-              <Icon icon="solar:question-circle-bold-duotone" class="h-5 w-5" />
+            <Button
+              variant="ghost"
+              size="icon"
+              class="text-background hover:bg-background/15 hover:text-background size-8"
+            >
+              <Icon icon="solar:question-circle-bold-duotone" class="size-5" />
             </Button>
           </ViewerHelpDialog>
         </div>
