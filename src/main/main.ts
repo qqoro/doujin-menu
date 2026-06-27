@@ -66,6 +66,9 @@ const viewerWindows = new Set<BrowserWindow>();
 // 최초 부팅 시 시리즈 감지를 1회만 실행했는지 추적 (새로고침 시 재실행 방지)
 let hasRunInitialSeriesDetection = false;
 
+// 최초 부팅 시 라이브러리 자동 스캔을 1회만 실행했는지 추적 (새로고침 시 재실행 방지)
+let hasRunInitialLibraryScan = false;
+
 function createViewerWindow(fromUrl: string) {
   // 첫 창 생성 시 위치를 메인 창 기준으로 오프셋
   const mainBounds = mainWindow.getBounds();
@@ -485,6 +488,10 @@ app.whenReady().then(async () => {
     // 증분 스캔(②)으로 스캔이 매우 빨라 렌더러 준비 전에 끝나면 배너 이벤트를
     // 놓치므로, renderer-ready 신호를 받은 시점부터 스캔을 돌린다.
     ipcMain.on("renderer-ready", () => {
+      // 새로고침(Ctrl+R) 시 renderer-ready가 재전송되어도 최초 1회만 스캔하도록 가드
+      if (hasRunInitialLibraryScan) return;
+      hasRunInitialLibraryScan = true;
+
       // 스캔을 백그라운드에서 비동기로 실행 (UI 로딩을 차단하지 않음)
       Promise.resolve().then(async () => {
         for (const folderPath of libraryFolders) {
