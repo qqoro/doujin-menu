@@ -216,7 +216,8 @@ export const handleRescanAllMetadata = async () => {
   try {
     const libraryFolders = store.get("libraryFolders", []);
     for (const folderPath of libraryFolders) {
-      await scanDirectory(folderPath);
+      // 사용자 명시적 전체 재스캔 → 캐시 무시 (force)
+      await scanDirectory(folderPath, { force: true });
       const books = await db("Book")
         .select("id")
         .whereLike("path", `${folderPath}%`)

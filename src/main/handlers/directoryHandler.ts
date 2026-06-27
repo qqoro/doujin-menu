@@ -56,6 +56,46 @@ export function cleanValue(value: string | null | undefined): string | null {
   return value;
 }
 
+// ZIP/CBZ 파일의 증분 스캔 캐시 hit 여부를 판정한다.
+// 저장된 mtime/size가 현재 파일의 값과 모두 같으면 true → 재스캔을 건너뛴다.
+// 캐시가 없거나 아직 구축되지 않은(null) 경우엔 항상 false(처리 필요)를 반환한다.
+export function isZipUnchanged(
+  cached:
+    | { file_mtime: number | null; file_size: number | null }
+    | null
+    | undefined,
+  mtime: number,
+  size: number,
+): boolean {
+  if (!cached) return false;
+  if (cached.file_mtime == null || cached.file_size == null) return false;
+  return cached.file_mtime === mtime && cached.file_size === size;
+}
+
+// 증분 스캔용 ZIP/CBZ 캐시 맵을 DB에서 로드한다.
+// 경로 구분자를 역슬래시로 정규화하여 저장된 path(역슬래시)와 매칭시킨다.
+async function loadZipScanCache(
+  directoryPath: string,
+): Promise<
+  Map<string, { file_mtime: number | null; file_size: number | null }>
+> {
+  const map = new Map<
+    string,
+    { file_mtime: number | null; file_size: number | null }
+  >();
+  const normalizedDir = directoryPath.replaceAll("/", "\\");
+  const rows = await db("Book")
+    .select("path", "file_mtime", "file_size")
+    .whereLike("path", `${normalizedDir}%`);
+  for (const row of rows) {
+    map.set(row.path, {
+      file_mtime: row.file_mtime,
+      file_size: row.file_size,
+    });
+  }
+  return map;
+}
+
 export async function extractCoverFromZip(
   zipPath: string,
   outputPath: string,
@@ -274,7 +314,15 @@ async function processBookItem(
     isDirectory,
     isFile,
     name,
-  }: { isDirectory: boolean; isFile: boolean; name: string },
+    file_mtime,
+    file_size,
+  }: {
+    isDirectory: boolean;
+    isFile: boolean;
+    name: string;
+    file_mtime?: number | null;
+    file_size?: number | null;
+  },
 ) {
   // 1. 반환할 책 데이터, 커버 경로, 메타데이터 객체를 초기화합니다.
   let bookData: Book | null = null;
@@ -354,6 +402,9 @@ async function processBookItem(
           hitomi_id: cleanValue(infoMetadata.hitomi_id) || null,
           type: cleanValue(infoMetadata.type) || null,
           language_name_local: cleanValue(infoMetadata.language) || null,
+          // 증분 스캔 캐시 키 (다음 스캔에서 이 값이 같으면 재스캔 건너뜀)
+          file_mtime: file_mtime ?? null,
+          file_size: file_size ?? null,
         };
       } else {
         // 이미지가 없는 ZIP 파일은 건너뜁니다.
@@ -424,6 +475,8 @@ async function processBatchInTransaction(
           type: cleanValue(bookData.type),
           language_name_english: cleanValue(bookData.language_name_english),
           language_name_local: cleanValue(bookData.language_name_local),
+          file_mtime: bookData.file_mtime ?? null,
+          file_size: bookData.file_size ?? null,
         });
       updatedCount++;
 
@@ -443,6 +496,8 @@ async function processBatchInTransaction(
         type: cleanValue(bookData.type),
         language_name_english: cleanValue(bookData.language_name_english),
         language_name_local: cleanValue(bookData.language_name_local),
+        file_mtime: bookData.file_mtime ?? null,
+        file_size: bookData.file_size ?? null,
       };
       const result = await trx("Book").insert(bookToInsert);
       bookId = result[0];
@@ -639,7 +694,10 @@ export async function cleanupMissingBooks(
   return { deleted: deletedCount, offline: false };
 }
 
-export async function scanDirectory(directoryPath: string): Promise<{
+export async function scanDirectory(
+  directoryPath: string,
+  options: { force?: boolean } = {},
+): Promise<{
   added: number;
   updated: number;
   deleted: number;
@@ -648,11 +706,17 @@ export async function scanDirectory(directoryPath: string): Promise<{
   offline?: boolean; // 루트 접근 불가로 오프라인 처리됨
   offlineCount?: number; // 오프라인 처리된 책 수
 }> {
+  const { force = false } = options; // true면 캐시 무시 강제 재스캔 (수동 재스캔 시)
   const MAX_SCAN_DEPTH = 100;
   const CHUNK_SIZE = 100; // 메모리 최적화를 위한 청크 크기
   console.log(
     `[Main] 디렉토리 스캔 중 (fast-glob 스트림 사용): ${directoryPath}`,
   );
+
+  // 증분 스캔 캐시 맵. force면 빈 맵을 써서 변경 여부와 무관하게 모두 처리한다.
+  const zipCache = force
+    ? new Map<string, { file_mtime: number | null; file_size: number | null }>()
+    : await loadZipScanCache(directoryPath);
 
   const totalFoundBookPathsInScan = new Set<string>();
   let totalAddedCount = 0;
@@ -792,10 +856,36 @@ export async function scanDirectory(directoryPath: string): Promise<{
         processedFileCount++;
         currentFileName = path.basename(itemPath);
 
+        // 증분 스캔: ZIP/CBZ은 파일 캐시(mtime+size)로 변경 여부를 판정한다.
+        // 안 바뀌었으면 ZIP을 열지 않고 DB 갱신도 생략하고 발견 표시만 남긴다.
+        // (폴더는 파일 IO가 가벼워 캐시 대상에서 제외한다)
+        let zipStat: { mtimeMs: number; size: number } | null = null;
+        if (isZip) {
+          try {
+            const stat = await fs.stat(itemPath);
+            zipStat = { mtimeMs: stat.mtimeMs, size: stat.size };
+            if (
+              isZipUnchanged(
+                zipCache.get(itemPath),
+                zipStat.mtimeMs,
+                zipStat.size,
+              )
+            ) {
+              totalFoundBookPathsInScan.add(itemPath); // 삭제 대상에서 제외
+              updateProgress("scanning");
+              continue;
+            }
+          } catch {
+            // stat 실패 시 캐시 비교 없이 그대로 처리한다.
+          }
+        }
+
         const bookResult = await processBookItem(itemPath, {
           isDirectory,
           isFile,
           name: path.basename(itemPath),
+          file_mtime: zipStat?.mtimeMs,
+          file_size: zipStat?.size,
         });
 
         if (bookResult) {
@@ -1162,8 +1252,11 @@ export async function scanFile(filePath: string) {
 
 export const handleRescanLibraryFolder = async (folderPath: string) => {
   try {
-    const { added, updated, deleted, offline } =
-      await scanDirectory(folderPath);
+    const { added, updated, deleted, offline } = await scanDirectory(
+      folderPath,
+      // 사용자 명시적 폴더 재스캔 → 캐시 무시 (force)
+      { force: true },
+    );
 
     // 폴더 접근 불가로 오프라인 처리된 경우 썸네일 생성 생략
     // (소스 파일이 없어 실패만 반복하므로)

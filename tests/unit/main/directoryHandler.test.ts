@@ -90,6 +90,7 @@ import path from "path";
 import {
   cleanValue,
   extractInfoTxtAndImageCountFromZip,
+  isZipUnchanged,
 } from "../../../src/main/handlers/directoryHandler";
 
 describe("directoryHandler", () => {
@@ -330,5 +331,45 @@ describe("extractInfoTxtAndImageCountFromZip", () => {
     expect(result.infoTxt).toContain("갤러리 넘버: 999");
     expect(result.infoTxt?.length).toBe(bigContent.length);
     expect(result.imageCount).toBe(3);
+  });
+});
+
+describe("isZipUnchanged", () => {
+  it("캐시가 없으면 false를 반환해야 함 (처리 필요)", () => {
+    expect(isZipUnchanged(null, 1000, 500)).toBe(false);
+    expect(isZipUnchanged(undefined, 1000, 500)).toBe(false);
+  });
+
+  it("캐시 값이 null이면 false를 반환해야 함 (아직 구축 전)", () => {
+    expect(
+      isZipUnchanged({ file_mtime: null, file_size: 500 }, 1000, 500),
+    ).toBe(false);
+    expect(
+      isZipUnchanged({ file_mtime: 1000, file_size: null }, 1000, 500),
+    ).toBe(false);
+  });
+
+  it("mtime과 size가 모두 같으면 true를 반환해야 함 (캐시 hit)", () => {
+    expect(
+      isZipUnchanged({ file_mtime: 1000, file_size: 500 }, 1000, 500),
+    ).toBe(true);
+  });
+
+  it("mtime만 달라도 false를 반환해야 함", () => {
+    expect(
+      isZipUnchanged({ file_mtime: 1000, file_size: 500 }, 2000, 500),
+    ).toBe(false);
+  });
+
+  it("size만 달라도 false를 반환해야 함", () => {
+    expect(
+      isZipUnchanged({ file_mtime: 1000, file_size: 500 }, 1000, 999),
+    ).toBe(false);
+  });
+
+  it("둘 다 달라도 false를 반환해야 함", () => {
+    expect(
+      isZipUnchanged({ file_mtime: 1000, file_size: 500 }, 2000, 999),
+    ).toBe(false);
   });
 });
