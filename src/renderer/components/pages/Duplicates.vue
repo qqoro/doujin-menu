@@ -15,6 +15,7 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Icon } from "@iconify/vue";
+import PageHeader from "../layout/PageHeader.vue";
 import { useQuery, useQueryClient } from "@tanstack/vue-query";
 import { computed, ref } from "vue";
 import { toast } from "vue-sonner";
@@ -125,13 +126,7 @@ const confirmPermanent = () => performDelete(true);
 
 <template>
   <div class="flex h-full flex-col gap-6">
-    <!-- 헤더 -->
-    <div class="flex items-center justify-between">
-      <h1 class="flex items-center gap-2 text-2xl font-bold">
-        <Icon icon="solar:copy-bold-duotone" class="h-7 w-7" />
-        중복 정리
-      </h1>
-    </div>
+    <PageHeader icon="solar:copy-bold-duotone" title="중복 정리" />
 
     <!-- 본문 (스크롤 영역) -->
     <div class="flex-grow overflow-y-auto pr-4">

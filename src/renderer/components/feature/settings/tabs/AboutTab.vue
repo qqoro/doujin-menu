@@ -10,12 +10,10 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Progress } from "@/components/ui/progress";
 import { Icon } from "@iconify/vue";
 import { onMounted, ref } from "vue";
-import { toast } from "vue-sonner";
 
 const appVersion = ref("로딩 중...");
 const updateStatus = ref("idle"); // idle, checking, update-available, downloading, download-progress, update-downloaded, error, update-not-available, update-available-portable
@@ -24,37 +22,7 @@ const downloadProgress = ref(0);
 const updateError = ref("");
 const githubReleasesUrl = ref(""); // GitHub 릴리즈 URL 추가
 const isPortableVersion = ref(false); // 포터블 버전 여부 추가
-const isGeneratingInfoFiles = ref(false);
-const generationProgress = ref({
-  current: 0,
-  total: 0,
-  message: "",
-});
-const infoFilePattern = ref("\\((\\d+)\\)$");
 const openChangelog = ref(false);
-
-const generateMissingInfoFiles = async () => {
-  isGeneratingInfoFiles.value = true;
-  generationProgress.value = { current: 0, total: 0, message: "" }; // 상태 초기화
-  try {
-    const result = await ipcRenderer.invoke(
-      "generate-missing-info-files",
-      infoFilePattern.value,
-    );
-    // 최종 결과는 이제 progress 핸들러가 아닌 토스트로 표시
-    if (result.success) {
-      toast.success("info.txt 파일 생성이 완료되었습니다.", {
-        description: "라이브러리를 갱신해야 변경사항이 반영됩니다.",
-      });
-    } else {
-      toast.error(result.error || "알 수 없는 오류가 발생했습니다.");
-    }
-  } catch (error) {
-    const message = error instanceof Error ? error.message : String(error);
-    toast.error(`오류가 발생했습니다: ${message}`);
-    isGeneratingInfoFiles.value = false; // 에러 발생 시 명시적으로 상태 종료
-  }
-};
 
 const checkForUpdates = async () => {
   updateStatus.value = "checking";
@@ -141,18 +109,6 @@ onMounted(async () => {
       latestVersion.value = data.info.version;
     } else if (data.status === "error" && data.error) {
       updateError.value = data.error;
-    }
-  });
-
-  ipcRenderer.on("info-generation-progress", (_event, ...args) => {
-    const progress = args[0] as {
-      current: number;
-      total: number;
-      message: string;
-    };
-    generationProgress.value = progress;
-    if (progress.current >= progress.total) {
-      isGeneratingInfoFiles.value = false;
     }
   });
 });
@@ -298,73 +254,6 @@ onMounted(async () => {
             <Icon icon="mdi:github" class="h-4 w-4" />
             열기
           </Button>
-        </div>
-      </CardContent>
-    </Card>
-
-    <Card>
-      <CardHeader>
-        <CardTitle>데이터 관리</CardTitle>
-        <CardDescription>라이브러리 데이터를 관리합니다.</CardDescription>
-      </CardHeader>
-      <CardContent class="space-y-6">
-        <div class="space-y-2">
-          <Label for="info-file-pattern">폴더명 분석 정규식</Label>
-          <Input
-            id="info-file-pattern"
-            v-model="infoFilePattern"
-            placeholder="예: \((\d+)\)$"
-          />
-          <p class="text-muted-foreground text-sm">
-            폴더명에서 갤러리 ID를 추출할 정규식을 입력합니다. 첫 번째 캡처
-            그룹이 ID로 사용됩니다.
-          </p>
-        </div>
-        <div class="grid grid-cols-3 items-center gap-4">
-          <div class="col-span-2">
-            <Label for="generate-info-files">info.txt 생성</Label>
-            <p class="text-muted-foreground text-sm">
-              info.txt 파일이 없는 폴더를 찾아 위 정규식을 기반으로 파일을
-              생성합니다.
-            </p>
-          </div>
-          <Button
-            id="generate-info-files"
-            variant="outline"
-            class="justify-self-end"
-            :disabled="isGeneratingInfoFiles"
-            @click="generateMissingInfoFiles"
-          >
-            <Icon
-              v-if="isGeneratingInfoFiles"
-              icon="svg-spinners:ring-resize"
-              class="mr-2 h-4 w-4"
-            />
-            생성 시작
-          </Button>
-        </div>
-        <div
-          v-if="isGeneratingInfoFiles || generationProgress.total > 0"
-          class="space-y-2 pt-4"
-        >
-          <div class="text-muted-foreground flex justify-between text-sm">
-            <span>진행률</span>
-            <span
-              >{{ generationProgress.current }} /
-              {{ generationProgress.total }}</span
-            >
-          </div>
-          <Progress
-            :model-value="
-              generationProgress.total > 0
-                ? (generationProgress.current / generationProgress.total) * 100
-                : 0
-            "
-            class="w-full"
-          />
-          <p class="text-muted-foreground truncate text-sm">
-            {{ generationProgress.message }}
-          </p>
         </div>
       </CardContent>
     </Card>

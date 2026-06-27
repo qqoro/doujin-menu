@@ -5,6 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Icon } from "@iconify/vue";
+import PageHeader from "../layout/PageHeader.vue";
 import { useQuery } from "@tanstack/vue-query";
 import { computed, onBeforeUnmount, onMounted, ref } from "vue";
 import { useRouter } from "vue-router"; // useRouter 임포트
@@ -125,12 +126,7 @@ const goToViewer = (bookId: number) => {
 
 <template>
   <div class="flex h-full flex-col gap-6">
-    <div class="flex items-center justify-between">
-      <h1 class="flex items-center gap-2 text-2xl font-bold">
-        <Icon icon="solar:chart-square-bold-duotone" class="h-7 w-7" />
-        통계
-      </h1>
-    </div>
+    <PageHeader icon="solar:chart-square-bold-duotone" title="통계" />
 
     <div class="flex-grow overflow-y-auto pr-4">
       <div v-if="isLoading" class="text-center text-gray-500">

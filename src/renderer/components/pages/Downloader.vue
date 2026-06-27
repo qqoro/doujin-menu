@@ -26,6 +26,7 @@ import { useSearchPersistence } from "@/composable/useSearchPersistence";
 import { useDownloadQueueStore } from "@/store/downloadQueueStore";
 import { useUiStore } from "@/store/uiStore";
 import { Icon } from "@iconify/vue";
+import PageHeader from "../layout/PageHeader.vue";
 import { useInfiniteQuery } from "@tanstack/vue-query";
 import type { Gallery } from "node-hitomi";
 import { AcceptableValue } from "reka-ui";
@@ -365,10 +366,8 @@ useSearchPersistence(searchQuery, "downloader-search-query");
 
 <template>
   <div class="flex h-full flex-col gap-6">
-    <div class="flex items-center justify-between">
-      <h1 class="flex items-center gap-2 text-2xl font-bold">
-        <Icon icon="solar:download-square-bold-duotone" class="h-7 w-7" />
-        다운로더
+    <PageHeader icon="solar:download-square-bold-duotone" title="다운로더">
+      <template #help>
         <HelpDialog
           title="다운로더 도움말"
           description="다운로더 사용법 및 검색 팁"
@@ -440,11 +439,13 @@ useSearchPersistence(searchQuery, "downloader-search-query");
             </ul>
           </div>
         </HelpDialog>
-      </h1>
-      <Button variant="secondary" size="icon" @click="goToSettings">
-        <Icon icon="solar:settings-bold-duotone" class="h-6 w-6" />
-      </Button>
-    </div>
+      </template>
+      <template #actions>
+        <Button variant="secondary" size="icon" @click="goToSettings">
+          <Icon icon="solar:settings-bold-duotone" class="h-6 w-6" />
+        </Button>
+      </template>
+    </PageHeader>
 
     <div class="grid flex-1 grid-cols-1 gap-6 overflow-y-auto lg:grid-cols-3">
       <!-- Left Column: Search & Settings -->

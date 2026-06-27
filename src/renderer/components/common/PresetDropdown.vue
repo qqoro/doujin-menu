@@ -52,7 +52,7 @@ const handleApplyPreset = (presetQuery: string) => {
         <DropdownMenuItem disabled> (없음) </DropdownMenuItem>
       </template>
       <DropdownMenuSeparator />
-      <DropdownMenuItem @click="router.push('/settings?tab=presets')">
+      <DropdownMenuItem @click="router.push('/settings?tab=general')">
         프리셋 관리...
       </DropdownMenuItem>
     </DropdownMenuContent>

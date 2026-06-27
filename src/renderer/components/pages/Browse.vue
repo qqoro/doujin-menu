@@ -3,6 +3,7 @@ import { computed, ref } from "vue";
 import { useRouter } from "vue-router";
 import { useQuery } from "@tanstack/vue-query";
 import { Icon } from "@iconify/vue";
+import PageHeader from "../layout/PageHeader.vue";
 import { useQueryAndParams } from "@/composable/useQueryAndParams";
 import {
   getArtistsWithCount,
@@ -131,92 +132,100 @@ const goToLibraryWithSearch = (name: string) => {
 </script>
 
 <template>
-  <div class="flex h-full flex-col gap-4 p-6">
-    <!-- 탭 -->
-    <Tabs v-model="tab" class="w-full">
-      <TabsList>
-        <TabsTrigger v-for="t in tabs" :key="t.key" :value="t.key">
-          {{ t.label }}
-        </TabsTrigger>
-      </TabsList>
-    </Tabs>
+  <div class="flex h-full flex-col gap-6">
+    <PageHeader icon="solar:tag-bold-duotone" title="탐색" />
 
-    <!-- 검색 및 정렬 -->
-    <div class="flex items-center gap-3">
-      <div class="relative flex-1">
-        <Icon
-          icon="solar:magnifer-linear"
-          class="text-muted-foreground absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2"
-        />
-        <Input v-model="searchQuery" placeholder="검색..." class="pl-9" />
+    <!-- 콘텐츠 -->
+    <div class="flex min-h-0 flex-1 flex-col gap-4">
+      <!-- 탭 -->
+      <Tabs v-model="tab" class="w-full">
+        <TabsList>
+          <TabsTrigger v-for="t in tabs" :key="t.key" :value="t.key">
+            {{ t.label }}
+          </TabsTrigger>
+        </TabsList>
+      </Tabs>
+
+      <!-- 검색 및 정렬 -->
+      <div class="flex items-center gap-3">
+        <div class="relative flex-1">
+          <Icon
+            icon="solar:magnifer-linear"
+            class="text-muted-foreground absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2"
+          />
+          <Input v-model="searchQuery" placeholder="검색..." class="pl-9" />
+        </div>
+        <Select v-model="browseSortBy">
+          <SelectTrigger class="w-[130px]">
+            <SelectValue placeholder="정렬" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="name">이름순</SelectItem>
+            <SelectItem value="count">개수순</SelectItem>
+          </SelectContent>
+        </Select>
       </div>
-      <Select v-model="browseSortBy">
-        <SelectTrigger class="w-[130px]">
-          <SelectValue placeholder="정렬" />
-        </SelectTrigger>
-        <SelectContent>
-          <SelectItem value="name">이름순</SelectItem>
-          <SelectItem value="count">개수순</SelectItem>
-        </SelectContent>
-      </Select>
-    </div>
 
-    <!-- 알파벳 필터 바 -->
-    <div class="flex flex-wrap items-center gap-1">
-      <Button
-        variant="ghost"
-        size="sm"
-        :class="letter === '' ? 'bg-accent text-accent-foreground' : ''"
-        class="h-7 px-2 text-xs"
-        @click="letter = ''"
-      >
-        전체
-      </Button>
-      <Button
-        v-if="hasDigits"
-        variant="ghost"
-        size="sm"
-        :class="letter === '123' ? 'bg-accent text-accent-foreground' : ''"
-        class="h-7 px-2 text-xs"
-        @click="letter = '123'"
-      >
-        123
-      </Button>
-      <Button
-        v-for="a in alphabet"
-        :key="a"
-        variant="ghost"
-        size="sm"
-        :class="letter === a ? 'bg-accent text-accent-foreground' : ''"
-        class="h-7 px-2 text-xs"
-        @click="letter = a"
-      >
-        {{ a }}
-      </Button>
-    </div>
-
-    <!-- 항목 그리드 -->
-    <ScrollArea class="flex-1">
-      <div v-if="isLoading" class="text-muted-foreground">로딩 중...</div>
-      <div v-else-if="filteredItems.length === 0" class="text-muted-foreground">
-        항목이 없습니다.
-      </div>
-      <div
-        v-else
-        class="grid grid-cols-2 gap-1 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6"
-      >
-        <button
-          v-for="item in filteredItems"
-          :key="item.name"
-          class="hover:bg-accent flex items-center justify-between rounded-md px-3 py-1.5 text-left text-sm transition-colors"
-          @click="goToLibraryWithSearch(item.name)"
+      <!-- 알파벳 필터 바 -->
+      <div class="flex flex-wrap items-center gap-1">
+        <Button
+          variant="ghost"
+          size="sm"
+          :class="letter === '' ? 'bg-accent text-accent-foreground' : ''"
+          class="h-7 px-2 text-xs"
+          @click="letter = ''"
         >
-          <span class="truncate">{{ item.name }}</span>
-          <span class="text-muted-foreground ml-2 shrink-0 text-xs">
-            ({{ item.count }})
-          </span>
-        </button>
+          전체
+        </Button>
+        <Button
+          v-if="hasDigits"
+          variant="ghost"
+          size="sm"
+          :class="letter === '123' ? 'bg-accent text-accent-foreground' : ''"
+          class="h-7 px-2 text-xs"
+          @click="letter = '123'"
+        >
+          123
+        </Button>
+        <Button
+          v-for="a in alphabet"
+          :key="a"
+          variant="ghost"
+          size="sm"
+          :class="letter === a ? 'bg-accent text-accent-foreground' : ''"
+          class="h-7 px-2 text-xs"
+          @click="letter = a"
+        >
+          {{ a }}
+        </Button>
       </div>
-    </ScrollArea>
+
+      <!-- 항목 그리드 -->
+      <ScrollArea class="flex-1">
+        <div v-if="isLoading" class="text-muted-foreground">로딩 중...</div>
+        <div
+          v-else-if="filteredItems.length === 0"
+          class="text-muted-foreground"
+        >
+          항목이 없습니다.
+        </div>
+        <div
+          v-else
+          class="grid grid-cols-2 gap-1 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6"
+        >
+          <button
+            v-for="item in filteredItems"
+            :key="item.name"
+            class="hover:bg-accent flex items-center justify-between rounded-md px-3 py-1.5 text-left text-sm transition-colors"
+            @click="goToLibraryWithSearch(item.name)"
+          >
+            <span class="truncate">{{ item.name }}</span>
+            <span class="text-muted-foreground ml-2 shrink-0 text-xs">
+              ({{ item.count }})
+            </span>
+          </button>
+        </div>
+      </ScrollArea>
+    </div>
   </div>
 </template>

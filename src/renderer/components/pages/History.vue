@@ -12,6 +12,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
 import { Icon } from "@iconify/vue";
+import PageHeader from "../layout/PageHeader.vue";
 import { useInfiniteQuery, useQueryClient } from "@tanstack/vue-query";
 import { computed, ref } from "vue";
 import { useRouter } from "vue-router";
@@ -139,23 +140,21 @@ const confirmClearAll = async () => {
 
 <template>
   <div class="flex h-full flex-col gap-6">
-    <div class="flex items-center justify-between">
-      <h1 class="flex items-center gap-2 text-2xl font-bold">
-        <Icon icon="solar:clock-circle-bold-duotone" class="h-7 w-7" />
-        읽음 기록
-      </h1>
-      <Button
-        variant="destructive"
-        size="icon"
-        :disabled="allItems.length === 0"
-        @click="handleClearAll"
-      >
-        <Icon
-          icon="solar:trash-bin-minimalistic-bold-duotone"
-          class="h-5 w-5"
-        />
-      </Button>
-    </div>
+    <PageHeader icon="solar:clock-circle-bold-duotone" title="읽음 기록">
+      <template #actions>
+        <Button
+          variant="destructive"
+          size="icon"
+          :disabled="allItems.length === 0"
+          @click="handleClearAll"
+        >
+          <Icon
+            icon="solar:trash-bin-minimalistic-bold-duotone"
+            class="h-5 w-5"
+          />
+        </Button>
+      </template>
+    </PageHeader>
     <div
       ref="scrollContainerRef"
       class="flex-grow overflow-y-auto pr-4"

@@ -17,6 +17,7 @@ import { useScrollRestoration } from "@/composable/useScrollRestoration";
 import { useLibraryScanStore } from "@/store/libraryScanStore";
 import { useUiStore } from "@/store/uiStore";
 import { Icon } from "@iconify/vue";
+import PageHeader from "../layout/PageHeader.vue";
 import {
   useInfiniteQuery,
   useQuery,
@@ -500,7 +501,7 @@ const handleGridWheel = (event: WheelEvent) => {
 // 썸네일 그리드 스타일 (줌 + auto-fill로 카드 자체가 작아짐)
 const gridStyle = computed(() => ({
   zoom: uiStore.thumbnailZoom,
-  gridTemplateColumns: "repeat(auto-fill, minmax(200px, 1fr))",
+  gridTemplateColumns: "repeat(auto-fill, minmax(184px, 1fr))",
 }));
 
 // 스크롤 위치 복원
@@ -508,434 +509,445 @@ useScrollRestoration(".flex-grow.overflow-y-auto");
 </script>
 
 <template>
-  <div class="flex h-full flex-col">
-    <!-- 스캔 진행률 표시 -->
-    <LibraryScanProgress />
+  <div class="flex h-full flex-col gap-6">
+    <div class="flex flex-col gap-2">
+      <!-- 스캔 진행률 표시 -->
+      <LibraryScanProgress />
 
-    <div class="mb-4 flex items-center justify-between">
-      <div class="flex items-center gap-2">
-        <Icon icon="solar:library-bold-duotone" class="h-6 w-6" />
-        <h2 class="text-2xl font-bold">라이브러리</h2>
-        <HelpDialog
-          title="라이브러리 도움말"
-          description="라이브러리 사용법 및 검색 팁"
-        >
-          <template #trigger>
-            <Button variant="ghost" size="icon">
-              <Icon icon="solar:question-circle-bold-duotone" class="h-6 w-6" />
-            </Button>
-          </template>
-          <div class="text-muted-foreground space-y-4 text-sm">
-            <p>이 화면에서는 추가된 만화책들을 관리하고 열람할 수 있습니다.</p>
-            <h3 class="text-foreground text-base font-semibold">
-              키보드 단축키
-            </h3>
-            <ul class="list-inside list-disc">
-              <li><kbd>Ctrl</kbd>+<kbd>F</kbd>: 검색창 포커스</li>
-              <li><kbd>S</kbd>: 정렬 순서 전환 (오름차순/내림차순)</li>
-              <li><kbd>F</kbd>: 즐겨찾기 필터 토글</li>
-              <li><kbd>R</kbd>: 읽음 상태 순환 (모두→읽음→안읽음)</li>
-              <li><kbd>P</kbd>: 프리셋 순환</li>
-              <li><kbd>[</kbd> / <kbd>]</kbd>: 이전/다음 라이브러리 폴더</li>
-              <li><kbd>Ctrl</kbd>+<kbd>Wheel</kbd>: 썸네일 밀도 조절</li>
-            </ul>
-            <h3 class="text-foreground text-base font-semibold">검색 팁</h3>
-            <ul class="list-inside list-disc">
-              <li>
-                <kbd>Ctrl</kbd>+<kbd>F</kbd>로 검색창에 빠르게 포커스할 수
-                있습니다.
-              </li>
-              <li>
-                검색창에 제목, 작가, 태그, 시리즈를 입력하여 검색할 수 있습니다.
-              </li>
-              <li><code>tag:태그명</code>: 특정 태그로 검색합니다.</li>
-              <li><code>artist:작가명</code>: 특정 작가로 검색합니다.</li>
-              <li><code>series:시리즈명</code>: 특정 시리즈로 검색합니다.</li>
-              <li>여러 검색어를 공백으로 구분하여 조합할 수 있습니다.</li>
-              <li>
-                <Icon
-                  icon="solar:bookmark-bold-duotone"
-                  class="inline-block h-4 w-4 align-text-bottom"
-                />
-                버튼을 클릭하여 저장된 프리셋 검색어를 사용할 수 있습니다.
-              </li>
-            </ul>
-            <h3 class="text-foreground text-base font-semibold">
-              필터 및 정렬
-            </h3>
-            <ul class="list-inside list-disc">
-              <li>
-                검색창 왼쪽의 드롭다운 메뉴를 사용하여 특정 라이브러리 폴더의
-                책만 볼 수 있습니다.
-              </li>
-              <li>
-                뷰어에서 이전/다음 책으로 이동 시, 라이브러리 화면에서 적용했던
-                검색 및 필터 조건이 유지됩니다.
-              </li>
-              <li>
-                <Icon
-                  icon="solar:filter-bold-duotone"
-                  class="inline-block h-4 w-4 align-text-bottom"
-                />
-                버튼을 클릭하여 읽음 상태 및 즐겨찾기 여부로 필터링할 수
-                있습니다.
-              </li>
-              <li>
-                <Icon
-                  icon="solar:sort-bold-duotone"
-                  class="inline-block h-4 w-4 align-text-bottom"
-                />
-                버튼을 클릭하여 다양한 기준으로 정렬할 수 있습니다.
-              </li>
-            </ul>
-            <h3 class="text-foreground text-base font-semibold">책 관리</h3>
-            <ul class="list-inside list-disc">
-              <li>책 카드를 클릭하여 뷰어를 열 수 있습니다.</li>
-              <li>
-                책 카드를 <code>Ctrl</code>+클릭하거나 우클릭 메뉴의 '새 창으로
-                열기'를 선택하여 뷰어를 새 창에서 열 수 있습니다.
-              </li>
-              <li>
-                책 카드 우클릭 메뉴를 통해 폴더 열기, 즐겨찾기 추가/해제 등의
-                작업을 할 수 있습니다.
-              </li>
-            </ul>
-            <h3 class="text-foreground text-base font-semibold">미리보기</h3>
-            <ul class="list-inside list-disc">
-              <li>
-                그리드 뷰에서 책 카드를 우클릭하여 '미리보기' 메뉴를 선택하면
-                페이지를 미리볼 수 있습니다.
-              </li>
-              <li>
-                리스트 뷰에서는 미리보기 버튼을 클릭하여 페이지를 미리볼 수
-                있습니다.
-              </li>
-              <li>
-                미리보기에서는 책의 모든 페이지를 가로 스크롤로 확인할 수
-                있습니다.
-              </li>
-            </ul>
-          </div>
-        </HelpDialog>
-      </div>
-      <Button
-        variant="secondary"
-        size="icon"
-        @click="router.push('/settings?tab=library')"
-      >
-        <Icon icon="solar:settings-bold-duotone" class="h-6 w-6" />
-      </Button>
-    </div>
-
-    <!-- 검색 및 필터 영역 -->
-    <div class="mb-4 flex items-center gap-2">
-      <SmartSearchInput
-        ref="searchInputRef"
-        v-model="searchQuery"
-        placeholder="제목, 작가, 태그, 시리즈로 검색"
-        class="flex-grow"
-      />
-      <PresetDropdown v-model="searchQuery" />
-      <DropdownMenu>
-        <DropdownMenuTrigger as-child>
-          <Button variant="outline">
-            <Icon icon="solar:filter-bold-duotone" class="h-4 w-4" />
-            필터
-          </Button>
-        </DropdownMenuTrigger>
-        <DropdownMenuContent class="w-56">
-          <DropdownMenuLabel>읽음 상태</DropdownMenuLabel>
-          <DropdownMenuRadioGroup v-model="readStatus">
-            <DropdownMenuRadioItem value="all">모두</DropdownMenuRadioItem>
-            <DropdownMenuRadioItem value="read">읽음</DropdownMenuRadioItem>
-            <DropdownMenuRadioItem value="unread"
-              >안 읽음</DropdownMenuRadioItem
-            >
-          </DropdownMenuRadioGroup>
-          <DropdownMenuSeparator />
-          <DropdownMenuLabel>즐겨찾기</DropdownMenuLabel>
-          <DropdownMenuRadioGroup v-model="isFavorite">
-            <DropdownMenuRadioItem value="all">모두</DropdownMenuRadioItem>
-            <DropdownMenuRadioItem value="favorite"
-              >즐겨찾기만</DropdownMenuRadioItem
-            >
-          </DropdownMenuRadioGroup>
-          <DropdownMenuSeparator />
-          <DropdownMenuLabel>오프라인 상태</DropdownMenuLabel>
-          <DropdownMenuRadioGroup v-model="offlineStatus">
-            <DropdownMenuRadioItem value="all">모두</DropdownMenuRadioItem>
-            <DropdownMenuRadioItem value="online"
-              >온라인만</DropdownMenuRadioItem
-            >
-            <DropdownMenuRadioItem value="offline"
-              >오프라인만</DropdownMenuRadioItem
-            >
-          </DropdownMenuRadioGroup>
-        </DropdownMenuContent>
-      </DropdownMenu>
-      <div class="inline-flex">
-        <DropdownMenu>
-          <DropdownMenuTrigger as-child>
-            <Button variant="outline" class="rounded-r-none">
-              <Icon icon="solar:sort-bold-duotone" class="h-4 w-4" />
-              정렬
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent>
-            <DropdownMenuLabel>정렬 기준</DropdownMenuLabel>
-            <DropdownMenuSeparator />
-            <DropdownMenuItem @click="setSortBy('title')">
-              제목
-              <Icon
-                v-if="sortBy === 'title'"
-                icon="solar:check-circle-bold-duotone"
-                class="ml-auto h-4 w-4"
-              />
-            </DropdownMenuItem>
-            <DropdownMenuItem @click="setSortBy('added_at')">
-              추가된 날짜
-              <Icon
-                v-if="sortBy === 'added_at'"
-                icon="solar:check-circle-bold-duotone"
-                class="ml-auto h-4 w-4"
-              />
-            </DropdownMenuItem>
-            <DropdownMenuItem @click="setSortBy('last_read_at')">
-              최근 읽음
-              <Icon
-                v-if="sortBy === 'last_read_at'"
-                icon="solar:check-circle-bold-duotone"
-                class="ml-auto h-4 w-4"
-              />
-            </DropdownMenuItem>
-            <DropdownMenuItem @click="setSortBy('artists')">
-              작가
-              <Icon
-                v-if="sortBy === 'artists'"
-                icon="solar:check-circle-bold-duotone"
-                class="ml-auto h-4 w-4"
-              />
-            </DropdownMenuItem>
-            <DropdownMenuItem @click="setSortBy('page_count')">
-              페이지 수
-              <Icon
-                v-if="sortBy === 'page_count'"
-                icon="solar:check-circle-bold-duotone"
-                class="ml-auto h-4 w-4"
-              />
-            </DropdownMenuItem>
-            <DropdownMenuItem @click="setSortBy('hitomi_id')">
-              Hitomi ID
-              <Icon
-                v-if="sortBy === 'hitomi_id'"
-                icon="solar:check-circle-bold-duotone"
-                class="ml-auto h-4 w-4"
-              />
-            </DropdownMenuItem>
-            <DropdownMenuItem @click="setSortBy('random')">
-              랜덤
-              <Icon
-                v-if="sortBy === 'random'"
-                icon="solar:check-circle-bold-duotone"
-                class="ml-auto h-4 w-4"
-              />
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
-        <Button
-          variant="outline"
-          class="rounded-l-none border-l-0"
-          :disabled="sortBy === 'random'"
-          @click="toggleSortOrder"
-        >
-          <Icon
-            v-if="sortOrder === 'asc'"
-            icon="solar:sort-from-bottom-to-top-bold-duotone"
-            class="h-4 w-4"
-          />
-          <Icon
-            v-else
-            icon="solar:sort-from-top-to-bottom-bold-duotone"
-            class="h-4 w-4"
-          />
-        </Button>
-      </div>
-      <Button
-        variant="outline"
-        :disabled="books.length === 0"
-        @click="openRandomBookFromCurrentView"
-      >
-        <Icon icon="solar:rocket-bold-duotone" class="h-4 w-4" />
-        랜덤
-      </Button>
-      <!-- 더보기 메뉴: 라이브러리 폴더 / 뷰 모드 / 썸네일 줌 -->
-      <DropdownMenu>
-        <DropdownMenuTrigger as-child>
-          <Button variant="outline" size="icon" aria-label="더보기">
-            <Icon icon="solar:menu-dots-bold" class="h-4 w-4" />
-          </Button>
-        </DropdownMenuTrigger>
-        <DropdownMenuContent align="end" class="w-64">
-          <DropdownMenuLabel>라이브러리 폴더</DropdownMenuLabel>
-          <DropdownMenuRadioGroup v-model="libraryPath">
-            <DropdownMenuRadioItem value="all">
-              모든 라이브러리
-            </DropdownMenuRadioItem>
-            <DropdownMenuRadioItem
-              v-for="dir in libraryDirectories"
-              :key="dir"
-              :value="dir"
-              class="truncate"
-            >
-              <span class="truncate" :title="dir">{{ dir }}</span>
-            </DropdownMenuRadioItem>
-          </DropdownMenuRadioGroup>
-          <DropdownMenuSeparator />
-          <DropdownMenuLabel>뷰 모드</DropdownMenuLabel>
-          <DropdownMenuRadioGroup v-model="viewMode">
-            <DropdownMenuRadioItem value="grid">
-              <Icon icon="solar:widget-4-bold-duotone" class="mr-2 h-4 w-4" />
-              그리드
-            </DropdownMenuRadioItem>
-            <DropdownMenuRadioItem value="list">
-              <Icon icon="solar:list-bold-duotone" class="mr-2 h-4 w-4" />
-              리스트
-            </DropdownMenuRadioItem>
-          </DropdownMenuRadioGroup>
-          <DropdownMenuSeparator />
-          <DropdownMenuLabel>썸네일 크기</DropdownMenuLabel>
-          <div
-            class="flex items-center justify-between px-2 py-1.5"
-            :class="viewMode !== 'grid' ? 'opacity-50' : ''"
+      <PageHeader icon="solar:library-bold-duotone" title="라이브러리">
+        <template #help>
+          <HelpDialog
+            title="라이브러리 도움말"
+            description="라이브러리 사용법 및 검색 팁"
           >
-            <Button
-              variant="outline"
-              size="icon"
-              class="h-7 w-7"
-              :disabled="viewMode !== 'grid'"
-              @click.stop="uiStore.zoomOut()"
-            >
-              <Icon icon="solar:minus-circle-bold-duotone" class="h-4 w-4" />
-            </Button>
-            <span class="text-xs tabular-nums">
-              {{ Math.round(uiStore.thumbnailZoom * 100) }}%
-            </span>
-            <Button
-              variant="outline"
-              size="icon"
-              class="h-7 w-7"
-              :disabled="viewMode !== 'grid'"
-              @click.stop="uiStore.zoomIn()"
-            >
-              <Icon icon="solar:add-circle-bold-duotone" class="h-4 w-4" />
-            </Button>
-          </div>
-        </DropdownMenuContent>
-      </DropdownMenu>
-    </div>
-
-    <div
-      v-if="isLoading"
-      class="flex flex-grow flex-col items-center justify-center text-center"
-    >
-      <div
-        class="text-muted-foreground mb-4 flex flex-col items-center justify-center gap-2 text-lg"
-      >
-        <Icon icon="svg-spinners:ring-resize" class="size-8" />
-        <p>로딩중...</p>
-      </div>
-    </div>
-    <!-- Grid View -->
-    <div
-      v-else-if="books.length > 0 && viewMode === 'grid'"
-      ref="gridRef"
-      class="grid flex-grow items-start gap-4 overflow-y-auto"
-      :style="gridStyle"
-      @wheel="handleGridWheel"
-    >
-      <BookCard
-        v-for="book in books"
-        :key="book.id"
-        :book="book"
-        :query-key="queryKey"
-        :hide-tags="hideLibraryTags"
-        :external-image-viewer-path="config?.externalImageViewerPath"
-        :external-archive-viewer-path="config?.externalArchiveViewerPath"
-        @select-tag="toggleTag"
-        @exclude-tag="excludeTag"
-        @select-artist="toggleArtist"
-        @select-group="toggleGroup"
-        @toggle-favorite="handleToggleFavorite"
-        @open-book-folder="handleOpenFolder"
-        @show-details="handleShowDetails"
-        @show-preview="handleShowPreview"
-      />
-      <div
-        v-if="hasNextPage"
-        ref="loader"
-        class="col-span-full p-4 text-center"
-      >
-        <Button :disabled="isFetchingNextPage" @click="fetchNextPage">
-          <Icon v-if="isFetchingNextPage" icon="svg-spinners:ring-resize" />
-          <span>더 불러오기</span>
-        </Button>
-      </div>
-    </div>
-    <!-- List View -->
-    <div
-      v-else-if="books.length > 0 && viewMode === 'list'"
-      class="flex flex-grow flex-col overflow-y-auto"
-    >
-      <BookRowCard
-        v-for="book in books"
-        :key="book.id"
-        :book="book"
-        :query-key="queryKey"
-        :hide-tags="hideLibraryTags"
-        @select-tag="toggleTag"
-        @exclude-tag="excludeTag"
-        @select-artist="toggleArtist"
-        @select-group="toggleGroup"
-        @toggle-favorite="handleToggleFavorite"
-        @open-book-folder="handleOpenFolder"
-        @show-details="handleShowDetails"
-        @show-preview="handleShowPreview"
-      />
-      <div v-if="hasNextPage" ref="loader" class="p-4 text-center">
-        <Button :disabled="isFetchingNextPage" @click="fetchNextPage">
-          <Icon v-if="isFetchingNextPage" icon="svg-spinners:ring-resize" />
-          <span>더 불러오기</span>
-        </Button>
-      </div>
-    </div>
-    <div
-      v-else-if="searchQuery.trim().length > 0"
-      class="flex flex-grow flex-col items-center justify-center text-center"
-    >
-      <div
-        class="text-muted-foreground mb-4 flex flex-col items-center justify-center gap-2 text-lg"
-      >
-        <p>검색된 데이터가 없습니다.</p>
-      </div>
-    </div>
-    <div
-      v-else
-      class="flex flex-grow flex-col items-center justify-center text-center"
-    >
-      <div
-        class="text-muted-foreground mb-4 flex flex-col items-center justify-center text-lg"
-      >
-        <p>등록된 라이브러리/책이 없습니다.</p>
-        <p class="flex items-center justify-center gap-1">
+            <template #trigger>
+              <Button variant="ghost" size="icon">
+                <Icon
+                  icon="solar:question-circle-bold-duotone"
+                  class="h-6 w-6"
+                />
+              </Button>
+            </template>
+            <div class="text-muted-foreground space-y-4 text-sm">
+              <p>
+                이 화면에서는 추가된 만화책들을 관리하고 열람할 수 있습니다.
+              </p>
+              <h3 class="text-foreground text-base font-semibold">
+                키보드 단축키
+              </h3>
+              <ul class="list-inside list-disc">
+                <li><kbd>Ctrl</kbd>+<kbd>F</kbd>: 검색창 포커스</li>
+                <li><kbd>S</kbd>: 정렬 순서 전환 (오름차순/내림차순)</li>
+                <li><kbd>F</kbd>: 즐겨찾기 필터 토글</li>
+                <li><kbd>R</kbd>: 읽음 상태 순환 (모두→읽음→안읽음)</li>
+                <li><kbd>P</kbd>: 프리셋 순환</li>
+                <li><kbd>[</kbd> / <kbd>]</kbd>: 이전/다음 라이브러리 폴더</li>
+                <li><kbd>Ctrl</kbd>+<kbd>Wheel</kbd>: 썸네일 밀도 조절</li>
+              </ul>
+              <h3 class="text-foreground text-base font-semibold">검색 팁</h3>
+              <ul class="list-inside list-disc">
+                <li>
+                  <kbd>Ctrl</kbd>+<kbd>F</kbd>로 검색창에 빠르게 포커스할 수
+                  있습니다.
+                </li>
+                <li>
+                  검색창에 제목, 작가, 태그, 시리즈를 입력하여 검색할 수
+                  있습니다.
+                </li>
+                <li><code>tag:태그명</code>: 특정 태그로 검색합니다.</li>
+                <li><code>artist:작가명</code>: 특정 작가로 검색합니다.</li>
+                <li><code>series:시리즈명</code>: 특정 시리즈로 검색합니다.</li>
+                <li>여러 검색어를 공백으로 구분하여 조합할 수 있습니다.</li>
+                <li>
+                  <Icon
+                    icon="solar:bookmark-bold-duotone"
+                    class="inline-block h-4 w-4 align-text-bottom"
+                  />
+                  버튼을 클릭하여 저장된 프리셋 검색어를 사용할 수 있습니다.
+                </li>
+              </ul>
+              <h3 class="text-foreground text-base font-semibold">
+                필터 및 정렬
+              </h3>
+              <ul class="list-inside list-disc">
+                <li>
+                  검색창 왼쪽의 드롭다운 메뉴를 사용하여 특정 라이브러리 폴더의
+                  책만 볼 수 있습니다.
+                </li>
+                <li>
+                  뷰어에서 이전/다음 책으로 이동 시, 라이브러리 화면에서
+                  적용했던 검색 및 필터 조건이 유지됩니다.
+                </li>
+                <li>
+                  <Icon
+                    icon="solar:filter-bold-duotone"
+                    class="inline-block h-4 w-4 align-text-bottom"
+                  />
+                  버튼을 클릭하여 읽음 상태 및 즐겨찾기 여부로 필터링할 수
+                  있습니다.
+                </li>
+                <li>
+                  <Icon
+                    icon="solar:sort-bold-duotone"
+                    class="inline-block h-4 w-4 align-text-bottom"
+                  />
+                  버튼을 클릭하여 다양한 기준으로 정렬할 수 있습니다.
+                </li>
+              </ul>
+              <h3 class="text-foreground text-base font-semibold">책 관리</h3>
+              <ul class="list-inside list-disc">
+                <li>책 카드를 클릭하여 뷰어를 열 수 있습니다.</li>
+                <li>
+                  책 카드를 <code>Ctrl</code>+클릭하거나 우클릭 메뉴의 '새
+                  창으로 열기'를 선택하여 뷰어를 새 창에서 열 수 있습니다.
+                </li>
+                <li>
+                  책 카드 우클릭 메뉴를 통해 폴더 열기, 즐겨찾기 추가/해제 등의
+                  작업을 할 수 있습니다.
+                </li>
+              </ul>
+              <h3 class="text-foreground text-base font-semibold">미리보기</h3>
+              <ul class="list-inside list-disc">
+                <li>
+                  그리드 뷰에서 책 카드를 우클릭하여 '미리보기' 메뉴를 선택하면
+                  페이지를 미리볼 수 있습니다.
+                </li>
+                <li>
+                  리스트 뷰에서는 미리보기 버튼을 클릭하여 페이지를 미리볼 수
+                  있습니다.
+                </li>
+                <li>
+                  미리보기에서는 책의 모든 페이지를 가로 스크롤로 확인할 수
+                  있습니다.
+                </li>
+              </ul>
+            </div>
+          </HelpDialog>
+        </template>
+        <template #actions>
           <Button
             variant="secondary"
             size="icon"
             @click="router.push('/settings?tab=library')"
           >
-            <Icon icon="solar:settings-bold-duotone" class="h-5 w-5" />
+            <Icon icon="solar:settings-bold-duotone" class="h-6 w-6" />
           </Button>
-          <span>버튼을 눌러 설정화면으로 이동하세요.</span>
-        </p>
+        </template>
+      </PageHeader>
+    </div>
+
+    <!-- 콘텐츠 -->
+    <div class="flex min-h-0 flex-1 flex-col gap-4">
+      <!-- 검색 및 필터 영역 -->
+      <div class="flex items-center gap-2">
+        <SmartSearchInput
+          ref="searchInputRef"
+          v-model="searchQuery"
+          placeholder="제목, 작가, 태그, 시리즈로 검색"
+          class="flex-grow"
+        />
+        <PresetDropdown v-model="searchQuery" />
+        <DropdownMenu>
+          <DropdownMenuTrigger as-child>
+            <Button variant="outline">
+              <Icon icon="solar:filter-bold-duotone" class="h-4 w-4" />
+              필터
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent class="w-56">
+            <DropdownMenuLabel>읽음 상태</DropdownMenuLabel>
+            <DropdownMenuRadioGroup v-model="readStatus">
+              <DropdownMenuRadioItem value="all">모두</DropdownMenuRadioItem>
+              <DropdownMenuRadioItem value="read">읽음</DropdownMenuRadioItem>
+              <DropdownMenuRadioItem value="unread"
+                >안 읽음</DropdownMenuRadioItem
+              >
+            </DropdownMenuRadioGroup>
+            <DropdownMenuSeparator />
+            <DropdownMenuLabel>즐겨찾기</DropdownMenuLabel>
+            <DropdownMenuRadioGroup v-model="isFavorite">
+              <DropdownMenuRadioItem value="all">모두</DropdownMenuRadioItem>
+              <DropdownMenuRadioItem value="favorite"
+                >즐겨찾기만</DropdownMenuRadioItem
+              >
+            </DropdownMenuRadioGroup>
+            <DropdownMenuSeparator />
+            <DropdownMenuLabel>오프라인 상태</DropdownMenuLabel>
+            <DropdownMenuRadioGroup v-model="offlineStatus">
+              <DropdownMenuRadioItem value="all">모두</DropdownMenuRadioItem>
+              <DropdownMenuRadioItem value="online"
+                >온라인만</DropdownMenuRadioItem
+              >
+              <DropdownMenuRadioItem value="offline"
+                >오프라인만</DropdownMenuRadioItem
+              >
+            </DropdownMenuRadioGroup>
+          </DropdownMenuContent>
+        </DropdownMenu>
+        <div class="inline-flex">
+          <DropdownMenu>
+            <DropdownMenuTrigger as-child>
+              <Button variant="outline" class="rounded-r-none">
+                <Icon icon="solar:sort-bold-duotone" class="h-4 w-4" />
+                정렬
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent>
+              <DropdownMenuLabel>정렬 기준</DropdownMenuLabel>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem @click="setSortBy('title')">
+                제목
+                <Icon
+                  v-if="sortBy === 'title'"
+                  icon="solar:check-circle-bold-duotone"
+                  class="ml-auto h-4 w-4"
+                />
+              </DropdownMenuItem>
+              <DropdownMenuItem @click="setSortBy('added_at')">
+                추가된 날짜
+                <Icon
+                  v-if="sortBy === 'added_at'"
+                  icon="solar:check-circle-bold-duotone"
+                  class="ml-auto h-4 w-4"
+                />
+              </DropdownMenuItem>
+              <DropdownMenuItem @click="setSortBy('last_read_at')">
+                최근 읽음
+                <Icon
+                  v-if="sortBy === 'last_read_at'"
+                  icon="solar:check-circle-bold-duotone"
+                  class="ml-auto h-4 w-4"
+                />
+              </DropdownMenuItem>
+              <DropdownMenuItem @click="setSortBy('artists')">
+                작가
+                <Icon
+                  v-if="sortBy === 'artists'"
+                  icon="solar:check-circle-bold-duotone"
+                  class="ml-auto h-4 w-4"
+                />
+              </DropdownMenuItem>
+              <DropdownMenuItem @click="setSortBy('page_count')">
+                페이지 수
+                <Icon
+                  v-if="sortBy === 'page_count'"
+                  icon="solar:check-circle-bold-duotone"
+                  class="ml-auto h-4 w-4"
+                />
+              </DropdownMenuItem>
+              <DropdownMenuItem @click="setSortBy('hitomi_id')">
+                Hitomi ID
+                <Icon
+                  v-if="sortBy === 'hitomi_id'"
+                  icon="solar:check-circle-bold-duotone"
+                  class="ml-auto h-4 w-4"
+                />
+              </DropdownMenuItem>
+              <DropdownMenuItem @click="setSortBy('random')">
+                랜덤
+                <Icon
+                  v-if="sortBy === 'random'"
+                  icon="solar:check-circle-bold-duotone"
+                  class="ml-auto h-4 w-4"
+                />
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+          <Button
+            variant="outline"
+            class="rounded-l-none border-l-0"
+            :disabled="sortBy === 'random'"
+            @click="toggleSortOrder"
+          >
+            <Icon
+              v-if="sortOrder === 'asc'"
+              icon="solar:sort-from-bottom-to-top-bold-duotone"
+              class="h-4 w-4"
+            />
+            <Icon
+              v-else
+              icon="solar:sort-from-top-to-bottom-bold-duotone"
+              class="h-4 w-4"
+            />
+          </Button>
+        </div>
+        <Button
+          variant="outline"
+          :disabled="books.length === 0"
+          @click="openRandomBookFromCurrentView"
+        >
+          <Icon icon="solar:rocket-bold-duotone" class="h-4 w-4" />
+          랜덤
+        </Button>
+        <!-- 더보기 메뉴: 라이브러리 폴더 / 뷰 모드 / 썸네일 줌 -->
+        <DropdownMenu>
+          <DropdownMenuTrigger as-child>
+            <Button variant="outline" size="icon" aria-label="더보기">
+              <Icon icon="solar:menu-dots-bold" class="h-4 w-4" />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" class="w-64">
+            <DropdownMenuLabel>라이브러리 폴더</DropdownMenuLabel>
+            <DropdownMenuRadioGroup v-model="libraryPath">
+              <DropdownMenuRadioItem value="all">
+                모든 라이브러리
+              </DropdownMenuRadioItem>
+              <DropdownMenuRadioItem
+                v-for="dir in libraryDirectories"
+                :key="dir"
+                :value="dir"
+                class="truncate"
+              >
+                <span class="truncate" :title="dir">{{ dir }}</span>
+              </DropdownMenuRadioItem>
+            </DropdownMenuRadioGroup>
+            <DropdownMenuSeparator />
+            <DropdownMenuLabel>뷰 모드</DropdownMenuLabel>
+            <DropdownMenuRadioGroup v-model="viewMode">
+              <DropdownMenuRadioItem value="grid">
+                <Icon icon="solar:widget-4-bold-duotone" class="mr-2 h-4 w-4" />
+                그리드
+              </DropdownMenuRadioItem>
+              <DropdownMenuRadioItem value="list">
+                <Icon icon="solar:list-bold-duotone" class="mr-2 h-4 w-4" />
+                리스트
+              </DropdownMenuRadioItem>
+            </DropdownMenuRadioGroup>
+            <DropdownMenuSeparator />
+            <DropdownMenuLabel>썸네일 크기</DropdownMenuLabel>
+            <div
+              class="flex items-center justify-between px-2 py-1.5"
+              :class="viewMode !== 'grid' ? 'opacity-50' : ''"
+            >
+              <Button
+                variant="outline"
+                size="icon"
+                class="h-7 w-7"
+                :disabled="viewMode !== 'grid'"
+                @click.stop="uiStore.zoomOut()"
+              >
+                <Icon icon="solar:minus-circle-bold-duotone" class="h-4 w-4" />
+              </Button>
+              <span class="text-xs tabular-nums">
+                {{ Math.round(uiStore.thumbnailZoom * 100) }}%
+              </span>
+              <Button
+                variant="outline"
+                size="icon"
+                class="h-7 w-7"
+                :disabled="viewMode !== 'grid'"
+                @click.stop="uiStore.zoomIn()"
+              >
+                <Icon icon="solar:add-circle-bold-duotone" class="h-4 w-4" />
+              </Button>
+            </div>
+          </DropdownMenuContent>
+        </DropdownMenu>
+      </div>
+
+      <div
+        v-if="isLoading"
+        class="flex flex-grow flex-col items-center justify-center text-center"
+      >
+        <div
+          class="text-muted-foreground mb-4 flex flex-col items-center justify-center gap-2 text-lg"
+        >
+          <Icon icon="svg-spinners:ring-resize" class="size-8" />
+          <p>로딩중...</p>
+        </div>
+      </div>
+      <!-- Grid View -->
+      <div
+        v-else-if="books.length > 0 && viewMode === 'grid'"
+        ref="gridRef"
+        class="grid flex-grow items-start gap-3 overflow-y-auto"
+        :style="gridStyle"
+        @wheel="handleGridWheel"
+      >
+        <BookCard
+          v-for="book in books"
+          :key="book.id"
+          :book="book"
+          :query-key="queryKey"
+          :hide-tags="hideLibraryTags"
+          :external-image-viewer-path="config?.externalImageViewerPath"
+          :external-archive-viewer-path="config?.externalArchiveViewerPath"
+          @select-tag="toggleTag"
+          @exclude-tag="excludeTag"
+          @select-artist="toggleArtist"
+          @select-group="toggleGroup"
+          @toggle-favorite="handleToggleFavorite"
+          @open-book-folder="handleOpenFolder"
+          @show-details="handleShowDetails"
+          @show-preview="handleShowPreview"
+        />
+        <div
+          v-if="hasNextPage"
+          ref="loader"
+          class="col-span-full p-4 text-center"
+        >
+          <Button :disabled="isFetchingNextPage" @click="fetchNextPage">
+            <Icon v-if="isFetchingNextPage" icon="svg-spinners:ring-resize" />
+            <span>더 불러오기</span>
+          </Button>
+        </div>
+      </div>
+      <!-- List View -->
+      <div
+        v-else-if="books.length > 0 && viewMode === 'list'"
+        class="flex flex-grow flex-col overflow-y-auto"
+      >
+        <BookRowCard
+          v-for="book in books"
+          :key="book.id"
+          :book="book"
+          :query-key="queryKey"
+          :hide-tags="hideLibraryTags"
+          @select-tag="toggleTag"
+          @exclude-tag="excludeTag"
+          @select-artist="toggleArtist"
+          @select-group="toggleGroup"
+          @toggle-favorite="handleToggleFavorite"
+          @open-book-folder="handleOpenFolder"
+          @show-details="handleShowDetails"
+          @show-preview="handleShowPreview"
+        />
+        <div v-if="hasNextPage" ref="loader" class="p-4 text-center">
+          <Button :disabled="isFetchingNextPage" @click="fetchNextPage">
+            <Icon v-if="isFetchingNextPage" icon="svg-spinners:ring-resize" />
+            <span>더 불러오기</span>
+          </Button>
+        </div>
+      </div>
+      <div
+        v-else-if="searchQuery.trim().length > 0"
+        class="flex flex-grow flex-col items-center justify-center text-center"
+      >
+        <div
+          class="text-muted-foreground mb-4 flex flex-col items-center justify-center gap-2 text-lg"
+        >
+          <p>검색된 데이터가 없습니다.</p>
+        </div>
+      </div>
+      <div
+        v-else
+        class="flex flex-grow flex-col items-center justify-center text-center"
+      >
+        <div
+          class="text-muted-foreground mb-4 flex flex-col items-center justify-center text-lg"
+        >
+          <p>등록된 라이브러리/책이 없습니다.</p>
+          <p class="flex items-center justify-center gap-1">
+            <Button
+              variant="secondary"
+              size="icon"
+              @click="router.push('/settings?tab=library')"
+            >
+              <Icon icon="solar:settings-bold-duotone" class="h-5 w-5" />
+            </Button>
+            <span>버튼을 눌러 설정화면으로 이동하세요.</span>
+          </p>
+        </div>
       </div>
     </div>
 

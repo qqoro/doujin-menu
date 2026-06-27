@@ -73,7 +73,7 @@ onMounted(async () => {
         'bg-background grid grid-rows-[auto_1fr] transition-[grid-template-columns] duration-300 ease-in-out',
         // 회전된 경우 h-full, 아니면 h-screen 사용
         screenRotation === 90 || screenRotation === 270 ? 'h-full' : 'h-screen',
-        isSidebarCollapsed ? 'grid-cols-[5.5rem_1fr]' : 'grid-cols-[14rem_1fr]',
+        isSidebarCollapsed ? 'grid-cols-[4rem_1fr]' : 'grid-cols-[14rem_1fr]',
       )
     "
     :style="rotationStyle"

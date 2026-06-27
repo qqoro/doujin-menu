@@ -1,22 +1,26 @@
 <script setup lang="ts">
-import type { VariantProps } from 'class-variance-authority'
-import { reactiveOmit } from '@vueuse/core'
-import { ToggleGroupItem, type ToggleGroupItemProps, useForwardProps } from 'reka-ui'
-import { type HTMLAttributes, inject } from 'vue'
-import { cn } from '@/lib/utils'
+import type { VariantProps } from "class-variance-authority"
+import type { ToggleGroupItemProps } from "reka-ui"
+import type { HTMLAttributes } from "vue"
+import { reactiveOmit } from "@vueuse/core"
+import { ToggleGroupItem, useForwardProps } from "reka-ui"
+import { inject } from "vue"
+import { cn } from "@/lib/utils"
 import { toggleVariants } from '@/components/ui/toggle'
 
-type ToggleGroupVariants = VariantProps<typeof toggleVariants>
+type ToggleGroupVariants = VariantProps<typeof toggleVariants> & {
+  spacing?: number
+}
 
 const props = defineProps<ToggleGroupItemProps & {
-  class?: HTMLAttributes['class']
-  variant?: ToggleGroupVariants['variant']
-  size?: ToggleGroupVariants['size']
+  class?: HTMLAttributes["class"]
+  variant?: ToggleGroupVariants["variant"]
+  size?: ToggleGroupVariants["size"]
 }>()
 
-const context = inject<ToggleGroupVariants>('toggleGroup')
+const context = inject<ToggleGroupVariants>("toggleGroup")
 
-const delegatedProps = reactiveOmit(props, 'class', 'size', 'variant')
+const delegatedProps = reactiveOmit(props, "class", "size", "variant")
 const forwardedProps = useForwardProps(delegatedProps)
 </script>
 
@@ -26,13 +30,14 @@ const forwardedProps = useForwardProps(delegatedProps)
     data-slot="toggle-group-item"
     :data-variant="context?.variant || variant"
     :data-size="context?.size || size"
+    :data-spacing="context?.spacing"
     v-bind="forwardedProps"
     :class="cn(
+      'group-data-[spacing=0]/toggle-group:rounded-none group-data-[spacing=0]/toggle-group:px-2 group-data-[spacing=0]/toggle-group:has-data-[icon=inline-end]:pr-1.5 group-data-[spacing=0]/toggle-group:has-data-[icon=inline-start]:pl-1.5 group-data-horizontal/toggle-group:data-[spacing=0]:first:rounded-l-lg group-data-vertical/toggle-group:data-[spacing=0]:first:rounded-t-lg group-data-horizontal/toggle-group:data-[spacing=0]:last:rounded-r-lg group-data-vertical/toggle-group:data-[spacing=0]:last:rounded-b-lg shrink-0 focus:z-10 focus-visible:z-10 group-data-horizontal/toggle-group:data-[spacing=0]:data-[variant=outline]:border-l-0 group-data-vertical/toggle-group:data-[spacing=0]:data-[variant=outline]:border-t-0 group-data-horizontal/toggle-group:data-[spacing=0]:data-[variant=outline]:first:border-l group-data-vertical/toggle-group:data-[spacing=0]:data-[variant=outline]:first:border-t',
       toggleVariants({
         variant: context?.variant || variant,
         size: context?.size || size,
       }),
-      'min-w-0 flex-1 shrink-0 rounded-none shadow-none first:rounded-l-md last:rounded-r-md focus:z-10 focus-visible:z-10 data-[variant=outline]:border-l-0 data-[variant=outline]:first:border-l',
       props.class)"
   >
     <slot v-bind="slotProps" />

@@ -1,7 +1,6 @@
 <script setup lang="ts">
 import { ipcRenderer } from "@/api";
 import DownloadQueuePopover from "@/components/feature/downloader/DownloadQueuePopover.vue";
-import { Button } from "@/components/ui/button";
 import { Icon } from "@iconify/vue";
 import { onMounted, onUnmounted, ref } from "vue";
 
@@ -29,52 +28,59 @@ onUnmounted(() => {
 
 <template>
   <header
-    class="bg-muted flex items-center justify-between border-b px-4 py-3"
+    class="bg-muted flex h-9 items-center justify-between border-b pl-4"
     style="-webkit-app-region: drag"
   >
-    <div class="flex items-center gap-3">
+    <div class="flex items-center gap-2">
       <Icon
         icon="solar:book-bookmark-bold-duotone"
-        class="text-primary size-6"
+        class="text-primary size-5"
       />
-      <h1 class="text-foreground text-lg font-semibold">동인메뉴판</h1>
+      <h1 class="text-foreground text-sm font-semibold">동인메뉴판</h1>
     </div>
 
-    <div class="flex items-center gap-2">
-      <div style="-webkit-app-region: no-drag">
+    <div class="flex h-full items-center">
+      <!-- 다운로드 큐: no-drag 영역 유지 -->
+      <div
+        class="flex h-full items-center px-1"
+        style="-webkit-app-region: no-drag"
+      >
         <DownloadQueuePopover />
       </div>
-      <Button
-        class="size-8"
-        variant="outline"
-        size="icon"
-        @click="minimizeWindow"
+
+      <!-- 윈도우 타이틀바 스타일 창 제어 버튼 -->
+      <div
+        class="flex h-full items-stretch"
+        style="-webkit-app-region: no-drag"
       >
-        <Icon icon="solar:minus-square-line-duotone" class="size-4" />
-      </Button>
-      <Button
-        class="size-8"
-        variant="outline"
-        size="icon"
-        @click="maximizeToggleWindow"
-      >
-        <Icon
-          :icon="
-            isMaximized
-              ? 'solar:minimize-square-3-line-duotone'
-              : 'solar:maximize-square-minimalistic-line-duotone'
-          "
-          class="size-4"
-        />
-      </Button>
-      <Button
-        variant="outline"
-        size="icon"
-        class="hover:bg-destructive/80 size-8 hover:text-white"
-        @click="closeWindow"
-      >
-        <Icon icon="solar:close-square-line-duotone" class="size-4" />
-      </Button>
+        <button
+          type="button"
+          class="text-muted-foreground hover:bg-foreground/10 hover:text-foreground flex w-12 items-center justify-center transition-colors"
+          title="최소화"
+          @click="minimizeWindow"
+        >
+          <Icon icon="lucide:minus" class="size-4" />
+        </button>
+        <button
+          type="button"
+          class="text-muted-foreground hover:bg-foreground/10 hover:text-foreground flex w-12 items-center justify-center transition-colors"
+          :title="isMaximized ? '최대화 복원' : '최대화'"
+          @click="maximizeToggleWindow"
+        >
+          <Icon
+            :icon="isMaximized ? 'lucide:copy' : 'lucide:square'"
+            class="size-4"
+          />
+        </button>
+        <button
+          type="button"
+          class="text-muted-foreground hover:bg-destructive hover:text-destructive-foreground flex w-12 items-center justify-center transition-colors"
+          title="닫기"
+          @click="closeWindow"
+        >
+          <Icon icon="lucide:x" class="size-4" />
+        </button>
+      </div>
     </div>
   </header>
 </template>

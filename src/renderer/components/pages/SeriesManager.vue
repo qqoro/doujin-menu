@@ -31,6 +31,7 @@ import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { useQueryAndParams } from "@/composable/useQueryAndParams";
 import { useScrollRestoration } from "@/composable/useScrollRestoration";
 import { Icon } from "@iconify/vue";
+import PageHeader from "../layout/PageHeader.vue";
 import {
   useInfiniteQuery,
   useMutation,
@@ -361,12 +362,10 @@ useScrollRestoration(".flex-grow.overflow-y-auto");
 </script>
 
 <template>
-  <div class="flex h-full flex-col">
+  <div class="flex h-full flex-col gap-6">
     <!-- 헤더 -->
-    <div class="mb-4 flex items-center justify-between">
-      <div class="flex items-center gap-2">
-        <Icon icon="solar:library-bold-duotone" class="h-6 w-6" />
-        <h2 class="text-2xl font-bold">시리즈</h2>
+    <PageHeader icon="solar:library-bold-duotone" title="시리즈">
+      <template #help>
         <HelpDialog
           title="시리즈 도움말"
           description="시리즈 관리 사용법 및 자동 감지 팁"
@@ -409,8 +408,8 @@ useScrollRestoration(".flex-grow.overflow-y-auto");
             </ul>
           </div>
         </HelpDialog>
-      </div>
-      <div class="flex gap-2">
+      </template>
+      <template #actions>
         <Button variant="outline" @click="showCreateDialog = true">
           <Icon icon="solar:add-circle-bold-duotone" class="mr-2 h-4 w-4" />
           새 시리즈
@@ -422,230 +421,236 @@ useScrollRestoration(".flex-grow.overflow-y-auto");
           <Icon icon="solar:magic-stick-3-bold-duotone" class="mr-2 h-4 w-4" />
           자동 감지 실행
         </Button>
-      </div>
-    </div>
+      </template>
+    </PageHeader>
 
-    <!-- 검색 및 필터 영역 -->
-    <div class="mb-4 flex items-center gap-2">
-      <Select v-model="filterType">
-        <SelectTrigger class="w-[180px]">
-          <SelectValue placeholder="필터 선택" />
-        </SelectTrigger>
-        <SelectContent>
-          <SelectItem value="all">전체</SelectItem>
-          <SelectItem value="auto">자동 생성만</SelectItem>
-          <SelectItem value="manual">수동 생성만</SelectItem>
-        </SelectContent>
-      </Select>
-      <SmartSearchInput
-        v-model="searchQuery"
-        placeholder="시리즈명, 작가, 태그, 타입으로 검색"
-        class="flex-grow"
-      />
-      <div class="inline-flex">
-        <DropdownMenu>
-          <DropdownMenuTrigger as-child>
-            <Button variant="outline" class="rounded-r-none">
-              <Icon icon="solar:sort-bold-duotone" class="h-4 w-4" />
-              정렬
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent>
-            <DropdownMenuLabel>정렬 기준</DropdownMenuLabel>
-            <DropdownMenuSeparator />
-            <DropdownMenuItem @click="setSortBy('name')">
-              이름순
-              <Icon
-                v-if="sortBy === 'name'"
-                icon="solar:check-circle-bold-duotone"
-                class="ml-auto h-4 w-4"
-              />
-            </DropdownMenuItem>
-            <DropdownMenuItem @click="setSortBy('created_at')">
-              생성일순
-              <Icon
-                v-if="sortBy === 'created_at'"
-                icon="solar:check-circle-bold-duotone"
-                class="ml-auto h-4 w-4"
-              />
-            </DropdownMenuItem>
-            <DropdownMenuItem @click="setSortBy('book_count')">
-              도서 수순
-              <Icon
-                v-if="sortBy === 'book_count'"
-                icon="solar:check-circle-bold-duotone"
-                class="ml-auto h-4 w-4"
-              />
-            </DropdownMenuItem>
-            <DropdownMenuItem @click="setSortBy('confidence_score')">
-              신뢰도순
-              <Icon
-                v-if="sortBy === 'confidence_score'"
-                icon="solar:check-circle-bold-duotone"
-                class="ml-auto h-4 w-4"
-              />
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
-        <Button
-          variant="outline"
-          class="rounded-l-none border-l-0"
-          @click="toggleSortOrder"
-        >
-          <Icon
-            v-if="sortOrder === 'asc'"
-            icon="solar:sort-from-bottom-to-top-bold-duotone"
-            class="h-4 w-4"
-          />
-          <Icon
-            v-else
-            icon="solar:sort-from-top-to-bottom-bold-duotone"
-            class="h-4 w-4"
-          />
-        </Button>
-      </div>
-      <ToggleGroup
-        :model-value="viewMode"
-        type="single"
-        @update:model-value="handleViewModeChange"
-      >
-        <ToggleGroupItem value="grid" aria-label="그리드 뷰">
-          <Icon icon="solar:widget-4-bold-duotone" class="h-4 w-4" />
-        </ToggleGroupItem>
-        <ToggleGroupItem value="list" aria-label="리스트 뷰">
-          <Icon icon="solar:list-bold-duotone" class="h-4 w-4" />
-        </ToggleGroupItem>
-      </ToggleGroup>
-      <div class="text-muted-foreground text-sm">
-        총 {{ totalCount }}개 시리즈
-      </div>
-    </div>
-
-    <!-- 로딩 중 -->
-    <div
-      v-if="isLoading"
-      class="flex flex-grow flex-col items-center justify-center text-center"
-    >
-      <div
-        class="text-muted-foreground mb-4 flex flex-col items-center justify-center gap-2 text-lg"
-      >
-        <Icon icon="svg-spinners:ring-resize" class="size-8" />
-        <p>로딩중...</p>
-      </div>
-    </div>
-
-    <!-- 그리드 뷰 -->
-    <div
-      v-else-if="collections.length > 0 && viewMode === 'grid'"
-      class="grid flex-grow grid-cols-1 items-start gap-4 overflow-y-auto sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-6"
-    >
-      <SeriesCollectionCard
-        v-for="series in collections"
-        :key="series.id"
-        :series="series"
-        @click="handleSeriesClick(series)"
-        @delete="handleDeleteSeries(series.id)"
-      />
-      <div
-        v-if="hasNextPage"
-        ref="loader"
-        class="col-span-full p-4 text-center"
-      >
-        <Button :disabled="isFetchingNextPage" @click="fetchNextPage">
-          <Icon v-if="isFetchingNextPage" icon="svg-spinners:ring-resize" />
-          <span>더 불러오기</span>
-        </Button>
-      </div>
-    </div>
-
-    <!-- 리스트 뷰 -->
-    <div
-      v-else-if="collections.length > 0 && viewMode === 'list'"
-      class="flex flex-grow flex-col gap-2 overflow-y-auto"
-    >
-      <SeriesCollectionRowCard
-        v-for="series in collections"
-        :key="series.id"
-        :series="series"
-        @click="handleSeriesClick(series)"
-        @delete="handleDeleteSeries(series.id)"
-      />
-      <div v-if="hasNextPage" ref="loader" class="p-4 text-center">
-        <Button :disabled="isFetchingNextPage" @click="fetchNextPage">
-          <Icon v-if="isFetchingNextPage" icon="svg-spinners:ring-resize" />
-          <span>더 불러오기</span>
-        </Button>
-      </div>
-    </div>
-
-    <!-- 빈 상태 - 검색 결과 없음 -->
-    <div
-      v-else-if="searchQuery.trim().length > 0"
-      class="flex flex-grow flex-col items-center justify-center text-center"
-    >
-      <div
-        class="text-muted-foreground mb-4 flex flex-col items-center justify-center gap-2 text-lg"
-      >
-        <p>검색된 데이터가 없습니다.</p>
-      </div>
-    </div>
-
-    <!-- 빈 상태 - 시리즈 없음 -->
-    <div
-      v-else
-      class="flex flex-grow flex-col items-center justify-center text-center"
-    >
-      <div
-        class="text-muted-foreground mb-4 flex flex-col items-center justify-center gap-2 text-lg"
-      >
-        <Icon icon="solar:library-bold-duotone" class="h-16 w-16" />
-        <div>
-          <h3 class="text-lg font-semibold">시리즈가 없습니다</h3>
-          <p class="text-muted-foreground mt-1 text-sm">
-            자동 감지를 실행하여 시리즈를 생성하세요
-          </p>
+    <!-- 콘텐츠 -->
+    <div class="flex min-h-0 flex-1 flex-col gap-4">
+      <!-- 검색 및 필터 영역 -->
+      <div class="flex items-center gap-2">
+        <Select v-model="filterType">
+          <SelectTrigger class="w-[180px]">
+            <SelectValue placeholder="필터 선택" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">전체</SelectItem>
+            <SelectItem value="auto">자동 생성만</SelectItem>
+            <SelectItem value="manual">수동 생성만</SelectItem>
+          </SelectContent>
+        </Select>
+        <SmartSearchInput
+          v-model="searchQuery"
+          placeholder="시리즈명, 작가, 태그, 타입으로 검색"
+          class="flex-grow"
+        />
+        <div class="inline-flex">
+          <DropdownMenu>
+            <DropdownMenuTrigger as-child>
+              <Button variant="outline" class="rounded-r-none">
+                <Icon icon="solar:sort-bold-duotone" class="h-4 w-4" />
+                정렬
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent>
+              <DropdownMenuLabel>정렬 기준</DropdownMenuLabel>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem @click="setSortBy('name')">
+                이름순
+                <Icon
+                  v-if="sortBy === 'name'"
+                  icon="solar:check-circle-bold-duotone"
+                  class="ml-auto h-4 w-4"
+                />
+              </DropdownMenuItem>
+              <DropdownMenuItem @click="setSortBy('created_at')">
+                생성일순
+                <Icon
+                  v-if="sortBy === 'created_at'"
+                  icon="solar:check-circle-bold-duotone"
+                  class="ml-auto h-4 w-4"
+                />
+              </DropdownMenuItem>
+              <DropdownMenuItem @click="setSortBy('book_count')">
+                도서 수순
+                <Icon
+                  v-if="sortBy === 'book_count'"
+                  icon="solar:check-circle-bold-duotone"
+                  class="ml-auto h-4 w-4"
+                />
+              </DropdownMenuItem>
+              <DropdownMenuItem @click="setSortBy('confidence_score')">
+                신뢰도순
+                <Icon
+                  v-if="sortBy === 'confidence_score'"
+                  icon="solar:check-circle-bold-duotone"
+                  class="ml-auto h-4 w-4"
+                />
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+          <Button
+            variant="outline"
+            class="rounded-l-none border-l-0"
+            @click="toggleSortOrder"
+          >
+            <Icon
+              v-if="sortOrder === 'asc'"
+              icon="solar:sort-from-bottom-to-top-bold-duotone"
+              class="h-4 w-4"
+            />
+            <Icon
+              v-else
+              icon="solar:sort-from-top-to-bottom-bold-duotone"
+              class="h-4 w-4"
+            />
+          </Button>
         </div>
-        <Button @click="handleRunDetection">
-          <Icon icon="solar:magic-stick-3-bold-duotone" class="mr-2 h-4 w-4" />
-          자동 감지 실행
-        </Button>
+        <ToggleGroup
+          :model-value="viewMode"
+          type="single"
+          @update:model-value="handleViewModeChange"
+        >
+          <ToggleGroupItem value="grid" aria-label="그리드 뷰">
+            <Icon icon="solar:widget-4-bold-duotone" class="h-4 w-4" />
+          </ToggleGroupItem>
+          <ToggleGroupItem value="list" aria-label="리스트 뷰">
+            <Icon icon="solar:list-bold-duotone" class="h-4 w-4" />
+          </ToggleGroupItem>
+        </ToggleGroup>
+        <div class="text-muted-foreground text-sm">
+          총 {{ totalCount }}개 시리즈
+        </div>
       </div>
+
+      <!-- 로딩 중 -->
+      <div
+        v-if="isLoading"
+        class="flex flex-grow flex-col items-center justify-center text-center"
+      >
+        <div
+          class="text-muted-foreground mb-4 flex flex-col items-center justify-center gap-2 text-lg"
+        >
+          <Icon icon="svg-spinners:ring-resize" class="size-8" />
+          <p>로딩중...</p>
+        </div>
+      </div>
+
+      <!-- 그리드 뷰 -->
+      <div
+        v-else-if="collections.length > 0 && viewMode === 'grid'"
+        class="grid flex-grow grid-cols-1 items-start gap-4 overflow-y-auto sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-6"
+      >
+        <SeriesCollectionCard
+          v-for="series in collections"
+          :key="series.id"
+          :series="series"
+          @click="handleSeriesClick(series)"
+          @delete="handleDeleteSeries(series.id)"
+        />
+        <div
+          v-if="hasNextPage"
+          ref="loader"
+          class="col-span-full p-4 text-center"
+        >
+          <Button :disabled="isFetchingNextPage" @click="fetchNextPage">
+            <Icon v-if="isFetchingNextPage" icon="svg-spinners:ring-resize" />
+            <span>더 불러오기</span>
+          </Button>
+        </div>
+      </div>
+
+      <!-- 리스트 뷰 -->
+      <div
+        v-else-if="collections.length > 0 && viewMode === 'list'"
+        class="flex flex-grow flex-col gap-2 overflow-y-auto"
+      >
+        <SeriesCollectionRowCard
+          v-for="series in collections"
+          :key="series.id"
+          :series="series"
+          @click="handleSeriesClick(series)"
+          @delete="handleDeleteSeries(series.id)"
+        />
+        <div v-if="hasNextPage" ref="loader" class="p-4 text-center">
+          <Button :disabled="isFetchingNextPage" @click="fetchNextPage">
+            <Icon v-if="isFetchingNextPage" icon="svg-spinners:ring-resize" />
+            <span>더 불러오기</span>
+          </Button>
+        </div>
+      </div>
+
+      <!-- 빈 상태 - 검색 결과 없음 -->
+      <div
+        v-else-if="searchQuery.trim().length > 0"
+        class="flex flex-grow flex-col items-center justify-center text-center"
+      >
+        <div
+          class="text-muted-foreground mb-4 flex flex-col items-center justify-center gap-2 text-lg"
+        >
+          <p>검색된 데이터가 없습니다.</p>
+        </div>
+      </div>
+
+      <!-- 빈 상태 - 시리즈 없음 -->
+      <div
+        v-else
+        class="flex flex-grow flex-col items-center justify-center text-center"
+      >
+        <div
+          class="text-muted-foreground mb-4 flex flex-col items-center justify-center gap-2 text-lg"
+        >
+          <Icon icon="solar:library-bold-duotone" class="h-16 w-16" />
+          <div>
+            <h3 class="text-lg font-semibold">시리즈가 없습니다</h3>
+            <p class="text-muted-foreground mt-1 text-sm">
+              자동 감지를 실행하여 시리즈를 생성하세요
+            </p>
+          </div>
+          <Button @click="handleRunDetection">
+            <Icon
+              icon="solar:magic-stick-3-bold-duotone"
+              class="mr-2 h-4 w-4"
+            />
+            자동 감지 실행
+          </Button>
+        </div>
+      </div>
+
+      <!-- 자동 감지 다이얼로그 -->
+      <SeriesDetectionDialog
+        v-model:open="showDetectionDialog"
+        @confirm="handleConfirmDetection"
+      />
+
+      <!-- 시리즈 상세 다이얼로그 -->
+      <SeriesDetailDialog
+        v-model:open="showDetailDialog"
+        :series="selectedSeries"
+        @updated="refetch"
+      />
+
+      <!-- 새 시리즈 만들기 다이얼로그 -->
+      <CreateSeriesDialog v-model:open="showCreateDialog" @created="refetch" />
+
+      <!-- 시리즈 삭제 확인 다이얼로그 -->
+      <AlertDialog
+        :open="showDeleteDialog"
+        @update:open="showDeleteDialog = $event"
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>시리즈 삭제</AlertDialogTitle>
+            <AlertDialogDescription>
+              정말 이 시리즈를 삭제하시겠습니까? 시리즈에 속한 책들은 시리즈에서
+              제거되지만 책 자체는 삭제되지 않습니다.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>취소</AlertDialogCancel>
+            <AlertDialogAction @click="confirmDelete">삭제</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
-
-    <!-- 자동 감지 다이얼로그 -->
-    <SeriesDetectionDialog
-      v-model:open="showDetectionDialog"
-      @confirm="handleConfirmDetection"
-    />
-
-    <!-- 시리즈 상세 다이얼로그 -->
-    <SeriesDetailDialog
-      v-model:open="showDetailDialog"
-      :series="selectedSeries"
-      @updated="refetch"
-    />
-
-    <!-- 새 시리즈 만들기 다이얼로그 -->
-    <CreateSeriesDialog v-model:open="showCreateDialog" @created="refetch" />
-
-    <!-- 시리즈 삭제 확인 다이얼로그 -->
-    <AlertDialog
-      :open="showDeleteDialog"
-      @update:open="showDeleteDialog = $event"
-    >
-      <AlertDialogContent>
-        <AlertDialogHeader>
-          <AlertDialogTitle>시리즈 삭제</AlertDialogTitle>
-          <AlertDialogDescription>
-            정말 이 시리즈를 삭제하시겠습니까? 시리즈에 속한 책들은 시리즈에서
-            제거되지만 책 자체는 삭제되지 않습니다.
-          </AlertDialogDescription>
-        </AlertDialogHeader>
-        <AlertDialogFooter>
-          <AlertDialogCancel>취소</AlertDialogCancel>
-          <AlertDialogAction @click="confirmDelete">삭제</AlertDialogAction>
-        </AlertDialogFooter>
-      </AlertDialogContent>
-    </AlertDialog>
   </div>
 </template>
