@@ -10,8 +10,8 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { Badge } from "@/components/ui/badge";
-import { Card, CardContent, CardFooter } from "@/components/ui/card";
+import { Badge, LightBadge } from "@/components/ui/badge";
+import { CardContent, CardFooter, LightCard } from "@/components/ui/card";
 import {
   ContextMenu,
   ContextMenuContent,
@@ -212,7 +212,7 @@ const confirmDeleteBook = async () => {
 <template>
   <ContextMenu>
     <ContextMenuTrigger>
-      <Card
+      <LightCard
         class="flex h-full cursor-pointer flex-col gap-0 overflow-hidden py-0 transition-shadow hover:shadow-lg"
         @click="handleCardClick"
       >
@@ -294,7 +294,7 @@ const confirmDeleteBook = async () => {
                 isTagsExpanded ? 'flex-wrap' : 'flex-nowrap overflow-hidden'
               "
             >
-              <Badge
+              <LightBadge
                 v-for="tag in book.tags"
                 :key="tag.name"
                 :class="getTagDisplayInfo(tag).className"
@@ -303,7 +303,7 @@ const confirmDeleteBook = async () => {
                 @contextmenu.prevent.stop="emit('excludeTag', tag.name)"
               >
                 {{ getTagDisplayInfo(tag).displayText }}
-              </Badge>
+              </LightBadge>
             </div>
             <button
               v-if="book.tags.length > 1"
@@ -321,7 +321,7 @@ const confirmDeleteBook = async () => {
             </button>
           </div>
         </CardFooter>
-      </Card>
+      </LightCard>
     </ContextMenuTrigger>
 
     <ContextMenuContent>
