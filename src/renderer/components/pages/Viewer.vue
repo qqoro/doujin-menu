@@ -517,6 +517,9 @@ useKeybindings(
     "viewer:toggle-sort-order": () => {
       store.toggleSortOrder();
     },
+    "viewer:toggle-page-overlay": () => {
+      store.toggleHidePageNumber();
+    },
     "viewer:maximize-toggle": () => {
       ipcRenderer.send("maximize-toggle-window");
     },

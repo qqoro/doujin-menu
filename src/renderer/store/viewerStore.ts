@@ -499,6 +499,15 @@ export const useViewerStore = defineStore("viewer", () => {
     });
   }
 
+  // 페이지 번호 오버레이 표시/숨김 토글 (영구 저장)
+  function toggleHidePageNumber() {
+    hidePageNumber.value = !hidePageNumber.value;
+    ipcRenderer.invoke("set-config", {
+      key: "viewerHidePageNumber",
+      value: hidePageNumber.value,
+    });
+  }
+
   function zoomIn() {
     const newZoom = Math.min(500, zoomLevel.value + 10);
     zoomLevel.value = newZoom;
@@ -811,6 +820,7 @@ export const useViewerStore = defineStore("viewer", () => {
     setShowCoverAlone,
     setViewerAutoFitZoom,
     setViewerRestoreLastSession,
+    toggleHidePageNumber,
     showToast,
     toastMessage,
     showToastMessage,

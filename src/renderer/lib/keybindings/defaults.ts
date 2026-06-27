@@ -188,6 +188,12 @@ export const defaultActions: ActionDefinition[] = [
     context: "viewer",
     defaultKeys: ["s"],
   },
+  {
+    id: "viewer:toggle-page-overlay",
+    description: "페이지 번호 오버레이 표시/숨김",
+    context: "viewer",
+    defaultKeys: ["Tab"],
+  },
 
   // === 라이브러리 ===
   {
