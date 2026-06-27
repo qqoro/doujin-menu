@@ -176,6 +176,18 @@ export const defaultActions: ActionDefinition[] = [
     context: "viewer",
     defaultKeys: ["f"],
   },
+  {
+    id: "viewer:cycle-sort",
+    description: "정렬 기준 순환",
+    context: "viewer",
+    defaultKeys: ["d"],
+  },
+  {
+    id: "viewer:toggle-sort-order",
+    description: "정렬 순서 전환 (오름/내림)",
+    context: "viewer",
+    defaultKeys: ["s"],
+  },
 
   // === 라이브러리 ===
   {

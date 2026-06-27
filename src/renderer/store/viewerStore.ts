@@ -3,6 +3,12 @@ import { watchDebounced } from "@vueuse/core";
 import { defineStore } from "pinia";
 import { computed, nextTick, ref, toRaw, watch } from "vue";
 import { useRouter } from "vue-router";
+import {
+  nextSortBy,
+  toggledSortOrder,
+  SORT_CYCLE,
+  SORT_LABELS,
+} from "./sortCycle";
 
 export interface FilterParams {
   searchQuery?: string;
@@ -413,6 +419,31 @@ export const useViewerStore = defineStore("viewer", () => {
     });
   }
 
+  // 정렬 기준을 순환(added_at → title → ... → hitomi_id → added_at).
+  // filterParams를 갱신하면 이후 loadNextBook/loadPrevBook이 새 기준을 따른다.
+  function cycleSortBy() {
+    if (!filterParams.value) return;
+    const current = filterParams.value.sortBy;
+    const next = nextSortBy(current, SORT_CYCLE);
+    filterParams.value = {
+      ...filterParams.value,
+      sortBy: next,
+    };
+    showToastMessage(`정렬 기준: ${SORT_LABELS[next] ?? next}`);
+  }
+
+  // 정렬 순서(오름/내림차순)를 토글한다.
+  function toggleSortOrder() {
+    if (!filterParams.value) return;
+    filterParams.value = {
+      ...filterParams.value,
+      sortOrder: toggledSortOrder(filterParams.value.sortOrder),
+    };
+    const orderText =
+      filterParams.value.sortOrder === "asc" ? "오름차순" : "내림차순";
+    showToastMessage(`정렬 순서: ${orderText}`);
+  }
+
   // 자동 넘김 정지 페이지 설정
   function setAutoPlayStopPage(page: number | null) {
     autoPlayStopPage.value = page;
@@ -758,6 +789,8 @@ export const useViewerStore = defineStore("viewer", () => {
     stopAutoPlay,
     toggleAutoNextBook,
     setNextBookMode,
+    cycleSortBy,
+    toggleSortOrder,
     setAutoPlayStopPage,
     toggleAutoPlayStopPage,
     loadNextBook,

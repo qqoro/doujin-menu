@@ -499,6 +499,12 @@ useKeybindings(
     "viewer:toggle-favorite": () => {
       store.toggleFavorite();
     },
+    "viewer:cycle-sort": () => {
+      store.cycleSortBy();
+    },
+    "viewer:toggle-sort-order": () => {
+      store.toggleSortOrder();
+    },
     "viewer:maximize-toggle": () => {
       ipcRenderer.send("maximize-toggle-window");
     },
