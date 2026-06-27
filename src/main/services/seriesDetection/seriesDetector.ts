@@ -1,4 +1,3 @@
-import log from "electron-log";
 import type { Book } from "../../db/types.js";
 import {
   calculateBookConfidence,
@@ -103,9 +102,6 @@ export async function detectSeriesCandidates(
     if (group.books.length < opts.minBooks) continue;
     // 성능 최적화: 너무 큰 그룹은 건너뜀
     if (group.books.length > MAX_GROUP_SIZE) {
-      log.debug(
-        `[시리즈 감지] 그룹 "${group.seriesName}"이 너무 큼 (${group.books.length}권) - 건너뜀`,
-      );
       continue;
     }
 
@@ -130,15 +126,6 @@ export async function detectSeriesCandidates(
     });
 
     sortAndIndexBooks(booksWithScore);
-
-    log.debug(
-      `[시리즈 감지] 그룹 "${group.seriesName}" 정렬 후:`,
-      booksWithScore.map((b) => ({
-        title: b.book.title,
-        volumeNumber: b.volumeNumber,
-        orderIndex: b.orderIndex,
-      })),
-    );
 
     // 감지 근거 수집
     const detectionReasons: DetectionReason[] = [];

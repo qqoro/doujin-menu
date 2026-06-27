@@ -63,6 +63,9 @@ let currentUsageLogId: number | null = null;
 let mainWindow: BrowserWindow;
 const viewerWindows = new Set<BrowserWindow>();
 
+// 최초 부팅 시 시리즈 감지를 1회만 실행했는지 추적 (새로고침 시 재실행 방지)
+let hasRunInitialSeriesDetection = false;
+
 function createViewerWindow(fromUrl: string) {
   // 첫 창 생성 시 위치를 메인 창 기준으로 오프셋
   const mainBounds = mainWindow.getBounds();
@@ -182,7 +185,11 @@ function createWindow() {
 
   // Renderer가 로드된 후 시리즈 감지 실행 (UI 차단 방지)
   // 충분히 지연시켜 Vue 앱이 완전히 초기화된 후 실행
+  // did-finish-load는 새로고침(Ctrl+R) 시에도 발생하므로, 최초 1회만 실행되도록 가드
   mainWindow.webContents.on("did-finish-load", () => {
+    if (hasRunInitialSeriesDetection) return;
+    hasRunInitialSeriesDetection = true;
+
     // 3초 후에 시리즈 감지 실행 (UI가 완전히 로드된 후)
     setTimeout(() => {
       const seriesSettings = configStore.get("seriesDetectionSettings", {
