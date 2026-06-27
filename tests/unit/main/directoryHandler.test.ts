@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 // DB 모듈 mock 처리 (Electron app 객체 없이 테스트하기 위함)
 vi.mock("../../../src/main/db/index.ts", () => ({
@@ -72,7 +72,25 @@ vi.mock("electron-window-state", () => ({
   })),
 }));
 
-import { cleanValue } from "../../../src/main/handlers/directoryHandler";
+// main.js의 커스텀 console 객체 mock (directoryHandler가 import하여 사용)
+vi.mock("../../../src/main/main.js", () => ({
+  console: {
+    log: vi.fn(),
+    error: vi.fn(),
+    warn: vi.fn(),
+    info: vi.fn(),
+    debug: vi.fn(),
+  },
+}));
+
+import archiver from "archiver";
+import fs from "fs";
+import os from "os";
+import path from "path";
+import {
+  cleanValue,
+  extractInfoTxtAndImageCountFromZip,
+} from "../../../src/main/handlers/directoryHandler";
 
 describe("directoryHandler", () => {
   describe("cleanValue", () => {
@@ -203,5 +221,114 @@ describe("directoryHandler", () => {
       const exactPath = "C:\\".padEnd(MAX_PATH_LENGTH, "a");
       expect(exactPath.length).toBe(MAX_PATH_LENGTH);
     });
+  });
+});
+
+describe("extractInfoTxtAndImageCountFromZip", () => {
+  let createdPaths: string[] = [];
+  let tmpCounter = 0;
+
+  // 임시 ZIP 파일 생성 헬퍼
+  async function createTestZip(
+    entries: { name: string; content: string | Buffer }[],
+  ): Promise<string> {
+    tmpCounter++;
+    const zipPath = path.join(
+      os.tmpdir(),
+      `comiq-test-${process.pid}-${tmpCounter}.zip`,
+    );
+    await new Promise<void>((resolve, reject) => {
+      const output = fs.createWriteStream(zipPath);
+      const archive = archiver("zip", { zlib: { level: 0 } });
+      output.on("close", () => resolve());
+      output.on("error", reject);
+      archive.on("error", reject);
+      archive.pipe(output);
+      for (const entry of entries) {
+        archive.append(entry.content, { name: entry.name });
+      }
+      void archive.finalize();
+    });
+    return zipPath;
+  }
+
+  afterEach(async () => {
+    for (const p of createdPaths) {
+      try {
+        await fs.promises.unlink(p);
+      } catch {
+        // 이미 삭제된 경우 무시
+      }
+    }
+    createdPaths = [];
+  });
+
+  it("info.txt와 이미지 개수를 단일 순회로 모두 수집해야 함", async () => {
+    const zipPath = await createTestZip([
+      { name: "info.txt", content: "갤러리 넘버: 123\n제목: 테스트" },
+      { name: "img1.jpg", content: "fake" },
+      { name: "img2.png", content: "fake" },
+      { name: "img3.jpeg", content: "fake" },
+    ]);
+    createdPaths.push(zipPath);
+
+    const result = await extractInfoTxtAndImageCountFromZip(zipPath);
+    expect(result.infoTxt).toContain("갤러리 넘버: 123");
+    expect(result.imageCount).toBe(3);
+  });
+
+  it("info.txt가 없으면 null, 이미지 수만 반환해야 함", async () => {
+    const zipPath = await createTestZip([
+      { name: "img1.jpg", content: "fake" },
+      { name: "img2.gif", content: "fake" },
+      { name: "img3.bmp", content: "fake" },
+    ]);
+    createdPaths.push(zipPath);
+
+    const result = await extractInfoTxtAndImageCountFromZip(zipPath);
+    expect(result.infoTxt).toBeNull();
+    expect(result.imageCount).toBe(3);
+  });
+
+  it("info.txt가 중간 위치에 있어도 정상 수집해야 함", async () => {
+    const zipPath = await createTestZip([
+      { name: "img1.jpg", content: "fake" },
+      { name: "info.txt", content: "제목: 중간위치" },
+      { name: "img2.jpg", content: "fake" },
+    ]);
+    createdPaths.push(zipPath);
+
+    const result = await extractInfoTxtAndImageCountFromZip(zipPath);
+    expect(result.infoTxt).toContain("제목: 중간위치");
+    expect(result.imageCount).toBe(2);
+  });
+
+  it("이미지가 없는 ZIP은 imageCount 0을 반환해야 함", async () => {
+    const zipPath = await createTestZip([
+      { name: "info.txt", content: "제목: 이미지없음" },
+      { name: "readme.md", content: "readme" },
+    ]);
+    createdPaths.push(zipPath);
+
+    const result = await extractInfoTxtAndImageCountFromZip(zipPath);
+    expect(result.infoTxt).toContain("이미지없음");
+    expect(result.imageCount).toBe(0);
+  });
+
+  it("info.txt가 큰 파일이어도 누락 없이 수집해야 함", async () => {
+    // info.txt 읽기 스트림이 엔트리 순회 종료보다 늦게 완료되는 경우를 검증한다.
+    const bigContent = "갤러리 넘버: 999\n제목: 대용량\n" + "x".repeat(500000);
+    const zipPath = await createTestZip([
+      { name: "img1.jpg", content: "fake" },
+      { name: "info.txt", content: bigContent },
+      { name: "img2.jpg", content: "fake" },
+      { name: "img3.jpg", content: "fake" },
+    ]);
+    createdPaths.push(zipPath);
+
+    const result = await extractInfoTxtAndImageCountFromZip(zipPath);
+    expect(result.infoTxt).toContain("갤러리 넘버: 999");
+    expect(result.infoTxt?.length).toBe(bigContent.length);
+    expect(result.imageCount).toBe(3);
   });
 });

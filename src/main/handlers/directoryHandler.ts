@@ -130,96 +130,106 @@ export async function extractCoverFromZip(
   });
 }
 
-export async function extractInfoTxtFromZip(
+// ZIP 파일을 한 번 열어 info.txt 내용과 이미지 개수를 단일 엔트리 순회로 동시에 수집한다.
+export async function extractInfoTxtAndImageCountFromZip(
   zipPath: string,
-): Promise<string | null> {
+): Promise<{ infoTxt: string | null; imageCount: number }> {
   return new Promise((resolve) => {
+    let imageCount = 0;
+    let infoTxt: string | null = null;
+    let infoFound = false; // info.txt 엔트리를 발견했는지 여부
+    let infoStreamDone = false; // info.txt 읽기 스트림이 완료(성공/실패)되었는지 여부
+    let entriesEnded = false; // 엔트리 순회가 끝났는지 여부
+    let resolved = false;
+    // zipfile은 open 콜백에서 할당되므로 클로저 외부에서 참조하기 위한 변수
+    let openedZipfile: yauzl.ZipFile | null = null;
+
+    // 두 조건(엔트리 순회 종료 + info.txt 처리 완료)이 모두 충족되면 resolve.
+    // info.txt가 없는 경우에는 엔트리 순회 종료만으로 충분하다.
+    const finish = () => {
+      if (resolved) return;
+      if (entriesEnded && (infoStreamDone || !infoFound)) {
+        resolved = true;
+        if (openedZipfile) {
+          try {
+            openedZipfile.close();
+          } catch {
+            // 이미 닫혀 있거나 닫기 불가능한 경우 무시
+          }
+        }
+        resolve({ infoTxt, imageCount });
+      }
+    };
+
     yauzl.open(zipPath, { lazyEntries: true }, (err, zipfile) => {
       if (err) {
-        console.error(`[Main] info.txt용 ZIP 파일 열기 오류 ${zipPath}:`, err);
-        return resolve(null);
+        console.error(`[Main] ZIP 파일 열기 오류 ${zipPath}:`, err);
+        return resolve({ infoTxt: null, imageCount: 0 });
       }
+      openedZipfile = zipfile;
+
       zipfile.on("entry", (entry) => {
-        if (entry.fileName === "info.txt") {
+        // 이미지 개수 카운트 (처음부터 끝까지 모든 엔트리 누적)
+        if (entry.fileName.match(/\.(jpg|jpeg|png|webp|gif|bmp)$/i)) {
+          imageCount++;
+        }
+
+        // info.txt를 발견하면 백그라운드로 읽기 시작하고, 순회는 멈추지 않고 계속 진행.
+        // 읽기 스트림 완료를 기다리지 않고 바로 다음 엔트리로 넘어간다.
+        if (entry.fileName === "info.txt" && !infoFound) {
+          infoFound = true;
           console.log(`[Main] ZIP에서 info.txt 발견: ${zipPath}`);
-          zipfile.openReadStream(entry, (err, readStream) => {
-            if (err) {
+          zipfile.openReadStream(entry, (readErr, readStream) => {
+            if (readErr) {
               console.error(
                 `[Main] ZIP에서 info.txt 읽기 오류 ${zipPath}:`,
-                err,
+                readErr,
               );
-              zipfile.close();
-              return resolve(null);
+              infoStreamDone = true;
+              finish();
+              return;
             }
             let fileContent = "";
             readStream.on("data", (chunk) => (fileContent += chunk.toString()));
             readStream.on("end", () => {
+              infoTxt = fileContent;
+              infoStreamDone = true;
               console.log(`[Main] ZIP에서 info.txt 내용 추출 성공: ${zipPath}`);
-              zipfile.close();
-              resolve(fileContent);
+              finish();
             });
             readStream.on("error", (readErr) => {
               console.error(
                 `[Main] ZIP에서 info.txt 스트림 읽기 오류 ${zipPath}:`,
                 readErr,
               );
-              zipfile.close();
-              resolve(null);
+              infoStreamDone = true;
+              finish();
             });
           });
-        } else {
-          zipfile.readEntry();
         }
-      });
-      zipfile.on("end", () => {
-        console.log(
-          `[Main] ${zipPath}에서 info.txt에 대한 ZIP 엔트리 스캔 완료. info.txt를 찾지 못했습니다.`,
-        );
-        zipfile.close();
-        resolve(null);
-      });
-      zipfile.on("error", (zipErr) => {
-        console.error(
-          `[Main] ${zipPath}의 info.txt에 대한 ZIP 파일 처리 중 오류:`,
-          zipErr,
-        );
-        zipfile.close();
-        resolve(null);
-      });
-      zipfile.readEntry(); // 엔트리 읽기 시작
-    });
-  });
-}
 
-export async function getImageCountInZip(zipPath: string): Promise<number> {
-  return new Promise((resolve) => {
-    let imageCount = 0;
-    yauzl.open(zipPath, { lazyEntries: true }, (err, zipfile) => {
-      if (err) {
-        console.error(
-          `[Main] 이미지 개수용 ZIP 파일 열기 오류 ${zipPath}:`,
-          err,
-        );
-        return resolve(0);
-      }
-      zipfile.on("entry", (entry) => {
-        if (entry.fileName.match(/\.(jpg|jpeg|png|webp|gif|bmp)$/i)) {
-          imageCount++;
-        }
+        // 다음 엔트리로 진행 (info.txt 읽기 완료와 무관하게 계속 순회)
         zipfile.readEntry();
       });
+
       zipfile.on("end", () => {
-        zipfile.close();
-        resolve(imageCount);
+        entriesEnded = true;
+        finish();
       });
+
       zipfile.on("error", (zipErr) => {
-        console.error(
-          `[Main] 이미지 개수를 위한 ZIP 파일 처리 중 오류 ${zipPath}:`,
-          zipErr,
-        );
-        zipfile.close();
-        resolve(0);
+        console.error(`[Main] ZIP 파일 처리 중 오류 ${zipPath}:`, zipErr);
+        if (!resolved) {
+          resolved = true;
+          try {
+            zipfile.close();
+          } catch {
+            // 이미 닫혀 있는 경우 무시
+          }
+          resolve({ infoTxt, imageCount });
+        }
       });
+
       zipfile.readEntry(); // 엔트리 읽기 시작
     });
   });
@@ -302,16 +312,7 @@ async function processBookItem(
     }
   }
 
-  // 2-4. 만약 항목이 ZIP 파일이라면, 파일 내부의 info.txt를 추출하여 파싱합니다.
-  if (isFile) {
-    const ext = path.extname(name).toLowerCase();
-    if (ext === ".cbz" || ext === ".zip") {
-      const infoTxtContent = await extractInfoTxtFromZip(itemPath);
-      if (infoTxtContent) {
-        infoMetadata = parseInfoTxt(infoTxtContent);
-      }
-    }
-  }
+  // 2-4. ZIP 파일의 info.txt는 아래 3-2단계에서 페이지 수와 함께 단일 순회로 추출합니다.
 
   // 3. 항목 유형(폴더 또는 파일)에 따라 책 데이터를 구성합니다.
   if (isDirectory) {
@@ -336,7 +337,12 @@ async function processBookItem(
     // 3-2. 항목이 파일일 경우 (ZIP/CBZ)
     const ext = path.extname(name).toLowerCase();
     if (ext === ".cbz" || ext === ".zip") {
-      const pageCount = await getImageCountInZip(itemPath); // ZIP 내부의 이미지 개수를 먼저 셉니다.
+      // ZIP을 한 번 열어 info.txt와 이미지 개수를 동시에 수집합니다.
+      const { infoTxt: infoTxtContent, imageCount: pageCount } =
+        await extractInfoTxtAndImageCountFromZip(itemPath);
+      if (infoTxtContent) {
+        infoMetadata = parseInfoTxt(infoTxtContent);
+      }
       if (pageCount > 0) {
         // 이미지가 하나 이상 있을 경우에만 책으로 간주합니다.
         bookData = {
