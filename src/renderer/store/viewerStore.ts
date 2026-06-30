@@ -378,7 +378,7 @@ export const useViewerStore = defineStore("viewer", () => {
       // 자동 넘김이 실행중이면, 간격을 변경하여 다시 시작
       _startAutoPlayCore(); // 시작 토스트 없이 재시작
     }
-    showToastMessage(`자동 넘김 간격이 ${interval}초로 변경되었습니다.`);
+    showToastMessage(`자동 넘김 간격: ${interval}초`);
     ipcRenderer.invoke("set-config", {
       key: "viewerAutoPlayInterval",
       value: interval,
@@ -393,16 +393,16 @@ export const useViewerStore = defineStore("viewer", () => {
       _startAutoPlayCore(); // 이미 실행 중이었다면 시작 토스트 없이 재시작
       const message =
         readingMode.value === "webtoon"
-          ? `자동 스크롤 간격이 ${seconds}초로 변경되었습니다.`
-          : `자동 넘김 간격이 ${seconds}초로 변경되었습니다.`;
+          ? `자동 스크롤 간격: ${seconds}초`
+          : `자동 넘김 간격: ${seconds}초`;
       showToastMessage(message);
     }
   }
 
   function toggleAutoNextBook() {
     isAutoNextBook.value = !isAutoNextBook.value;
-    const status = isAutoNextBook.value ? "활성화" : "비활성화";
-    showToastMessage(`다음 책 자동 넘김이 ${status}되었습니다.`);
+    const status = isAutoNextBook.value ? "켜짐" : "꺼짐";
+    showToastMessage(`다음 책 자동 넘김: ${status}`);
     ipcRenderer.invoke("set-config", {
       key: "viewerAutoNextBook",
       value: isAutoNextBook.value,
@@ -412,7 +412,7 @@ export const useViewerStore = defineStore("viewer", () => {
   function setNextBookMode(mode: "next" | "random") {
     autoNextBookMode.value = mode;
     const modeText = mode === "next" ? "다음 순서" : "랜덤";
-    showToastMessage(`다음 책 넘김 모드가 ${modeText}로 변경되었습니다.`);
+    showToastMessage(`다음 책 넘김 모드: ${modeText}`);
     ipcRenderer.invoke("set-config", {
       key: "viewerAutoNextBookMode",
       value: mode,
@@ -474,8 +474,7 @@ export const useViewerStore = defineStore("viewer", () => {
       return;
     }
     viewerDoublePageView.value = value;
-    const status = value ? "활성화" : "비활성화";
-    showToastMessage(`더블 페이지 모드가 ${status}되었습니다.`);
+    showToastMessage(value ? "페이지 모드: 더블 페이지" : "페이지 모드: 싱글 페이지");
     ipcRenderer.invoke("set-config", { key: "viewerDoublePageView", value });
     // Adjust current page to be the start of a spread
     goToPage(currentPage.value);
@@ -483,8 +482,8 @@ export const useViewerStore = defineStore("viewer", () => {
 
   function setShowCoverAlone(value: boolean) {
     viewerShowCoverAlone.value = value;
-    const status = value ? "활성화" : "비활성화";
-    showToastMessage(`표지 따로 보기가 ${status}되었습니다.`);
+    const status = value ? "켜짐" : "꺼짐";
+    showToastMessage(`표지 따로 보기: ${status}`);
     ipcRenderer.invoke("set-config", { key: "viewerShowCoverAlone", value });
     // Adjust current page to be the start of a spread
     goToPage(currentPage.value);
@@ -492,15 +491,15 @@ export const useViewerStore = defineStore("viewer", () => {
 
   function setViewerAutoFitZoom(value: boolean) {
     viewerAutoFitZoom.value = value;
-    const status = value ? "활성화" : "비활성화";
-    showToastMessage(`자동 맞춤 확대가 ${status}되었습니다.`);
+    const status = value ? "켜짐" : "꺼짐";
+    showToastMessage(`자동 맞춤 확대: ${status}`);
     ipcRenderer.invoke("set-config", { key: "viewerAutoFitZoom", value });
   }
 
   function setViewerRestoreLastSession(value: boolean) {
     viewerRestoreLastSession.value = value;
-    const status = value ? "활성화" : "비활성화";
-    showToastMessage(`마지막 세션 복원이 ${status}되었습니다.`);
+    const status = value ? "켜짐" : "꺼짐";
+    showToastMessage(`마지막 세션 복원: ${status}`);
     ipcRenderer.invoke("set-config", {
       key: "viewerRestoreLastSession",
       value,
