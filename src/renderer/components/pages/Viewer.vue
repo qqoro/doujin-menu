@@ -520,6 +520,15 @@ useKeybindings(
     "viewer:toggle-page-overlay": () => {
       store.toggleHidePageNumber();
     },
+    "viewer:single-page": () => {
+      store.setDoublePage(false);
+    },
+    "viewer:double-page": () => {
+      store.setDoublePage(true);
+    },
+    "viewer:toggle-reading-direction": () => {
+      store.toggleReadingDirection();
+    },
     "viewer:maximize-toggle": () => {
       ipcRenderer.send("maximize-toggle-window");
     },

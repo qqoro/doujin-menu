@@ -194,6 +194,24 @@ export const defaultActions: ActionDefinition[] = [
     context: "viewer",
     defaultKeys: ["Tab"],
   },
+  {
+    id: "viewer:single-page",
+    description: "싱글 페이지 보기",
+    context: "viewer",
+    defaultKeys: ["1"],
+  },
+  {
+    id: "viewer:double-page",
+    description: "더블 페이지 보기",
+    context: "viewer",
+    defaultKeys: ["2"],
+  },
+  {
+    id: "viewer:toggle-reading-direction",
+    description: "읽기 방향 전환 (좌↔우)",
+    context: "viewer",
+    defaultKeys: ["r"],
+  },
 
   // === 라이브러리 ===
   {

@@ -444,6 +444,14 @@ export const useViewerStore = defineStore("viewer", () => {
     showToastMessage(`정렬 순서: ${orderText}`);
   }
 
+  // 읽기 방향(좌↔우)을 토글한다. 웹툰 모드에서는 좌/우 개념이 없으므로 무시.
+  function toggleReadingDirection() {
+    if (readingMode.value === "webtoon") return;
+    const next = readingMode.value === "ltr" ? "rtl" : "ltr";
+    setReadingMode(next);
+    showToastMessage(`읽기 방향: ${next === "ltr" ? "좌→우" : "우→좌"}`);
+  }
+
   // 자동 넘김 정지 페이지 설정
   function setAutoPlayStopPage(page: number | null) {
     autoPlayStopPage.value = page;
@@ -800,6 +808,7 @@ export const useViewerStore = defineStore("viewer", () => {
     setNextBookMode,
     cycleSortBy,
     toggleSortOrder,
+    toggleReadingDirection,
     setAutoPlayStopPage,
     toggleAutoPlayStopPage,
     loadNextBook,
