@@ -729,27 +729,49 @@ export const handleGetNextBook = async ({
     } else {
       const sortColumn = `sub.${sortBy}`;
       const sortValue = currentBook[sortBy];
+      // 정렬 값이 NULL인 책(예: 작가/태그 메타데이터가 없는 책)도 커서 비교가 깨지지 않도록
+      // NULL을 SQLite 정렬 규칙(asc=최소, desc=최대)에 맞춰 별도 분기로 처리한다.
+      const isNullValue = sortValue === null || sortValue === undefined;
       if (sortOrder === "desc") {
-        mainQuery.where((builder) =>
-          builder
-            .where(sortColumn, "<", sortValue)
-            .orWhere((b) =>
-              b
-                .where(sortColumn, "=", sortValue)
-                .where("sub.id", "<", currentBookId),
-            ),
-        );
+        // desc 그리드 순서: 값 있는 책(col desc) → NULL 그룹(id desc)
+        if (isNullValue) {
+          // 현재 책이 NULL 그룹 → 다음은 같은 NULL 그룹 내 id가 더 작은 책뿐
+          mainQuery.whereNull(sortColumn).where("sub.id", "<", currentBookId);
+        } else {
+          mainQuery.where((builder) =>
+            builder
+              .where(sortColumn, "<", sortValue)
+              .orWhere((b) =>
+                b
+                  .where(sortColumn, "=", sortValue)
+                  .where("sub.id", "<", currentBookId),
+              ),
+          );
+        }
         mainQuery.orderBy(sortColumn, "desc").orderBy("sub.id", "desc");
       } else {
-        mainQuery.where((builder) =>
-          builder
-            .where(sortColumn, ">", sortValue)
-            .orWhere((b) =>
-              b
-                .where(sortColumn, "=", sortValue)
-                .where("sub.id", ">", currentBookId),
-            ),
-        );
+        // asc 그리드 순서: NULL 그룹(id asc) → 값 있는 책(col asc)
+        if (isNullValue) {
+          // 현재 책이 NULL 그룹(맨 앞) → 다음은 같은 NULL 그룹 내 id가 더 큰 책,
+          // 또는 정렬 값이 있는 모든 책(NULL이 가장 작으므로 뒤에 옴)
+          mainQuery.where((builder) =>
+            builder
+              .whereNotNull(sortColumn)
+              .orWhere((b) =>
+                b.whereNull(sortColumn).where("sub.id", ">", currentBookId),
+              ),
+          );
+        } else {
+          mainQuery.where((builder) =>
+            builder
+              .where(sortColumn, ">", sortValue)
+              .orWhere((b) =>
+                b
+                  .where(sortColumn, "=", sortValue)
+                  .where("sub.id", ">", currentBookId),
+              ),
+          );
+        }
         mainQuery.orderBy(sortColumn, "asc").orderBy("sub.id", "asc");
       }
     }
@@ -835,27 +857,48 @@ export const handleGetPrevBook = async ({
     } else {
       const sortColumn = `sub.${sortBy}`;
       const sortValue = currentBook[sortBy];
+      // 정렬 값이 NULL인 책도 커서 비교가 깨지지 않도록 SQLite 정렬 규칙에 맞춰 처리.
+      const isNullValue = sortValue === null || sortValue === undefined;
       if (sortOrder === "desc") {
-        mainQuery.where((builder) =>
-          builder
-            .where(sortColumn, ">", sortValue)
-            .orWhere((b) =>
-              b
-                .where(sortColumn, "=", sortValue)
-                .where("sub.id", ">", currentBookId),
-            ),
-        );
+        // desc 그리드 순서: 값 있는 책(col desc) → NULL 그룹(id desc)
+        if (isNullValue) {
+          // 현재 책이 NULL 그룹 → 이전은 값 있는 모든 책(NULL보다 앞) 또는
+          // 같은 NULL 그룹 내 id가 더 큰 책(desc 그리드에서 id가 클수록 앞)
+          mainQuery.where((builder) =>
+            builder
+              .whereNotNull(sortColumn)
+              .orWhere((b) =>
+                b.whereNull(sortColumn).where("sub.id", ">", currentBookId),
+              ),
+          );
+        } else {
+          mainQuery.where((builder) =>
+            builder
+              .where(sortColumn, ">", sortValue)
+              .orWhere((b) =>
+                b
+                  .where(sortColumn, "=", sortValue)
+                  .where("sub.id", ">", currentBookId),
+              ),
+          );
+        }
         mainQuery.orderBy(sortColumn, "asc").orderBy("sub.id", "asc");
       } else {
-        mainQuery.where((builder) =>
-          builder
-            .where(sortColumn, "<", sortValue)
-            .orWhere((b) =>
-              b
-                .where(sortColumn, "=", sortValue)
-                .where("sub.id", "<", currentBookId),
-            ),
-        );
+        // asc 그리드 순서: NULL 그룹(id asc) → 값 있는 책(col asc)
+        if (isNullValue) {
+          // 현재 책이 NULL 그룹(맨 앞) → 이전은 같은 NULL 그룹 내 id가 더 작은 책뿐
+          mainQuery.whereNull(sortColumn).where("sub.id", "<", currentBookId);
+        } else {
+          mainQuery.where((builder) =>
+            builder
+              .where(sortColumn, "<", sortValue)
+              .orWhere((b) =>
+                b
+                  .where(sortColumn, "=", sortValue)
+                  .where("sub.id", "<", currentBookId),
+              ),
+          );
+        }
         mainQuery.orderBy(sortColumn, "desc").orderBy("sub.id", "desc");
       }
     }

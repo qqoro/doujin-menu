@@ -340,6 +340,8 @@ vi.mock("../../../src/main/db/index.js", () => ({
 import {
   handleGetBooks,
   handleGetBook,
+  handleGetNextBook,
+  handleGetPrevBook,
 } from "../../../src/main/handlers/bookHandler.js";
 import { store as configStore } from "../../../src/main/handlers/configHandler.js";
 
@@ -1342,6 +1344,116 @@ describe("handleGetBooks - 통합 테스트", () => {
       const resultA = await handleGetBook(bookA.id);
       expect(resultA!.artists).toHaveLength(1);
       expect(resultA!.artists[0].name).toBe("artist_onlyA");
+    });
+  });
+
+  describe("handleGetNextBook / handleGetPrevBook - NULL 정렬 값 처리", () => {
+    // 매 테스트마다 viewerExcludeCompleted 비활성화 (다른 describe의 mockReturnValue 잔영 방지)
+    beforeEach(() => {
+      vi.mocked(configStore.get).mockReturnValue(undefined);
+    });
+
+    it("artists(NULL) 책들 asc 정렬: 두 번째 NULL 책의 next → 작가 있는 첫 책", async () => {
+      // 정렬 순서(asc): nullA, nullB(같은 NULL 그룹, id asc), withArtist
+      await seedBook(db, { path: "/a" }); // NULL 그룹의 첫 책(컨텍스트)
+      const nullB = await seedBook(db, { path: "/b" });
+      const withArtistBook = await seedBook(db, { path: "/c" });
+      const artist = await seedArtist(db, "alpha");
+      await linkBookArtist(db, withArtistBook.id, artist.id);
+
+      const result = await handleGetNextBook({
+        currentBookId: nullB.id,
+        mode: "next",
+        filter: { sortBy: "artists", sortOrder: "asc" },
+      });
+
+      expect(result.success).toBe(true);
+      expect(result.nextBookId).toBe(withArtistBook.id);
+    });
+
+    it("artists(NULL) 첫 책 asc 정렬: next → 같은 NULL 그룹의 다음 책", async () => {
+      // 정렬 순서(asc): nullA, nullB (NULL 그룹 내 id asc)
+      const nullA = await seedBook(db, { path: "/a" });
+      const nullB = await seedBook(db, { path: "/b" });
+
+      const result = await handleGetNextBook({
+        currentBookId: nullA.id,
+        mode: "next",
+        filter: { sortBy: "artists", sortOrder: "asc" },
+      });
+
+      expect(result.success).toBe(true);
+      expect(result.nextBookId).toBe(nullB.id);
+    });
+
+    it("artists(NULL) 두 번째 책 asc 정렬: prev → 첫 번째 NULL 책", async () => {
+      const nullA = await seedBook(db, { path: "/a" });
+      const nullB = await seedBook(db, { path: "/b" });
+
+      const result = await handleGetPrevBook({
+        currentBookId: nullB.id,
+        filter: { sortBy: "artists", sortOrder: "asc" },
+      });
+
+      expect(result.success).toBe(true);
+      expect(result.prevBookId).toBe(nullA.id);
+    });
+
+    it("artists(NULL) 첫 책 asc 정렬: prev → null (진짜 첫 번째)", async () => {
+      const nullA = await seedBook(db, { path: "/a" });
+      await seedBook(db, { path: "/b" });
+
+      const result = await handleGetPrevBook({
+        currentBookId: nullA.id,
+        filter: { sortBy: "artists", sortOrder: "asc" },
+      });
+
+      expect(result.success).toBe(true);
+      expect(result.prevBookId).toBeNull();
+    });
+
+    it("artists(NULL) desc 정렬: NULL 책들은 마지막 그룹, next는 같은 그룹 내 다음", async () => {
+      // 정렬 순서(desc): 작가 있는 책들 먼저, 그 뒤 NULL 그룹(id desc)
+      const nullA = await seedBook(db, { path: "/a" });
+      const nullB = await seedBook(db, { path: "/b" });
+      const withArtistBook = await seedBook(db, { path: "/c" });
+      const artist = await seedArtist(db, "alpha");
+      await linkBookArtist(db, withArtistBook.id, artist.id);
+
+      // NULL 그룹 desc 순서: nullB(id 큰) → nullA. nullA의 next는 없어야(진짜 마지막).
+      const nextFromNullB = await handleGetNextBook({
+        currentBookId: nullB.id,
+        mode: "next",
+        filter: { sortBy: "artists", sortOrder: "desc" },
+      });
+      expect(nextFromNullB.nextBookId).toBe(nullA.id);
+
+      const nextFromNullA = await handleGetNextBook({
+        currentBookId: nullA.id,
+        mode: "next",
+        filter: { sortBy: "artists", sortOrder: "desc" },
+      });
+      expect(nextFromNullA.nextBookId).toBeNull();
+    });
+
+    it("작가 있는 책은 기존 동작 유지: asc 정렬 next → 다음 작가", async () => {
+      // NULL 그룹 다음에 작가 있는 책들(artists asc)
+      await seedBook(db, { path: "/a" }); // artists NULL
+      const bookAlpha = await seedBook(db, { path: "/b" });
+      const bookBeta = await seedBook(db, { path: "/c" });
+      const a = await seedArtist(db, "alpha");
+      const b = await seedArtist(db, "beta");
+      await linkBookArtist(db, bookAlpha.id, a.id);
+      await linkBookArtist(db, bookBeta.id, b.id);
+
+      const result = await handleGetNextBook({
+        currentBookId: bookAlpha.id,
+        mode: "next",
+        filter: { sortBy: "artists", sortOrder: "asc" },
+      });
+
+      expect(result.success).toBe(true);
+      expect(result.nextBookId).toBe(bookBeta.id);
     });
   });
 });
