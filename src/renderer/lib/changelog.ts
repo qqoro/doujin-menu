@@ -15,6 +15,25 @@ export interface Changelog {
  */
 export const changelogData: Changelog[] = [
   {
+    version: "1.22.0",
+    changes: [
+      {
+        type: "feature",
+        title: "✨ 새로운 기능",
+        items: [
+          "뷰어에서 싱글/더블 페이지 보기를 전환하는 단축키(1, 2)와 읽기 방향(좌↔우)을 전환하는 단축키(R)가 추가되었습니다.",
+        ],
+      },
+      {
+        type: "fix",
+        title: "🐛 버그 수정",
+        items: [
+          "특정 정렬 기준에서 다음/이전 책 단축키가 올바르게 동작하지 않던 문제를 수정했습니다.",
+        ],
+      },
+    ],
+  },
+  {
     version: "1.21.0",
     changes: [
       {
