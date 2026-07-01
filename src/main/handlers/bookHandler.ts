@@ -700,31 +700,72 @@ export const handleGetNextBook = async ({
     }
 
     if (sortBy === "hitomi_id") {
-      const sortValue = Number(currentBook.hitomi_id);
-      if (sortOrder === "desc") {
-        mainQuery.where((builder) =>
-          builder
-            .where(db.raw("CAST(sub.hitomi_id AS INTEGER)"), "<", sortValue)
-            .orWhere((b) =>
-              b
-                .where(db.raw("CAST(sub.hitomi_id AS INTEGER)"), "=", sortValue)
-                .where("sub.id", "<", currentBookId),
-            ),
-        );
-        mainQuery.orderByRaw(
-          "CAST(sub.hitomi_id AS INTEGER) DESC, sub.id DESC",
-        );
+      // CAST(NULL AS INTEGER) = NULL 이라 0 비교로 매칭되지 않으므로, hitomi_id가 NULL인 책은
+      // SQLite 정렬 규칙(asc=최소·맨 앞, desc=최대·맨 뒤)에 맞춰 별도 분기한다.
+      const rawHitomiId = currentBook.hitomi_id;
+      const isNullValue = rawHitomiId === null || rawHitomiId === undefined;
+      if (isNullValue) {
+        if (sortOrder === "desc") {
+          // desc 그리드: 값 있는 책(CAST desc) → NULL 그룹(id desc). 다음은 같은 NULL 그룹 내 id가 더 작은 책.
+          mainQuery
+            .whereNull("sub.hitomi_id")
+            .where("sub.id", "<", currentBookId);
+          mainQuery.orderByRaw(
+            "CAST(sub.hitomi_id AS INTEGER) DESC, sub.id DESC",
+          );
+        } else {
+          // asc 그리드: NULL 그룹(id asc)이 맨 앞. 다음은 같은 NULL 그룹 내 id가 더 큰 책,
+          // 또는 값 있는 모든 책(NULL이 가장 작으므로 뒤에 옴).
+          mainQuery.where((builder) =>
+            builder
+              .whereNotNull("sub.hitomi_id")
+              .orWhere((b) =>
+                b
+                  .whereNull("sub.hitomi_id")
+                  .where("sub.id", ">", currentBookId),
+              ),
+          );
+          mainQuery.orderByRaw(
+            "CAST(sub.hitomi_id AS INTEGER) ASC, sub.id ASC",
+          );
+        }
       } else {
-        mainQuery.where((builder) =>
-          builder
-            .where(db.raw("CAST(sub.hitomi_id AS INTEGER)"), ">", sortValue)
-            .orWhere((b) =>
-              b
-                .where(db.raw("CAST(sub.hitomi_id AS INTEGER)"), "=", sortValue)
-                .where("sub.id", ">", currentBookId),
-            ),
-        );
-        mainQuery.orderByRaw("CAST(sub.hitomi_id AS INTEGER) ASC, sub.id ASC");
+        const sortValue = Number(rawHitomiId);
+        if (sortOrder === "desc") {
+          mainQuery.where((builder) =>
+            builder
+              .where(db.raw("CAST(sub.hitomi_id AS INTEGER)"), "<", sortValue)
+              .orWhere((b) =>
+                b
+                  .where(
+                    db.raw("CAST(sub.hitomi_id AS INTEGER)"),
+                    "=",
+                    sortValue,
+                  )
+                  .where("sub.id", "<", currentBookId),
+              ),
+          );
+          mainQuery.orderByRaw(
+            "CAST(sub.hitomi_id AS INTEGER) DESC, sub.id DESC",
+          );
+        } else {
+          mainQuery.where((builder) =>
+            builder
+              .where(db.raw("CAST(sub.hitomi_id AS INTEGER)"), ">", sortValue)
+              .orWhere((b) =>
+                b
+                  .where(
+                    db.raw("CAST(sub.hitomi_id AS INTEGER)"),
+                    "=",
+                    sortValue,
+                  )
+                  .where("sub.id", ">", currentBookId),
+              ),
+          );
+          mainQuery.orderByRaw(
+            "CAST(sub.hitomi_id AS INTEGER) ASC, sub.id ASC",
+          );
+        }
       }
     } else {
       const sortColumn = `sub.${sortBy}`;
@@ -828,31 +869,71 @@ export const handleGetPrevBook = async ({
     }
 
     if (sortBy === "hitomi_id") {
-      const sortValue = Number(currentBook.hitomi_id);
-      if (sortOrder === "desc") {
-        mainQuery.where((builder) =>
-          builder
-            .where(db.raw("CAST(sub.hitomi_id AS INTEGER)"), ">", sortValue)
-            .orWhere((b) =>
-              b
-                .where(db.raw("CAST(sub.hitomi_id AS INTEGER)"), "=", sortValue)
-                .where("sub.id", ">", currentBookId),
-            ),
-        );
-        mainQuery.orderByRaw("CAST(sub.hitomi_id AS INTEGER) ASC, sub.id ASC");
+      // hitomi_id가 NULL인 책도 커서 비교가 깨지지 않도록 SQLite 정렬 규칙에 맞춰 처리.
+      const rawHitomiId = currentBook.hitomi_id;
+      const isNullValue = rawHitomiId === null || rawHitomiId === undefined;
+      if (isNullValue) {
+        if (sortOrder === "desc") {
+          // desc 그리드 역순 정렬로 first → 현재 직전.
+          // 앞 = 값 있는 모든 책(NULL보다 앞) 또는 같은 NULL 그룹 내 id가 더 큰 책(desc 그리드에서 id가 클수록 앞).
+          mainQuery.where((builder) =>
+            builder
+              .whereNotNull("sub.hitomi_id")
+              .orWhere((b) =>
+                b
+                  .whereNull("sub.hitomi_id")
+                  .where("sub.id", ">", currentBookId),
+              ),
+          );
+          mainQuery.orderByRaw(
+            "CAST(sub.hitomi_id AS INTEGER) ASC, sub.id ASC",
+          );
+        } else {
+          // asc 그리드 역순 정렬로 first. 앞 = 같은 NULL 그룹 내 id가 더 작은 책뿐.
+          mainQuery
+            .whereNull("sub.hitomi_id")
+            .where("sub.id", "<", currentBookId);
+          mainQuery.orderByRaw(
+            "CAST(sub.hitomi_id AS INTEGER) DESC, sub.id DESC",
+          );
+        }
       } else {
-        mainQuery.where((builder) =>
-          builder
-            .where(db.raw("CAST(sub.hitomi_id AS INTEGER)"), "<", sortValue)
-            .orWhere((b) =>
-              b
-                .where(db.raw("CAST(sub.hitomi_id AS INTEGER)"), "=", sortValue)
-                .where("sub.id", "<", currentBookId),
-            ),
-        );
-        mainQuery.orderByRaw(
-          "CAST(sub.hitomi_id AS INTEGER) DESC, sub.id DESC",
-        );
+        const sortValue = Number(rawHitomiId);
+        if (sortOrder === "desc") {
+          mainQuery.where((builder) =>
+            builder
+              .where(db.raw("CAST(sub.hitomi_id AS INTEGER)"), ">", sortValue)
+              .orWhere((b) =>
+                b
+                  .where(
+                    db.raw("CAST(sub.hitomi_id AS INTEGER)"),
+                    "=",
+                    sortValue,
+                  )
+                  .where("sub.id", ">", currentBookId),
+              ),
+          );
+          mainQuery.orderByRaw(
+            "CAST(sub.hitomi_id AS INTEGER) ASC, sub.id ASC",
+          );
+        } else {
+          mainQuery.where((builder) =>
+            builder
+              .where(db.raw("CAST(sub.hitomi_id AS INTEGER)"), "<", sortValue)
+              .orWhere((b) =>
+                b
+                  .where(
+                    db.raw("CAST(sub.hitomi_id AS INTEGER)"),
+                    "=",
+                    sortValue,
+                  )
+                  .where("sub.id", "<", currentBookId),
+              ),
+          );
+          mainQuery.orderByRaw(
+            "CAST(sub.hitomi_id AS INTEGER) DESC, sub.id DESC",
+          );
+        }
       }
     } else {
       const sortColumn = `sub.${sortBy}`;

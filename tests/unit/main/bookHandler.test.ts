@@ -1455,5 +1455,94 @@ describe("handleGetBooks - 통합 테스트", () => {
       expect(result.success).toBe(true);
       expect(result.nextBookId).toBe(bookBeta.id);
     });
+
+    it("hitomi_id(NULL) asc 정렬: 첫 NULL 책의 next → 같은 NULL 그룹의 다음 책(값 있는 책으로 점프 X)", async () => {
+      // asc 그리드 순서: nullA, nullB(NULL 그룹, id asc) → hitomiIdBook
+      const nullA = await seedBook(db, { path: "/a", hitomi_id: null });
+      const nullB = await seedBook(db, { path: "/b", hitomi_id: null });
+      await seedBook(db, { path: "/c", hitomi_id: "100" }); // 값 있는 책(정렬 컨텍스트)
+
+      const result = await handleGetNextBook({
+        currentBookId: nullA.id,
+        mode: "next",
+        filter: { sortBy: "hitomi_id", sortOrder: "asc" },
+      });
+
+      expect(result.success).toBe(true);
+      // 핵심: 값 있는 책(100)으로 점프하지 않고 같은 NULL 그룹의 다음 책
+      expect(result.nextBookId).toBe(nullB.id);
+    });
+
+    it("hitomi_id(NULL) asc 정렬: 마지막 NULL 책의 next → 값 있는 첫 책", async () => {
+      await seedBook(db, { path: "/a", hitomi_id: null });
+      const nullB = await seedBook(db, { path: "/b", hitomi_id: null });
+      const hitomiIdBook = await seedBook(db, { path: "/c", hitomi_id: "100" });
+
+      const result = await handleGetNextBook({
+        currentBookId: nullB.id,
+        mode: "next",
+        filter: { sortBy: "hitomi_id", sortOrder: "asc" },
+      });
+
+      expect(result.success).toBe(true);
+      expect(result.nextBookId).toBe(hitomiIdBook.id);
+    });
+
+    it("hitomi_id(NULL) desc 정렬: NULL 책들은 마지막 그룹, next는 같은 그룹 내 다음", async () => {
+      // desc 그리드 순서: hitomiIdBook → nullB(id 큰) → nullA(id 작은)
+      const nullA = await seedBook(db, { path: "/a", hitomi_id: null });
+      const nullB = await seedBook(db, { path: "/b", hitomi_id: null });
+      await seedBook(db, { path: "/c", hitomi_id: "100" });
+
+      const nextFromNullB = await handleGetNextBook({
+        currentBookId: nullB.id,
+        mode: "next",
+        filter: { sortBy: "hitomi_id", sortOrder: "desc" },
+      });
+      expect(nextFromNullB.nextBookId).toBe(nullA.id);
+
+      const nextFromNullA = await handleGetNextBook({
+        currentBookId: nullA.id,
+        mode: "next",
+        filter: { sortBy: "hitomi_id", sortOrder: "desc" },
+      });
+      expect(nextFromNullA.nextBookId).toBeNull();
+    });
+
+    it("hitomi_id 값 있는 책은 기존 동작 유지: asc 정렬 next → 다음 ID", async () => {
+      await seedBook(db, { path: "/a", hitomi_id: null }); // NULL 그룹
+      const low = await seedBook(db, { path: "/b", hitomi_id: "100" });
+      const high = await seedBook(db, { path: "/c", hitomi_id: "200" });
+
+      const result = await handleGetNextBook({
+        currentBookId: low.id,
+        mode: "next",
+        filter: { sortBy: "hitomi_id", sortOrder: "asc" },
+      });
+
+      expect(result.success).toBe(true);
+      expect(result.nextBookId).toBe(high.id);
+    });
+
+    it("page_count(NULL) asc 정렬: NULL 책 next → 같은 NULL 그룹 다음 책(일반 분기 NULL 처리)", async () => {
+      // asc 그리드 순서: nullA, nullB(NULL 그룹) → pageBook
+      const nullA = await seedBook(db, { path: "/a", page_count: null });
+      const nullB = await seedBook(db, { path: "/b", page_count: null });
+      const pageBook = await seedBook(db, { path: "/c", page_count: 10 });
+
+      const nextFromNullA = await handleGetNextBook({
+        currentBookId: nullA.id,
+        mode: "next",
+        filter: { sortBy: "page_count", sortOrder: "asc" },
+      });
+      expect(nextFromNullA.nextBookId).toBe(nullB.id);
+
+      const nextFromNullB = await handleGetNextBook({
+        currentBookId: nullB.id,
+        mode: "next",
+        filter: { sortBy: "page_count", sortOrder: "asc" },
+      });
+      expect(nextFromNullB.nextBookId).toBe(pageBook.id);
+    });
   });
 });
