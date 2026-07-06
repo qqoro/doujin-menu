@@ -313,7 +313,7 @@ export interface IpcChannels {
     };
   };
   "delete-book": {
-    request: number; // bookId
+    request: { bookId: number; permanent?: boolean };
     response: { success: boolean; error?: string };
   };
   "get-book-history": {

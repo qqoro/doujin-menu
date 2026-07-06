@@ -1,4 +1,4 @@
-// 뷰어에서 순환 가능한 정렬 기준 목록 (random 제외 — 비결정적 동작 방지)
+// 뷰어·라이브러리에서 순환 가능한 정렬 기준 목록 (random 제외 — 비결정적 동작 방지)
 export const SORT_CYCLE: string[] = [
   "added_at",
   "title",

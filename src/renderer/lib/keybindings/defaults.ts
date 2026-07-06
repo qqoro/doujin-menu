@@ -221,6 +221,12 @@ export const defaultActions: ActionDefinition[] = [
     defaultKeys: ["Ctrl+f"],
   },
   {
+    id: "library:cycle-sort",
+    description: "정렬 기준 순환",
+    context: "library",
+    defaultKeys: ["d"],
+  },
+  {
     id: "library:sort-order-toggle",
     description: "정렬 순서 전환 (오름차순/내림차순)",
     context: "library",

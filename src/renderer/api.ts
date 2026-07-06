@@ -74,8 +74,14 @@ export async function rescanBookMetadata(bookId: number) {
   }
 }
 
-export async function deleteBook(bookId: number) {
-  const result = await ipcRenderer.invoke("delete-book", bookId);
+export async function deleteBook(
+  bookId: number,
+  options?: { permanent?: boolean },
+) {
+  const result = await ipcRenderer.invoke("delete-book", {
+    bookId,
+    permanent: options?.permanent,
+  });
   if (result.success) {
     return true;
   } else {

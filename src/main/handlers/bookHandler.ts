@@ -1314,7 +1314,9 @@ export function registerBookHandlers() {
   ipcMain.handle("check-book-exists-by-hitomi-id", (_event, hitomiId) =>
     handleCheckBookExistsByHitomiId(hitomiId),
   );
-  ipcMain.handle("delete-book", (_event, bookId) => handleDeleteBook(bookId));
+  ipcMain.handle("delete-book", (_event, { bookId, permanent }) =>
+    handleDeleteBook(bookId, { permanent }),
+  );
   ipcMain.handle("get-book-history", (_event, params) =>
     handleGetBookHistory(params),
   );

@@ -15,6 +15,7 @@ import { useKeybindings } from "@/composable/useKeybindings";
 import { useQueryAndParams } from "@/composable/useQueryAndParams";
 import { useScrollRestoration } from "@/composable/useScrollRestoration";
 import { useLibraryScanStore } from "@/store/libraryScanStore";
+import { SORT_CYCLE, SORT_LABELS, nextSortBy } from "@/store/sortCycle";
 import { useUiStore } from "@/store/uiStore";
 import { Icon } from "@iconify/vue";
 import PageHeader from "../layout/PageHeader.vue";
@@ -349,6 +350,13 @@ const toggleSortOrder = () => {
   sortOrder.value = sortOrder.value === "asc" ? "desc" : "asc";
 };
 
+// 정렬 기준 순환 (뷰어와 동일한 순환 목록 사용, random 제외)
+const cycleSortBy = () => {
+  const next = nextSortBy(sortBy.value, SORT_CYCLE);
+  sortBy.value = next;
+  toast.info(`정렬 기준: ${SORT_LABELS[next] ?? next}`);
+};
+
 // 즐겨찾기 필터 토글
 const toggleFavoriteFilter = () => {
   isFavorite.value = isFavorite.value === "favorite" ? "all" : "favorite";
@@ -472,6 +480,7 @@ useKeybindings("library", {
   "library:search-focus": () => {
     searchInputRef.value?.focus();
   },
+  "library:cycle-sort": cycleSortBy,
   "library:sort-order-toggle": () => {
     toggleSortOrder();
   },
@@ -537,6 +546,7 @@ useScrollRestoration(".flex-grow.overflow-y-auto");
               </h3>
               <ul class="list-inside list-disc">
                 <li><kbd>Ctrl</kbd>+<kbd>F</kbd>: 검색창 포커스</li>
+                <li><kbd>D</kbd>: 정렬 기준 순환</li>
                 <li><kbd>S</kbd>: 정렬 순서 전환 (오름차순/내림차순)</li>
                 <li><kbd>F</kbd>: 즐겨찾기 필터 토글</li>
                 <li><kbd>R</kbd>: 읽음 상태 순환 (모두→읽음→안읽음)</li>

@@ -12,6 +12,9 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Label } from "@/components/ui/label";
+import { usePermanentDelete } from "@/composable/usePermanentDelete";
 import { useTagDisplay } from "@/composable/useTagDisplay";
 import { Icon } from "@iconify/vue";
 import { useQueryClient } from "@tanstack/vue-query";
@@ -121,6 +124,9 @@ const openBookFolder = () => {
 const isDeleteDialogOpen = ref(false);
 const isRescanning = ref(false);
 
+// 영구 삭제 체크 상태 (모든 삭제 다이얼로그 공유, localStorage 유지)
+const { permanentDelete } = usePermanentDelete();
+
 const handleRescanMetadata = async () => {
   if (isRescanning.value) return;
   isRescanning.value = true;
@@ -147,7 +153,10 @@ const handleDeleteBook = async () => {
 
 const confirmDeleteBook = async () => {
   try {
-    await api.deleteBook(props.book.id);
+    // 체크 상태에 따라 영구 삭제
+    await api.deleteBook(props.book.id, {
+      permanent: permanentDelete.value,
+    });
     toast.success("책 삭제 완료", {
       description: `${props.book.title}이(가) 삭제되었습니다.`,
     });
@@ -361,9 +370,17 @@ const confirmDeleteBook = async () => {
       <AlertDialogHeader>
         <AlertDialogTitle>책을 삭제하시겠습니까?</AlertDialogTitle>
         <AlertDialogDescription>
-          데이터베이스에서 책 정보가 삭제되고, 파일은 휴지통으로 이동합니다.
+          {{
+            permanentDelete
+              ? "데이터베이스에서 책 정보가 삭제되고, 파일이 영구적으로 삭제됩니다."
+              : "데이터베이스에서 책 정보가 삭제되고, 파일은 휴지통으로 이동합니다."
+          }}
         </AlertDialogDescription>
       </AlertDialogHeader>
+      <Label class="flex cursor-pointer items-center gap-2 font-normal">
+        <Checkbox v-model="permanentDelete" />
+        휴지통을 거치지 않고 영구 삭제
+      </Label>
       <AlertDialogFooter>
         <AlertDialogCancel>취소</AlertDialogCancel>
         <AlertDialogAction @click="confirmDeleteBook">삭제</AlertDialogAction>
