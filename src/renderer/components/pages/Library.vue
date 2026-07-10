@@ -224,6 +224,8 @@ const queryKey = computed(
         sortBy: sortBy.value,
         sortOrder: sortOrder.value,
         isFavorite: isFavorite.value === "favorite",
+        randomSeed:
+          sortBy.value === "random" ? uiStore.libraryRandomSeed : undefined,
       },
     ] as const,
 );
@@ -348,6 +350,12 @@ const setSortBy = (column: string) => {
 
 const toggleSortOrder = () => {
   sortOrder.value = sortOrder.value === "asc" ? "desc" : "asc";
+};
+
+// 랜덤 정렬 순서 재셔플: 새 시드 발급 → queryKey 변경으로 목록이 1페이지부터 다시 로드됨
+const reshuffleRandomOrder = () => {
+  uiStore.reshuffleLibraryRandomSeed();
+  toast.info("순서를 다시 섞었습니다.");
 };
 
 // 정렬 기준 순환 (뷰어와 동일한 순환 목록 사용, random 제외)
@@ -764,9 +772,18 @@ useScrollRestoration(".flex-grow.overflow-y-auto");
             </DropdownMenuContent>
           </DropdownMenu>
           <Button
+            v-if="sortBy === 'random'"
             variant="outline"
             class="rounded-l-none border-l-0"
-            :disabled="sortBy === 'random'"
+            aria-label="순서 다시 섞기"
+            @click="reshuffleRandomOrder"
+          >
+            <Icon icon="solar:refresh-bold-duotone" class="h-4 w-4" />
+          </Button>
+          <Button
+            v-else
+            variant="outline"
+            class="rounded-l-none border-l-0"
             @click="toggleSortOrder"
           >
             <Icon

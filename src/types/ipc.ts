@@ -10,6 +10,7 @@ export interface FilterParams {
   sortOrder?: "asc" | "desc";
   isFavorite?: boolean;
   offlineStatus?: "all" | "online" | "offline";
+  randomSeed?: number; // 랜덤 정렬용 시드([0, 2^30) 정수) — 같은 시드면 항상 같은 순서
 }
 
 export interface Preset {

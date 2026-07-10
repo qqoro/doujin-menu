@@ -360,6 +360,27 @@ function buildFilteredQuery(filter: FilterParams | null) {
   return mainQuery;
 }
 
+// 시드 기반 결정적 셔플 해시식 생성 (설계: docs/superpowers/specs/2026-07-10-seeded-random-sort-design.md)
+// h1 = ((id + seed) * 2654435761) % 2^32, h = (XOR(h1, h1 >> 16) * 2246822519) % 2^32
+// SQLite에는 XOR 연산자가 없어 (a|b)-(a&b)로 에뮬레이션한다.
+// 시드가 [0, 2^30) 범위의 정수가 아니면 null을 반환해 호출부가 RANDOM() 폴백을 타게 한다.
+// 시드는 정수 검증을 통과한 값만 문자열에 삽입되므로 SQL 인젝션 위험이 없다.
+export const seededShuffleOrderSql = (
+  seed: unknown,
+  idRef = "sub.id",
+): string | null => {
+  if (
+    typeof seed !== "number" ||
+    !Number.isInteger(seed) ||
+    seed < 0 ||
+    seed >= 2 ** 30
+  ) {
+    return null;
+  }
+  const h1 = `((${idRef} + ${seed}) * 2654435761) % 4294967296`;
+  return `((((${h1}) | ((${h1}) >> 16)) - ((${h1}) & ((${h1}) >> 16))) * 2246822519) % 4294967296`;
+};
+
 export const handleGetBooks = async (
   params: FilterParams & { pageParam?: number; pageSize?: number },
 ) => {
@@ -378,8 +399,14 @@ export const handleGetBooks = async (
 
   // 4. 정렬 및 페이지네이션 적용
   if (sortBy === "random") {
-    // 랜덤 정렬: SQLite RANDOM() 함수 사용
-    mainQuery.orderByRaw("RANDOM()");
+    const shuffleSql = seededShuffleOrderSql(params.randomSeed);
+    if (shuffleSql) {
+      // 시드 셔플: 같은 시드면 페이지네이션 간 순서가 유지된다 (중복/누락 방지)
+      mainQuery.orderByRaw(`${shuffleSql}, sub.id`);
+    } else {
+      // 시드가 없으면 기존 완전 랜덤 정렬 (실질적으로 도달하지 않는 방어 경로)
+      mainQuery.orderByRaw("RANDOM()");
+    }
   } else if (sortBy === "hitomi_id") {
     mainQuery.orderByRaw(
       `CAST(sub.hitomi_id AS INTEGER) ${sortOrder}, sub.id ${sortOrder}`,
@@ -675,8 +702,11 @@ export const handleGetNextBook = async ({
 
     const { sortBy = "added_at", sortOrder = "desc" } = filter || {};
 
-    // 랜덤 정렬이거나 random 모드인 경우 완전 랜덤 책으로 이동
-    if (mode === "random" || sortBy === "random") {
+    const shuffleSql =
+      sortBy === "random" ? seededShuffleOrderSql(filter?.randomSeed) : null;
+
+    // 명시적 random 모드이거나, 시드 없는 랜덤 정렬이면 완전 랜덤 책으로 이동
+    if (mode === "random" || (sortBy === "random" && !shuffleSql)) {
       const randomBook = await mainQuery
         .whereNot("sub.id", currentBookId)
         .orderByRaw("RANDOM()")
@@ -686,6 +716,30 @@ export const handleGetNextBook = async ({
           success: true,
           nextBookId: randomBook.id,
           nextBookTitle: randomBook.title,
+        };
+      }
+      return { success: true, nextBookId: null };
+    }
+
+    // 시드 랜덤 정렬: 라이브러리 그리드와 동일한 해시 순서상 다음 책으로 이동
+    // (랜덤에는 방향 개념이 없으므로 sortOrder는 무시하고 항상 해시 오름차순)
+    if (sortBy === "random" && shuffleSql) {
+      const currentHashSql = seededShuffleOrderSql(
+        filter?.randomSeed,
+        "Book.id",
+      )!;
+      const nextBook = await mainQuery
+        .whereRaw(
+          `(${shuffleSql}, sub.id) > ((SELECT ${currentHashSql} FROM Book WHERE Book.id = ?), ?)`,
+          [currentBookId, currentBookId],
+        )
+        .orderByRaw(`${shuffleSql}, sub.id`)
+        .first();
+      if (nextBook) {
+        return {
+          success: true,
+          nextBookId: nextBook.id,
+          nextBookTitle: nextBook.title,
         };
       }
       return { success: true, nextBookId: null };
@@ -845,8 +899,11 @@ export const handleGetPrevBook = async ({
     const mainQuery = buildFilteredQuery(filter);
     const { sortBy = "added_at", sortOrder = "desc" } = filter || {};
 
-    // 랜덤 정렬인 경우 완전 랜덤 책으로 이동
-    if (sortBy === "random") {
+    const shuffleSql =
+      sortBy === "random" ? seededShuffleOrderSql(filter?.randomSeed) : null;
+
+    // 시드 없는 랜덤 정렬이면 기존대로 완전 랜덤 책으로 이동
+    if (sortBy === "random" && !shuffleSql) {
       const randomBook = await mainQuery
         .whereNot("sub.id", currentBookId)
         .orderByRaw("RANDOM()")
@@ -856,6 +913,29 @@ export const handleGetPrevBook = async ({
           success: true,
           prevBookId: randomBook.id,
           prevBookTitle: randomBook.title,
+        };
+      }
+      return { success: true, prevBookId: null };
+    }
+
+    // 시드 랜덤 정렬: 해시 순서상 이전 책으로 이동 (sortOrder 무시, 해시 내림차순으로 직전 탐색)
+    if (sortBy === "random" && shuffleSql) {
+      const currentHashSql = seededShuffleOrderSql(
+        filter?.randomSeed,
+        "Book.id",
+      )!;
+      const prevBook = await mainQuery
+        .whereRaw(
+          `(${shuffleSql}, sub.id) < ((SELECT ${currentHashSql} FROM Book WHERE Book.id = ?), ?)`,
+          [currentBookId, currentBookId],
+        )
+        .orderByRaw(`${shuffleSql} DESC, sub.id DESC`)
+        .first();
+      if (prevBook) {
+        return {
+          success: true,
+          prevBookId: prevBook.id,
+          prevBookTitle: prevBook.title,
         };
       }
       return { success: true, prevBookId: null };

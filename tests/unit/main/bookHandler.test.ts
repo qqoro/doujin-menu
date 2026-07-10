@@ -1545,4 +1545,167 @@ describe("handleGetBooks - 통합 테스트", () => {
       expect(nextFromNullB.nextBookId).toBe(pageBook.id);
     });
   });
+
+  describe("랜덤 정렬 (시드 셔플)", () => {
+    // getResultIds는 sort()로 순서를 지우므로, 정렬 순서를 보존하는 별도 헬퍼 사용
+    async function getOrderedIds(
+      params: FilterParams & { pageParam?: number; pageSize?: number },
+    ): Promise<number[]> {
+      const result = await handleGetBooks({ pageSize: 1000, ...params });
+      return result.data.map((b: { id: number }) => b.id);
+    }
+
+    it("같은 시드 → 항상 같은 순서", async () => {
+      for (let i = 0; i < 20; i++) {
+        await seedBook(db, { path: `/book-${i}` });
+      }
+      const first = await getOrderedIds({
+        sortBy: "random",
+        randomSeed: 12345,
+      });
+      const second = await getOrderedIds({
+        sortBy: "random",
+        randomSeed: 12345,
+      });
+      expect(first).toHaveLength(20);
+      expect(second).toEqual(first);
+    });
+
+    it("다른 시드 → 다른 순서", async () => {
+      for (let i = 0; i < 20; i++) {
+        await seedBook(db, { path: `/book-${i}` });
+      }
+      const a = await getOrderedIds({ sortBy: "random", randomSeed: 12345 });
+      const b = await getOrderedIds({
+        sortBy: "random",
+        randomSeed: 987654321,
+      });
+      expect(b).not.toEqual(a);
+    });
+
+    it("페이지 조각을 이어붙이면 전체 순서와 일치 (중복/누락 없음)", async () => {
+      for (let i = 0; i < 25; i++) {
+        await seedBook(db, { path: `/book-${i}` });
+      }
+      const full = await getOrderedIds({ sortBy: "random", randomSeed: 555 });
+      const paged: number[] = [];
+      for (let page = 0; page < 5; page++) {
+        const result = await handleGetBooks({
+          sortBy: "random",
+          randomSeed: 555,
+          pageParam: page,
+          pageSize: 5,
+        });
+        paged.push(...result.data.map((b: { id: number }) => b.id));
+      }
+      expect(paged).toEqual(full);
+      expect(new Set(paged).size).toBe(25);
+    });
+
+    it("시드 없음 → RANDOM() 폴백으로 전체 반환", async () => {
+      for (let i = 0; i < 10; i++) {
+        await seedBook(db, { path: `/book-${i}` });
+      }
+      const ids = await getOrderedIds({ sortBy: "random" });
+      expect(ids).toHaveLength(10);
+    });
+
+    it("유효하지 않은 시드(소수/음수/범위 초과) → 폴백으로 전체 반환", async () => {
+      for (let i = 0; i < 10; i++) {
+        await seedBook(db, { path: `/book-${i}` });
+      }
+      for (const bad of [1.5, -1, 2 ** 30]) {
+        const ids = await getOrderedIds({ sortBy: "random", randomSeed: bad });
+        expect(ids).toHaveLength(10);
+      }
+    });
+  });
+
+  describe("handleGetNextBook / handleGetPrevBook - 시드 랜덤 정렬", () => {
+    // viewerExcludeCompleted 등 config 잔영 방지
+    beforeEach(() => {
+      vi.mocked(configStore.get).mockReturnValue(undefined);
+    });
+
+    const SEED = 424242;
+
+    async function seedBooksAndGetOrder(count: number): Promise<number[]> {
+      for (let i = 0; i < count; i++) {
+        await seedBook(db, { path: `/book-${i}` });
+      }
+      const result = await handleGetBooks({
+        sortBy: "random",
+        randomSeed: SEED,
+        pageSize: 1000,
+      });
+      return result.data.map((b: { id: number }) => b.id);
+    }
+
+    it("next가 getBooks의 시드 순서를 그대로 따라감", async () => {
+      const order = await seedBooksAndGetOrder(15);
+      for (let i = 0; i < order.length - 1; i++) {
+        const result = await handleGetNextBook({
+          currentBookId: order[i],
+          mode: "next",
+          filter: { sortBy: "random", randomSeed: SEED },
+        });
+        expect(result.success).toBe(true);
+        expect(result.nextBookId).toBe(order[i + 1]);
+      }
+    });
+
+    it("prev가 시드 순서의 역방향을 그대로 따라감", async () => {
+      const order = await seedBooksAndGetOrder(15);
+      for (let i = 1; i < order.length; i++) {
+        const result = await handleGetPrevBook({
+          currentBookId: order[i],
+          filter: { sortBy: "random", randomSeed: SEED },
+        });
+        expect(result.success).toBe(true);
+        expect(result.prevBookId).toBe(order[i - 1]);
+      }
+    });
+
+    it("마지막 책의 next → null, 첫 책의 prev → null", async () => {
+      const order = await seedBooksAndGetOrder(5);
+      const next = await handleGetNextBook({
+        currentBookId: order[order.length - 1],
+        mode: "next",
+        filter: { sortBy: "random", randomSeed: SEED },
+      });
+      expect(next.success).toBe(true);
+      expect(next.nextBookId).toBeNull();
+
+      const prev = await handleGetPrevBook({
+        currentBookId: order[0],
+        filter: { sortBy: "random", randomSeed: SEED },
+      });
+      expect(prev.success).toBe(true);
+      expect(prev.prevBookId).toBeNull();
+    });
+
+    it("mode:'random'은 시드를 무시하고 현재 책이 아닌 책 반환", async () => {
+      const order = await seedBooksAndGetOrder(5);
+      const result = await handleGetNextBook({
+        currentBookId: order[0],
+        mode: "random",
+        filter: { sortBy: "random", randomSeed: SEED },
+      });
+      expect(result.success).toBe(true);
+      expect(result.nextBookId).not.toBeNull();
+      expect(result.nextBookId).not.toBe(order[0]);
+    });
+
+    it("시드 없는 랜덤 정렬 next → 완전 랜덤 폴백 (현재 책이 아닌 책 반환)", async () => {
+      const order = await seedBooksAndGetOrder(5);
+      const result = await handleGetNextBook({
+        currentBookId: order[0],
+        mode: "next",
+        filter: { sortBy: "random" },
+      });
+      expect(result.success).toBe(true);
+      expect(result.nextBookId).not.toBeNull();
+      expect(result.nextBookId).not.toBe(order[0]);
+    });
+  });
 });
