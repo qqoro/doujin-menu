@@ -379,6 +379,8 @@ async function processBookItem(
         hitomi_id: cleanValue(infoMetadata.hitomi_id) || null,
         type: cleanValue(infoMetadata.type) || null,
         language_name_local: cleanValue(infoMetadata.language) || null,
+        // 폴더 자체 mtime — '파일 수정 날짜' 정렬용 (폴더 크기는 의미가 없어 저장하지 않음)
+        file_mtime: file_mtime ?? null,
       };
     }
   } else if (isFile) {
@@ -858,34 +860,35 @@ export async function scanDirectory(
 
         // 증분 스캔: ZIP/CBZ은 파일 캐시(mtime+size)로 변경 여부를 판정한다.
         // 안 바뀌었으면 ZIP을 열지 않고 DB 갱신도 생략하고 발견 표시만 남긴다.
-        // (폴더는 파일 IO가 가벼워 캐시 대상에서 제외한다)
-        let zipStat: { mtimeMs: number; size: number } | null = null;
-        if (isZip) {
-          try {
-            const stat = await fs.stat(itemPath);
-            zipStat = { mtimeMs: stat.mtimeMs, size: stat.size };
-            if (
-              isZipUnchanged(
-                zipCache.get(itemPath),
-                zipStat.mtimeMs,
-                zipStat.size,
-              )
-            ) {
-              totalFoundBookPathsInScan.add(itemPath); // 삭제 대상에서 제외
-              updateProgress("scanning");
-              continue;
-            }
-          } catch {
-            // stat 실패 시 캐시 비교 없이 그대로 처리한다.
-          }
+        // 폴더는 캐시 대상은 아니지만 '파일 수정 날짜' 정렬용 mtime 수집을 위해 stat은 수행한다.
+        let entryStat: { mtimeMs: number; size: number } | null = null;
+        try {
+          const stat = await fs.stat(itemPath);
+          entryStat = { mtimeMs: stat.mtimeMs, size: stat.size };
+        } catch {
+          // stat 실패 시 캐시 비교 없이 그대로 처리한다. (mtime은 null로 저장됨)
+        }
+        if (
+          isZip &&
+          entryStat &&
+          isZipUnchanged(
+            zipCache.get(itemPath),
+            entryStat.mtimeMs,
+            entryStat.size,
+          )
+        ) {
+          totalFoundBookPathsInScan.add(itemPath); // 삭제 대상에서 제외
+          updateProgress("scanning");
+          continue;
         }
 
         const bookResult = await processBookItem(itemPath, {
           isDirectory,
           isFile,
           name: path.basename(itemPath),
-          file_mtime: zipStat?.mtimeMs,
-          file_size: zipStat?.size,
+          file_mtime: entryStat?.mtimeMs,
+          // 폴더의 파일 크기는 의미가 없으므로 ZIP일 때만 저장
+          file_size: isZip ? entryStat?.size : undefined,
         });
 
         if (bookResult) {
@@ -1086,6 +1089,9 @@ export async function scanFile(filePath: string) {
       isDirectory: stats.isDirectory(),
       isFile: stats.isFile(),
       name: path.basename(filePath),
+      // '파일 수정 날짜' 정렬 및 증분 스캔 캐시용 (폴더 크기는 의미가 없어 제외)
+      file_mtime: stats.mtimeMs,
+      file_size: stats.isFile() ? stats.size : undefined,
     });
 
     if (processedBook) {
@@ -1109,6 +1115,8 @@ export async function scanFile(filePath: string) {
               type: cleanValue(bookData.type),
               language_name_english: cleanValue(bookData.language_name_english),
               language_name_local: cleanValue(bookData.language_name_local),
+              file_mtime: bookData.file_mtime ?? null,
+              file_size: bookData.file_size ?? null,
             });
 
           // 업데이트를 위해 기존 연결 제거
@@ -1127,6 +1135,8 @@ export async function scanFile(filePath: string) {
             type: cleanValue(bookData.type),
             language_name_english: cleanValue(bookData.language_name_english),
             language_name_local: cleanValue(bookData.language_name_local),
+            file_mtime: bookData.file_mtime ?? null,
+            file_size: bookData.file_size ?? null,
           };
           const result = await trx("Book").insert(bookToInsert);
           bookId = result[0];

@@ -1546,6 +1546,83 @@ describe("handleGetBooks - 통합 테스트", () => {
     });
   });
 
+  describe("file_mtime 정렬 (파일 수정 날짜)", () => {
+    // 다른 describe의 mockReturnValue 잔영 방지
+    beforeEach(() => {
+      vi.mocked(configStore.get).mockReturnValue(undefined);
+    });
+
+    it("desc 정렬: mtime 큰 책부터, NULL 책은 맨 뒤", async () => {
+      const oldBook = await seedBook(db, { path: "/a", file_mtime: 1000 });
+      const newBook = await seedBook(db, { path: "/b", file_mtime: 2000 });
+      const nullBook = await seedBook(db, { path: "/c" });
+
+      const result = await handleGetBooks({
+        sortBy: "file_mtime",
+        sortOrder: "desc",
+        pageSize: 1000,
+      });
+      const ids = result.data.map((b: { id: number }) => b.id);
+      expect(ids).toEqual([newBook.id, oldBook.id, nullBook.id]);
+    });
+
+    it("asc 정렬: NULL 책이 맨 앞, 이후 mtime 오름차순", async () => {
+      const oldBook = await seedBook(db, { path: "/a", file_mtime: 1000 });
+      const newBook = await seedBook(db, { path: "/b", file_mtime: 2000 });
+      const nullBook = await seedBook(db, { path: "/c" });
+
+      const result = await handleGetBooks({
+        sortBy: "file_mtime",
+        sortOrder: "asc",
+        pageSize: 1000,
+      });
+      const ids = result.data.map((b: { id: number }) => b.id);
+      expect(ids).toEqual([nullBook.id, oldBook.id, newBook.id]);
+    });
+
+    it("next(desc): 값 있는 책 사이 이동 (mtime 큰 책 → 작은 책)", async () => {
+      const oldBook = await seedBook(db, { path: "/a", file_mtime: 1000 });
+      const newBook = await seedBook(db, { path: "/b", file_mtime: 2000 });
+
+      const result = await handleGetNextBook({
+        currentBookId: newBook.id,
+        mode: "next",
+        filter: { sortBy: "file_mtime", sortOrder: "desc" },
+      });
+
+      expect(result.success).toBe(true);
+      expect(result.nextBookId).toBe(oldBook.id);
+    });
+
+    it("prev(desc): 값 있는 책 사이 복귀 (mtime 작은 책 → 큰 책)", async () => {
+      const oldBook = await seedBook(db, { path: "/a", file_mtime: 1000 });
+      const newBook = await seedBook(db, { path: "/b", file_mtime: 2000 });
+
+      const result = await handleGetPrevBook({
+        currentBookId: oldBook.id,
+        filter: { sortBy: "file_mtime", sortOrder: "desc" },
+      });
+
+      expect(result.success).toBe(true);
+      expect(result.prevBookId).toBe(newBook.id);
+    });
+
+    it("next(asc): NULL 그룹 마지막 책 → 값 있는 첫 책으로 이동", async () => {
+      await seedBook(db, { path: "/a" }); // NULL 그룹의 첫 책(컨텍스트)
+      const nullB = await seedBook(db, { path: "/b" });
+      const withMtime = await seedBook(db, { path: "/c", file_mtime: 1000 });
+
+      const result = await handleGetNextBook({
+        currentBookId: nullB.id,
+        mode: "next",
+        filter: { sortBy: "file_mtime", sortOrder: "asc" },
+      });
+
+      expect(result.success).toBe(true);
+      expect(result.nextBookId).toBe(withMtime.id);
+    });
+  });
+
   describe("랜덤 정렬 (시드 셔플)", () => {
     // getResultIds는 sort()로 순서를 지우므로, 정렬 순서를 보존하는 별도 헬퍼 사용
     async function getOrderedIds(

@@ -1,6 +1,7 @@
 // 뷰어·라이브러리에서 순환 가능한 정렬 기준 목록 (random 제외 — 비결정적 동작 방지)
 export const SORT_CYCLE: string[] = [
   "added_at",
+  "file_mtime",
   "title",
   "artists",
   "last_read_at",
@@ -11,6 +12,7 @@ export const SORT_CYCLE: string[] = [
 // 정렬 기준 → 한국어 라벨 (토스트/도움말 표시용)
 export const SORT_LABELS: Record<string, string> = {
   added_at: "추가된 날짜",
+  file_mtime: "파일 수정 날짜",
   title: "제목",
   artists: "작가",
   last_read_at: "최근 읽음",

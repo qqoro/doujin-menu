@@ -729,6 +729,14 @@ useScrollRestoration(".flex-grow.overflow-y-auto");
                   class="ml-auto h-4 w-4"
                 />
               </DropdownMenuItem>
+              <DropdownMenuItem @click="setSortBy('file_mtime')">
+                파일 수정 날짜
+                <Icon
+                  v-if="sortBy === 'file_mtime'"
+                  icon="solar:check-circle-bold-duotone"
+                  class="ml-auto h-4 w-4"
+                />
+              </DropdownMenuItem>
               <DropdownMenuItem @click="setSortBy('last_read_at')">
                 최근 읽음
                 <Icon
