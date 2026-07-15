@@ -1,5 +1,4 @@
 import { BrowserWindow, ipcMain } from "electron";
-import { filenamifyPath } from "filenamify";
 import fs from "fs/promises";
 import hitomi from "node-hitomi";
 import path from "path";
@@ -9,7 +8,7 @@ import type {
 } from "../../types/ipc.js";
 import db from "../db/index.js";
 import { console } from "../main.js";
-import { formatDownloadFolderName } from "../utils/index.js";
+import { buildGalleryDownloadPath } from "../utils/index.js";
 import { store as configStore } from "./configHandler.js";
 import { handleDownloadGallery } from "./downloaderHandler.js";
 
@@ -17,6 +16,33 @@ import { handleDownloadGallery } from "./downloaderHandler.js";
 let isProcessingQueue = false;
 let currentDownloadId: number | null = null;
 let shouldCancelCurrentDownload = false; // 현재 다운로드 취소 플래그
+
+/**
+ * 삭제된 폴더의 부모를 루트 방향으로 거슬러 올라가며 완전히 빈 폴더만 제거합니다.
+ * 중첩 패턴(예: "%groups%\\[%artist%] %title%")을 쓰면 작가 폴더가 빈 껍데기로
+ * 남을 수 있어 정리합니다.
+ * 내용물이 하나라도 있으면 즉시 중단하며, 다운로드 루트 자체는 삭제하지 않습니다.
+ */
+const removeEmptyParents = async (startPath: string, rootPath: string) => {
+  const root = path.resolve(rootPath);
+  let current = path.dirname(path.resolve(startPath));
+
+  // 루트에 도달하거나 루트 밖으로 벗어나면 중단합니다.
+  while (current !== root && current.startsWith(root + path.sep)) {
+    try {
+      const entries = await fs.readdir(current);
+      // 다른 책이 남아있으면 보존합니다.
+      if (entries.length > 0) {
+        break;
+      }
+      await fs.rmdir(current);
+    } catch {
+      // 이미 없거나 권한 문제면 무시합니다.
+      break;
+    }
+    current = path.dirname(current);
+  }
+};
 
 /**
  * 다운로드 큐 전체 목록 조회
@@ -124,15 +150,19 @@ export const handleRemoveFromDownloadQueue = async (queueId: number) => {
         if (gallery) {
           const downloadPattern = configStore.get(
             "downloadPattern",
-            "%artist% - %title%",
+            "[%artist%] %title% (%id%)",
           ) as string;
+          const capitalizeNames = configStore.get(
+            "capitalizeNames",
+            false,
+          ) as boolean;
 
-          // 유틸리티 함수 사용
-          const folderName = formatDownloadFolderName(gallery, downloadPattern);
-
-          const galleryDownloadPath = filenamifyPath(
-            path.join(item.download_path, folderName),
-            { maxLength: 255, replacement: "_" },
+          // 다운로드 쪽과 반드시 동일한 경로가 나와야 하므로 같은 함수를 씁니다.
+          const galleryDownloadPath = buildGalleryDownloadPath(
+            item.download_path,
+            gallery,
+            downloadPattern,
+            { capitalizeNames },
           );
 
           // 폴더 삭제
@@ -153,6 +183,9 @@ export const handleRemoveFromDownloadQueue = async (queueId: number) => {
           } catch {
             // 압축 파일이 없으면 무시
           }
+
+          // 폴더와 압축 파일을 모두 지운 뒤 빈 부모 폴더를 정리합니다.
+          await removeEmptyParents(galleryDownloadPath, item.download_path);
         }
       } catch (error) {
         console.warn(`[DownloadQueue] 파일 삭제 중 오류 (계속 진행):`, error);

@@ -1,13 +1,12 @@
 import archiver from "archiver";
 import { app, ipcMain } from "electron";
-import { filenamifyPath } from "filenamify";
 import { createWriteStream } from "fs";
 import fs from "fs/promises";
 import hitomi from "node-hitomi";
 import path from "path";
 import { pathToFileURL } from "url";
 import { console } from "../main.js";
-import { formatDownloadFolderName } from "../utils/index.js";
+import { buildGalleryDownloadPath } from "../utils/index.js";
 import { store as configStore } from "./configHandler.js";
 import { scanFile } from "./directoryHandler.js";
 
@@ -150,37 +149,20 @@ export const handleDownloadGallery = async (
 
     const downloadPattern = configStore.get(
       "downloadPattern",
-      "%artist% - %title%",
+      "[%artist%] %title% (%id%)",
     );
-    let galleryFolderName = formatDownloadFolderName(gallery, downloadPattern);
+    const capitalizeNames = configStore.get("capitalizeNames", false);
 
-    // Windows MAX_PATH 제한(260자)을 고려한 전체 경로 길이 검증
-    // 파일명을 위한 여유 공간 확보 (예: "000001.webp" = 12자)
-    const MAX_SAFE_PATH_LENGTH = 245; // 260 - 30 (파일명 + 여유)
-    let tempPath = path.join(downloadPath, galleryFolderName);
+    // 경로 생성은 유틸리티 함수로 단일화되어 있습니다.
+    // 큐 삭제 쪽과 반드시 동일한 경로가 나와야 하므로 직접 계산하지 마세요.
+    const galleryDownloadPath = buildGalleryDownloadPath(
+      downloadPath,
+      gallery,
+      downloadPattern,
+      { capitalizeNames },
+    );
 
-    // 전체 경로가 너무 길면 폴더명을 줄임
-    if (tempPath.length > MAX_SAFE_PATH_LENGTH) {
-      const idSuffix = `... (${gallery.id})`;
-      const availableLength =
-        MAX_SAFE_PATH_LENGTH - downloadPath.length - idSuffix.length - 1; // -1 for path separator
-
-      if (availableLength > 0 && galleryFolderName.length > availableLength) {
-        galleryFolderName =
-          galleryFolderName.substring(0, availableLength).trim() + idSuffix;
-      } else if (availableLength <= 0) {
-        // 다운로드 경로 자체가 너무 길어서 공간이 없는 경우
-        galleryFolderName = `${gallery.id}`;
-      }
-
-      tempPath = path.join(downloadPath, galleryFolderName);
-    }
-
-    // 예약 문자 처리
-    const galleryDownloadPath = filenamifyPath(tempPath, {
-      replacement: "_",
-    });
-
+    // recursive 옵션이 패턴의 중첩 폴더를 자동으로 생성합니다.
     await fs.mkdir(galleryDownloadPath, { recursive: true });
 
     const totalFiles = gallery.files.length;

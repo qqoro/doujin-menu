@@ -45,6 +45,7 @@ export interface Config {
   createInfoTxtFile?: boolean;
   compressDownload?: boolean;
   compressFormat?: "cbz" | "zip";
+  capitalizeNames?: boolean; // 작가·그룹명 첫 글자 대문자 변환
   libraryViewSettings?: LibraryViewSettings;
   seriesDetectionSettings?: SeriesDetectionSettings;
   seriesViewSettings?: SeriesViewSettings;
@@ -87,6 +88,7 @@ const defaults: Config = {
   createInfoTxtFile: true,
   compressDownload: false,
   compressFormat: "cbz",
+  capitalizeNames: false,
   libraryViewSettings: {
     sortBy: "added_at",
     sortOrder: "desc",
