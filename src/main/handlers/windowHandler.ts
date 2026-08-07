@@ -59,8 +59,9 @@ export function registerWindowHandlers(
   viewerWindows: Set<BrowserWindow>,
 ) {
   // 창 제어 IPC 핸들러
-  ipcMain.on("minimize-window", () => {
-    handleMinimizeWindow(mainWindow);
+  // 뷰어 새 창에서도 자기 자신이 최소화되어야 하므로 sender 기준으로 창을 찾는다
+  ipcMain.on("minimize-window", (event) => {
+    handleMinimizeWindow(BrowserWindow.fromWebContents(event.sender));
   });
 
   ipcMain.on("maximize-toggle-window", (event) => {

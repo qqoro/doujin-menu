@@ -60,10 +60,9 @@ const queryClient = useQueryClient();
 const isNewWindow = ref(false);
 const isMaximized = ref(false);
 
-// 새 창 모드용 윈도우 제어
+// 새 창 모드용 윈도우 제어 (모두 이 창 자신을 대상으로 동작해야 함)
 const minimizeWindow = () => ipcRenderer.send("minimize-window");
 const maximizeToggleWindow = () => ipcRenderer.send("maximize-toggle-window");
-const closeWindow = () => ipcRenderer.send("close-window");
 
 // 히스토리 추가 대기 상태 (페이지를 실제로 봤을 때만 기록하기 위함)
 const pendingHistoryBookId = ref<number | null>(null);
@@ -859,7 +858,7 @@ useKeybindings(
                 type="button"
                 class="text-background hover:bg-destructive hover:text-destructive-foreground flex w-9 items-center justify-center transition-colors"
                 title="닫기"
-                @click="closeWindow"
+                @click="closeCurrentWindow"
               >
                 <Icon icon="lucide:x" class="size-4" />
               </button>
