@@ -1,46 +1,39 @@
 import * as api from "@/api";
-import { ipcRenderer } from "@/api";
-import { usePermanentDelete } from "@/composable/usePermanentDelete";
+import { resolveCardStatus } from "@/lib/galleryCard";
 import { useDownloadQueueStore } from "@/store/downloadQueueStore";
 import type { Gallery } from "node-hitomi";
-import { computed, onMounted, ref, toRaw, watch } from "vue";
+import { computed, toRaw } from "vue";
 import { useRouter } from "vue-router";
 import { toast } from "vue-sonner";
 
 interface GalleryCardProps {
   gallery: Gallery & { thumbnailUrl: string };
   downloadStatus: { status: string; progress?: number; error?: string };
+  /**
+   * 라이브러리에 이미 있는 책의 ID. 없으면 null.
+   *
+   * 예전에는 카드가 마운트될 때마다 스스로 조회했습니다. 한 화면에 카드가
+   * 30장이면 그것만으로 IPC 왕복이 30번이라, 지금은 상위에서 한 번에 조회한
+   * 결과를 내려받습니다. 갱신 책임도 상위에 있습니다.
+   */
+  bookId?: number | null;
+  /** 다운로드 경로. 이것도 카드마다 읽던 것을 상위 주입으로 바꿨습니다. */
+  downloadPath?: string;
 }
 
 interface GalleryCardEmits {
-  (event: "book-deleted", galleryId: number): void;
+  (event: "request-delete", gallery: Gallery): void;
 }
 
 export function useGalleryCard(
   props: GalleryCardProps,
   emit?: GalleryCardEmits,
 ) {
-  const bookId = ref<number | null>(null);
   const router = useRouter();
   const downloadQueueStore = useDownloadQueueStore();
-  const isDeleteDialogOpen = ref(false);
-  const downloadPath = ref<string>("");
 
-  // 영구 삭제 체크 상태 (모든 삭제 다이얼로그 공유, localStorage 유지)
-  const { permanentDelete } = usePermanentDelete();
-
-  // 책 존재 여부 확인
-  const checkBookExists = async () => {
-    if (props.gallery.id) {
-      const result = await ipcRenderer.invoke(
-        "check-book-exists-by-hitomi-id",
-        props.gallery.id,
-      );
-      if (result.success && result.exists) {
-        bookId.value = result.bookId ?? null;
-      }
-    }
-  };
+  const bookId = computed(() => props.bookId ?? null);
+  const downloadPath = computed(() => props.downloadPath ?? "");
 
   // 뷰어 링크
   const viewerLink = computed(() => ({
@@ -92,49 +85,19 @@ export function useGalleryCard(
     }
   };
 
-  // 삭제 다이얼로그 열기
+  /**
+   * 삭제 요청을 상위로 올립니다.
+   *
+   * 예전에는 카드가 다이얼로그를 직접 들고 있었습니다. 그런데 `AlertDialog`가
+   * 카드의 두 번째 루트라, 다이얼로그를 연 채 목록을 스크롤해 그 카드가
+   * 언마운트되면 다이얼로그까지 통째로 사라집니다. Reka UI가 잠그는 건 body
+   * 스크롤인데 다운로더의 스크롤러는 내부 div라 스크롤이 막히지 않습니다.
+   *
+   * 가상 스크롤에서는 언마운트가 훨씬 잦으므로 다이얼로그를 페이지 레벨로
+   * 올렸습니다. 카드는 "이걸 지우고 싶다"만 말합니다.
+   */
   const handleDeleteGallery = () => {
-    isDeleteDialogOpen.value = true;
-  };
-
-  // 삭제 확인
-  const confirmDeleteGallery = async () => {
-    // 삭제 시점에 bookId를 직접 조회
-    const result = await ipcRenderer.invoke(
-      "check-book-exists-by-hitomi-id",
-      props.gallery.id,
-    );
-
-    if (!result.success || !result.exists || !result.bookId) {
-      toast.error("삭제할 책 정보를 찾을 수 없습니다.");
-      isDeleteDialogOpen.value = false;
-      return;
-    }
-
-    try {
-      // 체크 상태에 따라 영구 삭제
-      await api.deleteBook(result.bookId, {
-        permanent: permanentDelete.value,
-      });
-      toast.success("책 삭제 완료", {
-        description: `${props.gallery.title.display}이(가) 삭제되었습니다.`,
-      });
-      bookId.value = null; // 책 삭제 후 bookId 초기화
-      // 삭제 후 상태 업데이트
-      await checkBookExists();
-      // 부모 컴포넌트에 삭제 이벤트 전달
-      if (emit) {
-        emit("book-deleted", props.gallery.id);
-      }
-    } catch (error) {
-      console.error("책 삭제 실패:", error);
-      toast.error("책 삭제 실패", {
-        description:
-          (error as Error).message || "책을 삭제하는 중 오류가 발생했습니다.",
-      });
-    } finally {
-      isDeleteDialogOpen.value = false;
-    }
+    emit?.("request-delete", props.gallery);
   };
 
   // 클립보드에 복사 (RowCard용)
@@ -146,85 +109,49 @@ export function useGalleryCard(
     });
   };
 
+  /**
+   * 카드 상태 판정을 하나로 모읍니다.
+   *
+   * 아래 불리언들은 전부 이것에서 파생됩니다. 예전에는 각자 계산해서
+   * "보유중이면서 실패"처럼 둘 다 참인 조합이 나왔고, 그때는 CSS 선언 순서가
+   * 승자를 정했습니다. 배지 문구와 버튼 문구도 여기서 함께 나오므로 두 뷰의
+   * 어휘가 갈라지지 않습니다.
+   */
+  const cardStatus = computed(() =>
+    resolveCardStatus({
+      bookId: bookId.value,
+      status: props.downloadStatus.status,
+      progress: props.downloadStatus.progress,
+    }),
+  );
+
+  /** 라이브러리에 이미 있는 책인지. 배지 문구를 "보유중"으로 나누는 데 씁니다 */
+  const isOwned = computed(() => bookId.value !== null);
+
   // 버튼 텍스트
-  const buttonText = computed(() => {
-    if (bookId.value) {
-      return "완료";
-    }
-    switch (props.downloadStatus.status) {
-      case "starting":
-        return "시작 중...";
-      case "pending":
-        return "대기 중";
-      case "paused":
-        return "일시정지";
-      case "progress":
-        return `${props.downloadStatus.progress || 0}%`;
-      case "completed":
-        return "완료";
-      case "failed":
-        return "실패";
-      default:
-        return "다운로드";
-    }
-  });
+  const buttonText = computed(() => cardStatus.value.buttonLabel);
 
   // 다운로드 중 여부
-  const isDownloading = computed(() => {
-    return (
-      !bookId.value &&
-      (props.downloadStatus.status === "starting" ||
-        props.downloadStatus.status === "progress" ||
-        props.downloadStatus.status === "pending" ||
-        props.downloadStatus.status === "paused")
-    );
-  });
+  const isDownloading = computed(() => cardStatus.value.kind === "downloading");
 
-  // 다운로드 완료 여부
-  const isDownloadCompleted = computed(() => {
-    return bookId.value || props.downloadStatus.status === "completed";
-  });
+  // 다운로드 완료 여부 (라이브러리 보유중 포함)
+  const isDownloadCompleted = computed(() => cardStatus.value.kind === "owned");
 
   // 다운로드 실패 여부
-  const isDownloadFailed = computed(() => {
-    return props.downloadStatus.status === "failed";
-  });
-
-  // 마운트 시 책 존재 여부 확인 및 다운로드 경로 불러오기
-  onMounted(async () => {
-    await checkBookExists();
-
-    // 다운로드 경로 불러오기
-    const path = await ipcRenderer.invoke("get-config-value", "downloadPath");
-    if (path) {
-      downloadPath.value = path as string;
-    }
-  });
-
-  // 다운로드 상태가 completed로 변경되면 bookId 다시 확인
-  watch(
-    () => props.downloadStatus.status,
-    async (newStatus) => {
-      if (newStatus === "completed" && !bookId.value) {
-        await checkBookExists();
-      }
-    },
-  );
+  const isDownloadFailed = computed(() => cardStatus.value.kind === "failed");
 
   return {
     bookId,
-    isDeleteDialogOpen,
-    permanentDelete,
+    cardStatus,
+    isOwned,
     viewerLink,
     buttonText,
     isDownloading,
     isDownloadCompleted,
     isDownloadFailed,
-    checkBookExists,
     handleOpenBook,
     handleDownload,
     handleDeleteGallery,
-    confirmDeleteGallery,
     copyToClipboard,
   };
 }

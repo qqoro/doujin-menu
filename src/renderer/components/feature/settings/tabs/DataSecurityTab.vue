@@ -27,6 +27,7 @@ import { Icon } from "@iconify/vue";
 import { onMounted, ref } from "vue";
 import { toast } from "vue-sonner";
 import { ipcRenderer } from "@/api";
+import { clearTempThumbnailCache } from "@/lib/tempThumbnailCache";
 import { useQueryClient } from "@tanstack/vue-query";
 
 const queryClient = useQueryClient();
@@ -72,6 +73,8 @@ const clearTempFiles = async () => {
   toast.info("임시 파일을 삭제하는 중...");
   const result = await ipcRenderer.invoke("clear-temp-files");
   if (result.success) {
+    // 렌더러 캐시가 사라진 경로를 계속 내주면 썸네일이 깨집니다
+    clearTempThumbnailCache();
     toast.success("임시 파일이 성공적으로 삭제되었습니다.");
     await getTempFilesSize(); // 크기 다시고침
   } else {

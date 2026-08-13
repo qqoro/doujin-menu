@@ -234,7 +234,7 @@ watch(viewMode, () => {
                 :referer="refererUrl"
                 :alt="`Preview Image ${index + 1}`"
                 :lazy="!loadedImages.has(index)"
-                class="max-h-full w-auto object-contain"
+                class="max-h-full w-auto min-w-40 object-contain"
               />
             </div>
           </div>

@@ -45,6 +45,8 @@ export interface Config {
   createInfoTxtFile?: boolean;
   compressDownload?: boolean;
   compressFormat?: "cbz" | "zip";
+  downloaderBlacklistTags?: string[]; // 다운로더 검색에서 제외할 태그 (예: ["male:yaoi"])
+  downloaderPopularity?: "" | "day" | "week" | "month" | "year"; // 인기 작품만 필터
   capitalizeNames?: boolean; // 작가·그룹명 첫 글자 대문자 변환
   libraryViewSettings?: LibraryViewSettings;
   seriesDetectionSettings?: SeriesDetectionSettings;
@@ -88,6 +90,8 @@ const defaults: Config = {
   createInfoTxtFile: true,
   compressDownload: false,
   compressFormat: "cbz",
+  downloaderBlacklistTags: [],
+  downloaderPopularity: "",
   capitalizeNames: false,
   libraryViewSettings: {
     sortBy: "added_at",

@@ -9,16 +9,216 @@ import { console } from "../main.js";
 import { buildGalleryDownloadPath } from "../utils/index.js";
 import { store as configStore } from "./configHandler.js";
 import { scanFile } from "./directoryHandler.js";
+import type { Tag } from "node-hitomi";
+
+/**
+ * search-galleries IPC 응답. src/types/ipc.ts의 계약과 같은 모양을 유지합니다.
+ *
+ * 명시적으로 선언하는 이유: handleSearchGalleries는 try/catch로 성공/실패 두
+ * 모양을 반환하는데, 그대로 두면 반환 타입이 유니온이 되어 테스트에서
+ * result.total 같은 접근이 tsc --noEmit에 걸립니다. tsconfig의 include가
+ * tests/도 잡습니다.
+ */
+interface SearchGalleriesResult {
+  success: boolean;
+  data?: number[];
+  total?: number;
+  generation?: number;
+  error?: string;
+}
+
+// ── 검색 결과 ID 캐시 ────────────────────────────────────────────────
+// node-hitomi의 getGalleryIds는 호출할 때마다 index-all.nozomi 전체를 다시
+// 받습니다. 페이지를 넘길 때마다 그 비용을 내지 않도록 검색어별로 ID 배열을
+// 통째로 캐시합니다.
+
+interface CachedIds {
+  ids: Int32Array; // number[]는 항목당 8바이트, Int32Array는 4바이트
+  at: number;
+  generation: number;
+}
+
+const idCache = new Map<string, CachedIds>();
+const ID_CACHE_TTL = 5 * 60 * 1000; // 히토미 인덱스가 갱신되므로 무한 캐시 금지
+const ID_CACHE_MAX = 3;
+
+/**
+ * 이보다 결과가 크면 캐시를 건너뜁니다.
+ *
+ * 실측(2026-08-11): 언어 "전체 언어" + 빈 검색어의 총 건수가 1,191,155건입니다.
+ * 처음 잡았던 50만은 하필 그 최악 케이스만 캐시에서 빼버려서, 정작 인덱스를
+ * 다시 받는 비용이 가장 큰 검색이 매 페이지마다 index-all.nozomi를 통째로
+ * 재요청하고 있었습니다. 캐시가 있으나 마나였던 셈입니다.
+ *
+ * 메모리는 Int32Array라 1,191,155 × 4바이트 ≈ 4.8MB고, LRU 3개를 다 채워도
+ * 약 14MB입니다. 상한을 200만으로 올려도 최대 24MB라 충분히 감당됩니다.
+ */
+const ID_CACHE_SKIP_OVER = 2_000_000;
+
+let generationCounter = 0;
+
+/** 테스트 전용: 모듈 수준 캐시 상태를 초기화합니다. */
+export const __clearIdCache = () => {
+  idCache.clear();
+  generationCounter = 0;
+};
+
+/**
+ * 캐시 키를 만듭니다.
+ *
+ * 소문자화하지 않습니다. getParsedTags는 대문자를 거부하므로 artist:Foo는
+ * 실패하고 artist:foo는 성공하는데, 키를 소문자화하면 둘이 같은 칸을 써서
+ * 실패해야 할 검색이 성공 결과를 받게 됩니다.
+ */
+const buildCacheKey = (
+  searchQuery: string,
+  popularityOrderBy: string,
+  blacklist: string[],
+): string =>
+  [
+    searchQuery.trim().split(/\s+/).filter(Boolean).sort().join(" "),
+    popularityOrderBy,
+    [...blacklist].sort().join(","),
+  ].join("|");
+
+/**
+ * 블랙리스트 문자열을 음성 태그로 변환합니다.
+ *
+ * 반드시 한 개씩 파싱합니다. getParsedTags는 한 호출 안에서 type:name 중복을
+ * 만나면 예외를 던지는데, 그 dedupe 키에 isNegative가 없어서 male:yaoi와
+ * -male:yaoi도 충돌합니다. 전부 join해서 한 번에 넘기면 손상된 항목 하나가
+ * 블랙리스트 전체를 빈 배열로 만들고, 그러면 차단은 0건인데 UI는
+ * "차단 태그 N개 적용 중"을 계속 띄우게 됩니다.
+ *
+ * seen에 이미 있는 태그는 건너뜁니다 — 유저가 명시적으로 검색한 태그가
+ * 블랙리스트를 이깁니다.
+ */
+const buildBlacklistTags = (blacklist: string[], seen: Set<string>): Tag[] => {
+  const negatives: Tag[] = [];
+
+  for (const raw of blacklist) {
+    try {
+      const [tag] = hitomi.getParsedTags(raw.startsWith("-") ? raw : `-${raw}`);
+      if (!tag) continue;
+
+      const key = `${tag.type}:${tag.name}`;
+      if (seen.has(key)) continue;
+
+      seen.add(key);
+      negatives.push(tag);
+    } catch (error) {
+      console.warn(
+        `[Downloader] 블랙리스트 태그 파싱 실패, 건너뜁니다: ${raw}`,
+        error,
+      );
+    }
+  }
+
+  return negatives;
+};
+
+/**
+ * 검색어를 제목/태그로 나누고 히토미에서 매칭 ID 전체를 가져옵니다.
+ *
+ * range 인자에 주의: node-hitomi는 popularityOrderBy가 있거나
+ * tags[0].isNegative가 참이면 t.range.start를 읽습니다. range를 넘기지 않으면
+ * undefined.start로 TypeError가 납니다. 다만 range를 주면
+ * index-all.nozomi를 한 번 더 받으므로, 필요할 때만 넘기고 양성 태그를 배열
+ * 앞으로 정렬해 그 경우를 줄입니다.
+ */
+const fetchGalleryIds = async (
+  searchQuery: string,
+  popularityOrderBy: string,
+  blacklist: string[],
+): Promise<number[]> => {
+  const title: string[] = [];
+  const tagTerms: string[] = [];
+  searchQuery
+    .trim()
+    .split(" ")
+    .filter((text) => text.length > 0)
+    .forEach((text) => {
+      if (text.includes(":")) tagTerms.push(text);
+      else title.push(text);
+    });
+
+  const parsed =
+    tagTerms.length > 0 ? hitomi.getParsedTags(tagTerms.join(" ")) : [];
+  const seen = new Set(parsed.map((tag) => `${tag.type}:${tag.name}`));
+  const negatives = buildBlacklistTags(blacklist, seen);
+
+  // 양성 태그를 앞으로 (정렬은 안정적이라 같은 부호끼리는 원래 순서를 지킵니다)
+  const tags = [...parsed, ...negatives].sort(
+    (a, b) => Number(Boolean(a.isNegative)) - Number(Boolean(b.isNegative)),
+  );
+
+  const needsRange = Boolean(popularityOrderBy) || Boolean(tags[0]?.isNegative);
+
+  return hitomi.getGalleryIds({
+    title: title.length > 0 ? title.join(" ") : undefined,
+    tags: tags.length > 0 ? tags : undefined,
+    popularityOrderBy: (popularityOrderBy || undefined) as
+      | "day"
+      | "week"
+      | "month"
+      | "year"
+      | undefined,
+    range: needsRange ? {} : undefined,
+  });
+};
+
+/** 캐시에서 ID 배열을 가져오거나, 없으면 히토미에서 받아 캐시합니다. */
+const getCachedIds = async (
+  searchQuery: string,
+  popularityOrderBy: string,
+  blacklist: string[],
+): Promise<CachedIds> => {
+  const key = buildCacheKey(searchQuery, popularityOrderBy, blacklist);
+  const cached = idCache.get(key);
+
+  if (cached && Date.now() - cached.at < ID_CACHE_TTL) {
+    return cached;
+  }
+
+  const ids = await fetchGalleryIds(searchQuery, popularityOrderBy, blacklist);
+  const entry: CachedIds = {
+    ids: Int32Array.from(ids),
+    at: Date.now(),
+    generation: ++generationCounter,
+  };
+
+  if (ids.length <= ID_CACHE_SKIP_OVER) {
+    // 가장 오래된 항목부터 밀어냅니다
+    if (!idCache.has(key) && idCache.size >= ID_CACHE_MAX) {
+      let oldestKey: string | null = null;
+      let oldestAt = Infinity;
+      for (const [k, v] of idCache) {
+        if (v.at < oldestAt) {
+          oldestAt = v.at;
+          oldestKey = k;
+        }
+      }
+      if (oldestKey !== null) idCache.delete(oldestKey);
+    }
+    idCache.set(key, entry);
+  }
+
+  return entry;
+};
 
 export const handleSearchGalleries = async ({
-  query,
-  page = 1,
+  searchQuery,
+  popularityOrderBy = "",
+  start = 0,
+  count = 30,
 }: {
-  query: { searchQuery: string; offset?: number };
-  page: number;
-}) => {
+  searchQuery: string;
+  popularityOrderBy?: "" | "day" | "week" | "month" | "year";
+  start?: number;
+  count?: number;
+}): Promise<SearchGalleriesResult> => {
   try {
-    const terms = query.searchQuery
+    const terms = searchQuery
       .toLowerCase()
       .split(" ")
       .filter((term) => term.length > 0);
@@ -34,43 +234,23 @@ export const handleSearchGalleries = async ({
       }
     }
 
-    // 작품 ID가 있으면 해당 ID만 반환 (페이지네이션 무시)
+    // 작품 ID 직접 조회는 블랙리스트와 인기 필터를 타지 않습니다.
+    // 유저가 명시적으로 지정한 것이므로 통과시키는 게 맞습니다.
     if (galleryId !== null) {
-      return {
-        success: true,
-        data: [galleryId],
-        hasNextPage: false,
-      };
+      return { success: true, data: [galleryId], total: 1, generation: 0 };
     }
 
-    const trimmedQuery = query.searchQuery.trim();
-    let ids: number[];
+    const blacklist = configStore.get("downloaderBlacklistTags", []);
+    const entry = await getCachedIds(searchQuery, popularityOrderBy, blacklist);
 
-    if (trimmedQuery) {
-      const title: string[] = [];
-      const tags: string[] = [];
-      trimmedQuery.split(" ").forEach((text) => {
-        if (text.includes(":")) {
-          tags.push(text);
-        } else {
-          title.push(text);
-        }
-      });
-      ids = await hitomi.getGalleryIds({
-        title: title.length > 0 ? title.join(" ") : undefined,
-        tags:
-          tags.length > 0 ? hitomi.getParsedTags(tags.join(" ")) : undefined,
-      });
-    } else {
-      ids = await hitomi.getGalleryIds();
-    }
+    const data = Array.from(entry.ids.slice(start, start + count));
 
-    const limit = 30;
-    const offset = (page - 1) * limit + (query.offset || 0);
-    const pageData = ids.slice(offset, offset + limit);
-    const hasNextPage = ids.length > offset + limit;
-
-    return { success: true, data: pageData, hasNextPage };
+    return {
+      success: true,
+      data,
+      total: entry.ids.length,
+      generation: entry.generation,
+    };
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     console.error("Error searching galleries:", error);

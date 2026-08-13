@@ -1,70 +1,60 @@
 <script setup lang="ts">
 import ProxiedImage from "@/components/common/ProxiedImage.vue";
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
-import { Checkbox } from "@/components/ui/checkbox";
-import { Label } from "@/components/ui/label";
 import { useGalleryCard } from "@/composable/useGalleryCard";
-import { formatPublishDate } from "@/lib/formatDate";
+import type { MetaField } from "@/lib/galleryCard";
 import { Icon } from "@iconify/vue";
-import { computed } from "vue";
 import type { Gallery } from "node-hitomi";
+import GalleryCredits from "./parts/GalleryCredits.vue";
+import GalleryMetaLine from "./parts/GalleryMetaLine.vue";
+import GalleryStatusBadge from "./parts/GalleryStatusBadge.vue";
 
 interface Props {
   gallery: Gallery & { thumbnailUrl: string };
   downloadStatus?: { status: string; progress?: number; error?: string };
   selected?: boolean;
+  /** 라이브러리 보유 여부. 상위에서 한 번에 조회해 내려줍니다. */
+  bookId?: number | null;
+  /** 다운로드 경로. 상위에서 한 번만 읽어 내려줍니다. */
+  downloadPath?: string;
 }
 
 const props = withDefaults(defineProps<Props>(), {
   downloadStatus: () => ({ status: "idle" }),
   selected: false,
+  bookId: null,
+  downloadPath: "",
 });
 
 const emit = defineEmits<{
   "select-gallery": [gallery: Gallery];
   "preview-gallery": [gallery: Gallery];
-  "book-deleted": [galleryId: number];
+  // 삭제 다이얼로그는 페이지가 들고 있습니다 (useGalleryDelete 참고)
+  "request-delete": [gallery: Gallery];
 }>();
 
-// 업로드 날짜 포맷
-const formattedDate = computed(() =>
-  formatPublishDate(props.gallery.publishedDate),
-);
+/**
+ * 템플릿에 배열 리터럴을 직접 쓰면 vue-tsc가 `string[]`로 추론해
+ * `MetaField[]` prop에 대입할 수 없다고 걸립니다. 상수로 빼서 타입을 박습니다.
+ */
+const META_FIELDS: MetaField[] = ["pages", "language", "date"];
 
 // composable 사용
 const {
-  isDeleteDialogOpen,
+  cardStatus,
   isDownloading,
   isDownloadCompleted,
-  isDownloadFailed,
   handleOpenBook,
   handleDownload,
   handleDeleteGallery,
-  confirmDeleteGallery,
   copyToClipboard,
-  permanentDelete,
 } = useGalleryCard(props, emit);
 </script>
 
 <template>
   <div
     class="group relative cursor-pointer overflow-hidden rounded-lg border"
-    :class="{
-      'opacity-50': isDownloading,
-      'bg-green-50/50': isDownloadCompleted,
-      'bg-red-50/50': isDownloadFailed,
-      'ring-2 ring-blue-500': selected, // 선택 시 파란색 테두리 추가
-    }"
+    :class="{ 'ring-2 ring-blue-500': selected }"
     @click="emit('select-gallery', gallery)"
   >
     <div class="relative aspect-3/4 h-auto w-full overflow-hidden">
@@ -75,200 +65,125 @@ const {
         alt="Thumbnail"
         class="h-full w-full object-contain transition-transform duration-300 group-hover:scale-110"
       />
-      <div
-        v-if="isDownloadCompleted"
-        class="absolute top-2 right-2 rounded-full bg-green-500 p-1 text-white"
-      >
-        <Icon icon="solar:check-circle-bold" class="h-5 w-5" />
-      </div>
     </div>
+
+    <!-- 상태 배지. 호버 액션 오버레이(z-20)보다 위에 둡니다 -->
+    <div class="absolute top-2 left-2 z-40 flex">
+      <GalleryStatusBadge :status="cardStatus" />
+    </div>
+
     <!-- 호버 시 배경 dim (투명 -> 불투명) -->
     <div
       class="absolute inset-0 bg-black/0 transition-colors group-hover:bg-black/50"
     ></div>
 
-    <!-- 하단 정보 영역 (항상 표시) -->
+    <!--
+      하단 정보. 3단(제목/작가/메타)으로 줄여 표지가 60% 이상 남습니다.
+
+      **z-30 아래로 내리면 안 됩니다.** 호버 버튼 영역이 `absolute inset-0
+      z-20`이라 카드 전면을 덮는데, `opacity-0`은 히트테스트에 영향이 없어서
+      호버 중이 아닐 때도 클릭을 가로챕니다. 이 영역이 그보다 낮으면 작가
+      클릭 복사가 영영 안 걸리고 미리보기만 열립니다.
+
+      영역 자체는 pointer-events-none이라 제목·메타를 누르면 클릭이 호버
+      버튼 영역으로 통과합니다. 작가 링크에만 pointer-events-auto를 줍니다.
+    -->
     <div
-      class="absolute right-0 bottom-0 left-0 bg-gradient-to-t from-black/80 via-black/60 to-transparent p-3"
+      class="pointer-events-none absolute right-0 bottom-0 left-0 z-30 bg-gradient-to-t from-black/80 via-black/60 to-transparent px-2.5 pt-7 pb-2.5 text-white"
     >
-      <p class="mb-2 line-clamp-2 text-sm font-bold text-white">
+      <!--
+        그림자는 스크림이 얇아지는 자리를 보강합니다. 제목은 오버레이 위쪽
+        20px 지점에 앉는데 그 높이의 그라디언트 알파가 약 0.33이라, 밝은 표지
+        위에서는 흰 글씨 대비가 2.3:1까지 떨어집니다. 스크림 자체를 진하게
+        하면 표지를 덜 보여주게 되므로 글씨만 띄웁니다.
+      -->
+      <p
+        class="line-clamp-2 text-[13px] leading-snug font-bold break-all [text-shadow:0_1px_3px_rgb(0_0_0/0.9)]"
+      >
         {{ props.gallery.title.display }}
       </p>
-      <div class="space-y-1 text-xs text-white/90">
-        <!-- 작가 -->
-        <p class="truncate">
-          <Icon
-            icon="solar:pen-new-round-linear"
-            class="mr-1 inline-block h-3 w-3"
-          />
-          <template
-            v-if="props.gallery.artists && props.gallery.artists.length > 0"
-          >
-            <template
-              v-for="(artist, index) in props.gallery.artists"
-              :key="artist"
-            >
-              <button
-                class="m-0 inline-block cursor-pointer border-none bg-transparent p-0 text-left text-current hover:underline"
-                @click.stop="copyToClipboard(`artist:${artist}`)"
-              >
-                {{ artist }}
-              </button>
-              <span v-if="index < props.gallery.artists.length - 1">, </span>
-            </template>
-          </template>
-          <template v-else> 알 수 없음 </template>
-        </p>
-        <!-- 그룹 -->
-        <p
-          v-if="props.gallery.groups && props.gallery.groups.length > 0"
-          class="truncate"
-        >
-          <Icon
-            icon="solar:users-group-rounded-linear"
-            class="mr-1 inline-block h-3 w-3"
-          />
-          <template v-for="(group, index) in props.gallery.groups" :key="group">
-            <button
-              class="m-0 inline-block cursor-pointer border-none bg-transparent p-0 text-left text-current hover:underline"
-              @click.stop="copyToClipboard(`group:${group}`)"
-            >
-              {{ group }}
-            </button>
-            <span v-if="index < props.gallery.groups.length - 1">, </span>
-          </template>
-        </p>
-        <!-- 시리즈 -->
-        <p
-          v-if="props.gallery.series && props.gallery.series.length > 0"
-          class="truncate"
-        >
-          <Icon
-            icon="solar:bookmark-linear"
-            class="mr-1 inline-block h-3 w-3"
-          />
-          <template
-            v-for="(series, index) in props.gallery.series"
-            :key="series"
-          >
-            <button
-              class="m-0 inline-block cursor-pointer border-none bg-transparent p-0 text-left text-current hover:underline"
-              @click.stop="copyToClipboard(`series:${series}`)"
-            >
-              {{ series }}
-            </button>
-            <span v-if="index < props.gallery.series.length - 1">, </span>
-          </template>
-        </p>
-        <!-- 캐릭터 -->
-        <p
-          v-if="props.gallery.characters && props.gallery.characters.length > 0"
-          class="truncate"
-        >
-          <Icon icon="solar:user-linear" class="mr-1 inline-block h-3 w-3" />
-          <template
-            v-for="(character, index) in props.gallery.characters"
-            :key="character"
-          >
-            <button
-              class="m-0 inline-block cursor-pointer border-none bg-transparent p-0 text-left text-current hover:underline"
-              @click.stop="copyToClipboard(`character:${character}`)"
-            >
-              {{ character }}
-            </button>
-            <span v-if="index < props.gallery.characters.length - 1">, </span>
-          </template>
-        </p>
-        <!-- 업로드 날짜 -->
-        <p v-if="formattedDate">
-          <Icon
-            icon="solar:calendar-linear"
-            class="mr-1 inline-block h-3 w-3"
-          />
-          {{ formattedDate }}
-        </p>
-        <!-- 페이지 -->
-        <p>
-          <Icon
-            icon="solar:document-text-linear"
-            class="mr-1 inline-block h-3 w-3"
-          />
-          {{ props.gallery.files?.length || 0 }} 페이지
-        </p>
-      </div>
+      <GalleryCredits
+        compact
+        class="pointer-events-auto mt-0.5 text-[11.5px] opacity-95"
+        :gallery="props.gallery"
+        @copy="copyToClipboard"
+      />
+      <GalleryMetaLine
+        class="mt-1 opacity-80"
+        :gallery="props.gallery"
+        :fields="META_FIELDS"
+      />
     </div>
 
-    <!-- 버튼 영역 (호버 시 표시) -->
+    <!-- 진행률 바. 하단 정보(z-30) 위에 얹혀야 그라디언트에 안 묻힙니다 -->
     <div
-      class="absolute inset-0 flex cursor-zoom-in items-center justify-center gap-2 opacity-0 transition-opacity group-hover:opacity-100"
+      v-if="cardStatus.kind === 'downloading'"
+      class="absolute right-0 bottom-0 left-0 z-40 h-[3px] bg-white/25"
+    >
+      <div
+        class="bg-primary h-full transition-[width] duration-300"
+        :class="cardStatus.indeterminate ? 'w-full animate-pulse' : ''"
+        :style="
+          cardStatus.indeterminate
+            ? undefined
+            : { width: `${cardStatus.percent ?? 0}%` }
+        "
+      ></div>
+    </div>
+
+    <!--
+      버튼 영역 (호버 시 표시).
+
+      **문구는 그 상태의 주된 행동에만 답니다.** 카드 최소 폭이 200px인데
+      (`Downloader.vue`의 `MIN_CARD_WIDTH`) `Button`은 기본 클래스에
+      `shrink-0 whitespace-nowrap`이 있어 절대 줄지 않습니다. 버튼 넷에 전부
+      한글 문구를 달면 약 261px이라 카드 밖으로 나가고, 루트의
+      `overflow-hidden`이 양끝을 잘라 먹습니다.
+
+      그래서 상태마다 문구를 하나만 둡니다. 받기 전에는 다운로드가, 보유중일
+      때는 열기가 주된 행동입니다. 보유중 다운로드 버튼("완료")은 아예
+      감춥니다 — 눌리지도 않는 데다 좌상단 배지가 이미 같은 말을 합니다.
+
+      `flex-wrap`은 그래도 안 맞는 경우의 안전망입니다. 창이 아주 좁으면
+      1열이 되면서 카드 폭이 200px 아래로 내려갈 수 있습니다.
+    -->
+    <div
+      class="absolute inset-0 z-20 flex cursor-zoom-in flex-wrap items-center justify-center gap-2 px-2 opacity-0 transition-opacity group-hover:opacity-100"
       @click="emit('preview-gallery', gallery)"
     >
       <Button
-        size="icon"
+        size="icon-sm"
         variant="secondary"
+        title="미리보기"
         @click.stop="emit('preview-gallery', gallery)"
       >
-        <Icon icon="solar:eye-bold-duotone" class="h-5 w-5" />
+        <Icon icon="solar:eye-bold-duotone" class="h-4 w-4" />
       </Button>
       <Button
+        v-if="!isDownloadCompleted"
         size="sm"
-        :disabled="isDownloading || isDownloadCompleted"
+        :disabled="isDownloading"
         @click.stop="handleDownload"
       >
         <Icon icon="solar:download-bold-duotone" class="h-4 w-4" />
-        {{
-          isDownloading
-            ? "다운로드 중..."
-            : isDownloadCompleted
-              ? "완료"
-              : "다운로드"
-        }}
+        {{ cardStatus.buttonLabel }}
       </Button>
-      <Button v-if="isDownloadCompleted" size="sm" @click.stop="handleOpenBook">
-        <Icon icon="solar:book-bold-duotone" class="h-5 w-5" />
+      <Button v-else size="sm" @click.stop="handleOpenBook">
+        <Icon icon="solar:book-bold-duotone" class="h-4 w-4" />
         열기
       </Button>
       <Button
         v-if="isDownloadCompleted"
-        size="sm"
+        size="icon-sm"
         variant="destructive"
+        title="삭제"
         @click.stop="handleDeleteGallery"
       >
         <Icon
           icon="solar:trash-bin-minimalistic-bold-duotone"
-          class="h-5 w-5"
+          class="h-4 w-4"
         />
-        삭제
       </Button>
     </div>
   </div>
-
-  <!-- 삭제 확인 다이얼로그 -->
-  <AlertDialog
-    :open="isDeleteDialogOpen"
-    @update:open="isDeleteDialogOpen = $event"
-  >
-    <AlertDialogContent>
-      <AlertDialogHeader>
-        <AlertDialogTitle>책을 삭제하시겠습니까?</AlertDialogTitle>
-        <AlertDialogDescription>
-          {{
-            permanentDelete
-              ? "데이터베이스에서 책 정보가 삭제되고, 파일이 영구적으로 삭제됩니다."
-              : "데이터베이스에서 책 정보가 삭제되고, 파일은 휴지통으로 이동합니다."
-          }}
-        </AlertDialogDescription>
-      </AlertDialogHeader>
-      <Label class="flex cursor-pointer items-center gap-2 font-normal">
-        <Checkbox v-model="permanentDelete" />
-        휴지통을 거치지 않고 영구 삭제
-      </Label>
-      <AlertDialogFooter>
-        <AlertDialogCancel>취소</AlertDialogCancel>
-        <AlertDialogAction @click="confirmDeleteGallery"
-          >삭제</AlertDialogAction
-        >
-      </AlertDialogFooter>
-    </AlertDialogContent>
-  </AlertDialog>
 </template>

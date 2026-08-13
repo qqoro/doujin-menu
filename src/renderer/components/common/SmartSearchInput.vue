@@ -3,15 +3,33 @@ import { Input } from "@/components/ui/input";
 import { useLookupData } from "@/composable/useLookupData";
 import { Icon } from "@iconify/vue";
 import { watchDebounced } from "@vueuse/core";
+import type { PropType } from "vue";
 import { computed, nextTick, ref, useTemplateRef, watch } from "vue";
 import { toast } from "vue-sonner";
 
 const props = defineProps({
   modelValue: { type: String, default: "" },
   placeholder: { type: String, default: "" },
+  /** 복사·붙여넣기·초기화 버튼 표시 여부. 좁은 곳에 넣을 때 끕니다 */
+  showActions: { type: Boolean, default: true },
+  /**
+   * 제안 후보를 걸러내는 조건자.
+   *
+   * 화면마다 쓸 수 있는 항목이 다릅니다. 예를 들어 차단 태그는 히토미 태그
+   * 규칙에 맞는 것만 등록할 수 있는데, 고를 수 없는 걸 목록에 띄워놓고
+   * 고르면 에러를 내는 건 좋지 않습니다. 규칙은 쓰는 쪽이 들고 있습니다.
+   */
+  suggestionFilter: {
+    type: Function as PropType<(suggestion: string) => boolean>,
+    default: undefined,
+  },
 });
 
 const emit = defineEmits(["update:modelValue"]);
+
+// 조건자가 없으면 모두 통과시킵니다
+const passesFilter = (suggestion: string) =>
+  props.suggestionFilter ? props.suggestionFilter(suggestion) : true;
 
 const clearInput = () => {
   emit("update:modelValue", "");
@@ -107,6 +125,7 @@ const collectDataSuggestions = (
     if (out.length >= MAX_SUGGESTIONS) return;
     if (currentTerms.has(suggestion.toLowerCase())) return;
     if (out.includes(suggestion)) return;
+    if (!passesFilter(suggestion)) return;
     out.push(suggestion);
   };
 
@@ -157,7 +176,8 @@ watch(
       );
       suggestions.value = allSuggestiblePrefixes
         .filter((p: string) => p.startsWith(term))
-        .filter((s: string) => !currentTerms.has(s.toLowerCase()));
+        .filter((s: string) => !currentTerms.has(s.toLowerCase()))
+        .filter(passesFilter);
       activeSuggestionIndex.value = -1;
     }
   },
@@ -216,9 +236,9 @@ watchDebounced(
         if (!item.toLowerCase().startsWith(searchTerm)) continue;
 
         const suggestion = `${suggestionPrefix}${item}`;
-        if (!currentTerms.has(suggestion.toLowerCase())) {
-          filteredSuggestions.push(suggestion);
-        }
+        if (currentTerms.has(suggestion.toLowerCase())) continue;
+        if (!passesFilter(suggestion)) continue;
+        filteredSuggestions.push(suggestion);
       }
 
       suggestions.value = filteredSuggestions;
@@ -229,7 +249,8 @@ watchDebounced(
       // 프리픽스가 아직 없는 경우: 프리픽스 후보 + 모든 메타데이터 매칭 후보를 함께 제안
       const prefixSuggestions = allSuggestiblePrefixes
         .filter((p: string) => p.startsWith(term))
-        .filter((s: string) => !currentTerms.has(s.toLowerCase()));
+        .filter((s: string) => !currentTerms.has(s.toLowerCase()))
+        .filter(passesFilter);
       suggestions.value = [
         ...prefixSuggestions,
         ...collectDataSuggestions(term, currentTerms),
@@ -283,7 +304,8 @@ const showAllPrefixSuggestions = () => {
           .split(" ")
           .filter((s) => s.length > 0)
           .includes(s.toLowerCase()),
-    );
+    )
+    .filter(passesFilter);
   activeSuggestionIndex.value = -1;
   manualSuggestTrigger.value = false;
 };
@@ -338,40 +360,48 @@ defineExpose({ focus });
       ref="input"
       :model-value="props.modelValue"
       :placeholder="placeholder"
-      :class="['w-full', props.modelValue.length > 0 ? 'pr-20' : 'pr-12']"
+      :class="[
+        'w-full',
+        showActions ? (props.modelValue.length > 0 ? 'pr-20' : 'pr-12') : '',
+      ]"
       @update:model-value="emit('update:modelValue', $event)"
       @keydown="handleKeyDown"
       @focus="isFocused = true"
       @blur="isFocused = false"
     />
-    <div
-      v-if="props.modelValue.length > 0"
-      class="absolute inset-y-0 right-0 flex items-center gap-1 pr-3"
-    >
-      <button
-        type="button"
-        class="text-muted-foreground hover:text-foreground p-1 transition-colors"
-        @click="clearInput"
+    <template v-if="showActions">
+      <div
+        v-if="props.modelValue.length > 0"
+        class="absolute inset-y-0 right-0 flex items-center gap-1 pr-3"
       >
-        <Icon icon="solar:close-circle-bold-duotone" class="h-5 w-5" />
-      </button>
-      <button
-        type="button"
-        class="text-muted-foreground hover:text-foreground p-1 transition-colors"
-        @click="copyToClipboard"
+        <button
+          type="button"
+          class="text-muted-foreground hover:text-foreground p-1 transition-colors"
+          @click="clearInput"
+        >
+          <Icon icon="solar:close-circle-bold-duotone" class="h-5 w-5" />
+        </button>
+        <button
+          type="button"
+          class="text-muted-foreground hover:text-foreground p-1 transition-colors"
+          @click="copyToClipboard"
+        >
+          <Icon icon="solar:copy-bold-duotone" class="h-5 w-5" />
+        </button>
+      </div>
+      <div
+        v-else
+        class="absolute inset-y-0 right-0 flex items-center gap-1 pr-3"
       >
-        <Icon icon="solar:copy-bold-duotone" class="h-5 w-5" />
-      </button>
-    </div>
-    <div v-else class="absolute inset-y-0 right-0 flex items-center gap-1 pr-3">
-      <button
-        type="button"
-        class="text-muted-foreground hover:text-foreground p-1 transition-colors"
-        @click="pasteFromClipboard"
-      >
-        <Icon icon="solar:clipboard-text-bold-duotone" class="h-5 w-5" />
-      </button>
-    </div>
+        <button
+          type="button"
+          class="text-muted-foreground hover:text-foreground p-1 transition-colors"
+          @click="pasteFromClipboard"
+        >
+          <Icon icon="solar:clipboard-text-bold-duotone" class="h-5 w-5" />
+        </button>
+      </div>
+    </template>
     <ul
       v-if="suggestions.length > 0 && isFocused"
       class="bg-popover absolute z-10 mt-1 w-full rounded-md border shadow-lg"

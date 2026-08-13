@@ -1176,6 +1176,72 @@ export const handleCheckBookExistsByHitomiId = async (hitomiId: number) => {
   }
 };
 
+/**
+ * check-books-exist-by-hitomi-ids 응답.
+ *
+ * 반환 타입을 명시하는 이유: try/catch로 성공/실패 두 모양을 반환하면 추론
+ * 결과가 유니온이 되어, tsconfig의 include가 잡는 tests/에서 result.data 접근이
+ * tsc --noEmit에 걸립니다.
+ */
+interface CheckBooksExistResult {
+  success: boolean;
+  /** { [hitomiId]: bookId } — 라이브러리에 없는 ID는 키 자체가 없습니다 */
+  data?: Record<number, number>;
+  error?: string;
+}
+
+/** whereIn에 한 번에 넣을 최대 개수. SQLite 바인딩 변수 상한을 넉넉히 피합니다. */
+const HITOMI_ID_CHUNK_SIZE = 500;
+
+/**
+ * 여러 갤러리 ID의 보유 여부를 한 번에 확인합니다.
+ *
+ * 카드마다 check-book-exists-by-hitomi-id를 부르면 한 페이지(30장)에 30번의
+ * IPC 왕복이 생깁니다. 화면 단위로 묶어서 한 번에 조회합니다.
+ */
+export const handleCheckBooksExistByHitomiIds = async (
+  hitomiIds: number[],
+): Promise<CheckBooksExistResult> => {
+  try {
+    if (!Array.isArray(hitomiIds) || hitomiIds.length === 0) {
+      return { success: true, data: {} };
+    }
+
+    // 중복 ID는 미리 걷어냅니다 (같은 작품이 여러 번 보일 수 있음)
+    const uniqueIds = [...new Set(hitomiIds.filter((id) => !!id))];
+    const map: Record<number, number> = {};
+
+    for (let i = 0; i < uniqueIds.length; i += HITOMI_ID_CHUNK_SIZE) {
+      const chunk = uniqueIds.slice(i, i + HITOMI_ID_CHUNK_SIZE);
+
+      // hitomi_id는 마이그레이션에서 문자열 컬럼으로 만들어졌습니다.
+      // 숫자로 들어온 ID를 문자열로 바꿔야 매칭됩니다.
+      const rows = await db("Book")
+        .whereIn(
+          "hitomi_id",
+          chunk.map((id) => id.toString()),
+        )
+        .orderBy("id", "asc")
+        .select("id", "hitomi_id");
+
+      for (const row of rows) {
+        const hitomiId = Number(row.hitomi_id);
+        if (Number.isNaN(hitomiId)) continue;
+        // 같은 hitomi_id가 여러 권 있으면 가장 오래된 것을 씁니다.
+        // 단건 핸들러의 .first()와 결과를 맞추기 위함입니다.
+        if (map[hitomiId] === undefined) {
+          map[hitomiId] = row.id;
+        }
+      }
+    }
+
+    return { success: true, data: map };
+  } catch (error) {
+    console.error("Failed to check book existence by hitomi ids:", error);
+    return { success: false, error: (error as Error).message };
+  }
+};
+
 export const handleGetBookHistory = async ({
   pageParam = 0,
   pageSize = 50,
@@ -1393,6 +1459,9 @@ export function registerBookHandlers() {
   );
   ipcMain.handle("check-book-exists-by-hitomi-id", (_event, hitomiId) =>
     handleCheckBookExistsByHitomiId(hitomiId),
+  );
+  ipcMain.handle("check-books-exist-by-hitomi-ids", (_event, hitomiIds) =>
+    handleCheckBooksExistByHitomiIds(hitomiIds),
   );
   ipcMain.handle("delete-book", (_event, { bookId, permanent }) =>
     handleDeleteBook(bookId, { permanent }),

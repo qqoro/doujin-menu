@@ -66,6 +66,7 @@
     "@tailwindcss/vite": "^4.1.18",
     "@tanstack/vue-query": "^5.92.1",
     "@tanstack/vue-table": "^8.21.3",
+    "@tanstack/vue-virtual": "^3.13.6",
     "@types/archiver": "^7.0.0",
     "@vueuse/core": "^14.1.0",
     "archiver": "^7.0.1",

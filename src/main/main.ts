@@ -69,6 +69,43 @@ let hasRunInitialSeriesDetection = false;
 // 최초 부팅 시 라이브러리 자동 스캔을 1회만 실행했는지 추적 (새로고침 시 재실행 방지)
 let hasRunInitialLibraryScan = false;
 
+/** 임시 썸네일 보관 기간. 이 기간이 지난 파일은 앱 시작 시 지웁니다 */
+const TEMP_THUMBNAIL_MAX_AGE = 7 * 24 * 60 * 60 * 1000;
+
+/**
+ * 다운로더 임시 썸네일 중 오래된 것을 지웁니다.
+ *
+ * 설정 화면에 수동 삭제(`clear-temp-files`)가 있지만 그것만으로는 계속 쌓이기만
+ * 합니다. 다운로더를 쓸수록 늘어나는 디렉터리라 자동 정리가 필요합니다.
+ *
+ * 앱 시작을 막지 않도록 await하지 않고 호출하며, 실패는 로그만 남깁니다.
+ */
+async function pruneTempThumbnails(dir: string) {
+  try {
+    const entries = await fs.readdir(dir);
+    const threshold = Date.now() - TEMP_THUMBNAIL_MAX_AGE;
+    let removed = 0;
+
+    for (const entry of entries) {
+      const filePath = path.join(dir, entry);
+      try {
+        const stat = await fs.stat(filePath);
+        if (!stat.isFile() || stat.mtimeMs >= threshold) continue;
+        await fs.unlink(filePath);
+        removed++;
+      } catch {
+        // 개별 파일 실패는 무시합니다 (사용 중이거나 이미 지워진 경우)
+      }
+    }
+
+    if (removed > 0) {
+      log.info(`[Main] 오래된 임시 썸네일 ${removed}개 정리`);
+    }
+  } catch (error) {
+    log.error("[Main] 임시 썸네일 정리 실패:", error);
+  }
+}
+
 function createViewerWindow(fromUrl: string) {
   // 첫 창 생성 시 위치를 메인 창 기준으로 오프셋
   const mainBounds = mainWindow.getBounds();
@@ -256,12 +293,18 @@ app.whenReady().then(async () => {
     console.error("[Main] 앱 사용 시간 추적 시작 실패:", error);
   }
 
-  fs.mkdir(path.join(app.getPath("userData"), "downloader_temp_thumbnails"), {
-    recursive: true,
-  });
+  const tempThumbnailDir = path.join(
+    app.getPath("userData"),
+    "downloader_temp_thumbnails",
+  );
+  fs.mkdir(tempThumbnailDir, { recursive: true });
   fs.mkdir(path.join(app.getPath("userData"), "temp_cover"), {
     recursive: true,
   });
+
+  // 오래된 임시 썸네일 정리. 설정의 수동 삭제만으로는 계속 쌓이기만 합니다.
+  // 실패는 로그만 남기고 넘어갑니다 — 정리 때문에 앱 시작이 막히면 안 됩니다.
+  void pruneTempThumbnails(tempThumbnailDir);
 
   // 커스텀 프로토콜 등록
   protocol.handle("doujin-menu", async (request) => {

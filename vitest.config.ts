@@ -1,8 +1,16 @@
 import vue from "@vitejs/plugin-vue";
+import { fileURLToPath } from "node:url";
 import { defineConfig } from "vitest/config";
 
 export default defineConfig({
   plugins: [vue()],
+  // `@/` 경로 별칭. 컴포넌트가 내부적으로 `@/lib/...`를 import하므로 테스트에서도
+  // 동일하게 해석되어야 모킹과 SFC 컴파일이 동작합니다.
+  resolve: {
+    alias: {
+      "@": fileURLToPath(new URL("./src/renderer", import.meta.url)),
+    },
+  },
   test: {
     environment: "node", // Changed to node for main process testing
     globals: true, // Allows using describe, it, expect without importing

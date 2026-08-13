@@ -342,6 +342,7 @@ import {
   handleGetBook,
   handleGetNextBook,
   handleGetPrevBook,
+  handleCheckBooksExistByHitomiIds,
 } from "../../../src/main/handlers/bookHandler.js";
 import { store as configStore } from "../../../src/main/handlers/configHandler.js";
 
@@ -1784,5 +1785,87 @@ describe("handleGetBooks - 통합 테스트", () => {
       expect(result.nextBookId).not.toBeNull();
       expect(result.nextBookId).not.toBe(order[0]);
     });
+  });
+});
+
+describe("handleCheckBooksExistByHitomiIds", () => {
+  let batchDb: Knex;
+
+  beforeAll(async () => {
+    batchDb = await createTestDb();
+    dbRef.current = batchDb;
+  });
+
+  beforeEach(async () => {
+    dbRef.current = batchDb;
+    await truncateAll(batchDb);
+  });
+
+  afterAll(async () => {
+    await batchDb.destroy();
+  });
+
+  it("빈 배열은 빈 맵을 반환한다", async () => {
+    const result = await handleCheckBooksExistByHitomiIds([]);
+    expect(result.success).toBe(true);
+    expect(result.data).toEqual({});
+  });
+
+  it("문자열로 저장된 hitomi_id와 숫자 입력이 매칭된다", async () => {
+    const book = await seedBook(batchDb, { path: "/a", hitomi_id: "12345" });
+
+    const result = await handleCheckBooksExistByHitomiIds([12345]);
+
+    expect(result.success).toBe(true);
+    expect(result.data).toEqual({ 12345: book.id });
+  });
+
+  it("보유하지 않은 ID는 키 자체가 없다", async () => {
+    await seedBook(batchDb, { path: "/a", hitomi_id: "111" });
+
+    const result = await handleCheckBooksExistByHitomiIds([111, 222]);
+
+    expect(result.data).toHaveProperty("111");
+    expect(result.data).not.toHaveProperty("222");
+  });
+
+  it("여러 ID를 한 번에 조회한다", async () => {
+    const a = await seedBook(batchDb, { path: "/a", hitomi_id: "100" });
+    const b = await seedBook(batchDb, { path: "/b", hitomi_id: "200" });
+    await seedBook(batchDb, { path: "/c", hitomi_id: null });
+
+    const result = await handleCheckBooksExistByHitomiIds([100, 200, 300]);
+
+    expect(result.data).toEqual({ 100: a.id, 200: b.id });
+  });
+
+  it("같은 hitomi_id가 중복 저장돼 있으면 가장 오래된 책을 돌려준다", async () => {
+    // 단건 핸들러의 .first()와 결과가 어긋나면 안 됩니다
+    const first = await seedBook(batchDb, { path: "/a", hitomi_id: "777" });
+    await seedBook(batchDb, { path: "/b", hitomi_id: "777" });
+
+    const result = await handleCheckBooksExistByHitomiIds([777]);
+
+    expect(result.data).toEqual({ 777: first.id });
+  });
+
+  it("입력에 중복 ID가 있어도 정상 동작한다", async () => {
+    const book = await seedBook(batchDb, { path: "/a", hitomi_id: "555" });
+
+    const result = await handleCheckBooksExistByHitomiIds([555, 555, 555]);
+
+    expect(result.data).toEqual({ 555: book.id });
+  });
+
+  it("SQLite 바인딩 상한을 넘는 개수도 청크로 나눠 처리한다", async () => {
+    const book = await seedBook(batchDb, { path: "/a", hitomi_id: "999999" });
+    // 청크 크기(500)를 넉넉히 넘기는 입력
+    const ids = Array.from({ length: 1200 }, (_, i) => i + 1);
+    ids.push(999999);
+
+    const result = await handleCheckBooksExistByHitomiIds(ids);
+
+    expect(result.success).toBe(true);
+    expect(result.data).toEqual({ 999999: book.id });
   });
 });

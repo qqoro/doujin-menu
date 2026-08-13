@@ -1,76 +1,95 @@
 <script setup lang="ts">
 import ProxiedImage from "@/components/common/ProxiedImage.vue";
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@/components/ui/alert-dialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Checkbox } from "@/components/ui/checkbox";
-import { Label } from "@/components/ui/label";
 import { useGalleryCard } from "@/composable/useGalleryCard";
-import { formatPublishDate } from "@/lib/formatDate";
+import type { MetaField } from "@/lib/galleryCard";
+import { listThumbnailSize } from "@/lib/galleryCard";
+import { useUiStore } from "@/store/uiStore";
 import { Icon } from "@iconify/vue";
-import { computed } from "vue";
 import type { Gallery } from "node-hitomi";
+import { computed } from "vue";
+import GalleryCredits from "./parts/GalleryCredits.vue";
+import GalleryMetaLine from "./parts/GalleryMetaLine.vue";
+import GalleryStatusBadge from "./parts/GalleryStatusBadge.vue";
 
 interface Props {
   gallery: Gallery & { thumbnailUrl: string };
   downloadStatus?: { status: string; progress?: number; error?: string };
   selected?: boolean;
+  /** 라이브러리 보유 여부. 상위에서 한 번에 조회해 내려줍니다. */
+  bookId?: number | null;
+  /** 다운로드 경로. 상위에서 한 번만 읽어 내려줍니다. */
+  downloadPath?: string;
 }
 
 const props = withDefaults(defineProps<Props>(), {
   downloadStatus: () => ({ status: "idle" }),
   selected: false,
+  bookId: null,
+  downloadPath: "",
 });
 
 const emit = defineEmits<{
   "select-gallery": [gallery: Gallery];
   "preview-gallery": [gallery: Gallery];
-  "book-deleted": [galleryId: number];
+  // 삭제 다이얼로그는 페이지가 들고 있습니다 (useGalleryDelete 참고)
+  "request-delete": [gallery: Gallery];
 }>();
 
-// 업로드 날짜 포맷
-const formattedDate = computed(() =>
-  formatPublishDate(props.gallery.publishedDate),
-);
+const uiStore = useUiStore();
+
+/**
+ * 템플릿에 배열 리터럴을 직접 쓰면 vue-tsc가 `string[]`로 추론해
+ * `MetaField[]` prop에 대입할 수 없다고 걸립니다. 상수로 빼서 타입을 박습니다.
+ */
+const META_FIELDS: MetaField[] = ["pages", "type", "language", "date", "id"];
+
+/**
+ * 썸네일 px 치수.
+ *
+ * 리스트는 CSS `zoom`을 쓸 수 없어(동적 측정이 깨집니다) 같은 줌 값을 받아
+ * px을 직접 곱합니다. 자세한 이유는 `listThumbnailSize` 주석 참고.
+ */
+const thumbSize = computed(() => listThumbnailSize(uiStore.thumbnailZoom));
 
 // composable 사용
 const {
-  isDeleteDialogOpen,
-  buttonText,
+  cardStatus,
   isDownloading,
   isDownloadCompleted,
-  isDownloadFailed,
   handleOpenBook,
   handleDownload,
   handleDeleteGallery,
-  confirmDeleteGallery,
   copyToClipboard,
-  permanentDelete,
 } = useGalleryCard(props, emit);
+
+/** 태그 배지 색. 성별 태그만 구분해 스캔을 돕습니다 */
+const tagTone = (type: string) => {
+  if (type === "female")
+    return "bg-rose-100 text-rose-700 dark:bg-rose-950 dark:text-rose-200";
+  if (type === "male")
+    return "bg-sky-100 text-sky-700 dark:bg-sky-950 dark:text-sky-200";
+  return "";
+};
+
+/** 태그를 클릭 복사용 검색어로 바꿉니다 */
+const tagTerm = (type: string, name: string) =>
+  `${type === "male" || type === "female" ? type : "tag"}:${name}`;
 </script>
 
 <template>
   <div
-    class="hover:bg-muted/50 flex cursor-pointer items-center border-b p-2 transition-colors"
-    :class="{
-      'opacity-50': isDownloading,
-      'bg-green-50/50': isDownloadCompleted,
-      'bg-red-50/50': isDownloadFailed,
-      'ring-2 ring-blue-500': selected, // 선택 시 파란색 테두리 추가
-    }"
+    class="hover:bg-muted/50 relative flex cursor-pointer gap-3.5 overflow-hidden rounded-lg border p-3 transition-colors"
+    :class="{ 'ring-2 ring-blue-500': selected }"
     @click="emit('select-gallery', gallery)"
   >
     <div
-      class="relative mr-4 h-64 w-48 flex-shrink-0 cursor-zoom-in overflow-hidden"
+      class="relative shrink-0 cursor-zoom-in overflow-hidden rounded-md"
+      :style="{
+        width: `${thumbSize.width}px`,
+        height: `${thumbSize.height}px`,
+      }"
       @click.stop="emit('preview-gallery', gallery)"
     >
       <ProxiedImage
@@ -78,141 +97,62 @@ const {
         :url="props.gallery.thumbnailUrl"
         :referer="`https://hitomi.la/reader/${props.gallery.id}.html`"
         alt="Thumbnail"
-        class="h-full w-full rounded-md object-cover transition-transform duration-300 hover:scale-110"
+        class="h-full w-full object-cover transition-transform duration-300 hover:scale-110"
       />
-      <div
-        v-if="isDownloadCompleted"
-        class="absolute top-2 right-2 rounded-full bg-green-500 p-1 text-white"
-      >
-        <Icon icon="solar:check-circle-bold" class="h-5 w-5" />
+      <div class="absolute top-1.5 left-1.5 flex">
+        <GalleryStatusBadge :status="cardStatus" />
       </div>
     </div>
-    <div class="flex flex-1 flex-col gap-2">
-      <!-- 제목 -->
-      <p class="text-muted-foreground text-xs">
-        {{ props.gallery.type }} |
-        {{
-          props.gallery.languageName?.local ||
-          props.gallery.languageName?.english
-        }}
-        <template v-if="formattedDate"> | {{ formattedDate }} </template>
-      </p>
-      <h3 class="text-lg font-bold">{{ props.gallery.title.display }}</h3>
-      <!-- 작가/그룹/시리즈/캐릭터/페이지 -->
-      <div class="text-muted-foreground flex flex-col gap-0.5 text-sm">
-        <p>
-          <Icon
-            icon="solar:pen-new-round-linear"
-            class="inline-block h-4 w-4 align-text-bottom"
-          />
-          작가:
-          <template
-            v-if="props.gallery.artists && props.gallery.artists.length > 0"
-          >
-            <template
-              v-for="(artist, index) in props.gallery.artists"
-              :key="artist"
-            >
-              <button
-                class="m-0 inline-block cursor-pointer border-none bg-transparent p-0 text-left text-current hover:underline"
-                @click.stop="copyToClipboard(`artist:${artist}`)"
-              >
-                {{ artist }}
-              </button>
-              <span v-if="index < props.gallery.artists.length - 1">, </span>
-            </template>
-          </template>
-          <template v-else> 알 수 없음 </template>
-        </p>
-        <!-- 그룹 추가 -->
-        <p v-if="props.gallery.groups && props.gallery.groups.length > 0">
-          <Icon
-            icon="solar:users-group-rounded-linear"
-            class="inline-block h-4 w-4 align-text-bottom"
-          />
-          그룹:
-          <template v-for="(group, index) in props.gallery.groups" :key="group">
-            <button
-              class="m-0 inline-block cursor-pointer border-none bg-transparent p-0 text-left text-current hover:underline"
-              @click.stop="copyToClipboard(`group:${group}`)"
-            >
-              {{ group }}
-            </button>
-            <span v-if="index < props.gallery.groups.length - 1">, </span>
-          </template>
-        </p>
-        <!-- Add Series here -->
-        <p v-if="props.gallery.series && props.gallery.series.length > 0">
-          <Icon
-            icon="solar:bookmark-linear"
-            class="inline-block h-4 w-4 align-text-bottom"
-          />
-          시리즈:
-          <template
-            v-for="(series, index) in props.gallery.series"
-            :key="series"
-          >
-            <button
-              class="m-0 inline-block cursor-pointer border-none bg-transparent p-0 text-left text-current hover:underline"
-              @click.stop="copyToClipboard(`series:${series}`)"
-            >
-              {{ series }}
-            </button>
-            <span v-if="index < props.gallery.series.length - 1">, </span>
-          </template>
-        </p>
-        <!-- Add Characters here -->
-        <p
-          v-if="props.gallery.characters && props.gallery.characters.length > 0"
-        >
-          <Icon
-            icon="solar:user-linear"
-            class="inline-block h-4 w-4 align-text-bottom"
-          />
-          캐릭터:
-          <template
-            v-for="(character, index) in props.gallery.characters"
-            :key="character"
-          >
-            <button
-              class="m-0 inline-block cursor-pointer border-none bg-transparent p-0 text-left text-current hover:underline"
-              @click.stop="copyToClipboard(`character:${character}`)"
-            >
-              {{ character }}
-            </button>
-            <span v-if="index < props.gallery.characters.length - 1">, </span>
-          </template>
-        </p>
-        <p>
-          <Icon
-            icon="solar:document-text-linear"
-            class="inline-block h-4 w-4 align-text-bottom"
-          />
-          {{ props.gallery.files?.length || 0 }} 페이지
-        </p>
-      </div>
-      <!-- 태그 -->
+
+    <div class="flex min-w-0 flex-1 flex-col gap-1.5">
+      <h3 class="text-[15px] leading-snug font-bold">
+        {{ props.gallery.title.display }}
+      </h3>
+
+      <GalleryMetaLine
+        class="text-muted-foreground"
+        interactive
+        :gallery="props.gallery"
+        :fields="META_FIELDS"
+        @copy-id="copyToClipboard(`id:${$event}`)"
+        @copy-url="
+          copyToClipboard(`https://hitomi.la/galleries/${$event}.html`)
+        "
+      />
+
+      <GalleryCredits
+        class="text-muted-foreground text-[12.5px]"
+        :gallery="props.gallery"
+        @copy="copyToClipboard"
+      />
+
+      <!-- 태그는 전부 보여줍니다. 성별 태그만 색으로 구분합니다 -->
       <div class="flex flex-wrap gap-1">
         <Badge
           v-for="tag in props.gallery.tags"
-          :key="tag.name"
+          :key="`${tag.type}:${tag.name}`"
           variant="secondary"
           class="cursor-pointer hover:underline"
-          @click.stop="
-            copyToClipboard(
-              `${tag.type === 'male' || tag.type === 'female' ? tag.type : 'tag'}:${tag.name}`,
-            )
-          "
+          :class="tagTone(tag.type)"
+          @click.stop="copyToClipboard(tagTerm(tag.type, tag.name))"
           @contextmenu.prevent.stop="
-            copyToClipboard(
-              `-${tag.type === 'male' || tag.type === 'female' ? tag.type : 'tag'}:${tag.name}`,
-            )
+            copyToClipboard(`-${tagTerm(tag.type, tag.name)}`)
           "
-          >{{ tag.name }}</Badge
         >
+          {{ tag.name }}
+        </Badge>
       </div>
     </div>
-    <div class="flex flex-col gap-2">
+
+    <!--
+      버튼 열. 리스트는 카드 폭이 넉넉하므로 문구를 답니다. 아이콘만 두면
+      무슨 버튼인지 매번 호버해서 확인해야 합니다. 폭이 고정되도록
+      `w-[92px]`을 줘서 보유중 여부에 따라 본문 폭이 흔들리지 않게 합니다.
+
+      보유중이면 다운로드 버튼("완료")을 감춥니다. 눌리지도 않는 버튼이고
+      썸네일 배지가 이미 같은 말을 하므로, 그 자리를 열기가 대신합니다.
+    -->
+    <div class="flex w-[92px] shrink-0 flex-col gap-1.5">
       <Button
         size="sm"
         variant="outline"
@@ -222,14 +162,15 @@ const {
         미리보기
       </Button>
       <Button
+        v-if="!isDownloadCompleted"
         size="sm"
-        :disabled="isDownloading || isDownloadCompleted"
+        :disabled="isDownloading"
         @click.stop="handleDownload"
       >
         <Icon icon="solar:download-bold-duotone" class="h-4 w-4" />
-        {{ buttonText }}
+        {{ cardStatus.buttonLabel }}
       </Button>
-      <Button v-if="isDownloadCompleted" size="sm" @click.stop="handleOpenBook">
+      <Button v-else size="sm" @click.stop="handleOpenBook">
         <Icon icon="solar:book-bold-duotone" class="h-4 w-4" />
         열기
       </Button>
@@ -247,33 +188,4 @@ const {
       </Button>
     </div>
   </div>
-
-  <!-- 삭제 확인 다이얼로그 -->
-  <AlertDialog
-    :open="isDeleteDialogOpen"
-    @update:open="isDeleteDialogOpen = $event"
-  >
-    <AlertDialogContent>
-      <AlertDialogHeader>
-        <AlertDialogTitle>책을 삭제하시겠습니까?</AlertDialogTitle>
-        <AlertDialogDescription>
-          {{
-            permanentDelete
-              ? "데이터베이스에서 책 정보가 삭제되고, 파일이 영구적으로 삭제됩니다."
-              : "데이터베이스에서 책 정보가 삭제되고, 파일은 휴지통으로 이동합니다."
-          }}
-        </AlertDialogDescription>
-      </AlertDialogHeader>
-      <Label class="flex cursor-pointer items-center gap-2 font-normal">
-        <Checkbox v-model="permanentDelete" />
-        휴지통을 거치지 않고 영구 삭제
-      </Label>
-      <AlertDialogFooter>
-        <AlertDialogCancel>취소</AlertDialogCancel>
-        <AlertDialogAction @click="confirmDeleteGallery"
-          >삭제</AlertDialogAction
-        >
-      </AlertDialogFooter>
-    </AlertDialogContent>
-  </AlertDialog>
 </template>
