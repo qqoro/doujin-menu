@@ -79,7 +79,7 @@ onMounted(async () => {
     :style="rotationStyle"
   >
     <Header class="col-span-2" />
-    <Sidebar class="row-start-2" />
+    <Sidebar class="row-start-2 min-h-0" />
     <AppLock v-if="uiStore.isLocked" />
     <main
       v-else

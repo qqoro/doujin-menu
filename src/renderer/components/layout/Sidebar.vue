@@ -1,5 +1,4 @@
 <script setup lang="ts">
-import { Button } from "@/components/ui/button";
 import {
   Tooltip,
   TooltipContent,
@@ -131,15 +130,15 @@ const handleNavClick = (item: NavItem) => {
     "
     style="-webkit-app-region: drag"
   >
-    <nav class="flex flex-1 flex-col gap-1">
-      <TooltipProvider :delay-duration="0">
+    <TooltipProvider :delay-duration="0">
+      <nav class="flex min-h-0 flex-1 flex-col gap-1 overflow-y-auto">
         <template v-for="(section, sIdx) in navSections" :key="section.label">
           <!-- 섹션 라벨: 펼친 상태에서만 노출 -->
           <p
             v-if="!isSidebarCollapsed"
             :class="
               cn(
-                'text-muted-foreground px-2 pb-1 text-[11px] font-semibold tracking-wide uppercase',
+                'text-muted-foreground shrink-0 px-2 pb-1 text-[11px] font-semibold tracking-wide uppercase',
                 sIdx === 0 ? 'pt-1' : 'pt-3',
               )
             "
@@ -149,7 +148,7 @@ const handleNavClick = (item: NavItem) => {
           <!-- 접힌 상태: 그룹 사이 구분선 -->
           <div
             v-else-if="sIdx !== 0"
-            class="bg-border my-0.5 h-px w-7 self-center"
+            class="bg-border my-0.5 h-px w-7 shrink-0 self-center"
           />
 
           <Tooltip v-for="item in section.items" :key="item.to">
@@ -158,7 +157,7 @@ const handleNavClick = (item: NavItem) => {
                 style="-webkit-app-region: no-drag"
                 :class="
                   cn(
-                    'text-muted-foreground hover:bg-accent hover:text-accent-foreground flex items-center gap-2.5 rounded-md px-2.5 py-1.5 text-sm font-medium transition-colors',
+                    'text-muted-foreground hover:bg-accent hover:text-accent-foreground flex shrink-0 items-center gap-2.5 rounded-md px-2.5 py-1.5 text-sm font-medium transition-colors',
                     isSidebarCollapsed ? 'h-10 w-10 justify-center' : '',
                     route.path === item.to
                       ? 'bg-primary/10 text-primary hover:bg-primary/15 hover:text-primary'
@@ -178,27 +177,42 @@ const handleNavClick = (item: NavItem) => {
             </TooltipContent>
           </Tooltip>
         </template>
-      </TooltipProvider>
-    </nav>
+      </nav>
 
-    <div class="mt-auto">
-      <Button
-        variant="outline"
-        size="icon"
-        class="h-10 w-10"
-        style="-webkit-app-region: no-drag"
-        @click="toggleSidebar"
-      >
-        <Icon
-          :icon="
-            isSidebarCollapsed
-              ? 'solar:alt-arrow-right-bold-duotone'
-              : 'solar:alt-arrow-left-bold-duotone'
-          "
-          class="h-5! w-5!"
-        />
-      </Button>
-    </div>
+      <div class="mt-auto pt-2">
+        <Tooltip>
+          <TooltipTrigger as-child>
+            <button
+              style="-webkit-app-region: no-drag"
+              :class="
+                cn(
+                  'text-muted-foreground hover:bg-accent hover:text-accent-foreground flex items-center gap-2.5 rounded-md px-2.5 py-1.5 text-sm font-medium transition-colors',
+                  isSidebarCollapsed
+                    ? 'h-10 w-10 justify-center border'
+                    : 'w-full',
+                )
+              "
+              @click="toggleSidebar"
+            >
+              <Icon
+                :icon="
+                  isSidebarCollapsed
+                    ? 'solar:alt-arrow-right-bold-duotone'
+                    : 'solar:alt-arrow-left-bold-duotone'
+                "
+                class="h-5 w-5"
+              />
+              <span v-if="!isSidebarCollapsed" class="whitespace-nowrap">
+                접기
+              </span>
+            </button>
+          </TooltipTrigger>
+          <TooltipContent v-if="isSidebarCollapsed" side="right">
+            <p>펼치기</p>
+          </TooltipContent>
+        </Tooltip>
+      </div>
+    </TooltipProvider>
   </aside>
 </template>
 
