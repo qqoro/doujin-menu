@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import HelpDialog from "@/components/common/HelpDialog.vue";
 import { Button } from "@/components/ui/button";
+import { toggleSearchTerm } from "@/lib/searchQuery";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -292,57 +293,18 @@ watch(loader, (newLoaderEl) => {
   }
 });
 
-const toggleTag = (tag: string) => {
-  const tagTerm = `tag:${tag}`;
-  const currentQuery = searchQuery.value.split(" ").filter((s) => s !== "");
-  const index = currentQuery.indexOf(tagTerm);
-
-  if (index > -1) {
-    currentQuery.splice(index, 1);
-  } else {
-    currentQuery.push(tagTerm);
-  }
-  searchQuery.value = currentQuery.join(" ");
+// 메타데이터 칩 클릭은 전부 "검색어에서 해당 항목을 켜고 끄기"로 같다
+const toggleTerm = (term: string) => {
+  searchQuery.value = toggleSearchTerm(searchQuery.value, term);
 };
 
-const excludeTag = (tag: string) => {
-  const excludeTerm = `-tag:${tag}`;
-  const currentQuery = searchQuery.value.split(" ").filter((s) => s !== "");
-  const index = currentQuery.indexOf(excludeTerm);
-
-  if (index > -1) {
-    currentQuery.splice(index, 1);
-  } else {
-    currentQuery.push(excludeTerm);
-  }
-  searchQuery.value = currentQuery.join(" ");
-};
-
-const toggleArtist = (artist: string) => {
-  const artistTerm = `artist:${artist}`;
-  const currentQuery = searchQuery.value.split(" ").filter((s) => s !== "");
-  const index = currentQuery.indexOf(artistTerm);
-
-  if (index > -1) {
-    currentQuery.splice(index, 1);
-  } else {
-    currentQuery.push(artistTerm);
-  }
-  searchQuery.value = currentQuery.join(" ");
-};
-
-const toggleGroup = (group: string) => {
-  const groupTerm = `group:${group}`;
-  const currentQuery = searchQuery.value.split(" ").filter((s) => s !== "");
-  const index = currentQuery.indexOf(groupTerm);
-
-  if (index > -1) {
-    currentQuery.splice(index, 1);
-  } else {
-    currentQuery.push(groupTerm);
-  }
-  searchQuery.value = currentQuery.join(" ");
-};
+const toggleTag = (tag: string) => toggleTerm(`tag:${tag}`);
+const excludeTag = (tag: string) => toggleTerm(`-tag:${tag}`);
+const toggleArtist = (artist: string) => toggleTerm(`artist:${artist}`);
+const toggleGroup = (group: string) => toggleTerm(`group:${group}`);
+const toggleSeries = (series: string) => toggleTerm(`series:${series}`);
+const toggleCharacter = (character: string) =>
+  toggleTerm(`character:${character}`);
 
 const setSortBy = (column: string) => {
   sortBy.value = column;
@@ -942,6 +904,8 @@ useScrollRestoration(".flex-grow.overflow-y-auto");
           @exclude-tag="excludeTag"
           @select-artist="toggleArtist"
           @select-group="toggleGroup"
+          @select-series="toggleSeries"
+          @select-character="toggleCharacter"
           @toggle-favorite="handleToggleFavorite"
           @open-book-folder="handleOpenFolder"
           @show-details="handleShowDetails"
