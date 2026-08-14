@@ -90,7 +90,7 @@ const removeTag = (entry: string) => {
     <PopoverTrigger as-child>
       <button
         type="button"
-        class="text-muted-foreground hover:bg-muted inline-flex h-6 shrink-0 items-center gap-1 rounded-full border border-dashed px-2.5 text-xs leading-none"
+        class="text-muted-foreground hover:bg-muted inline-flex h-8 shrink-0 items-center gap-1 rounded-full border border-dashed px-3 text-xs leading-none"
         :title="
           modelValue.length > 0
             ? modelValue.join(', ')

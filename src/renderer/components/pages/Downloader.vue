@@ -18,18 +18,14 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuRadioGroup,
+  DropdownMenuRadioItem,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { useGalleryDelete } from "@/composable/useGalleryDelete";
 import { useKeybindings } from "@/composable/useKeybindings";
 import {
@@ -73,6 +69,8 @@ import {
 import { useRouter } from "vue-router";
 import { toast } from "vue-sonner";
 import PresetDropdown from "../common/PresetDropdown.vue";
+import ViewOptionsBar from "../common/ViewOptionsBar.vue";
+import PageToolbar from "../layout/PageToolbar.vue";
 import BlacklistTagPopover from "../feature/downloader/BlacklistTagPopover.vue";
 import GalleryPreviewDialog from "../feature/downloader/GalleryPreviewDialog.vue";
 import GalleryRowCard from "../feature/downloader/GalleryRowCard.vue";
@@ -138,16 +136,10 @@ const viewMode = ref<"grid" | "list">(
   (localStorage.getItem("downloaderViewMode") as "grid" | "list") || "list",
 );
 
-// ToggleGroup의 선택 해제 방지
-const handleViewModeChange = (value: AcceptableValue | AcceptableValue[]) => {
-  if (
-    value &&
-    typeof value === "string" &&
-    (value === "grid" || value === "list")
-  ) {
-    viewMode.value = value;
-    localStorage.setItem("downloaderViewMode", value);
-  }
+// 화면을 떠나도 뷰 모드를 유지합니다 (빈 값 방어는 ViewOptionsBar가 합니다)
+const handleViewModeChange = (value: "grid" | "list") => {
+  viewMode.value = value;
+  localStorage.setItem("downloaderViewMode", value);
 };
 
 // 다운로드 경로. 카드마다 읽던 것을 여기서 한 번만 읽어 내려줍니다.
@@ -201,6 +193,18 @@ const committedSearch = ref<{
   query: string;
   popularity: typeof downloaderPopularity.value;
 }>({ query: "", popularity: "" });
+
+/**
+ * 입력창·필터 값이 아직 조회에 반영되지 않은 상태.
+ *
+ * 다른 화면은 고치는 즉시 목록이 걸러지는데 여기만 검색 버튼을 눌러야 합니다.
+ * 검색창이 다른 화면과 같은 모양이라 더 헷갈리므로 버튼으로 알립니다.
+ */
+const hasPendingSearch = computed(
+  () =>
+    finalSearchQuery.value !== committedSearch.value.query ||
+    downloaderPopularity.value !== committedSearch.value.popularity,
+);
 
 // ── 총 건수·세대 조회 ───────────────────────────────────────────────
 // 스크롤 영역 높이를 잡으려면 청크가 하나라도 오기 전에 total이 필요합니다.
@@ -1085,10 +1089,10 @@ useSearchPersistence(searchQuery, "downloader-search-query");
             <ul class="list-inside list-disc">
               <li>
                 <Icon
-                  icon="solar:global-bold-duotone"
+                  icon="solar:filter-bold-duotone"
                   class="inline-block h-4 w-4 align-text-bottom"
                 />
-                언어 설정을 통해 검색할 작품의 언어를 지정할 수 있습니다.
+                버튼에서 검색할 작품의 언어와 인기 범위를 지정할 수 있습니다.
               </li>
               <li>
                 <Icon
@@ -1127,7 +1131,7 @@ useSearchPersistence(searchQuery, "downloader-search-query");
             <h3 class="text-foreground text-base font-semibold">차단 태그</h3>
             <ul class="list-inside list-disc">
               <li>
-                결과 헤더의 <code>차단 태그</code> 버튼을 눌러 그 자리에서
+                검색 버튼 옆의 <code>차단 태그</code> 버튼을 눌러 그 자리에서
                 등록·해제할 수 있습니다.
               </li>
               <li>
@@ -1191,86 +1195,84 @@ useSearchPersistence(searchQuery, "downloader-search-query");
     </PageHeader>
 
     <!-- 검색바 -->
-    <div class="flex flex-wrap items-center gap-2">
-      <Select
-        :model-value="downloaderLanguage"
-        @update:model-value="handleLanguageChange"
-      >
-        <SelectTrigger id="language-select" class="w-[130px] shrink-0">
-          <SelectValue placeholder="언어" />
-        </SelectTrigger>
-        <SelectContent>
-          <SelectItem
-            v-for="lang in languageOptions"
-            :key="lang.value"
-            :value="lang.value"
-          >
-            {{ lang.label }}
-          </SelectItem>
-        </SelectContent>
-      </Select>
+    <PageToolbar>
+      <template #search>
+        <SmartSearchInput
+          id="search-input"
+          v-model="searchQuery"
+          placeholder="예: artist:작가명 female:sole_female -female:guro"
+          @keyup.enter="handleSearch"
+        />
+      </template>
 
-      <Select
-        :model-value="popularitySelectValue"
-        @update:model-value="handlePopularityChange"
-      >
-        <SelectTrigger id="popularity-select" class="w-[180px] shrink-0">
-          <SelectValue placeholder="인기 범위" />
-        </SelectTrigger>
-        <SelectContent>
-          <SelectItem
-            v-for="opt in popularityOptions"
-            :key="opt.value"
-            :value="opt.value"
-          >
-            {{ opt.label }}
-          </SelectItem>
-        </SelectContent>
-      </Select>
+      <template #preset>
+        <PresetDropdown v-model="searchQuery" @apply-preset="handleSearch" />
+      </template>
 
-      <SmartSearchInput
-        id="search-input"
-        v-model="searchQuery"
-        class="min-w-[240px] flex-1"
-        placeholder="예: artist:작가명 female:sole_female -female:guro"
-        @keyup.enter="handleSearch"
-      />
+      <template #filter>
+        <DropdownMenu>
+          <DropdownMenuTrigger as-child>
+            <Button variant="outline">
+              <Icon icon="solar:filter-bold-duotone" class="h-4 w-4" />
+              필터
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent class="w-56">
+            <DropdownMenuLabel>언어</DropdownMenuLabel>
+            <DropdownMenuRadioGroup
+              :model-value="downloaderLanguage"
+              @update:model-value="handleLanguageChange"
+            >
+              <DropdownMenuRadioItem
+                v-for="lang in languageOptions"
+                :key="lang.value"
+                :value="lang.value"
+              >
+                {{ lang.label }}
+              </DropdownMenuRadioItem>
+            </DropdownMenuRadioGroup>
+            <DropdownMenuSeparator />
+            <!-- 이건 "정렬"이 아니라 인기 목록과의 교집합 필터입니다 -->
+            <DropdownMenuLabel>인기 범위</DropdownMenuLabel>
+            <DropdownMenuRadioGroup
+              :model-value="popularitySelectValue"
+              @update:model-value="handlePopularityChange"
+            >
+              <DropdownMenuRadioItem
+                v-for="opt in popularityOptions"
+                :key="opt.value"
+                :value="opt.value"
+              >
+                {{ opt.label }}
+              </DropdownMenuRadioItem>
+            </DropdownMenuRadioGroup>
+          </DropdownMenuContent>
+        </DropdownMenu>
+      </template>
 
-      <PresetDropdown v-model="searchQuery" @apply-preset="handleSearch" />
-
-      <Button @click="handleSearch">
-        <Icon icon="solar:magnifer-bold-duotone" class="h-5 w-5" />검색
-      </Button>
-    </div>
-
-    <!-- 결과 헤더 -->
-    <div class="flex flex-wrap items-center justify-between gap-2">
-      <div class="flex min-w-0 items-end gap-2">
-        <h2 class="text-lg font-semibold whitespace-nowrap">
-          검색 결과
-          <span
-            v-if="totalCount > 0"
-            class="text-muted-foreground ml-1 text-sm font-normal tabular-nums"
-          >
-            총 {{ totalCount.toLocaleString("ko-KR") }}건
-            <template v-if="visiblePosition">
-              중
-              <b class="text-foreground">
-                {{ visiblePosition.first.toLocaleString("ko-KR") }}–{{
-                  visiblePosition.last.toLocaleString("ko-KR")
-                }}
-              </b>
-              번째 보는 중
-            </template>
-          </span>
-        </h2>
+      <template #extra>
+        <!-- 다른 화면과 달리 여기만 눌러야 조회가 돕니다. 입력창 값이 아직
+             조회에 반영되지 않았으면 버튼에 테를 둘러 알립니다 -->
+        <Button
+          :class="hasPendingSearch ? 'ring-primary/50 ring-2' : ''"
+          @click="handleSearch"
+        >
+          <Icon icon="solar:magnifer-bold-duotone" class="h-5 w-5" />검색
+        </Button>
         <BlacklistTagPopover
           :model-value="blacklistTags"
           @update:model-value="saveBlacklistTags"
         />
-      </div>
+      </template>
 
-      <div class="flex items-center gap-2">
+      <template #view>
+        <ViewOptionsBar
+          :model-value="viewMode"
+          @update:model-value="handleViewModeChange"
+        />
+      </template>
+
+      <template #status>
         <!-- N번째로 이동 -->
         <!--
           비활성 상태의 title은 툴팁이 안 뜹니다. 브라우저가 disabled 요소에는
@@ -1320,47 +1322,23 @@ useSearchPersistence(searchQuery, "downloader-search-query");
             <Icon icon="solar:alt-arrow-right-linear" class="h-4 w-4" />
           </Button>
         </div>
+      </template>
 
-        <!-- 썸네일 줌 조절. 그리드는 CSS zoom, 리스트는 썸네일 px 곱으로
-             같은 값을 소비하므로 두 뷰 모두에서 동작합니다 -->
-        <div class="inline-flex h-8 items-center rounded-md border">
-          <Button
-            variant="ghost"
-            size="icon"
-            class="h-8 w-8 rounded-r-none border-r"
-            @click="uiStore.zoomOut()"
-          >
-            <Icon icon="solar:minus-circle-bold-duotone" class="h-4 w-4" />
-          </Button>
-          <div
-            class="flex w-12 items-center justify-center text-xs tabular-nums"
-          >
-            {{ Math.round(uiStore.thumbnailZoom * 100) }}%
-          </div>
-          <Button
-            variant="ghost"
-            size="icon"
-            class="h-8 w-8 rounded-l-none border-l"
-            @click="uiStore.zoomIn()"
-          >
-            <Icon icon="solar:add-circle-bold-duotone" class="h-4 w-4" />
-          </Button>
-        </div>
-
-        <ToggleGroup
-          :model-value="viewMode"
-          type="single"
-          @update:model-value="handleViewModeChange"
-        >
-          <ToggleGroupItem value="grid" aria-label="썸네일 뷰">
-            <Icon icon="solar:widget-4-bold-duotone" class="h-4 w-4" />
-          </ToggleGroupItem>
-          <ToggleGroupItem value="list" aria-label="리스트 뷰">
-            <Icon icon="solar:list-bold-duotone" class="h-4 w-4" />
-          </ToggleGroupItem>
-        </ToggleGroup>
-      </div>
-    </div>
+      <template #count>
+        <template v-if="totalCount > 0">
+          총 {{ totalCount.toLocaleString("ko-KR") }}건
+          <template v-if="visiblePosition">
+            중
+            <b class="text-foreground">
+              {{ visiblePosition.first.toLocaleString("ko-KR") }}–{{
+                visiblePosition.last.toLocaleString("ko-KR")
+              }}
+            </b>
+            번째 보는 중
+          </template>
+        </template>
+      </template>
+    </PageToolbar>
 
     <!-- 안내 배너 -->
     <div

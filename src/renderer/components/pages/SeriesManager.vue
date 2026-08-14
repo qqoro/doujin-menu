@@ -15,30 +15,25 @@ import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
   DropdownMenuContent,
-  DropdownMenuItem,
   DropdownMenuLabel,
-  DropdownMenuSeparator,
+  DropdownMenuRadioGroup,
+  DropdownMenuRadioItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { useQueryAndParams } from "@/composable/useQueryAndParams";
 import { useScrollRestoration } from "@/composable/useScrollRestoration";
 import { Icon } from "@iconify/vue";
+import AppliedFilterChips from "../common/AppliedFilterChips.vue";
+import SortMenu from "../common/SortMenu.vue";
+import ViewOptionsBar from "../common/ViewOptionsBar.vue";
 import PageHeader from "../layout/PageHeader.vue";
+import PageToolbar from "../layout/PageToolbar.vue";
 import {
   useInfiniteQuery,
   useMutation,
   useQuery,
   useQueryClient,
 } from "@tanstack/vue-query";
-import type { AcceptableValue } from "reka-ui";
 import { debouncedRef, debouncedWatch } from "@vueuse/core";
 import {
   computed,
@@ -84,22 +79,52 @@ const sortOrder = ref<"asc" | "desc">("asc");
 // 뷰 모드 (URL에 저장하지 않고 config에만 저장)
 const viewMode = ref<"grid" | "list">("grid");
 
-// ToggleGroup의 선택 해제 방지
-const handleViewModeChange = (value: AcceptableValue | AcceptableValue[]) => {
-  if (
-    value &&
-    typeof value === "string" &&
-    (value === "grid" || value === "list")
-  ) {
-    viewMode.value = value;
-  }
-};
-
 // URL 쿼리 파라미터와 상태 동기화
 const { schWord: searchQuery } = useQueryAndParams({
   queries: { filterType, sortBy, sortOrder },
   defaultOptions: { filterType: "all", sortBy: "name", sortOrder: "asc" },
 });
+
+// 정렬 메뉴에 띄울 순서
+const sortOptions = [
+  { value: "name", label: "이름순" },
+  { value: "created_at", label: "생성일순" },
+  { value: "book_count", label: "도서 수순" },
+  { value: "confidence_score", label: "신뢰도순" },
+];
+
+const FILTER_TYPE_LABELS: Record<string, string> = {
+  auto: "자동 생성만",
+  manual: "수동 생성만",
+};
+
+// 지금 걸려 있는 조건. 라이브러리와 같은 이유로 눈에 보여야 한다
+const appliedFilters = computed(() => {
+  const result: { key: string; label: string }[] = [];
+
+  const trimmed = searchQuery.value.trim();
+  if (trimmed !== "") {
+    result.push({ key: "searchQuery", label: `검색: ${trimmed}` });
+  }
+  if (filterType.value !== "all") {
+    result.push({
+      key: "filterType",
+      label: FILTER_TYPE_LABELS[filterType.value] ?? filterType.value,
+    });
+  }
+
+  return result;
+});
+
+const clearFilterByKey = (key: string) => {
+  if (key === "searchQuery") searchQuery.value = "";
+  if (key === "filterType") filterType.value = "all";
+};
+
+const clearAllFilters = () => {
+  searchQuery.value = "";
+  filterType.value = "all";
+};
 
 // 검색어 debounce 적용 (API 호출 최적화)
 const debouncedSearchQuery = debouncedRef(searchQuery, 300);
@@ -352,11 +377,6 @@ const setSortBy = (column: string) => {
     | "created_at";
 };
 
-// 정렬 순서 토글
-const toggleSortOrder = () => {
-  sortOrder.value = sortOrder.value === "asc" ? "desc" : "asc";
-};
-
 // 스크롤 위치 복원
 useScrollRestoration(".flex-grow.overflow-y-auto");
 </script>
@@ -427,100 +447,62 @@ useScrollRestoration(".flex-grow.overflow-y-auto");
     <!-- 콘텐츠 -->
     <div class="flex min-h-0 flex-1 flex-col gap-4">
       <!-- 검색 및 필터 영역 -->
-      <div class="flex items-center gap-2">
-        <Select v-model="filterType">
-          <SelectTrigger class="w-[180px]">
-            <SelectValue placeholder="필터 선택" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">전체</SelectItem>
-            <SelectItem value="auto">자동 생성만</SelectItem>
-            <SelectItem value="manual">수동 생성만</SelectItem>
-          </SelectContent>
-        </Select>
-        <SmartSearchInput
-          v-model="searchQuery"
-          placeholder="시리즈명, 작가, 태그, 타입으로 검색"
-          class="flex-grow"
-        />
-        <div class="inline-flex">
+      <PageToolbar>
+        <template #search>
+          <SmartSearchInput
+            v-model="searchQuery"
+            placeholder="시리즈명, 작가, 태그, 타입으로 검색"
+          />
+        </template>
+
+        <template #filter>
           <DropdownMenu>
             <DropdownMenuTrigger as-child>
-              <Button variant="outline" class="rounded-r-none">
-                <Icon icon="solar:sort-bold-duotone" class="h-4 w-4" />
-                정렬
+              <Button variant="outline">
+                <Icon icon="solar:filter-bold-duotone" class="h-4 w-4" />
+                필터
               </Button>
             </DropdownMenuTrigger>
-            <DropdownMenuContent>
-              <DropdownMenuLabel>정렬 기준</DropdownMenuLabel>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem @click="setSortBy('name')">
-                이름순
-                <Icon
-                  v-if="sortBy === 'name'"
-                  icon="solar:check-circle-bold-duotone"
-                  class="ml-auto h-4 w-4"
-                />
-              </DropdownMenuItem>
-              <DropdownMenuItem @click="setSortBy('created_at')">
-                생성일순
-                <Icon
-                  v-if="sortBy === 'created_at'"
-                  icon="solar:check-circle-bold-duotone"
-                  class="ml-auto h-4 w-4"
-                />
-              </DropdownMenuItem>
-              <DropdownMenuItem @click="setSortBy('book_count')">
-                도서 수순
-                <Icon
-                  v-if="sortBy === 'book_count'"
-                  icon="solar:check-circle-bold-duotone"
-                  class="ml-auto h-4 w-4"
-                />
-              </DropdownMenuItem>
-              <DropdownMenuItem @click="setSortBy('confidence_score')">
-                신뢰도순
-                <Icon
-                  v-if="sortBy === 'confidence_score'"
-                  icon="solar:check-circle-bold-duotone"
-                  class="ml-auto h-4 w-4"
-                />
-              </DropdownMenuItem>
+            <DropdownMenuContent class="w-56">
+              <DropdownMenuLabel>생성 방식</DropdownMenuLabel>
+              <DropdownMenuRadioGroup v-model="filterType">
+                <DropdownMenuRadioItem value="all">전체</DropdownMenuRadioItem>
+                <DropdownMenuRadioItem value="auto">
+                  자동 생성만
+                </DropdownMenuRadioItem>
+                <DropdownMenuRadioItem value="manual">
+                  수동 생성만
+                </DropdownMenuRadioItem>
+              </DropdownMenuRadioGroup>
             </DropdownMenuContent>
           </DropdownMenu>
-          <Button
-            variant="outline"
-            class="rounded-l-none border-l-0"
-            @click="toggleSortOrder"
-          >
-            <Icon
-              v-if="sortOrder === 'asc'"
-              icon="solar:sort-from-bottom-to-top-bold-duotone"
-              class="h-4 w-4"
-            />
-            <Icon
-              v-else
-              icon="solar:sort-from-top-to-bottom-bold-duotone"
-              class="h-4 w-4"
-            />
-          </Button>
-        </div>
-        <ToggleGroup
-          :model-value="viewMode"
-          type="single"
-          @update:model-value="handleViewModeChange"
-        >
-          <ToggleGroupItem value="grid" aria-label="그리드 뷰">
-            <Icon icon="solar:widget-4-bold-duotone" class="h-4 w-4" />
-          </ToggleGroupItem>
-          <ToggleGroupItem value="list" aria-label="리스트 뷰">
-            <Icon icon="solar:list-bold-duotone" class="h-4 w-4" />
-          </ToggleGroupItem>
-        </ToggleGroup>
-        <div class="text-muted-foreground text-sm">
-          총 {{ totalCount }}개 시리즈
-        </div>
-      </div>
+        </template>
+
+        <template #sort>
+          <SortMenu
+            :options="sortOptions"
+            :sort-by="sortBy"
+            :sort-order="sortOrder"
+            @update:sort-by="setSortBy"
+            @update:sort-order="sortOrder = $event"
+          />
+        </template>
+
+        <template #view>
+          <!-- 시리즈 그리드는 고정 폭이라 썸네일 줌이 없다 -->
+          <ViewOptionsBar v-model="viewMode" :show-zoom="false" />
+        </template>
+
+        <template #status>
+          <AppliedFilterChips
+            :filters="appliedFilters"
+            @clear="clearFilterByKey"
+            @clear-all="clearAllFilters"
+          />
+        </template>
+
+        <template #count> 총 {{ totalCount }}개 시리즈 </template>
+      </PageToolbar>
 
       <!-- 로딩 중 -->
       <div

@@ -1,6 +1,5 @@
 <script setup lang="ts">
 import HelpDialog from "@/components/common/HelpDialog.vue";
-import { Badge } from "@/components/ui/badge";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -25,7 +24,6 @@ import { toggleSearchTerm } from "@/lib/searchQuery";
 import {
   DropdownMenu,
   DropdownMenuContent,
-  DropdownMenuItem,
   DropdownMenuLabel,
   DropdownMenuRadioGroup,
   DropdownMenuRadioItem,
@@ -72,8 +70,12 @@ import {
   openBookFolder,
   toggleBookFavorite,
 } from "../../api";
+import AppliedFilterChips from "../common/AppliedFilterChips.vue";
 import PresetDropdown from "../common/PresetDropdown.vue";
 import SmartSearchInput from "../common/SmartSearchInput.vue";
+import SortMenu from "../common/SortMenu.vue";
+import ViewOptionsBar from "../common/ViewOptionsBar.vue";
+import PageToolbar from "../layout/PageToolbar.vue";
 import BookCard from "../feature/BookCard.vue";
 import BookDetailDialog from "../feature/BookDetailDialog.vue";
 import BookPreviewDialog from "../feature/BookPreviewDialog.vue";
@@ -156,6 +158,10 @@ const clearFilter = (key: keyof LibraryFilterState) => filterResetters[key]();
 // 걸려 있는 조건 전부 해제
 const clearAllFilters = () =>
   Object.values(filterResetters).forEach((resetOne) => resetOne());
+
+// 칩 컴포넌트는 키를 문자열로 넘긴다. 라이브러리 필터 키로 좁혀서 받는다
+const clearFilterByKey = (key: string) =>
+  clearFilter(key as keyof LibraryFilterState);
 
 // 검색어 debounce 적용 (API 호출 최적화)
 const debouncedSearchQuery = debouncedRef(searchQuery, 300);
@@ -449,6 +455,13 @@ const toggleGroup = (group: string) => toggleTerm(`group:${group}`);
 const toggleSeries = (series: string) => toggleTerm(`series:${series}`);
 const toggleCharacter = (character: string) =>
   toggleTerm(`character:${character}`);
+
+// 정렬 메뉴는 D키 순환(SORT_CYCLE)과 같은 순서로 세운다. 목록이 한 곳에만
+// 있어야 둘이 어긋나지 않는다. 랜덤은 순환에서 제외된 값이라 끝에 따로 붙인다
+const sortOptions = SORT_CYCLE.map((value) => ({
+  value,
+  label: SORT_LABELS[value] ?? value,
+})).concat({ value: "random", label: "랜덤" });
 
 const setSortBy = (column: string) => {
   sortBy.value = column;
@@ -858,8 +871,12 @@ useIndexScrollRestoration({
               </h3>
               <ul class="list-inside list-disc">
                 <li>
-                  검색창 왼쪽의 드롭다운 메뉴를 사용하여 특정 라이브러리 폴더의
-                  책만 볼 수 있습니다.
+                  <Icon
+                    icon="solar:filter-bold-duotone"
+                    class="inline-block h-4 w-4 align-text-bottom"
+                  />
+                  버튼의 <strong>라이브러리 폴더</strong>에서 특정 폴더의 책만
+                  볼 수 있습니다.
                 </li>
                 <li>
                   뷰어에서 이전/다음 책으로 이동 시, 라이브러리 화면에서
@@ -931,257 +948,125 @@ useIndexScrollRestoration({
     <!-- 콘텐츠 -->
     <div class="flex min-h-0 flex-1 flex-col gap-4">
       <!-- 검색 및 필터 영역 -->
-      <div class="flex items-center gap-2">
-        <SmartSearchInput
-          ref="searchInputRef"
-          v-model="searchQuery"
-          placeholder="제목, 작가, 태그, 시리즈로 검색"
-          class="flex-grow"
-        />
-        <PresetDropdown v-model="searchQuery" />
-        <DropdownMenu>
-          <DropdownMenuTrigger as-child>
-            <Button variant="outline">
-              <Icon icon="solar:filter-bold-duotone" class="h-4 w-4" />
-              필터
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent class="w-56">
-            <DropdownMenuLabel>읽음 상태</DropdownMenuLabel>
-            <DropdownMenuRadioGroup v-model="readStatus">
-              <DropdownMenuRadioItem value="all">모두</DropdownMenuRadioItem>
-              <DropdownMenuRadioItem value="read">읽음</DropdownMenuRadioItem>
-              <DropdownMenuRadioItem value="unread"
-                >안 읽음</DropdownMenuRadioItem
-              >
-            </DropdownMenuRadioGroup>
-            <DropdownMenuSeparator />
-            <DropdownMenuLabel>즐겨찾기</DropdownMenuLabel>
-            <DropdownMenuRadioGroup v-model="isFavorite">
-              <DropdownMenuRadioItem value="all">모두</DropdownMenuRadioItem>
-              <DropdownMenuRadioItem value="favorite"
-                >즐겨찾기만</DropdownMenuRadioItem
-              >
-            </DropdownMenuRadioGroup>
-            <DropdownMenuSeparator />
-            <DropdownMenuLabel>오프라인 상태</DropdownMenuLabel>
-            <DropdownMenuRadioGroup v-model="offlineStatus">
-              <DropdownMenuRadioItem value="all">모두</DropdownMenuRadioItem>
-              <DropdownMenuRadioItem value="online"
-                >온라인만</DropdownMenuRadioItem
-              >
-              <DropdownMenuRadioItem value="offline"
-                >오프라인만</DropdownMenuRadioItem
-              >
-            </DropdownMenuRadioGroup>
-          </DropdownMenuContent>
-        </DropdownMenu>
-        <div class="inline-flex">
+      <PageToolbar>
+        <template #search>
+          <SmartSearchInput
+            ref="searchInputRef"
+            v-model="searchQuery"
+            placeholder="제목, 작가, 태그, 시리즈로 검색"
+          />
+        </template>
+
+        <template #preset>
+          <PresetDropdown v-model="searchQuery" />
+        </template>
+
+        <template #filter>
           <DropdownMenu>
             <DropdownMenuTrigger as-child>
-              <Button variant="outline" class="rounded-r-none">
-                <Icon icon="solar:sort-bold-duotone" class="h-4 w-4" />
-                정렬
+              <Button variant="outline">
+                <Icon icon="solar:filter-bold-duotone" class="h-4 w-4" />
+                필터
               </Button>
             </DropdownMenuTrigger>
-            <DropdownMenuContent>
-              <DropdownMenuLabel>정렬 기준</DropdownMenuLabel>
+            <DropdownMenuContent class="w-64">
+              <!-- 폴더도 책을 감추는 조건이라 다른 필터와 같은 자리에 둔다 -->
+              <DropdownMenuLabel>라이브러리 폴더</DropdownMenuLabel>
+              <DropdownMenuRadioGroup v-model="libraryPath">
+                <DropdownMenuRadioItem value="all">
+                  모든 라이브러리
+                </DropdownMenuRadioItem>
+                <DropdownMenuRadioItem
+                  v-for="dir in libraryDirectories"
+                  :key="dir"
+                  :value="dir"
+                  class="truncate"
+                >
+                  <span class="truncate" :title="dir">{{ dir }}</span>
+                </DropdownMenuRadioItem>
+              </DropdownMenuRadioGroup>
               <DropdownMenuSeparator />
-              <DropdownMenuItem @click="setSortBy('title')">
-                제목
-                <Icon
-                  v-if="sortBy === 'title'"
-                  icon="solar:check-circle-bold-duotone"
-                  class="ml-auto h-4 w-4"
-                />
-              </DropdownMenuItem>
-              <DropdownMenuItem @click="setSortBy('added_at')">
-                추가된 날짜
-                <Icon
-                  v-if="sortBy === 'added_at'"
-                  icon="solar:check-circle-bold-duotone"
-                  class="ml-auto h-4 w-4"
-                />
-              </DropdownMenuItem>
-              <DropdownMenuItem @click="setSortBy('file_mtime')">
-                파일 수정 날짜
-                <Icon
-                  v-if="sortBy === 'file_mtime'"
-                  icon="solar:check-circle-bold-duotone"
-                  class="ml-auto h-4 w-4"
-                />
-              </DropdownMenuItem>
-              <DropdownMenuItem @click="setSortBy('last_read_at')">
-                최근 읽음
-                <Icon
-                  v-if="sortBy === 'last_read_at'"
-                  icon="solar:check-circle-bold-duotone"
-                  class="ml-auto h-4 w-4"
-                />
-              </DropdownMenuItem>
-              <DropdownMenuItem @click="setSortBy('artists')">
-                작가
-                <Icon
-                  v-if="sortBy === 'artists'"
-                  icon="solar:check-circle-bold-duotone"
-                  class="ml-auto h-4 w-4"
-                />
-              </DropdownMenuItem>
-              <DropdownMenuItem @click="setSortBy('page_count')">
-                페이지 수
-                <Icon
-                  v-if="sortBy === 'page_count'"
-                  icon="solar:check-circle-bold-duotone"
-                  class="ml-auto h-4 w-4"
-                />
-              </DropdownMenuItem>
-              <DropdownMenuItem @click="setSortBy('hitomi_id')">
-                Hitomi ID
-                <Icon
-                  v-if="sortBy === 'hitomi_id'"
-                  icon="solar:check-circle-bold-duotone"
-                  class="ml-auto h-4 w-4"
-                />
-              </DropdownMenuItem>
-              <DropdownMenuItem @click="setSortBy('random')">
-                랜덤
-                <Icon
-                  v-if="sortBy === 'random'"
-                  icon="solar:check-circle-bold-duotone"
-                  class="ml-auto h-4 w-4"
-                />
-              </DropdownMenuItem>
+              <DropdownMenuLabel>읽음 상태</DropdownMenuLabel>
+              <DropdownMenuRadioGroup v-model="readStatus">
+                <DropdownMenuRadioItem value="all">모두</DropdownMenuRadioItem>
+                <DropdownMenuRadioItem value="read">읽음</DropdownMenuRadioItem>
+                <DropdownMenuRadioItem value="unread"
+                  >안 읽음</DropdownMenuRadioItem
+                >
+              </DropdownMenuRadioGroup>
+              <DropdownMenuSeparator />
+              <DropdownMenuLabel>즐겨찾기</DropdownMenuLabel>
+              <DropdownMenuRadioGroup v-model="isFavorite">
+                <DropdownMenuRadioItem value="all">모두</DropdownMenuRadioItem>
+                <DropdownMenuRadioItem value="favorite"
+                  >즐겨찾기만</DropdownMenuRadioItem
+                >
+              </DropdownMenuRadioGroup>
+              <DropdownMenuSeparator />
+              <DropdownMenuLabel>오프라인 상태</DropdownMenuLabel>
+              <DropdownMenuRadioGroup v-model="offlineStatus">
+                <DropdownMenuRadioItem value="all">모두</DropdownMenuRadioItem>
+                <DropdownMenuRadioItem value="online"
+                  >온라인만</DropdownMenuRadioItem
+                >
+                <DropdownMenuRadioItem value="offline"
+                  >오프라인만</DropdownMenuRadioItem
+                >
+              </DropdownMenuRadioGroup>
             </DropdownMenuContent>
           </DropdownMenu>
-          <Button
-            v-if="sortBy === 'random'"
-            variant="outline"
-            class="rounded-l-none border-l-0"
-            aria-label="순서 다시 섞기"
-            @click="reshuffleRandomOrder"
-          >
-            <Icon icon="solar:refresh-bold-duotone" class="h-4 w-4" />
-          </Button>
-          <Button
-            v-else
-            variant="outline"
-            class="rounded-l-none border-l-0"
-            @click="toggleSortOrder"
-          >
-            <Icon
-              v-if="sortOrder === 'asc'"
-              icon="solar:sort-from-bottom-to-top-bold-duotone"
-              class="h-4 w-4"
-            />
-            <Icon
-              v-else
-              icon="solar:sort-from-top-to-bottom-bold-duotone"
-              class="h-4 w-4"
-            />
-          </Button>
-        </div>
-        <Button
-          variant="outline"
-          :disabled="totalCount === 0"
-          @click="openRandomBookFromCurrentView"
-        >
-          <Icon icon="solar:rocket-bold-duotone" class="h-4 w-4" />
-          랜덤
-        </Button>
-        <!-- 더보기 메뉴: 라이브러리 폴더 / 뷰 모드 / 썸네일 줌 -->
-        <DropdownMenu>
-          <DropdownMenuTrigger as-child>
-            <Button variant="outline" size="icon" aria-label="더보기">
-              <Icon icon="solar:menu-dots-bold" class="h-4 w-4" />
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" class="w-64">
-            <DropdownMenuLabel>라이브러리 폴더</DropdownMenuLabel>
-            <DropdownMenuRadioGroup v-model="libraryPath">
-              <DropdownMenuRadioItem value="all">
-                모든 라이브러리
-              </DropdownMenuRadioItem>
-              <DropdownMenuRadioItem
-                v-for="dir in libraryDirectories"
-                :key="dir"
-                :value="dir"
-                class="truncate"
-              >
-                <span class="truncate" :title="dir">{{ dir }}</span>
-              </DropdownMenuRadioItem>
-            </DropdownMenuRadioGroup>
-            <DropdownMenuSeparator />
-            <DropdownMenuLabel>뷰 모드</DropdownMenuLabel>
-            <DropdownMenuRadioGroup v-model="viewMode">
-              <DropdownMenuRadioItem value="grid">
-                <Icon icon="solar:widget-4-bold-duotone" class="mr-2 h-4 w-4" />
-                그리드
-              </DropdownMenuRadioItem>
-              <DropdownMenuRadioItem value="list">
-                <Icon icon="solar:list-bold-duotone" class="mr-2 h-4 w-4" />
-                리스트
-              </DropdownMenuRadioItem>
-            </DropdownMenuRadioGroup>
-            <DropdownMenuSeparator />
-            <DropdownMenuLabel>썸네일 크기</DropdownMenuLabel>
-            <div
-              class="flex items-center justify-between px-2 py-1.5"
-              :class="viewMode !== 'grid' ? 'opacity-50' : ''"
-            >
-              <Button
-                variant="outline"
-                size="icon"
-                class="h-7 w-7"
-                :disabled="viewMode !== 'grid'"
-                @click.stop="uiStore.zoomOut()"
-              >
-                <Icon icon="solar:minus-circle-bold-duotone" class="h-4 w-4" />
-              </Button>
-              <span class="text-xs tabular-nums">
-                {{ Math.round(uiStore.thumbnailZoom * 100) }}%
-              </span>
-              <Button
-                variant="outline"
-                size="icon"
-                class="h-7 w-7"
-                :disabled="viewMode !== 'grid'"
-                @click.stop="uiStore.zoomIn()"
-              >
-                <Icon icon="solar:add-circle-bold-duotone" class="h-4 w-4" />
-              </Button>
-            </div>
-          </DropdownMenuContent>
-        </DropdownMenu>
-      </div>
+        </template>
 
-      <!-- 필터 적용중 표시.
-           검색·필터가 앱을 껐다 켜도 유지되기 때문에, 지금 무엇이 걸려 있는지
-           보이지 않으면 "책이 사라졌다"는 오해를 산다. 칩을 누르면 그 조건만,
-           전체 해제를 누르면 한 번에 풀린다 -->
-      <div
-        v-if="appliedFilters.length > 0"
-        class="text-muted-foreground flex flex-wrap items-center gap-2 text-sm"
-      >
-        <span class="shrink-0">필터 적용중</span>
-        <Badge
-          v-for="filter in appliedFilters"
-          :key="filter.key"
-          variant="secondary"
-          role="button"
-          class="max-w-xs cursor-pointer gap-1"
-          :title="`${filter.label} 해제`"
-          @click="clearFilter(filter.key)"
-        >
-          <span class="truncate">{{ filter.label }}</span>
-          <Icon
-            icon="solar:close-circle-bold-duotone"
-            class="h-3.5 w-3.5 shrink-0"
+        <template #sort>
+          <SortMenu
+            :options="sortOptions"
+            :sort-by="sortBy"
+            :sort-order="sortOrder"
+            @update:sort-by="setSortBy"
+            @update:sort-order="sortOrder = $event"
+          >
+            <!-- 랜덤 정렬은 오름/내림이 없다. 그 자리를 다시 섞기가 대신한다 -->
+            <template v-if="sortBy === 'random'" #order>
+              <Button
+                variant="outline"
+                class="rounded-l-none border-l-0"
+                aria-label="순서 다시 섞기"
+                @click="reshuffleRandomOrder"
+              >
+                <Icon icon="solar:refresh-bold-duotone" class="h-4 w-4" />
+              </Button>
+            </template>
+          </SortMenu>
+        </template>
+        <template #extra>
+          <Button
+            variant="outline"
+            :disabled="totalCount === 0"
+            @click="openRandomBookFromCurrentView"
+          >
+            <Icon icon="solar:rocket-bold-duotone" class="h-4 w-4" />
+            랜덤
+          </Button>
+        </template>
+
+        <template #view>
+          <ViewOptionsBar v-model="viewMode" />
+        </template>
+
+        <!-- 검색·필터가 앱을 껐다 켜도 유지되기 때문에, 지금 무엇이 걸려
+             있는지 보이지 않으면 "책이 사라졌다"는 오해를 산다 -->
+        <template #status>
+          <AppliedFilterChips
+            :filters="appliedFilters"
+            @clear="clearFilterByKey"
+            @clear-all="clearAllFilters"
           />
-        </Badge>
-        <Button variant="ghost" size="sm" class="h-7" @click="clearAllFilters">
-          전체 해제
-        </Button>
-      </div>
+        </template>
+
+        <template #count>
+          총 {{ totalCount.toLocaleString("ko-KR") }}권
+        </template>
+      </PageToolbar>
 
       <!-- 목록 (가상 스크롤)
            ⚠️ 스크롤러는 항상 마운트해야 합니다. 조건부로 두면 virtualizer가

@@ -2,8 +2,10 @@
 import { computed, ref } from "vue";
 import { useRouter } from "vue-router";
 import { useQuery } from "@tanstack/vue-query";
-import { Icon } from "@iconify/vue";
+import SmartSearchInput from "../common/SmartSearchInput.vue";
+import SortMenu from "../common/SortMenu.vue";
 import PageHeader from "../layout/PageHeader.vue";
+import PageToolbar from "../layout/PageToolbar.vue";
 import { useQueryAndParams } from "@/composable/useQueryAndParams";
 import {
   getArtistsWithCount,
@@ -12,16 +14,8 @@ import {
   getCharactersWithCount,
   getGroupsWithCount,
 } from "@/api";
-import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { ScrollArea } from "@/components/ui/scroll-area";
 
 interface NameCount {
@@ -58,6 +52,12 @@ const tabs: { key: TabKey; label: string }[] = [
   { key: "series", label: "시리즈" },
   { key: "characters", label: "캐릭터" },
   { key: "groups", label: "그룹" },
+];
+
+// 정렬 메뉴에 띄울 순서
+const browseSortOptions = [
+  { value: "name", label: "이름순" },
+  { value: "count", label: "개수순" },
 ];
 
 // 탭별 IPC 매핑
@@ -147,24 +147,24 @@ const goToLibraryWithSearch = (name: string) => {
       </Tabs>
 
       <!-- 검색 및 정렬 -->
-      <div class="flex items-center gap-3">
-        <div class="relative flex-1">
-          <Icon
-            icon="solar:magnifer-linear"
-            class="text-muted-foreground absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2"
+      <PageToolbar>
+        <template #search>
+          <SmartSearchInput v-model="searchQuery" placeholder="이름으로 검색" />
+        </template>
+
+        <template #sort>
+          <!-- 이름순은 오름차순, 개수순은 내림차순으로 고정이라 순서 토글이 없다 -->
+          <SortMenu
+            :options="browseSortOptions"
+            :sort-by="browseSortBy"
+            sort-order="asc"
+            :show-order="false"
+            @update:sort-by="browseSortBy = $event"
           />
-          <Input v-model="searchQuery" placeholder="검색..." class="pl-9" />
-        </div>
-        <Select v-model="browseSortBy">
-          <SelectTrigger class="w-[130px]">
-            <SelectValue placeholder="정렬" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="name">이름순</SelectItem>
-            <SelectItem value="count">개수순</SelectItem>
-          </SelectContent>
-        </Select>
-      </div>
+        </template>
+
+        <template #count> 총 {{ filteredItems.length }}개 </template>
+      </PageToolbar>
 
       <!-- 알파벳 필터 바 -->
       <div class="flex flex-wrap items-center gap-1">
