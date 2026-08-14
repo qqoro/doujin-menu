@@ -1,5 +1,6 @@
 import { ipcMain, shell } from "electron";
 import fs from "fs/promises";
+import type { Knex } from "knex";
 import path from "path";
 import * as yauzl from "yauzl";
 import type { FilterParams } from "../../types/ipc.js";
@@ -136,24 +137,18 @@ export function extractKoreanTitle(
   return match?.[1]?.trim() ?? title;
 }
 
-function buildFilteredQuery(filter: FilterParams | null) {
-  const {
-    searchQuery = "",
-    readStatus = "all",
-    isFavorite = false,
-    libraryPath = "",
-    offlineStatus = "all",
-  } = filter || {};
-
-  const subquery = db("Book")
-    .select(
-      "Book.*",
-      db.raw("GROUP_CONCAT(DISTINCT Artist.name) as artists"),
-      db.raw("GROUP_CONCAT(DISTINCT Tag.name) as tags"),
-      db.raw("GROUP_CONCAT(DISTINCT Series.name) as series"),
-      db.raw("GROUP_CONCAT(DISTINCT `Group`.name) as groups"),
-      db.raw("GROUP_CONCAT(DISTINCT `Character`.name) as characters"),
-    )
+/**
+ * 책 하나에 딸린 관계 이름들을 한 줄로 모으는 조인·집계.
+ *
+ * **이 집계는 화면 표시용이다. 필터 조건은 어느 것도 이 컬럼을 보지 않는다**
+ * (전부 Book 자체 컬럼이거나 관계 테이블에 대한 EXISTS다). 그래서 조회 범위를
+ * 자른 뒤에 붙이면 되고, 그게 `fetchBookRelations`다.
+ *
+ * 예외가 하나 있다. `sortBy=artists`는 `artists` 문자열을 정렬 기준이자 next/prev의
+ * 커서 비교 값으로 쓴다. 그때만 `buildFilteredQuery`가 작가 조인을 미리 붙인다.
+ */
+const withRelationAggregates = (query: Knex.QueryBuilder) =>
+  query
     .leftJoin("BookArtist", "Book.id", "BookArtist.book_id")
     .leftJoin("Artist", "BookArtist.artist_id", "Artist.id")
     .leftJoin("BookTag", "Book.id", "BookTag.book_id")
@@ -166,7 +161,67 @@ function buildFilteredQuery(filter: FilterParams | null) {
     .leftJoin("Character", "BookCharacter.character_id", "Character.id")
     .groupBy("Book.id");
 
-  const mainQuery = db(subquery.as("sub"));
+/**
+ * 확정된 책 id들에 대해서만 관계 이름을 모아 온다.
+ *
+ * **전체 책에 집계를 걸고 나서 자르면 안 된다.** 5만 권 기준으로 조인·집계가
+ * 호출당 0.9초인데 offset과 무관하게 매번 든다. 자른 뒤에 붙이면 0.002초다.
+ */
+async function fetchBookRelations(bookIds: number[]) {
+  const relations = new Map<number, Record<string, string | null>>();
+  if (bookIds.length === 0) return relations;
+
+  const rows = await withRelationAggregates(
+    db("Book")
+      .select(
+        "Book.id",
+        db.raw("GROUP_CONCAT(DISTINCT Artist.name) as artists"),
+        db.raw("GROUP_CONCAT(DISTINCT Tag.name) as tags"),
+        db.raw("GROUP_CONCAT(DISTINCT Series.name) as series"),
+        db.raw("GROUP_CONCAT(DISTINCT `Group`.name) as groups"),
+        db.raw("GROUP_CONCAT(DISTINCT `Character`.name) as characters"),
+      )
+      .whereIn("Book.id", bookIds),
+  );
+
+  for (const row of rows) relations.set(row.id, row);
+  return relations;
+}
+
+/** 관계 이름 문자열을 `[{ name }]` 배열로 편다 */
+const toNameList = (value: string | null | undefined) =>
+  value ? value.split(",").map((name: string) => ({ name })) : [];
+
+/**
+ * @param withArtists `sub.artists`(작가명 집계)를 정렬·커서 비교에 쓸 때만 true.
+ *   작가 조인만 붙이므로 나머지 8개 조인과 집계 4개는 그대로 빠진다.
+ */
+function buildFilteredQuery(
+  filter: FilterParams | null,
+  { withArtists = false }: { withArtists?: boolean } = {},
+) {
+  const {
+    searchQuery = "",
+    readStatus = "all",
+    isFavorite = false,
+    libraryPath = "",
+    offlineStatus = "all",
+  } = filter || {};
+
+  // 별칭을 `sub`로 유지해 아래 조건들과 호출부의 `sub.xxx` 참조를 그대로 쓴다.
+  const mainQuery = withArtists
+    ? db(
+        db("Book")
+          .select(
+            "Book.*",
+            db.raw("GROUP_CONCAT(DISTINCT Artist.name) as artists"),
+          )
+          .leftJoin("BookArtist", "Book.id", "BookArtist.book_id")
+          .leftJoin("Artist", "BookArtist.artist_id", "Artist.id")
+          .groupBy("Book.id")
+          .as("sub"),
+      )
+    : db("Book as sub");
 
   if (libraryPath && libraryPath !== "all") {
     mainQuery.where("sub.path", "like", `${libraryPath}%`);
@@ -391,7 +446,10 @@ export const handleGetBooks = async (
     sortOrder = "desc",
   } = params;
 
-  const mainQuery = buildFilteredQuery(params);
+  // artists 정렬만 집계 컬럼을 정렬 기준으로 쓴다
+  const mainQuery = buildFilteredQuery(params, {
+    withArtists: sortBy === "artists",
+  });
 
   // 3. 필터가 적용된 상태에서 전체 카운트 계산
   const totalCountQuery = mainQuery.clone().count("* as count").first();
@@ -423,25 +481,23 @@ export const handleGetBooks = async (
     false,
   );
 
-  const formattedBooks = books.map((book) => ({
-    ...book,
-    title: extractKoreanTitle(book.title, prioritizeKoreanTitles),
-    artists: book.artists
-      ? book.artists.split(",").map((name: string) => ({ name }))
-      : [],
-    tags: book.tags
-      ? book.tags.split(",").map((name: string) => ({ name }))
-      : [],
-    series: book.series
-      ? book.series.split(",").map((name: string) => ({ name }))
-      : [],
-    groups: book.groups
-      ? book.groups.split(",").map((name: string) => ({ name }))
-      : [],
-    characters: book.characters
-      ? book.characters.split(",").map((name: string) => ({ name }))
-      : [],
-  }));
+  // 조회 범위가 확정된 뒤에 관계를 붙인다
+  const relations = await fetchBookRelations(
+    books.map((book) => book.id as number),
+  );
+
+  const formattedBooks = books.map((book) => {
+    const related = relations.get(book.id);
+    return {
+      ...book,
+      title: extractKoreanTitle(book.title, prioritizeKoreanTitles),
+      artists: toNameList(related?.artists),
+      tags: toNameList(related?.tags),
+      series: toNameList(related?.series),
+      groups: toNameList(related?.groups),
+      characters: toNameList(related?.characters),
+    };
+  });
 
   return {
     data: formattedBooks,
@@ -462,24 +518,16 @@ export const handleGetBook = async (bookId: number) => {
     false,
   );
 
+  const related = (await fetchBookRelations([book.id])).get(book.id);
+
   return {
     ...book,
     title: extractKoreanTitle(book.title, prioritizeKoreanTitles),
-    artists: book.artists
-      ? book.artists.split(",").map((name: string) => ({ name }))
-      : [],
-    tags: book.tags
-      ? book.tags.split(",").map((name: string) => ({ name }))
-      : [],
-    series: book.series
-      ? book.series.split(",").map((name: string) => ({ name }))
-      : [],
-    groups: book.groups
-      ? book.groups.split(",").map((name: string) => ({ name }))
-      : [],
-    characters: book.characters
-      ? book.characters.split(",").map((name: string) => ({ name }))
-      : [],
+    artists: toNameList(related?.artists),
+    tags: toNameList(related?.tags),
+    series: toNameList(related?.series),
+    groups: toNameList(related?.groups),
+    characters: toNameList(related?.characters),
   };
 };
 
@@ -687,7 +735,9 @@ export const handleGetNextBook = async ({
   filter: FilterParams | null;
 }) => {
   try {
-    const mainQuery = buildFilteredQuery(filter);
+    const mainQuery = buildFilteredQuery(filter, {
+      withArtists: filter?.sortBy === "artists",
+    });
 
     const viewerExcludeCompleted = configStore.get("viewerExcludeCompleted");
     if (viewerExcludeCompleted) {
@@ -746,7 +796,9 @@ export const handleGetNextBook = async ({
     }
 
     // Sequential mode
-    const currentBook = await buildFilteredQuery(null)
+    const currentBook = await buildFilteredQuery(null, {
+      withArtists: sortBy === "artists",
+    })
       .where("sub.id", currentBookId)
       .first();
     if (!currentBook) {
@@ -797,7 +849,12 @@ export const handleGetNextBook = async ({
                     sortValue,
                   )
                   .where("sub.id", "<", currentBookId),
-              ),
+              )
+              // CAST(NULL)은 NULL이라 위 비교 어느 쪽에도 참이 되지 않는다. 이 절이
+              // 없으면 값 있는 책에서 NULL 그룹으로 넘어가지 못하고 이동이 끊긴다.
+              // 아래 ORDER BY가 CAST DESC라 NULL이 뒤로 밀리므로, 값 있는 책이
+              // 남아 있으면 그쪽이 먼저 선택된다.
+              .orWhereNull("sub.hitomi_id"),
           );
           mainQuery.orderByRaw(
             "CAST(sub.hitomi_id AS INTEGER) DESC, sub.id DESC",
@@ -840,7 +897,12 @@ export const handleGetNextBook = async ({
                 b
                   .where(sortColumn, "=", sortValue)
                   .where("sub.id", "<", currentBookId),
-              ),
+              )
+              // NULL은 어떤 비교에도 참이 되지 않아 이 절이 없으면 값 있는 마지막
+              // 책에서 NULL 그룹으로 넘어가지 못하고 이동이 끝나버린다.
+              // 아래 ORDER BY가 col desc라 NULL이 뒤로 밀리므로, 값 있는 책이
+              // 남아 있으면 그쪽이 먼저 선택된다.
+              .orWhereNull(sortColumn),
           );
         }
         mainQuery.orderBy(sortColumn, "desc").orderBy("sub.id", "desc");
@@ -896,7 +958,9 @@ export const handleGetPrevBook = async ({
   filter: FilterParams | null;
 }) => {
   try {
-    const mainQuery = buildFilteredQuery(filter);
+    const mainQuery = buildFilteredQuery(filter, {
+      withArtists: filter?.sortBy === "artists",
+    });
     const { sortBy = "added_at", sortOrder = "desc" } = filter || {};
 
     const shuffleSql =
@@ -941,7 +1005,9 @@ export const handleGetPrevBook = async ({
       return { success: true, prevBookId: null };
     }
 
-    const currentBook = await buildFilteredQuery(null)
+    const currentBook = await buildFilteredQuery(null, {
+      withArtists: sortBy === "artists",
+    })
       .where("sub.id", currentBookId)
       .first();
     if (!currentBook) {
@@ -1008,7 +1074,12 @@ export const handleGetPrevBook = async ({
                     sortValue,
                   )
                   .where("sub.id", "<", currentBookId),
-              ),
+              )
+              // CAST(NULL)은 NULL이라 위 비교 어느 쪽에도 참이 되지 않는다. 이 절이
+              // 없으면 값 있는 책에서 NULL 그룹으로 넘어가지 못하고 이동이 끊긴다.
+              // 아래 ORDER BY가 CAST DESC라 NULL이 뒤로 밀리므로, 값 있는 책이
+              // 남아 있으면 그쪽이 먼저 선택된다.
+              .orWhereNull("sub.hitomi_id"),
           );
           mainQuery.orderByRaw(
             "CAST(sub.hitomi_id AS INTEGER) DESC, sub.id DESC",
@@ -1057,7 +1128,11 @@ export const handleGetPrevBook = async ({
                 b
                   .where(sortColumn, "=", sortValue)
                   .where("sub.id", "<", currentBookId),
-              ),
+              )
+              // NULL은 어떤 비교에도 참이 되지 않아 이 절이 없으면 값 있는 첫
+              // 책에서 NULL 그룹으로 되돌아가지 못한다. 아래 ORDER BY가 col desc라
+              // NULL이 뒤로 밀리므로, 값 있는 책이 남아 있으면 그쪽이 먼저 선택된다.
+              .orWhereNull(sortColumn),
           );
         }
         mainQuery.orderBy(sortColumn, "desc").orderBy("sub.id", "desc");
@@ -1083,6 +1158,7 @@ export const handleGetPrevBook = async ({
 
 export const handleGetRandomBook = async (filter: FilterParams | null) => {
   try {
+    // RANDOM()으로만 정렬하므로 작가 집계가 필요 없다
     const mainQuery = buildFilteredQuery(filter);
 
     const viewerExcludeCompleted = configStore.get("viewerExcludeCompleted");

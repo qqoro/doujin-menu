@@ -843,6 +843,159 @@ describe("handleGetBooks - 통합 테스트", () => {
       });
       expect(result.data).toHaveLength(3);
     });
+
+    // 아래 정렬 테스트들은 쿼리 구조를 바꿔도 순서가 보존되는지 잡기 위한 것이다.
+    // artists는 Book 테이블 컬럼이 아니라 GROUP_CONCAT 집계 결과를 정렬 기준으로 쓴다.
+    it("sortBy=artists, sortOrder=asc → 작가명 오름차순, 작가 없는 책이 앞", async () => {
+      const alpha = await seedArtist(db, "alpha");
+      const beta = await seedArtist(db, "beta");
+      const bookAlpha = await seedBook(db, { path: "/a" });
+      const bookBeta = await seedBook(db, { path: "/b" });
+      const bookNone = await seedBook(db, { path: "/c" });
+      await linkBookArtist(db, bookAlpha.id, alpha.id);
+      await linkBookArtist(db, bookBeta.id, beta.id);
+
+      const result = await handleGetBooks({
+        sortBy: "artists",
+        sortOrder: "asc",
+        pageSize: 1000,
+      });
+      const ids = result.data.map((b: { id: number }) => b.id);
+      expect(ids).toEqual([bookNone.id, bookAlpha.id, bookBeta.id]);
+    });
+
+    it("sortBy=artists, sortOrder=desc → 작가명 내림차순", async () => {
+      const alpha = await seedArtist(db, "alpha");
+      const beta = await seedArtist(db, "beta");
+      const bookAlpha = await seedBook(db, { path: "/a" });
+      const bookBeta = await seedBook(db, { path: "/b" });
+      const bookNone = await seedBook(db, { path: "/c" });
+      await linkBookArtist(db, bookAlpha.id, alpha.id);
+      await linkBookArtist(db, bookBeta.id, beta.id);
+
+      const result = await handleGetBooks({
+        sortBy: "artists",
+        sortOrder: "desc",
+        pageSize: 1000,
+      });
+      const ids = result.data.map((b: { id: number }) => b.id);
+      expect(ids).toEqual([bookBeta.id, bookAlpha.id, bookNone.id]);
+    });
+
+    it("sortBy=artists → 작가가 여러 명인 책도 정렬에 포함", async () => {
+      const alpha = await seedArtist(db, "alpha");
+      const zulu = await seedArtist(db, "zulu");
+      const mike = await seedArtist(db, "mike");
+      // id 순서와 작가명 순서를 일부러 어긋나게 둔다. 같게 두면 id로만
+      // 정렬해도 통과해서 이 테스트가 아무것도 구별하지 못한다.
+      const bookMid = await seedBook(db, { path: "/b" });
+      const bookMulti = await seedBook(db, { path: "/a" });
+      await linkBookArtist(db, bookMulti.id, alpha.id);
+      await linkBookArtist(db, bookMulti.id, zulu.id);
+      await linkBookArtist(db, bookMid.id, mike.id);
+
+      const result = await handleGetBooks({
+        sortBy: "artists",
+        sortOrder: "asc",
+        pageSize: 1000,
+      });
+      const ids = result.data.map((b: { id: number }) => b.id);
+      // "alpha,zulu" < "mike" 이므로 id가 큰 다중 작가 책이 앞선다
+      expect(ids).toEqual([bookMulti.id, bookMid.id]);
+    });
+
+    // 시드 셔플의 존재 이유가 페이지 간 순서 고정이다. 이게 깨지면 스크롤 중
+    // 같은 책이 두 번 나오거나 어떤 책은 영영 안 나온다.
+    it("sortBy=random + 같은 randomSeed → 페이지를 나눠 받아도 중복·누락 없음", async () => {
+      const seeded = [];
+      for (const path of ["/a", "/b", "/c", "/d", "/e", "/f"]) {
+        seeded.push(await seedBook(db, { path }));
+      }
+
+      const collected: number[] = [];
+      for (let page = 0; page < 3; page++) {
+        const result = await handleGetBooks({
+          sortBy: "random",
+          randomSeed: 12345,
+          pageSize: 2,
+          pageParam: page,
+        });
+        collected.push(...result.data.map((b: { id: number }) => b.id));
+      }
+
+      expect(collected).toHaveLength(6);
+      expect(new Set(collected).size).toBe(6);
+      expect([...collected].sort()).toEqual(seeded.map((b) => b.id).sort());
+    });
+
+    it("sortBy=random + 같은 randomSeed → 두 번 조회해도 같은 순서", async () => {
+      for (const path of ["/a", "/b", "/c", "/d", "/e"]) {
+        await seedBook(db, { path });
+      }
+
+      const first = await handleGetBooks({
+        sortBy: "random",
+        randomSeed: 777,
+        pageSize: 1000,
+      });
+      const second = await handleGetBooks({
+        sortBy: "random",
+        randomSeed: 777,
+        pageSize: 1000,
+      });
+
+      expect(first.data.map((b: { id: number }) => b.id)).toEqual(
+        second.data.map((b: { id: number }) => b.id),
+      );
+    });
+
+    it("정렬 + 페이지네이션 → 페이지 경계에서 순서가 이어짐", async () => {
+      const books = [];
+      for (const path of ["/a", "/b", "/c", "/d", "/e"]) {
+        books.push(await seedBook(db, { path }));
+      }
+      const expected = books.map((b) => b.id).reverse(); // added_at desc
+
+      const page0 = await handleGetBooks({
+        sortBy: "added_at",
+        sortOrder: "desc",
+        pageSize: 2,
+        pageParam: 0,
+      });
+      const page1 = await handleGetBooks({
+        sortBy: "added_at",
+        sortOrder: "desc",
+        pageSize: 2,
+        pageParam: 1,
+      });
+      const page2 = await handleGetBooks({
+        sortBy: "added_at",
+        sortOrder: "desc",
+        pageSize: 2,
+        pageParam: 2,
+      });
+
+      const joined = [...page0.data, ...page1.data, ...page2.data].map(
+        (b: { id: number }) => b.id,
+      );
+      expect(joined).toEqual(expected);
+    });
+
+    it("필터 + 페이지네이션 → hasNextPage가 필터된 건수 기준", async () => {
+      await seedBook(db, { path: "/a", is_favorite: true });
+      await seedBook(db, { path: "/b", is_favorite: true });
+      await seedBook(db, { path: "/c", is_favorite: false });
+      await seedBook(db, { path: "/d", is_favorite: false });
+
+      const page0 = await handleGetBooks({
+        isFavorite: true,
+        pageSize: 2,
+        pageParam: 0,
+      });
+      expect(page0.data).toHaveLength(2);
+      // 즐겨찾기는 2건뿐이므로 전체 4건과 무관하게 다음 페이지가 없어야 한다
+      expect(page0.hasNextPage).toBe(false);
+    });
   });
 
   describe("페이지네이션", () => {
@@ -1352,6 +1505,95 @@ describe("handleGetBooks - 통합 테스트", () => {
     // 매 테스트마다 viewerExcludeCompleted 비활성화 (다른 describe의 mockReturnValue 잔영 방지)
     beforeEach(() => {
       vi.mocked(configStore.get).mockReturnValue(undefined);
+    });
+
+    // 아래 세 개는 "값 있는 책 → NULL 그룹" 방향의 경계다. 반대 방향(현재 책이
+    // NULL 그룹)은 이미 분기가 있었지만 이쪽은 빠져 있어서 이동이 막혔다.
+    it("artists asc: 작가 있는 첫 책의 prev → NULL 그룹의 마지막 책", async () => {
+      // 정렬 순서(asc): nullA, nullB, withArtist
+      await seedBook(db, { path: "/a" });
+      const nullB = await seedBook(db, { path: "/b" });
+      const withArtistBook = await seedBook(db, { path: "/c" });
+      const artist = await seedArtist(db, "alpha");
+      await linkBookArtist(db, withArtistBook.id, artist.id);
+
+      const result = await handleGetPrevBook({
+        currentBookId: withArtistBook.id,
+        filter: { sortBy: "artists", sortOrder: "asc" },
+      });
+
+      expect(result.success).toBe(true);
+      expect(result.prevBookId).toBe(nullB.id);
+    });
+
+    it("artists desc: 작가 있는 마지막 책의 next → NULL 그룹의 첫 책", async () => {
+      // 정렬 순서(desc): withArtist, nullB, nullA (NULL 그룹은 id desc)
+      await seedBook(db, { path: "/a" });
+      const nullB = await seedBook(db, { path: "/b" });
+      const withArtistBook = await seedBook(db, { path: "/c" });
+      const artist = await seedArtist(db, "alpha");
+      await linkBookArtist(db, withArtistBook.id, artist.id);
+
+      const result = await handleGetNextBook({
+        currentBookId: withArtistBook.id,
+        mode: "next",
+        filter: { sortBy: "artists", sortOrder: "desc" },
+      });
+
+      expect(result.success).toBe(true);
+      expect(result.nextBookId).toBe(nullB.id);
+    });
+
+    // hitomi_id는 CAST 비교라 분기가 따로 있는데, 같은 경계 결함을 그대로 갖고 있었다
+    it("hitomi_id asc: 값 있는 첫 책의 prev → NULL 그룹의 마지막 책", async () => {
+      // 정렬 순서(asc): nullA, nullB, id100, id300
+      await seedBook(db, { path: "/a", hitomi_id: null });
+      const nullB = await seedBook(db, { path: "/b", hitomi_id: null });
+      const first = await seedBook(db, { path: "/c", hitomi_id: "100" });
+      await seedBook(db, { path: "/d", hitomi_id: "300" });
+
+      const result = await handleGetPrevBook({
+        currentBookId: first.id,
+        filter: { sortBy: "hitomi_id", sortOrder: "asc" },
+      });
+
+      expect(result.success).toBe(true);
+      expect(result.prevBookId).toBe(nullB.id);
+    });
+
+    it("hitomi_id desc: 값 있는 마지막 책의 next → NULL 그룹의 첫 책", async () => {
+      // 정렬 순서(desc): id300, id100, nullB, nullA
+      await seedBook(db, { path: "/a", hitomi_id: null });
+      const nullB = await seedBook(db, { path: "/b", hitomi_id: null });
+      const last = await seedBook(db, { path: "/c", hitomi_id: "100" });
+      await seedBook(db, { path: "/d", hitomi_id: "300" });
+
+      const result = await handleGetNextBook({
+        currentBookId: last.id,
+        mode: "next",
+        filter: { sortBy: "hitomi_id", sortOrder: "desc" },
+      });
+
+      expect(result.success).toBe(true);
+      expect(result.nextBookId).toBe(nullB.id);
+    });
+
+    it("last_read_at asc: 읽은 첫 책의 prev → 안 읽은 마지막 책", async () => {
+      // artists뿐 아니라 NULL이 가능한 정렬 컬럼 전부가 같은 경계를 갖는다
+      await seedBook(db, { path: "/a", last_read_at: null });
+      const unreadB = await seedBook(db, { path: "/b", last_read_at: null });
+      const readBook = await seedBook(db, {
+        path: "/c",
+        last_read_at: new Date("2024-01-01"),
+      });
+
+      const result = await handleGetPrevBook({
+        currentBookId: readBook.id,
+        filter: { sortBy: "last_read_at", sortOrder: "asc" },
+      });
+
+      expect(result.success).toBe(true);
+      expect(result.prevBookId).toBe(unreadB.id);
     });
 
     it("artists(NULL) 책들 asc 정렬: 두 번째 NULL 책의 next → 작가 있는 첫 책", async () => {
