@@ -1,5 +1,10 @@
 <script setup lang="ts">
-import { clearBookHistory, deleteBookHistory, getBookHistory } from "@/api";
+import {
+  clearBookHistory,
+  deleteBookHistory,
+  getBookHistory,
+  ipcRenderer,
+} from "@/api";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -11,10 +16,24 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuLabel,
+  DropdownMenuRadioGroup,
+  DropdownMenuRadioItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { useUiStore } from "@/store/uiStore";
 import { Icon } from "@iconify/vue";
 import PageHeader from "../layout/PageHeader.vue";
-import { useInfiniteQuery, useQueryClient } from "@tanstack/vue-query";
-import { computed, ref } from "vue";
+import {
+  useInfiniteQuery,
+  useQuery,
+  useQueryClient,
+} from "@tanstack/vue-query";
+import { computed, nextTick, ref, watch } from "vue";
 import { useRouter } from "vue-router";
 import { toast } from "vue-sonner";
 
@@ -51,6 +70,45 @@ const allItems = computed<HistoryItem[]>(
 
 const scrollContainerRef = ref<HTMLElement | null>(null);
 const isClearAllDialogOpen = ref(false);
+
+const uiStore = useUiStore();
+
+// 그리드 카드의 최소 폭과 간격. 라이브러리 그리드와 같은 값을 써서 두 화면의
+// 카드 크기가 어긋나지 않게 한다
+const MIN_CARD_WIDTH = 184;
+const GRID_GAP = 12;
+
+// 뷰 모드는 설정에 저장해 다음에 들어와도 유지한다
+const viewMode = ref<"grid" | "list">("grid");
+
+const { data: config, isSuccess: isConfigLoaded } = useQuery({
+  queryKey: ["config"],
+  queryFn: () => ipcRenderer.invoke("get-config"),
+});
+
+// 설정에서 불러오는 최초 1회는 저장을 유발하면 안 되므로 플래그로 막는다
+const isViewModeInitialized = ref(false);
+
+watch(
+  isConfigLoaded,
+  (loaded) => {
+    if (!loaded) return;
+    viewMode.value = config.value?.historyViewSettings?.viewMode ?? "grid";
+    nextTick(() => {
+      isViewModeInitialized.value = true;
+    });
+  },
+  { immediate: true },
+);
+
+watch(viewMode, async (mode) => {
+  if (!isViewModeInitialized.value) return;
+  await ipcRenderer.invoke("set-config", {
+    key: "historyViewSettings",
+    value: { viewMode: mode },
+  });
+  queryClient.invalidateQueries({ queryKey: ["config"] });
+});
 
 function formatDate(dateString: string) {
   // DB에서 UTC로 저장된 시간을 Local Time으로 변환하기 위해 'Z'를 추가합니다.
@@ -142,6 +200,55 @@ const confirmClearAll = async () => {
   <div class="flex h-full flex-col gap-6">
     <PageHeader icon="solar:clock-circle-bold-duotone" title="읽음 기록">
       <template #actions>
+        <!-- 뷰 모드 / 썸네일 크기. 라이브러리의 "더보기" 메뉴와 같은 구성 -->
+        <DropdownMenu>
+          <DropdownMenuTrigger as-child>
+            <Button variant="outline" size="icon" aria-label="더보기">
+              <Icon icon="solar:menu-dots-bold" class="h-4 w-4" />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" class="w-64">
+            <DropdownMenuLabel>뷰 모드</DropdownMenuLabel>
+            <DropdownMenuRadioGroup v-model="viewMode">
+              <DropdownMenuRadioItem value="grid">
+                <Icon icon="solar:widget-4-bold-duotone" class="mr-2 h-4 w-4" />
+                그리드
+              </DropdownMenuRadioItem>
+              <DropdownMenuRadioItem value="list">
+                <Icon icon="solar:list-bold-duotone" class="mr-2 h-4 w-4" />
+                리스트
+              </DropdownMenuRadioItem>
+            </DropdownMenuRadioGroup>
+            <DropdownMenuSeparator />
+            <DropdownMenuLabel>썸네일 크기</DropdownMenuLabel>
+            <div
+              class="flex items-center justify-between px-2 py-1.5"
+              :class="viewMode !== 'grid' ? 'opacity-50' : ''"
+            >
+              <Button
+                variant="outline"
+                size="icon"
+                class="h-7 w-7"
+                :disabled="viewMode !== 'grid'"
+                @click.stop="uiStore.zoomOut()"
+              >
+                <Icon icon="solar:minus-circle-bold-duotone" class="h-4 w-4" />
+              </Button>
+              <span class="text-xs tabular-nums">
+                {{ Math.round(uiStore.thumbnailZoom * 100) }}%
+              </span>
+              <Button
+                variant="outline"
+                size="icon"
+                class="h-7 w-7"
+                :disabled="viewMode !== 'grid'"
+                @click.stop="uiStore.zoomIn()"
+              >
+                <Icon icon="solar:add-circle-bold-duotone" class="h-4 w-4" />
+              </Button>
+            </div>
+          </DropdownMenuContent>
+        </DropdownMenu>
         <Button
           variant="destructive"
           size="icon"
@@ -169,35 +276,81 @@ const confirmClearAll = async () => {
       >
         <p>오류가 발생했습니다.</p>
       </div>
-      <div v-else-if="allItems.length > 0" class="space-y-2">
-        <div v-for="item in allItems" :key="item.history_id">
+      <div v-else-if="allItems.length > 0">
+        <!-- 그리드: 표지를 크게 본다.
+             기록은 열람 한 번이 한 칸이라, 같은 책을 여러 번 봤으면 그 횟수만큼
+             나온다. 언제 몇 번 봤는지가 남는 게 이 화면의 목적이라 묶지 않는다.
+             줌은 라이브러리와 같은 방식(컨테이너에 zoom)으로 건다 -->
+        <div
+          v-if="viewMode === 'grid'"
+          class="zoomed grid items-start"
+          :style="{
+            zoom: uiStore.thumbnailZoom,
+            gridTemplateColumns: `repeat(auto-fill, minmax(${MIN_CARD_WIDTH}px, 1fr))`,
+            gap: `${GRID_GAP}px`,
+          }"
+        >
           <div
-            class="hover:bg-accent/40 group flex cursor-pointer items-center rounded-md p-2"
+            v-for="item in allItems"
+            :key="item.history_id"
+            class="hover:bg-accent/40 relative cursor-pointer rounded-md p-2"
             @click="goToBook(item.id)"
           >
             <img
               :src="getCoverUrl(item.cover_path)"
-              class="h-20 w-16 flex-shrink-0 rounded-md object-cover"
+              class="aspect-[3/4] w-full rounded-md object-cover"
             />
-            <div class="ml-4 min-w-0 flex-grow">
-              <p class="truncate font-semibold">{{ item.title }}</p>
-              <p class="text-muted-foreground text-sm">
-                {{ formatDate(item.viewed_at) }}
-              </p>
-            </div>
+            <p class="mt-2 truncate font-semibold" :title="item.title">
+              {{ item.title }}
+            </p>
+            <p class="text-muted-foreground text-sm">
+              {{ formatDate(item.viewed_at) }}
+            </p>
+            <!-- 라이브러리 카드의 삭제와 달리 여기서는 기록만 지운다 -->
             <Button
-              variant="outline"
+              variant="destructive"
               size="icon"
-              class="ml-4 flex-shrink-0 opacity-0 transition-opacity group-hover:opacity-100"
+              class="absolute top-3 right-3"
+              aria-label="기록 삭제"
               @click.stop="handleDelete(item.history_id)"
             >
-              <Icon
-                icon="solar:trash-bin-trash-bold-duotone"
-                class="text-destructive h-5 w-5"
-              />
+              <Icon icon="solar:trash-bin-trash-bold-duotone" class="h-5 w-5" />
             </Button>
           </div>
         </div>
+
+        <div v-else class="space-y-2">
+          <div v-for="item in allItems" :key="item.history_id">
+            <div
+              class="hover:bg-accent/40 flex cursor-pointer items-center rounded-md p-2"
+              @click="goToBook(item.id)"
+            >
+              <img
+                :src="getCoverUrl(item.cover_path)"
+                class="h-20 w-16 flex-shrink-0 rounded-md object-cover"
+              />
+              <div class="ml-4 min-w-0 flex-grow">
+                <p class="truncate font-semibold">{{ item.title }}</p>
+                <p class="text-muted-foreground text-sm">
+                  {{ formatDate(item.viewed_at) }}
+                </p>
+              </div>
+              <Button
+                variant="destructive"
+                size="icon"
+                class="ml-4 flex-shrink-0"
+                aria-label="기록 삭제"
+                @click.stop="handleDelete(item.history_id)"
+              >
+                <Icon
+                  icon="solar:trash-bin-trash-bold-duotone"
+                  class="h-5 w-5"
+                />
+              </Button>
+            </div>
+          </div>
+        </div>
+
         <div v-if="isFetchingNextPage" class="p-4 text-center">
           <p>더 많은 기록을 불러오는 중...</p>
         </div>

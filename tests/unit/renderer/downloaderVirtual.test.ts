@@ -1,16 +1,12 @@
 import { describe, expect, it } from "vitest";
 import {
-  CHUNK_SIZE,
-  chunksForRange,
   clampPage,
   computeGridMetrics,
-  computeListCols,
   getOffset,
   getPageCount,
   getShownCount,
   locateNth,
   PAGE,
-  shouldShowSkeleton,
   visibleRange,
 } from "../../../src/renderer/lib/downloaderVirtual";
 
@@ -117,30 +113,6 @@ describe("locateNth", () => {
   });
 });
 
-describe("chunksForRange", () => {
-  it("한 청크 안에 들어가면 하나만 반환한다", () => {
-    expect(chunksForRange(0, CHUNK_SIZE - 1)).toEqual([0]);
-  });
-
-  it("경계를 걸치면 양쪽을 모두 포함한다 (빠지면 빈 칸이 생긴다)", () => {
-    expect(chunksForRange(CHUNK_SIZE - 1, CHUNK_SIZE)).toEqual([0, 1]);
-  });
-
-  it("연속 구간을 빠짐없이 덮는다", () => {
-    expect(chunksForRange(60, 149)).toEqual([2, 3, 4]);
-  });
-
-  it("구간을 바꿔도 청크 번호는 절대 좌표다", () => {
-    // 6구간의 첫 항목은 offset을 CHUNK_SIZE로 나눈 청크에 들어갑니다
-    const start = getOffset(6);
-    expect(chunksForRange(start, start)).toEqual([start / CHUNK_SIZE]);
-  });
-
-  it("뒤집힌 범위는 빈 배열", () => {
-    expect(chunksForRange(100, 50)).toEqual([]);
-  });
-});
-
 describe("computeGridMetrics", () => {
   // 패딩은 zoom 바깥의 실제 px이므로 실제 px 공간에서 먼저 빼고 z로 나눕니다.
   // clientWidth / z - padding*2 로 쓰면 819.7이 나오는데 정답은 812.9입니다.
@@ -186,44 +158,6 @@ describe("computeGridMetrics", () => {
   });
 });
 
-describe("computeListCols", () => {
-  // 실제 호출 인자 (Downloader.vue): 패딩 8, gap 8, 최소 카드 폭 560
-  const cols = (width: number, zoom = 1) =>
-    computeListCols(width, zoom, 8, 8, 560);
-
-  it("한 장도 못 담는 폭이면 1열", () => {
-    expect(cols(900)).toBe(1);
-  });
-
-  it("두 장 + gap이 들어가는 순간 2열이 된다", () => {
-    // 필요한 clientWidth = 560*2 + gap 8 + 패딩 16 = 1144
-    expect(cols(1143)).toBe(1);
-    expect(cols(1144)).toBe(2);
-  });
-
-  it("아무리 넓어도 상한을 넘지 않는다", () => {
-    expect(cols(4000)).toBe(2);
-    expect(computeListCols(4000, 1, 8, 8, 560, 3)).toBe(3);
-  });
-
-  // 그리드와 줌 처리가 반대입니다. 리스트에는 CSS zoom이 없고 썸네일 px에 z를
-  // 직접 곱하므로, 폭을 z로 나누는 게 아니라 임계값에 z를 곱해야 합니다.
-  it("줌을 키우면 카드가 커져 같은 폭에서 열이 줄어든다", () => {
-    expect(cols(1200, 1)).toBe(2);
-    expect(cols(1200, 1.5)).toBe(1); // 임계값 840 → 두 장이면 1688 필요
-  });
-
-  it("줌을 줄이면 더 좁은 폭에서도 2열이 된다", () => {
-    expect(cols(900, 1)).toBe(1);
-    expect(cols(900, 0.7)).toBe(2); // 임계값 392 → 두 장이면 800 필요
-  });
-
-  it("폭이 0이거나 줌이 비정상이어도 최소 1열은 유지한다", () => {
-    expect(cols(0)).toBe(1);
-    expect(computeListCols(1200, 0, 8, 8, 560)).toBe(2); // z<=0이면 1로 취급
-  });
-});
-
 describe("visibleRange", () => {
   it("첫 구간 그리드에서 보이는 범위를 1-based로 준다", () => {
     expect(visibleRange({ startIndex: 0, endIndex: 4 }, 0, 6, PAGE)).toEqual({
@@ -266,69 +200,5 @@ describe("visibleRange", () => {
   it("범위가 없거나 결과가 비면 null", () => {
     expect(visibleRange(null, 0, 6, PAGE)).toBeNull();
     expect(visibleRange({ startIndex: 0, endIndex: 4 }, 0, 6, 0)).toBeNull();
-  });
-});
-
-describe("shouldShowSkeleton", () => {
-  it("검색 전에는 안내 문구를 보여야 하므로 스켈레톤을 안 띄운다", () => {
-    expect(
-      shouldShowSkeleton({
-        searchStarted: false,
-        isMetaLoading: true,
-        total: 0,
-        hasRendered: false,
-      }),
-    ).toBe(false);
-  });
-
-  it("총 건수를 받기 전에는 띄운다", () => {
-    expect(
-      shouldShowSkeleton({
-        searchStarted: true,
-        isMetaLoading: true,
-        total: 0,
-        hasRendered: false,
-      }),
-    ).toBe(true);
-  });
-
-  it("총 건수는 왔지만 첫 청크가 아직이면 띄운다", () => {
-    expect(
-      shouldShowSkeleton({
-        searchStarted: true,
-        isMetaLoading: false,
-        total: TOTAL_KOREAN,
-        hasRendered: false,
-      }),
-    ).toBe(true);
-  });
-
-  /**
-   * "N번째로 이동"이 첫 시도에 1번으로 튕기던 회귀.
-   *
-   * 점프하면 보이던 청크가 활성 목록에서 빠지고 목표 청크는 아직 안 와서
-   * 로드된 항목이 0이 됩니다. 이걸 로딩으로 치면 스페이서가 통째로 스켈레톤과
-   * 교체되고, 스크롤러 높이가 무너지며 브라우저가 scrollTop을 0으로 클램프합니다.
-   */
-  it("목록이 한 번 그려진 뒤에는 보이는 청크가 비어도 안 띄운다", () => {
-    expect(
-      shouldShowSkeleton({
-        searchStarted: true,
-        isMetaLoading: false,
-        total: TOTAL_KOREAN,
-        hasRendered: true,
-      }),
-    ).toBe(false);
-  });
-
-  it("결과 0건은 스켈레톤이 아니라 빈 상태로 넘긴다", () => {
-    expect(
-      shouldShowSkeleton({
-        searchStarted: true,
-        isMetaLoading: false,
-        total: 0,
-        hasRendered: false,
-      }),
-    ).toBe(false);
   });
 });

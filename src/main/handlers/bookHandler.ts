@@ -437,13 +437,26 @@ export const seededShuffleOrderSql = (
 };
 
 export const handleGetBooks = async (
-  params: FilterParams & { pageParam?: number; pageSize?: number },
+  params: FilterParams & {
+    pageParam?: number;
+    pageSize?: number;
+    /**
+     * 총 건수 계산을 건너뛴다.
+     *
+     * 가상 스크롤은 목록당 한 번만 총 건수가 필요한데 청크마다 다시 세면
+     * 5만 권 기준으로 호출당 0.02~0.17초를 그냥 버린다(자르기·집계는 각각
+     * 0.002초라 COUNT가 지배적인 고정비다). 켜면 `totalCount`와
+     * `hasNextPage`가 `undefined`가 된다.
+     */
+    skipCount?: boolean;
+  },
 ) => {
   const {
     pageParam = 0,
     pageSize = 50,
     sortBy = "added_at",
     sortOrder = "desc",
+    skipCount = false,
   } = params;
 
   // artists 정렬만 집계 컬럼을 정렬 기준으로 쓴다
@@ -452,8 +465,10 @@ export const handleGetBooks = async (
   });
 
   // 3. 필터가 적용된 상태에서 전체 카운트 계산
-  const totalCountQuery = mainQuery.clone().count("* as count").first();
-  const totalBooks = await totalCountQuery;
+  // 정렬·자르기를 붙이기 전에 clone해야 한다
+  const totalCount = skipCount
+    ? undefined
+    : Number((await mainQuery.clone().count("* as count").first())?.count ?? 0);
 
   // 4. 정렬 및 페이지네이션 적용
   if (sortBy === "random") {
@@ -501,7 +516,11 @@ export const handleGetBooks = async (
 
   return {
     data: formattedBooks,
-    hasNextPage: (pageParam + 1) * pageSize < Number(totalBooks?.count || 0),
+    totalCount,
+    hasNextPage:
+      totalCount === undefined
+        ? undefined
+        : (pageParam + 1) * pageSize < totalCount,
     nextPage: pageParam + 1,
   };
 };

@@ -193,10 +193,17 @@ export interface LibraryScanProgress {
 export interface IpcChannels {
   // Book handlers
   "get-books": {
-    request: FilterParams & { pageParam?: number; pageSize?: number };
+    request: FilterParams & {
+      pageParam?: number;
+      pageSize?: number;
+      /** 총 건수 계산을 건너뛴다. 켜면 totalCount와 hasNextPage가 undefined */
+      skipCount?: boolean;
+    };
     response: {
       data: Book[];
-      hasNextPage: boolean;
+      /** 필터가 적용된 전체 건수. skipCount면 undefined */
+      totalCount: number | undefined;
+      hasNextPage: boolean | undefined;
       nextPage: number;
     };
   };

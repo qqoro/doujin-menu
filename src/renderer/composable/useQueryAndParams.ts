@@ -44,8 +44,23 @@ export function useQueryAndParams<
   defaultOptions?: DefaultOptions<T>;
   queries: T;
   resetQueries?: () => void;
+  /**
+   * 쿼리 없는 주소로 들어왔을 때 상태를 초기화할지 여부. 기본값 true.
+   *
+   * 사이드바 링크는 쿼리 없는 경로(`/library` 등)로 이동시킨다. 그래서
+   * "쿼리가 비었다"는 신호가 두 가지 의미로 겹친다 — 새로 보겠다는 뜻일 수도,
+   * 설정에 잠깐 들렀다 돌아온 것일 수도 있다. 후자에서 상태가 날아가는 게
+   * 문제라 라이브러리는 이 옵션을 false로 두고, 초기화는 명시적인 버튼으로만
+   * 하도록 분리했다.
+   */
+  resetOnEmptyQuery?: boolean;
 }) {
-  const { defaultOptions, queries = {} as T, resetQueries } = options ?? {};
+  const {
+    defaultOptions,
+    queries = {} as T,
+    resetQueries,
+    resetOnEmptyQuery = true,
+  } = options ?? {};
   const route = useRoute();
   const router = useRouter();
 
@@ -171,9 +186,12 @@ export function useQueryAndParams<
 
       isUpdatingFromRoute = true;
 
-      // route.query가 비어있으면 reset 호출
+      // route.query가 비어있으면 reset 호출.
+      // resetOnEmptyQuery가 false면 지금 상태를 그대로 둔다.
       if (Object.keys(newQuery).length === 0) {
-        reset();
+        if (resetOnEmptyQuery) {
+          reset();
+        }
         isUpdatingFromRoute = false;
         return;
       }

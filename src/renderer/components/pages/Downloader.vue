@@ -39,18 +39,20 @@ import {
 import { useSearchPersistence } from "@/composable/useSearchPersistence";
 import {
   CHUNK_SIZE,
-  chunksForRange,
   clampPage,
   computeGridMetrics,
-  computeListCols,
   getOffset,
   getPageCount,
   getShownCount,
   locateNth,
-  shouldShowSkeleton,
   visibleRange,
 } from "@/lib/downloaderVirtual";
-import { listRowEstimate } from "@/lib/galleryCard";
+import {
+  chunksForRange,
+  computeListCols,
+  shouldShowSkeleton,
+} from "@/lib/virtualList";
+import { listRowEstimate } from "@/lib/cardLayout";
 import { useDownloadQueueStore } from "@/store/downloadQueueStore";
 import { useUiStore } from "@/store/uiStore";
 import { Icon } from "@iconify/vue";
@@ -267,6 +269,7 @@ const activeChunks = computed(() => {
   return chunksForRange(
     Math.max(offset.value, range.start),
     Math.min(limit, range.end),
+    CHUNK_SIZE,
   );
 });
 

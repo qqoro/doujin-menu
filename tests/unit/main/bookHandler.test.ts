@@ -998,6 +998,97 @@ describe("handleGetBooks - 통합 테스트", () => {
     });
   });
 
+  // 가상 스크롤은 스크롤러 높이를 잡으려고 첫 청크보다 먼저 총 건수가 필요하고,
+  // 청크마다 COUNT를 다시 돌리면 5만 권에서 호출당 0.02~0.17초를 그냥 버린다.
+  describe("총 건수 (totalCount / skipCount)", () => {
+    it("totalCount가 전체 건수를 반환", async () => {
+      await seedBook(db, { path: "/a" });
+      await seedBook(db, { path: "/b" });
+      await seedBook(db, { path: "/c" });
+
+      const result = await handleGetBooks({ pageSize: 1000 });
+      expect(result.totalCount).toBe(3);
+    });
+
+    it("totalCount는 pageSize와 무관하게 전체 건수", async () => {
+      await seedBook(db, { path: "/a" });
+      await seedBook(db, { path: "/b" });
+      await seedBook(db, { path: "/c" });
+
+      const result = await handleGetBooks({ pageSize: 1, pageParam: 0 });
+      expect(result.data).toHaveLength(1);
+      expect(result.totalCount).toBe(3);
+    });
+
+    it("totalCount는 필터가 적용된 건수", async () => {
+      await seedBook(db, { path: "/a", is_favorite: true });
+      await seedBook(db, { path: "/b", is_favorite: false });
+      await seedBook(db, { path: "/c", is_favorite: false });
+
+      const result = await handleGetBooks({ isFavorite: true, pageSize: 1000 });
+      expect(result.totalCount).toBe(1);
+    });
+
+    it("빈 결과의 totalCount는 0", async () => {
+      const result = await handleGetBooks({ pageSize: 1000 });
+      expect(result.totalCount).toBe(0);
+    });
+
+    it("skipCount=true → totalCount 없음, data는 정상", async () => {
+      await seedBook(db, { path: "/a" });
+      await seedBook(db, { path: "/b" });
+      await seedBook(db, { path: "/c" });
+
+      const result = await handleGetBooks({
+        pageSize: 2,
+        pageParam: 0,
+        skipCount: true,
+      });
+      expect(result.data).toHaveLength(2);
+      expect(result.totalCount).toBeUndefined();
+    });
+
+    it("skipCount=true → hasNextPage도 없음 (총 건수 없이는 계산 불가)", async () => {
+      await seedBook(db, { path: "/a" });
+      await seedBook(db, { path: "/b" });
+
+      const result = await handleGetBooks({
+        pageSize: 1,
+        pageParam: 0,
+        skipCount: true,
+      });
+      expect(result.hasNextPage).toBeUndefined();
+    });
+
+    it("skipCount=true여도 정렬과 offset은 그대로 적용", async () => {
+      const b1 = await seedBook(db, { path: "/a" });
+      const b2 = await seedBook(db, { path: "/b" });
+      const b3 = await seedBook(db, { path: "/c" });
+
+      const result = await handleGetBooks({
+        sortBy: "added_at",
+        sortOrder: "desc",
+        pageSize: 2,
+        pageParam: 1,
+        skipCount: true,
+      });
+      // desc 순서는 b3, b2, b1 이므로 두 번째 페이지는 b1 하나
+      expect(result.data.map((b: { id: number }) => b.id)).toEqual([b1.id]);
+      void b2;
+      void b3;
+    });
+
+    it("skipCount 미지정이면 기존 동작 유지", async () => {
+      await seedBook(db, { path: "/a" });
+      await seedBook(db, { path: "/b" });
+      await seedBook(db, { path: "/c" });
+
+      const result = await handleGetBooks({ pageSize: 2, pageParam: 0 });
+      expect(result.hasNextPage).toBe(true);
+      expect(result.totalCount).toBe(3);
+    });
+  });
+
   describe("페이지네이션", () => {
     it("pageSize=2, pageParam=0 → 2개 + hasNextPage=true", async () => {
       await seedBook(db, { path: "/a" });

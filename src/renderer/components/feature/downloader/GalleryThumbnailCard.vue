@@ -2,11 +2,13 @@
 import ProxiedImage from "@/components/common/ProxiedImage.vue";
 import { Button } from "@/components/ui/button";
 import { useGalleryCard } from "@/composable/useGalleryCard";
-import type { MetaField } from "@/lib/galleryCard";
+import type { CreditPrefix, MetaField } from "@/lib/cardLayout";
+import { buildMetaLine } from "@/lib/galleryCard";
 import { Icon } from "@iconify/vue";
 import type { Gallery } from "node-hitomi";
-import GalleryCredits from "./parts/GalleryCredits.vue";
-import GalleryMetaLine from "./parts/GalleryMetaLine.vue";
+import { computed } from "vue";
+import CreditsLine from "../parts/CreditsLine.vue";
+import MetaLine from "../parts/MetaLine.vue";
 import GalleryStatusBadge from "./parts/GalleryStatusBadge.vue";
 
 interface Props {
@@ -38,6 +40,11 @@ const emit = defineEmits<{
  * `MetaField[]` prop에 대입할 수 없다고 걸립니다. 상수로 빼서 타입을 박습니다.
  */
 const META_FIELDS: MetaField[] = ["pages", "language", "date"];
+
+/** 그리드는 세 줄만 쓰므로 작가만 그립니다 */
+const CREDIT_FIELDS: CreditPrefix[] = ["artist"];
+
+const metaParts = computed(() => buildMetaLine(props.gallery, META_FIELDS));
 
 // composable 사용
 const {
@@ -102,17 +109,13 @@ const {
       >
         {{ props.gallery.title.display }}
       </p>
-      <GalleryCredits
-        compact
+      <CreditsLine
         class="pointer-events-auto mt-0.5 text-[11.5px] opacity-95"
-        :gallery="props.gallery"
-        @copy="copyToClipboard"
+        :credits="props.gallery"
+        :fields="CREDIT_FIELDS"
+        @select="copyToClipboard(`${$event.prefix}:${$event.name}`)"
       />
-      <GalleryMetaLine
-        class="mt-1 opacity-80"
-        :gallery="props.gallery"
-        :fields="META_FIELDS"
-      />
+      <MetaLine class="mt-1 opacity-80" :parts="metaParts" />
     </div>
 
     <!-- 진행률 바. 하단 정보(z-30) 위에 얹혀야 그라디언트에 안 묻힙니다 -->

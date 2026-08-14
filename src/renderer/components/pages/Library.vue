@@ -1,6 +1,26 @@
 <script setup lang="ts">
 import HelpDialog from "@/components/common/HelpDialog.vue";
+import { Badge } from "@/components/ui/badge";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Label } from "@/components/ui/label";
+import { useBookDelete } from "@/composable/useBookDelete";
+import {
+  activeFilters,
+  libraryPathLabel,
+  LIBRARY_FILTER_DEFAULTS,
+  type LibraryFilterState,
+} from "@/lib/libraryFilters";
 import { toggleSearchTerm } from "@/lib/searchQuery";
 import {
   DropdownMenu,
@@ -14,17 +34,22 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { useKeybindings } from "@/composable/useKeybindings";
 import { useQueryAndParams } from "@/composable/useQueryAndParams";
-import { useScrollRestoration } from "@/composable/useScrollRestoration";
+import { useIndexScrollRestoration } from "@/composable/useScrollRestoration";
+import {
+  chunksForRange,
+  computeCols,
+  computeListCols,
+  shouldShowSkeleton,
+  usableGridWidth,
+} from "@/lib/virtualList";
+import { BOOK_ASPECT, listRowEstimate } from "@/lib/cardLayout";
 import { useLibraryScanStore } from "@/store/libraryScanStore";
 import { SORT_CYCLE, SORT_LABELS, nextSortBy } from "@/store/sortCycle";
 import { useUiStore } from "@/store/uiStore";
 import { Icon } from "@iconify/vue";
 import PageHeader from "../layout/PageHeader.vue";
-import {
-  useInfiniteQuery,
-  useQuery,
-  useQueryClient,
-} from "@tanstack/vue-query";
+import { useQueries, useQuery, useQueryClient } from "@tanstack/vue-query";
+import { useVirtualizer } from "@tanstack/vue-virtual";
 import { debouncedRef, debouncedWatch } from "@vueuse/core";
 import {
   computed,
@@ -33,8 +58,8 @@ import {
   onDeactivated,
   onMounted,
   ref,
-  shallowRef,
   toRaw,
+  onUnmounted,
   watch,
 } from "vue";
 import { useRoute, useRouter } from "vue-router";
@@ -61,7 +86,6 @@ const uiStore = useUiStore();
 
 const route = useRoute();
 const router = useRouter();
-const loader = ref(null);
 const searchInputRef = ref<InstanceType<typeof SmartSearchInput> | null>(null);
 
 const showBookDetailDialog = ref(false);
@@ -101,7 +125,37 @@ const { schWord: searchQuery } = useQueryAndParams({
     sortBy: "added_at",
     sortOrder: "desc",
   },
+  // 사이드바로 돌아왔다고 검색·필터를 지우지 않는다. 초기화는 "필터 적용중"
+  // 표시 옆의 버튼으로만 한다
+  resetOnEmptyQuery: false,
 });
+
+// 지금 걸려 있는 검색·필터. 왜 눈에 보여야 하는지는 lib/libraryFilters.ts 참고
+const appliedFilters = computed(() =>
+  activeFilters({
+    searchQuery: searchQuery.value,
+    libraryPath: libraryPath.value,
+    readStatus: readStatus.value,
+    isFavorite: isFavorite.value,
+    offlineStatus: offlineStatus.value,
+  }),
+);
+
+const filterResetters: Record<keyof LibraryFilterState, () => void> = {
+  searchQuery: () => (searchQuery.value = LIBRARY_FILTER_DEFAULTS.searchQuery),
+  libraryPath: () => (libraryPath.value = LIBRARY_FILTER_DEFAULTS.libraryPath),
+  readStatus: () => (readStatus.value = LIBRARY_FILTER_DEFAULTS.readStatus),
+  isFavorite: () => (isFavorite.value = LIBRARY_FILTER_DEFAULTS.isFavorite),
+  offlineStatus: () =>
+    (offlineStatus.value = LIBRARY_FILTER_DEFAULTS.offlineStatus),
+};
+
+// 칩 하나만 해제
+const clearFilter = (key: keyof LibraryFilterState) => filterResetters[key]();
+
+// 걸려 있는 조건 전부 해제
+const clearAllFilters = () =>
+  Object.values(filterResetters).forEach((resetOne) => resetOne());
 
 // 검색어 debounce 적용 (API 호출 최적화)
 const debouncedSearchQuery = debouncedRef(searchQuery, 300);
@@ -127,6 +181,10 @@ const loadSettings = () => {
       sortOrder: "asc" | "desc";
       readStatus: "all" | "read" | "unread";
       viewMode: "grid" | "list";
+      searchQuery?: string;
+      libraryPath?: string;
+      isFavorite?: string;
+      offlineStatus?: "all" | "online" | "offline";
     };
     const query = route.query;
 
@@ -139,6 +197,23 @@ const loadSettings = () => {
     }
     if (!query.readStatus) {
       readStatus.value = settings.readStatus;
+    }
+    // 검색어와 나머지 필터도 복원한다. 구버전 설정에는 없는 값이라 기본값으로 대체
+    if (!query.schWord) {
+      searchQuery.value =
+        settings.searchQuery ?? LIBRARY_FILTER_DEFAULTS.searchQuery;
+    }
+    if (!query.libraryPath) {
+      libraryPath.value =
+        settings.libraryPath ?? LIBRARY_FILTER_DEFAULTS.libraryPath;
+    }
+    if (!query.isFavorite) {
+      isFavorite.value =
+        settings.isFavorite ?? LIBRARY_FILTER_DEFAULTS.isFavorite;
+    }
+    if (!query.offlineStatus) {
+      offlineStatus.value =
+        settings.offlineStatus ?? LIBRARY_FILTER_DEFAULTS.offlineStatus;
     }
     // viewMode는 URL 쿼리에 포함되지 않으므로 항상 설정에서 불러옴
     viewMode.value = settings.viewMode || "grid";
@@ -167,19 +242,31 @@ onDeactivated(() => {
   isSettingsInitialized.value = false;
 });
 
-// keep-alive로 인해 다른 페이지에서 돌아올 때 설정 다시 로드
+// keep-alive로 돌아왔을 때는 설정을 다시 읽지 않는다.
+//
+// 컴포넌트가 살아 있어 화면에 있는 값이 항상 최신이다. 반면 config 저장은
+// 1초 디바운스라, 조건을 바꾸고 곧바로 페이지를 뜨면 저장 전에 나가게 된다.
+// 그 상태에서 돌아올 때 config를 다시 읽으면 방금 바꾼 조건이 옛날 값으로
+// 되돌아간다. 예전에는 쿼리 없는 주소로 돌아올 때마다 상태가 초기화됐기 때문에
+// 여기서 다시 불러오는 게 필요했지만, 이제는 초기화하지 않으므로 불필요하다.
 onActivated(() => {
-  // 설정 저장 방지를 위해 플래그 리셋
-  isSettingsInitialized.value = false;
-  // config가 이미 로드되어 있으면 설정 다시 불러오기
   if (isConfigLoaded.value) {
-    loadSettings();
+    isSettingsInitialized.value = true;
   }
 });
 
 // Watch for filter/sort changes and save them
 debouncedWatch(
-  [sortBy, sortOrder, readStatus, viewMode],
+  [
+    sortBy,
+    sortOrder,
+    readStatus,
+    viewMode,
+    searchQuery,
+    libraryPath,
+    isFavorite,
+    offlineStatus,
+  ],
   async () => {
     // 설정이 초기화되기 전의 변경은 저장하지 않음
     if (!isConfigLoaded.value || !isSettingsInitialized.value) return;
@@ -189,6 +276,10 @@ debouncedWatch(
       sortOrder: sortOrder.value,
       readStatus: readStatus.value,
       viewMode: viewMode.value,
+      searchQuery: searchQuery.value,
+      libraryPath: libraryPath.value,
+      isFavorite: isFavorite.value,
+      offlineStatus: offlineStatus.value,
     };
     await ipcRenderer.invoke("set-config", {
       key: "libraryViewSettings",
@@ -231,33 +322,106 @@ const queryKey = computed(
     ] as const,
 );
 
-const {
-  data,
-  fetchNextPage,
-  hasNextPage,
-  isFetchingNextPage,
-  isLoading,
-  refetch,
-} = useInfiniteQuery({
-  queryKey,
-  queryFn: async ({ pageParam = 0 }) => {
+/** 청크 하나에 담는 책 수. 기존 get-books pageSize와 같다 */
+const CHUNK_SIZE = 50;
+
+// ── 총 건수 ─────────────────────────────────────────────────────────
+// 스크롤러 전체 높이를 잡으려면 청크가 하나라도 오기 전에 총 건수가 필요하다.
+// 1건만 요청해 totalCount만 확보한다.
+//
+// **첫 청크 응답의 totalCount를 재사용하지 않는다.** 필터가 바뀌면 모든 청크가
+// 새 키가 되어 총 건수가 잠시 비고, 그때 높이를 잡던 스페이서가 무너진다.
+const { data: metaData, isLoading: isMetaLoading } = useQuery({
+  queryKey: computed(() => ["books-meta", queryKey.value[1]] as const),
+  queryFn: async () => {
     const result = await ipcRenderer.invoke("get-books", {
-      pageParam,
-      pageSize: 50,
+      pageParam: 0,
+      pageSize: 1,
       ...queryKey.value[1],
     });
-    return result;
+    return { total: result.totalCount ?? 0 };
   },
-  getNextPageParam: (lastPage) => {
-    return lastPage.hasNextPage ? lastPage.nextPage : undefined;
-  },
-  initialPageParam: 0,
-  refetchOnWindowFocus: false, // 윈도우 포커스 시 재조회 방지
-  refetchOnMount: false, // 컴포넌트 마운트 시 재조회 방지
+  staleTime: 5 * 60 * 1000,
+  gcTime: 10 * 60 * 1000,
+  refetchOnWindowFocus: false,
 });
 
-const books = computed(
-  () => data.value?.pages.flatMap((page) => page.data) ?? [],
+const totalCount = computed(() => metaData.value?.total ?? 0);
+
+// ── 청크 페칭 ───────────────────────────────────────────────────────
+// 보이는 절대 인덱스 범위를 50개 단위로 나눠 필요한 것만 조회한다.
+// 다운로더와 달리 generation도 committedSearch도 필요 없다. 로컬 DB라 좌표계가
+// 흔들리지 않고, 검색은 이미 300ms 디바운스로 자동 반영이 정상 동작이다.
+const visibleAbsRange = ref<{ start: number; end: number } | null>(null);
+
+const activeChunks = computed(() => {
+  if (totalCount.value === 0) return [];
+
+  // 가상 스크롤러가 아직 범위를 못 정한 초기 상태에서는 첫 청크를 쓴다
+  const range = visibleAbsRange.value ?? { start: 0, end: CHUNK_SIZE - 1 };
+  return chunksForRange(
+    Math.max(0, range.start),
+    Math.min(totalCount.value - 1, range.end),
+    CHUNK_SIZE,
+  );
+});
+
+const chunkQueries = useQueries({
+  queries: computed(() =>
+    activeChunks.value.map((chunkIndex) => ({
+      queryKey: ["books", queryKey.value[1], chunkIndex] as const,
+      queryFn: async () => {
+        const result = await ipcRenderer.invoke("get-books", {
+          pageParam: chunkIndex,
+          pageSize: CHUNK_SIZE,
+          skipCount: true, // 총 건수는 메타 쿼리가 이미 갖고 있다
+          ...queryKey.value[1],
+        });
+        return { chunkIndex, books: (result.data ?? []) as Book[] };
+      },
+      // 기본값(staleTime 0)이면 청크가 화면에 다시 들어올 때마다 백그라운드
+      // refetch가 돈다. 위아래로 10회만 왕복해도 수백 번의 IPC가 된다.
+      staleTime: 5 * 60 * 1000,
+      gcTime: 10 * 60 * 1000,
+      refetchOnWindowFocus: false,
+    })),
+  ),
+});
+
+/** 절대 인덱스 → 책. 아직 안 온 자리는 undefined */
+const loadedBooks = computed(() => {
+  const map = new Map<number, Book>();
+  for (const q of chunkQueries.value) {
+    const data = q.data;
+    if (!data) continue;
+    data.books.forEach((book, i) => {
+      map.set(data.chunkIndex * CHUNK_SIZE + i, book);
+    });
+  }
+  return map;
+});
+
+const itemAt = (index: number) => loadedBooks.value.get(index);
+
+/** 화면에 실제로 그려진 적이 있는지. 전체 스켈레톤을 첫 렌더 전까지만 쓰려고 본다 */
+const hasRendered = ref(false);
+watch(loadedBooks, (map) => {
+  if (map.size > 0) hasRendered.value = true;
+});
+watch(
+  () => queryKey.value[1],
+  () => {
+    hasRendered.value = false;
+  },
+);
+
+const isLoading = computed(() =>
+  shouldShowSkeleton({
+    searchStarted: true,
+    isMetaLoading: isMetaLoading.value,
+    total: totalCount.value,
+    hasRendered: hasRendered.value,
+  }),
 );
 
 onMounted(() => {
@@ -265,32 +429,12 @@ onMounted(() => {
   const libraryScanStore = useLibraryScanStore();
   libraryScanStore.initialize();
 
-  ipcRenderer.on("books-updated", () =>
-    queryClient.invalidateQueries({ queryKey: ["books"] }),
-  );
-});
-
-// keep-alive로 캐시된 컴포넌트가 활성화될 때 쿼리 다시 불러오기
-onActivated(() => {
-  refetch();
-});
-
-const observer = shallowRef<IntersectionObserver>();
-watch(loader, (newLoaderEl) => {
-  observer.value?.disconnect();
-  observer.value = new IntersectionObserver((entries) => {
-    if (
-      entries[0].isIntersecting &&
-      hasNextPage.value &&
-      !isFetchingNextPage.value
-    ) {
-      fetchNextPage();
-    }
+  // 프리픽스 무효화라 마운트된 청크만 즉시 다시 받고 나머지는 stale 표시만 된다.
+  // "보이는 구간만 다시 받기 + 스크롤 위치 유지"가 여기서 나온다.
+  ipcRenderer.on("books-updated", () => {
+    queryClient.invalidateQueries({ queryKey: ["books"] });
+    queryClient.invalidateQueries({ queryKey: ["books-meta"] });
   });
-
-  if (newLoaderEl) {
-    observer.value.observe(newLoaderEl);
-  }
 });
 
 // 메타데이터 칩 클릭은 전부 "검색어에서 해당 항목을 켜고 끄기"로 같다
@@ -379,7 +523,7 @@ const cycleLibrary = (direction: 1 | -1) => {
   toast.info(
     libraryPath.value === "all"
       ? "모든 라이브러리"
-      : libraryPath.value.split(/[/\\]/).pop() || libraryPath.value,
+      : libraryPathLabel(libraryPath.value),
   );
 };
 
@@ -465,8 +609,6 @@ useKeybindings("library", {
 });
 
 // Ctrl+Wheel로 썸네일 줌 조절
-const gridRef = ref<HTMLElement | null>(null);
-
 const handleGridWheel = (event: WheelEvent) => {
   if (!event.ctrlKey) return;
   event.preventDefault();
@@ -477,14 +619,179 @@ const handleGridWheel = (event: WheelEvent) => {
   }
 };
 
-// 썸네일 그리드 스타일 (줌 + auto-fill로 카드 자체가 작아짐)
-const gridStyle = computed(() => ({
-  zoom: uiStore.thumbnailZoom,
-  gridTemplateColumns: "repeat(auto-fill, minmax(184px, 1fr))",
-}));
+// ── 가상 스크롤 ─────────────────────────────────────────────────────
+//
+// ⚠️ DOM 계층을 바꾸지 마세요.
+//
+//   .library-scroller   ← overflow-y:auto, zoom 없음. scrollTop은 실제 px
+//     └ .vspace         ← 총 높이 스페이서. zoom 없음
+//         └ .row        ← 측정 대상. zoom 없음. top = virtualRow.start
+//             └ .zoomed ← style="zoom: z". 카드만 이 안에
+//
+// **다운로더와 zoom 위치가 반대입니다.** 다운로더 그리드는 행 전체를 zoom 안에
+// 두는데, 라이브러리는 행 높이를 실측해야 해서 그럴 수 없습니다. zoom 아래에서는
+// measureElement가 보는 borderBoxSize(레이아웃 px)와 getBoundingClientRect(실제 px)가
+// 1/z만큼 어긋나기 때문입니다. 행을 zoom 바깥에 두면 행 높이가 실제 px로 나오고
+// virtualizer의 좌표계(실제 px)와 맞습니다.
+const scrollerRef = ref<HTMLElement | null>(null);
+const scrollerWidth = ref(0);
 
-// 스크롤 위치 복원
-useScrollRestoration(".flex-grow.overflow-y-auto");
+const GRID_PADDING = 0; // 스크롤러에 좌우 패딩 없음
+const GRID_GAP = 12; // gap-3
+const MIN_CARD_WIDTH = 184; // minmax(184px, 1fr)
+const LIST_GAP = 8; // 리스트 카드 사이 간격 (pb-2와 맞춘다)
+const MIN_LIST_CARD_WIDTH = 560;
+
+const gridCols = computed(() =>
+  computeCols(
+    scrollerWidth.value,
+    uiStore.thumbnailZoom,
+    GRID_PADDING,
+    GRID_GAP,
+    MIN_CARD_WIDTH,
+  ),
+);
+
+const listCols = computed(() =>
+  computeListCols(
+    scrollerWidth.value,
+    uiStore.thumbnailZoom,
+    GRID_PADDING,
+    LIST_GAP,
+    MIN_LIST_CARD_WIDTH,
+  ),
+);
+
+const activeCols = computed(() =>
+  viewMode.value === "grid" ? gridCols.value : listCols.value,
+);
+
+/**
+ * 그리드 행의 추정 높이.
+ *
+ * 카드가 표지 한 장(2:3)에 정보를 오버레이로 얹는 형태라 **높이가 폭으로
+ * 확정된다.** 그래서 고정값 대신 계산한다. `usableGridWidth`는 zoom 안쪽 단위
+ * 공간을 주는데 행 래퍼는 zoom 바깥에 있으므로 다시 곱해 실제 px로 되돌린다.
+ */
+const gridRowEstimate = computed(() => {
+  const cols = Math.max(1, gridCols.value);
+  const unitWidth =
+    (usableGridWidth(scrollerWidth.value, uiStore.thumbnailZoom, GRID_PADDING) -
+      GRID_GAP * (cols - 1)) /
+    cols;
+  if (unitWidth <= 0) return 300;
+  return (unitWidth * BOOK_ASPECT + GRID_GAP) * uiStore.thumbnailZoom;
+});
+
+const rowCount = computed(() =>
+  Math.ceil(totalCount.value / Math.max(1, activeCols.value)),
+);
+
+const gridVirtualizer = useVirtualizer(
+  computed(() => ({
+    count: viewMode.value === "grid" ? rowCount.value : 0,
+    getScrollElement: () => scrollerRef.value,
+    estimateSize: () => gridRowEstimate.value,
+    overscan: 2,
+  })),
+);
+
+const listVirtualizer = useVirtualizer(
+  computed(() => ({
+    count: viewMode.value === "list" ? rowCount.value : 0,
+    getScrollElement: () => scrollerRef.value,
+    // 리스트 썸네일이 줌을 따라가므로 추정 높이도 같이 움직여야 한다.
+    // 고정값이면 최소 줌에서 스크롤바가 실제보다 세 배 길어진다
+    estimateSize: () => listRowEstimate(uiStore.thumbnailZoom, BOOK_ASPECT),
+    overscan: 3,
+  })),
+);
+
+/**
+ * 지금 쓰는 virtualizer.
+ *
+ * **⚠️ 절대 computed로 만들지 마세요.** vue-virtual은 스크롤할 때마다
+ * `onChange`에서 `triggerRef(state)`로 알리는데, Vue 3.4부터 computed는
+ * 재계산 결과가 이전과 같으면 하류로 알림을 전파하지 않습니다. 여기는 늘 같은
+ * 인스턴스를 반환하므로 computed로 두면 스크롤 알림이 전부 흡수되어 파생
+ * computed가 첫 계산값에서 영원히 멈춥니다.
+ */
+const getActiveVirtualizer = () =>
+  viewMode.value === "grid" ? gridVirtualizer.value : listVirtualizer.value;
+
+const totalSize = computed(() => getActiveVirtualizer()?.getTotalSize() ?? 0);
+
+/** 보이는 절대 인덱스 범위. 청크 조회 대상을 정한다 (overscan 포함) */
+const updateVisibleRange = () => {
+  const virtualizer = getActiveVirtualizer();
+  if (!virtualizer || totalCount.value === 0) return;
+
+  const items = virtualizer.getVirtualItems();
+  if (items.length === 0) return;
+
+  const lanes = Math.max(1, activeCols.value);
+  const start = items[0].index * lanes;
+  const end = Math.min(
+    (items[items.length - 1].index + 1) * lanes - 1,
+    totalCount.value - 1,
+  );
+
+  const prev = visibleAbsRange.value;
+  if (prev && prev.start === start && prev.end === end) return;
+  visibleAbsRange.value = { start, end };
+};
+
+watch(
+  () => [
+    getActiveVirtualizer()?.getVirtualItems().length,
+    getActiveVirtualizer()?.range?.startIndex,
+    totalCount.value,
+    activeCols.value,
+  ],
+  updateVisibleRange,
+  { immediate: true },
+);
+
+// 폭이 바뀌면 열 수가 바뀌고 행 수도 바뀐다
+let resizeObserver: ResizeObserver | null = null;
+watch(scrollerRef, (el) => {
+  resizeObserver?.disconnect();
+  if (!el) return;
+  scrollerWidth.value = el.clientWidth;
+  resizeObserver = new ResizeObserver(() => {
+    scrollerWidth.value = el.clientWidth;
+  });
+  resizeObserver.observe(el);
+});
+onUnmounted(() => resizeObserver?.disconnect());
+
+// 삭제 다이얼로그는 페이지가 하나만 들고 있는다. 카드가 각자 들고 있으면
+// 다이얼로그를 연 채 스크롤해 카드가 언마운트될 때 같이 사라진다.
+const {
+  isOpen: isDeleteDialogOpen,
+  target: deleteTarget,
+  permanentDelete,
+  requestDelete: handleRequestDelete,
+  confirmDelete: confirmDeleteBook,
+} = useBookDelete();
+
+// 스크롤 위치 복원. 픽셀 저장은 가상 스크롤에서 못 쓴다 — 열 수가 창 너비와
+// 줌의 함수라, 다른 화면에 있는 동안 리사이즈하면 같은 픽셀이 다른 책을 가리킨다.
+useIndexScrollRestoration({
+  capture: () => {
+    const virtualizer = getActiveVirtualizer();
+    const startIndex = virtualizer?.range?.startIndex;
+    if (startIndex === undefined) return null;
+    return { index: startIndex * Math.max(1, activeCols.value), page: 0 };
+  },
+  ready: () => totalCount.value > 0 && !!getActiveVirtualizer(),
+  restore: (saved) => {
+    const lanes = Math.max(1, activeCols.value);
+    getActiveVirtualizer()?.scrollToIndex(Math.floor(saved.index / lanes), {
+      align: "start",
+    });
+  },
+});
 </script>
 
 <template>
@@ -557,6 +864,11 @@ useScrollRestoration(".flex-grow.overflow-y-auto");
                 <li>
                   뷰어에서 이전/다음 책으로 이동 시, 라이브러리 화면에서
                   적용했던 검색 및 필터 조건이 유지됩니다.
+                </li>
+                <li>
+                  검색과 필터는 앱을 껐다 켜도 유지됩니다. 지금 걸려 있는 조건은
+                  검색창 아래에 표시되며, 조건을 클릭하면 그것만,
+                  <strong>전체 해제</strong>를 누르면 한 번에 풀 수 있습니다.
                 </li>
                 <li>
                   <Icon
@@ -770,7 +1082,7 @@ useScrollRestoration(".flex-grow.overflow-y-auto");
         </div>
         <Button
           variant="outline"
-          :disabled="books.length === 0"
+          :disabled="totalCount === 0"
           @click="openRandomBookFromCurrentView"
         >
           <Icon icon="solar:rocket-bold-duotone" class="h-4 w-4" />
@@ -842,110 +1154,190 @@ useScrollRestoration(".flex-grow.overflow-y-auto");
         </DropdownMenu>
       </div>
 
+      <!-- 필터 적용중 표시.
+           검색·필터가 앱을 껐다 켜도 유지되기 때문에, 지금 무엇이 걸려 있는지
+           보이지 않으면 "책이 사라졌다"는 오해를 산다. 칩을 누르면 그 조건만,
+           전체 해제를 누르면 한 번에 풀린다 -->
       <div
-        v-if="isLoading"
-        class="flex flex-grow flex-col items-center justify-center text-center"
+        v-if="appliedFilters.length > 0"
+        class="text-muted-foreground flex flex-wrap items-center gap-2 text-sm"
       >
-        <div
-          class="text-muted-foreground mb-4 flex flex-col items-center justify-center gap-2 text-lg"
+        <span class="shrink-0">필터 적용중</span>
+        <Badge
+          v-for="filter in appliedFilters"
+          :key="filter.key"
+          variant="secondary"
+          role="button"
+          class="max-w-xs cursor-pointer gap-1"
+          :title="`${filter.label} 해제`"
+          @click="clearFilter(filter.key)"
         >
-          <Icon icon="svg-spinners:ring-resize" class="size-8" />
-          <p>로딩중...</p>
-        </div>
+          <span class="truncate">{{ filter.label }}</span>
+          <Icon
+            icon="solar:close-circle-bold-duotone"
+            class="h-3.5 w-3.5 shrink-0"
+          />
+        </Badge>
+        <Button variant="ghost" size="sm" class="h-7" @click="clearAllFilters">
+          전체 해제
+        </Button>
       </div>
-      <!-- Grid View -->
+
+      <!-- 목록 (가상 스크롤)
+           ⚠️ 스크롤러는 항상 마운트해야 합니다. 조건부로 두면 virtualizer가
+           초기화 시점에 스크롤 요소를 못 잡아 행이 하나도 안 그려집니다.
+           ⚠️ .vspace는 zoom 바깥, 카드만 행 안쪽 .zoomed에 들어갑니다.
+           행을 zoom 안으로 옮기면 measureElement가 1/z만큼 어긋납니다 -->
       <div
-        v-else-if="books.length > 0 && viewMode === 'grid'"
-        ref="gridRef"
-        class="grid flex-grow items-start gap-3 overflow-y-auto"
-        :style="gridStyle"
+        ref="scrollerRef"
+        class="library-scroller relative min-h-0 flex-grow overflow-y-auto"
         @wheel="handleGridWheel"
-      >
-        <BookCard
-          v-for="book in books"
-          :key="book.id"
-          :book="book"
-          :query-key="queryKey"
-          :hide-tags="hideLibraryTags"
-          :external-image-viewer-path="config?.externalImageViewerPath"
-          :external-archive-viewer-path="config?.externalArchiveViewerPath"
-          @select-tag="toggleTag"
-          @exclude-tag="excludeTag"
-          @select-artist="toggleArtist"
-          @select-group="toggleGroup"
-          @toggle-favorite="handleToggleFavorite"
-          @open-book-folder="handleOpenFolder"
-          @show-details="handleShowDetails"
-          @show-preview="handleShowPreview"
-        />
-        <div
-          v-if="hasNextPage"
-          ref="loader"
-          class="col-span-full p-4 text-center"
-        >
-          <Button :disabled="isFetchingNextPage" @click="fetchNextPage">
-            <Icon v-if="isFetchingNextPage" icon="svg-spinners:ring-resize" />
-            <span>더 불러오기</span>
-          </Button>
-        </div>
-      </div>
-      <!-- List View -->
-      <div
-        v-else-if="books.length > 0 && viewMode === 'list'"
-        class="flex flex-grow flex-col overflow-y-auto"
-      >
-        <BookRowCard
-          v-for="book in books"
-          :key="book.id"
-          :book="book"
-          :query-key="queryKey"
-          :hide-tags="hideLibraryTags"
-          @select-tag="toggleTag"
-          @exclude-tag="excludeTag"
-          @select-artist="toggleArtist"
-          @select-group="toggleGroup"
-          @select-series="toggleSeries"
-          @select-character="toggleCharacter"
-          @toggle-favorite="handleToggleFavorite"
-          @open-book-folder="handleOpenFolder"
-          @show-details="handleShowDetails"
-          @show-preview="handleShowPreview"
-        />
-        <div v-if="hasNextPage" ref="loader" class="p-4 text-center">
-          <Button :disabled="isFetchingNextPage" @click="fetchNextPage">
-            <Icon v-if="isFetchingNextPage" icon="svg-spinners:ring-resize" />
-            <span>더 불러오기</span>
-          </Button>
-        </div>
-      </div>
-      <div
-        v-else-if="searchQuery.trim().length > 0"
-        class="flex flex-grow flex-col items-center justify-center text-center"
+        @scroll="updateVisibleRange"
       >
         <div
-          class="text-muted-foreground mb-4 flex flex-col items-center justify-center gap-2 text-lg"
+          v-if="isLoading"
+          class="flex h-full flex-col items-center justify-center text-center"
         >
-          <p>검색된 데이터가 없습니다.</p>
+          <div
+            class="text-muted-foreground mb-4 flex flex-col items-center justify-center gap-2 text-lg"
+          >
+            <Icon icon="svg-spinners:ring-resize" class="size-8" />
+            <p>로딩중...</p>
+          </div>
         </div>
-      </div>
-      <div
-        v-else
-        class="flex flex-grow flex-col items-center justify-center text-center"
-      >
         <div
-          class="text-muted-foreground mb-4 flex flex-col items-center justify-center text-lg"
+          v-else-if="totalCount > 0"
+          class="vspace relative w-full"
+          :style="{ height: `${totalSize}px` }"
         >
-          <p>등록된 라이브러리/책이 없습니다.</p>
-          <p class="flex items-center justify-center gap-1">
-            <Button
-              variant="secondary"
-              size="icon"
-              @click="router.push('/settings?tab=library')"
+          <!-- 그리드 -->
+          <template v-if="viewMode === 'grid'">
+            <div
+              v-for="row in gridVirtualizer?.getVirtualItems() ?? []"
+              :key="row.index"
+              :ref="(el) => gridVirtualizer?.measureElement(el as Element)"
+              :data-index="row.index"
+              class="absolute inset-x-0 top-0"
+              :style="{ transform: `translateY(${row.start}px)` }"
             >
-              <Icon icon="solar:settings-bold-duotone" class="h-5 w-5" />
-            </Button>
-            <span>버튼을 눌러 설정화면으로 이동하세요.</span>
-          </p>
+              <div
+                class="zoomed grid items-start"
+                :style="{
+                  zoom: uiStore.thumbnailZoom,
+                  gridTemplateColumns: `repeat(${gridCols}, minmax(0, 1fr))`,
+                  gap: `${GRID_GAP}px`,
+                  paddingBottom: `${GRID_GAP}px`,
+                }"
+              >
+                <template v-for="col in gridCols" :key="`${row.index}-${col}`">
+                  <BookCard
+                    v-if="itemAt(row.index * gridCols + col - 1)"
+                    :book="itemAt(row.index * gridCols + col - 1)!"
+                    :query-key="queryKey"
+                    :hide-tags="hideLibraryTags"
+                    :external-image-viewer-path="
+                      config?.externalImageViewerPath
+                    "
+                    :external-archive-viewer-path="
+                      config?.externalArchiveViewerPath
+                    "
+                    @select-tag="toggleTag"
+                    @exclude-tag="excludeTag"
+                    @select-artist="toggleArtist"
+                    @select-group="toggleGroup"
+                    @toggle-favorite="handleToggleFavorite"
+                    @open-book-folder="handleOpenFolder"
+                    @show-details="handleShowDetails"
+                    @show-preview="handleShowPreview"
+                    @request-delete="handleRequestDelete"
+                  />
+                  <!-- 아직 청크가 안 온 자리. 높이를 잡아둬야 행이 안 무너집니다 -->
+                  <div
+                    v-else-if="row.index * gridCols + col - 1 < totalCount"
+                    class="bg-muted aspect-[2/3] animate-pulse rounded-lg"
+                  ></div>
+                </template>
+              </div>
+            </div>
+          </template>
+
+          <!-- 리스트 -->
+          <template v-else>
+            <div
+              v-for="row in listVirtualizer?.getVirtualItems() ?? []"
+              :key="row.index"
+              :ref="(el) => listVirtualizer?.measureElement(el as Element)"
+              :data-index="row.index"
+              class="absolute inset-x-0 top-0 grid pb-2"
+              :style="{
+                transform: `translateY(${row.start}px)`,
+                gridTemplateColumns: `repeat(${listCols}, minmax(0, 1fr))`,
+                gap: `${LIST_GAP}px`,
+              }"
+            >
+              <template v-for="col in listCols" :key="`${row.index}-${col}`">
+                <BookRowCard
+                  v-if="itemAt(row.index * listCols + col - 1)"
+                  :book="itemAt(row.index * listCols + col - 1)!"
+                  :query-key="queryKey"
+                  :hide-tags="hideLibraryTags"
+                  :external-image-viewer-path="config?.externalImageViewerPath"
+                  :external-archive-viewer-path="
+                    config?.externalArchiveViewerPath
+                  "
+                  @select-tag="toggleTag"
+                  @exclude-tag="excludeTag"
+                  @select-artist="toggleArtist"
+                  @select-group="toggleGroup"
+                  @select-series="toggleSeries"
+                  @select-character="toggleCharacter"
+                  @toggle-favorite="handleToggleFavorite"
+                  @open-book-folder="handleOpenFolder"
+                  @show-details="handleShowDetails"
+                  @show-preview="handleShowPreview"
+                  @request-delete="handleRequestDelete"
+                />
+                <!-- 아직 청크가 안 온 자리. 카드와 같은 껍데기로 둔다 -->
+                <div
+                  v-else-if="row.index * listCols + col - 1 < totalCount"
+                  class="bg-muted animate-pulse rounded-lg border"
+                  :style="{
+                    height: `${listRowEstimate(uiStore.thumbnailZoom, BOOK_ASPECT) - LIST_GAP}px`,
+                  }"
+                ></div>
+              </template>
+            </div>
+          </template>
+        </div>
+        <div
+          v-else-if="searchQuery.trim().length > 0"
+          class="flex h-full flex-col items-center justify-center text-center"
+        >
+          <div
+            class="text-muted-foreground mb-4 flex flex-col items-center justify-center gap-2 text-lg"
+          >
+            <p>검색된 데이터가 없습니다.</p>
+          </div>
+        </div>
+        <div
+          v-else
+          class="flex h-full flex-col items-center justify-center text-center"
+        >
+          <div
+            class="text-muted-foreground mb-4 flex flex-col items-center justify-center text-lg"
+          >
+            <p>등록된 라이브러리/책이 없습니다.</p>
+            <p class="flex items-center justify-center gap-1">
+              <Button
+                variant="secondary"
+                size="icon"
+                @click="router.push('/settings?tab=library')"
+              >
+                <Icon icon="solar:settings-bold-duotone" class="h-5 w-5" />
+              </Button>
+              <span>버튼을 눌러 설정화면으로 이동하세요.</span>
+            </p>
+          </div>
         </div>
       </div>
     </div>
@@ -962,5 +1354,35 @@ useScrollRestoration(".flex-grow.overflow-y-auto");
       :book="previewBook"
       @update:open="showBookPreviewDialog = $event"
     />
+
+    <!-- 삭제 확인 다이얼로그 (카드가 아니라 페이지가 들고 있다) -->
+    <AlertDialog
+      :open="isDeleteDialogOpen"
+      @update:open="isDeleteDialogOpen = $event"
+    >
+      <AlertDialogContent>
+        <AlertDialogHeader>
+          <AlertDialogTitle>책을 삭제하시겠습니까?</AlertDialogTitle>
+          <AlertDialogDescription>
+            {{
+              permanentDelete
+                ? "데이터베이스에서 책 정보가 삭제되고, 파일이 영구적으로 삭제됩니다."
+                : "데이터베이스에서 책 정보가 삭제되고, 파일은 휴지통으로 이동합니다."
+            }}
+          </AlertDialogDescription>
+        </AlertDialogHeader>
+        <p v-if="deleteTarget" class="truncate text-sm font-medium">
+          {{ deleteTarget.title }}
+        </p>
+        <Label class="flex cursor-pointer items-center gap-2 font-normal">
+          <Checkbox v-model="permanentDelete" />
+          휴지통을 거치지 않고 영구 삭제
+        </Label>
+        <AlertDialogFooter>
+          <AlertDialogCancel>취소</AlertDialogCancel>
+          <AlertDialogAction @click="confirmDeleteBook">삭제</AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
   </div>
 </template>

@@ -14,6 +14,17 @@ export interface LibraryViewSettings {
   sortOrder: "asc" | "desc";
   readStatus: "all" | "read" | "unread";
   viewMode: "grid" | "list";
+  // 아래 항목은 앱을 껐다 켜도 마지막 검색·필터 상태를 그대로 되살리기 위한 것.
+  // 구버전 설정 파일에는 없으므로 optional이며, 없으면 기본값으로 시작한다.
+  searchQuery?: string;
+  libraryPath?: string;
+  isFavorite?: string;
+  offlineStatus?: "all" | "online" | "offline";
+}
+
+// 읽음 기록 뷰 설정 타입
+export interface HistoryViewSettings {
+  viewMode: "grid" | "list";
 }
 
 // 시리즈 감지 설정 타입
@@ -49,6 +60,7 @@ export interface Config {
   downloaderPopularity?: "" | "day" | "week" | "month" | "year"; // 인기 작품만 필터
   capitalizeNames?: boolean; // 작가·그룹명 첫 글자 대문자 변환
   libraryViewSettings?: LibraryViewSettings;
+  historyViewSettings?: HistoryViewSettings;
   seriesDetectionSettings?: SeriesDetectionSettings;
   seriesViewSettings?: SeriesViewSettings;
   prioritizeKoreanTitles?: boolean;
@@ -98,10 +110,17 @@ const defaults: Config = {
     sortOrder: "desc",
     readStatus: "all",
     viewMode: "grid",
+    searchQuery: "",
+    libraryPath: "all",
+    isFavorite: "all",
+    offlineStatus: "all",
   },
   seriesDetectionSettings: {
     minConfidence: 0.7,
     minBooks: 2,
+  },
+  historyViewSettings: {
+    viewMode: "grid",
   },
   seriesViewSettings: {
     sortBy: "name",

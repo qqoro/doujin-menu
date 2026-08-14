@@ -3,14 +3,15 @@ import ProxiedImage from "@/components/common/ProxiedImage.vue";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { useGalleryCard } from "@/composable/useGalleryCard";
-import type { MetaField } from "@/lib/galleryCard";
-import { listThumbnailSize } from "@/lib/galleryCard";
+import type { MetaField } from "@/lib/cardLayout";
+import { listThumbnailSize } from "@/lib/cardLayout";
+import { buildMetaLine } from "@/lib/galleryCard";
 import { useUiStore } from "@/store/uiStore";
 import { Icon } from "@iconify/vue";
 import type { Gallery } from "node-hitomi";
 import { computed } from "vue";
-import GalleryCredits from "./parts/GalleryCredits.vue";
-import GalleryMetaLine from "./parts/GalleryMetaLine.vue";
+import CreditsLine from "../parts/CreditsLine.vue";
+import MetaLine from "../parts/MetaLine.vue";
 import GalleryStatusBadge from "./parts/GalleryStatusBadge.vue";
 
 interface Props {
@@ -44,6 +45,8 @@ const uiStore = useUiStore();
  * `MetaField[]` prop에 대입할 수 없다고 걸립니다. 상수로 빼서 타입을 박습니다.
  */
 const META_FIELDS: MetaField[] = ["pages", "type", "language", "date", "id"];
+
+const metaParts = computed(() => buildMetaLine(props.gallery, META_FIELDS));
 
 /**
  * 썸네일 px 치수.
@@ -109,21 +112,22 @@ const tagTerm = (type: string, name: string) =>
         {{ props.gallery.title.display }}
       </h3>
 
-      <GalleryMetaLine
+      <MetaLine
         class="text-muted-foreground"
         interactive
-        :gallery="props.gallery"
-        :fields="META_FIELDS"
-        @copy-id="copyToClipboard(`id:${$event}`)"
-        @copy-url="
-          copyToClipboard(`https://hitomi.la/galleries/${$event}.html`)
+        :parts="metaParts"
+        @select="copyToClipboard(`id:${props.gallery.id}`)"
+        @context="
+          copyToClipboard(
+            `https://hitomi.la/galleries/${props.gallery.id}.html`,
+          )
         "
       />
 
-      <GalleryCredits
+      <CreditsLine
         class="text-muted-foreground text-[12.5px]"
-        :gallery="props.gallery"
-        @copy="copyToClipboard"
+        :credits="props.gallery"
+        @select="copyToClipboard(`${$event.prefix}:${$event.name}`)"
       />
 
       <!-- 태그는 전부 보여줍니다. 성별 태그만 색으로 구분합니다 -->

@@ -1,34 +1,18 @@
 <script setup lang="ts">
-import * as api from "@/api";
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@/components/ui/alert-dialog";
 import { Badge, LightBadge } from "@/components/ui/badge";
-import { CardContent, CardFooter, LightCard } from "@/components/ui/card";
-import { Checkbox } from "@/components/ui/checkbox";
-import { Label } from "@/components/ui/label";
-import {
-  ContextMenu,
-  ContextMenuContent,
-  ContextMenuItem,
-  ContextMenuTrigger,
-} from "@/components/ui/context-menu"; // ContextMenu 관련 컴포넌트 임포트
-import { Icon } from "@iconify/vue";
-import { useQueryClient } from "@tanstack/vue-query";
-import { computed, ref, toRaw } from "vue";
-import { useRouter } from "vue-router";
-import { toast } from "vue-sonner";
-import ContextMenuSeparator from "../ui/context-menu/ContextMenuSeparator.vue";
-import { usePermanentDelete } from "@/composable/usePermanentDelete";
+import { Button } from "@/components/ui/button";
+import { ContextMenu, ContextMenuTrigger } from "@/components/ui/context-menu";
+import { useBookCard } from "@/composable/useBookCard";
 import { useTagDisplay } from "@/composable/useTagDisplay";
+import { buildBookMetaLine } from "@/lib/bookCard";
+import type { CreditPrefix, MetaField } from "@/lib/cardLayout";
+import { Icon } from "@iconify/vue";
+import { computed, ref } from "vue";
 import type { Book } from "../../../types/ipc";
+import BookCardMenu from "./parts/BookCardMenu.vue";
+import BookCardMenuButton from "./parts/BookCardMenuButton.vue";
+import CreditsLine from "./parts/CreditsLine.vue";
+import MetaLine from "./parts/MetaLine.vue";
 
 const props = defineProps<{
   book: Book;
@@ -46,252 +30,118 @@ const emit = defineEmits([
   "open-book-folder",
   "show-details",
   "show-preview",
+  "request-delete",
 ]);
 
-const router = useRouter();
 const { getTagDisplayInfo } = useTagDisplay();
 
-const viewerLink = computed(() => ({
-  name: "Viewer",
-  params: { id: props.book.id },
-  query: {
-    filter: JSON.stringify(toRaw(props.queryKey[1])),
-  },
-}));
+/**
+ * 템플릿에 배열 리터럴을 직접 쓰면 vue-tsc가 `string[]`로 추론해 `MetaField[]`
+ * prop에 대입할 수 없다고 걸린다. 상수로 빼서 타입을 박는다.
+ */
+const META_FIELDS: MetaField[] = ["pages", "type", "language"];
 
-// 오프라인 상태 여부 (라이브러리 폴더 접근 불가)
-const isOffline = computed(() => !!props.book.is_offline);
+/** 오버레이는 줄 수가 정해져 있어 작가·그룹까지만 그린다 */
+const CREDIT_FIELDS: CreditPrefix[] = ["artist", "group"];
 
-// 오프라인 책 열람 시도 시 안내 토스트
-const showOfflineToast = () => {
-  toast.warning("라이브러리 폴더에 접근할 수 없습니다.", {
-    description: "해당 폴더에 접근할 수 있는지 확인한 후 다시 스캔해 주세요.",
-  });
-};
+const {
+  isOffline,
+  openInNewWindow,
+  handleCardClick,
+  coverUrl,
+  credits,
+  toggleFavorite,
+  menuItems,
+} = useBookCard(props, emit);
 
-const openInNewWindow = () => {
-  if (isOffline.value) {
-    showOfflineToast();
-    return;
-  }
-  const url = `/viewer/${viewerLink.value.params.id}?${new URLSearchParams(viewerLink.value.query).toString()}`;
-  api.openNewWindow(url);
-};
+const metaParts = computed(() => buildBookMetaLine(props.book, META_FIELDS));
 
-const handleCardClick = (event: MouseEvent) => {
-  if (isOffline.value) {
-    showOfflineToast();
-    return;
-  }
-  if (event.ctrlKey || event.metaKey) {
-    // metaKey for Command key on macOS
-    openInNewWindow();
-  } else {
-    router.push(viewerLink.value);
-  }
-};
-
-const thumbnailKey = ref(0);
-
-// 태그 영역 펼침 상태
+// 태그 영역 펼침 상태. 펼치면 오버레이가 표지 위로 자라 카드 높이는 그대로다
 const isTagsExpanded = ref(false);
 
-const coverUrl = computed(() => {
-  if (!props.book.cover_path) return "";
-  return thumbnailKey.value
-    ? `file://${props.book.cover_path}?v=${thumbnailKey.value}`
-    : `file://${props.book.cover_path}`;
-});
-
-const handleTagClick = (tag: { name: string }) => {
-  emit("selectTag", tag.name);
-};
-
-const handleArtistClick = (artist: { name: string }) => {
-  emit("selectArtist", artist.name);
-};
-
-const handleGroupClick = (group: { name: string }) => {
-  emit("selectGroup", group.name);
-};
-
-// 유효한 작가 목록 (빈 문자열, null, undefined 제외)
-const validArtists = computed(() => {
-  return (
-    props.book.artists?.filter((a) => a.name && a.name.trim() !== "") || []
+const handleCreditSelect = (credit: { prefix: CreditPrefix; name: string }) => {
+  emit(
+    credit.prefix === "artist" ? "selectArtist" : "selectGroup",
+    credit.name,
   );
-});
-
-// 유효한 그룹 목록 (빈 문자열, null, undefined 제외)
-const validGroups = computed(() => {
-  return props.book.groups?.filter((g) => g.name && g.name.trim() !== "") || [];
-});
-
-// 작가 또는 그룹 정보가 있는지 확인
-const hasCreatorInfo = computed(() => {
-  return validArtists.value.length > 0 || validGroups.value.length > 0;
-});
-
-const toggleFavorite = () => {
-  emit("toggle-favorite", props.book.id, props.book.is_favorite);
-};
-
-const openBookFolder = () => {
-  emit("open-book-folder", props.book.path);
-};
-
-// 외부 뷰어 설정 여부 확인 (아카이브/폴더 유형에 따라 다른 뷰어 경로 사용)
-const hasExternalViewer = computed(() => {
-  const bookPath = props.book.path || "";
-  const isArchive = /\.(cbz|zip)$/i.test(bookPath);
-  if (isArchive) {
-    return !!props.externalArchiveViewerPath;
-  }
-  return !!props.externalImageViewerPath;
-});
-
-// 외부 프로그램으로 책 열기
-const openWithExternalViewer = async () => {
-  try {
-    await api.openBookWithExternalViewer(props.book.id);
-    toast.success("외부 프로그램으로 열었습니다.");
-  } catch (error) {
-    toast.error("외부 프로그램 실행 실패", {
-      description: (error as Error).message,
-    });
-  }
-};
-
-const isDeleteDialogOpen = ref(false);
-
-// 영구 삭제 체크 상태 (모든 삭제 다이얼로그 공유, localStorage 유지)
-const { permanentDelete } = usePermanentDelete();
-
-const queryClient = useQueryClient();
-
-const isRescanning = ref(false);
-
-const handleRescanMetadata = async () => {
-  if (isRescanning.value) return;
-  isRescanning.value = true;
-  try {
-    await api.rescanBookMetadata(props.book.id);
-    await queryClient.invalidateQueries({ queryKey: ["books"] });
-    thumbnailKey.value = Date.now();
-    toast.success("메타데이터 재스캔 완료", {
-      description: `${props.book.title}의 메타데이터가 갱신되었습니다.`,
-    });
-  } catch (error) {
-    console.error("메타데이터 재스캔 실패:", error);
-    toast.error("재스캔 실패", {
-      description: "메타데이터를 갱신하는 중 오류가 발생했습니다.",
-    });
-  } finally {
-    isRescanning.value = false;
-  }
-};
-
-const handleDeleteBook = async () => {
-  isDeleteDialogOpen.value = true;
-};
-
-const confirmDeleteBook = async () => {
-  try {
-    // 메인 프로세스에 삭제 요청 (체크 상태에 따라 영구 삭제)
-    await api.deleteBook(props.book.id, {
-      permanent: permanentDelete.value,
-    });
-    toast.success("책 삭제 완료", {
-      description: `${props.book.title}이(가) 삭제되었습니다.`,
-    });
-    queryClient.invalidateQueries({ queryKey: ["books"] }); // Invalidate the query
-  } catch (error) {
-    console.error("책 삭제 실패:", error);
-    toast.error("책 삭제 실패", {
-      description:
-        (error as Error).message || "책을 삭제하는 중 오류가 발생했습니다.",
-    });
-  } finally {
-    isDeleteDialogOpen.value = false;
-  }
 };
 </script>
 
 <template>
   <ContextMenu>
-    <ContextMenuTrigger>
-      <LightCard
-        class="flex h-full cursor-pointer flex-col gap-0 overflow-hidden py-0 transition-shadow hover:shadow-lg"
+    <!-- as-child로 카드 자체를 트리거로 쓴다. 래퍼가 하나 더 끼면 표지 비율로
+         확정한 카드 높이가 래퍼 기준과 어긋난다 -->
+    <ContextMenuTrigger as-child>
+      <div
+        class="group relative cursor-pointer overflow-hidden rounded-lg border"
         @click="handleCardClick"
       >
-        <CardContent class="relative p-0">
+        <!-- 표지가 카드 전면을 채운다. 나머지는 전부 absolute라 카드 높이가
+             폭으로 확정된다 -->
+        <div class="relative aspect-[2/3] h-auto w-full overflow-hidden">
           <img
             :src="coverUrl"
             :alt="book.title"
-            class="aspect-[2/3] h-auto w-full object-cover"
+            class="h-full w-full object-cover transition-transform duration-300 group-hover:scale-110"
             :class="{ 'opacity-50 grayscale': isOffline }"
           />
-          <Badge
-            v-if="isOffline"
-            variant="secondary"
-            class="absolute top-2 left-2 gap-1"
+        </div>
+
+        <!-- 상태 배지. 호버 액션 오버레이(z-20)보다 위에 둔다 -->
+        <Badge
+          v-if="isOffline"
+          variant="secondary"
+          class="absolute top-2 left-2 z-40 gap-1"
+        >
+          <Icon icon="solar:plug-circle-bold-duotone" class="h-3 w-3" />
+          오프라인
+        </Badge>
+        <div
+          v-if="book.is_favorite"
+          class="absolute top-2 right-2 z-40 rounded-full bg-red-500 p-1 text-white"
+        >
+          <Icon icon="solar:heart-bold" class="h-4 w-4" />
+        </div>
+
+        <!-- 호버 시 배경 dim -->
+        <div
+          class="absolute inset-0 bg-black/0 transition-colors group-hover:bg-black/50"
+        ></div>
+
+        <!--
+          하단 정보.
+
+          **z-30 아래로 내리면 안 된다.** 호버 버튼 영역이 `absolute inset-0
+          z-20`이라 카드 전면을 덮는데, `opacity-0`은 히트테스트에 영향이 없어서
+          호버 중이 아닐 때도 클릭을 가로챈다. 이 영역이 그보다 낮으면 작가·태그
+          클릭이 영영 안 걸린다.
+
+          영역 자체는 pointer-events-none이라 제목을 누르면 클릭이 카드로
+          통과해 뷰어가 열린다. 필터를 거는 링크에만 pointer-events-auto를 준다.
+        -->
+        <div
+          class="pointer-events-none absolute right-0 bottom-0 left-0 z-30 bg-gradient-to-t from-black/80 via-black/60 to-transparent px-2.5 pt-7 pb-2.5 text-white"
+        >
+          <!-- 그림자는 스크림이 얇아지는 자리를 보강한다. 밝은 표지 위에서는
+               흰 글씨 대비가 2.3:1까지 떨어지는 지점이다 -->
+          <p
+            class="line-clamp-2 text-[13px] leading-snug font-bold break-all [text-shadow:0_1px_3px_rgb(0_0_0/0.9)]"
+            :title="book.title"
           >
-            <Icon icon="solar:plug-circle-bold-duotone" class="h-3 w-3" />
-            오프라인
-          </Badge>
-        </CardContent>
-        <CardFooter class="flex-grow flex-col items-start gap-1 p-2">
-          <p class="w-full truncate text-sm font-semibold" :title="book.title">
             {{ book.title }}
           </p>
-          <!-- 작가/그룹 정보 -->
-          <p
-            v-if="!hasCreatorInfo"
-            class="text-muted-foreground w-full truncate text-xs"
-          >
-            작가 정보 없음
-          </p>
-          <div
-            v-if="hasCreatorInfo"
-            class="text-muted-foreground flex w-full items-center gap-2 text-xs"
-          >
-            <div
-              v-if="validArtists.length > 0"
-              class="flex min-w-0 shrink-0 items-center gap-1"
-            >
-              <Icon
-                icon="solar:user-bold-duotone"
-                class="h-3 w-3 flex-shrink-0"
-              />
-              <span
-                class="cursor-pointer truncate hover:underline"
-                :title="validArtists.map((a) => a.name).join(', ')"
-                @click.prevent.stop="handleArtistClick(validArtists[0])"
-              >
-                {{ validArtists.map((a) => a.name).join(", ") }}
-              </span>
-            </div>
-            <div
-              v-if="validGroups.length > 0"
-              class="flex min-w-0 items-center gap-1 overflow-hidden"
-            >
-              <Icon
-                icon="solar:users-group-rounded-bold-duotone"
-                class="h-3 w-3 flex-shrink-0"
-              />
-              <span
-                class="cursor-pointer truncate hover:underline"
-                :title="validGroups.map((g) => g.name).join(', ')"
-                @click.prevent.stop="handleGroupClick(validGroups[0])"
-              >
-                {{ validGroups.map((g) => g.name).join(", ") }}
-              </span>
-            </div>
-          </div>
-          <!-- 태그 영역: 기본 한 줄 (overflow hidden), + 버튼으로 펼치기 -->
+          <CreditsLine
+            class="pointer-events-auto mt-0.5 text-[11.5px] opacity-95"
+            :credits="credits"
+            :fields="CREDIT_FIELDS"
+            @select="handleCreditSelect"
+          />
+          <MetaLine class="mt-1 opacity-80" :parts="metaParts" />
+
+          <!-- 태그: 기본 한 줄, + 버튼으로 펼친다. 펼침은 위로 자란다 -->
           <div
             v-if="!hideTags && book.tags?.length"
-            class="flex w-full items-start gap-1"
+            class="pointer-events-auto mt-1.5 flex items-start gap-1"
             :class="
               isTagsExpanded ? 'flex-wrap' : 'flex-nowrap overflow-hidden'
             "
@@ -302,20 +152,21 @@ const confirmDeleteBook = async () => {
                 isTagsExpanded ? 'flex-wrap' : 'flex-nowrap overflow-hidden'
               "
             >
+              <!-- 표지 위 그라디언트에 얹히므로 scrim 톤(반투명)을 쓴다 -->
               <LightBadge
                 v-for="tag in book.tags"
                 :key="tag.name"
-                :class="getTagDisplayInfo(tag).className"
+                :class="getTagDisplayInfo(tag, 'scrim').className"
                 class="flex-shrink-0"
-                @click.prevent.stop="handleTagClick(tag)"
+                @click.prevent.stop="emit('selectTag', tag.name)"
                 @contextmenu.prevent.stop="emit('excludeTag', tag.name)"
               >
-                {{ getTagDisplayInfo(tag).displayText }}
+                {{ getTagDisplayInfo(tag, "scrim").displayText }}
               </LightBadge>
             </div>
             <button
               v-if="book.tags.length > 1"
-              class="text-muted-foreground hover:text-foreground flex-shrink-0 transition-colors"
+              class="flex-shrink-0 text-white/70 transition-colors hover:text-white"
               @click.prevent.stop="isTagsExpanded = !isTagsExpanded"
             >
               <Icon
@@ -324,84 +175,61 @@ const confirmDeleteBook = async () => {
                     ? 'solar:minus-circle-bold-duotone'
                     : 'solar:add-circle-bold-duotone'
                 "
-                class="h-[22px] w-[22px]"
+                class="h-[18px] w-[18px]"
               />
             </button>
           </div>
-        </CardFooter>
-      </LightCard>
+        </div>
+
+        <!--
+          버튼 영역 (호버 시 표시).
+
+          카드 최소 폭이 184px(`Library.vue`의 `MIN_CARD_WIDTH`)이고 `Button`은
+          `shrink-0 whitespace-nowrap`이라 줄지 않는다. 넷 다 아이콘만 두면
+          32×4 + 간격 24 = 152라 여유가 있다. 하나라도 문구를 달면 넘친다.
+
+          ⋮는 우클릭 메뉴와 같은 항목을 연다. 우클릭만 두면 폴더 열기·상세
+          정보·재스캔이 있다는 걸 알 방법이 없다.
+        -->
+        <div
+          class="absolute inset-0 z-20 flex flex-wrap items-center justify-center gap-2 px-2 opacity-0 transition-opacity group-hover:opacity-100"
+        >
+          <Button
+            size="icon-sm"
+            variant="secondary"
+            :title="book.is_favorite ? '즐겨찾기 해제' : '즐겨찾기'"
+            @click.stop="toggleFavorite"
+          >
+            <Icon
+              :icon="
+                book.is_favorite
+                  ? 'solar:heart-broken-line-duotone'
+                  : 'solar:heart-bold-duotone'
+              "
+              class="h-4 w-4"
+            />
+          </Button>
+          <Button
+            size="icon-sm"
+            variant="secondary"
+            title="미리보기"
+            @click.stop="emit('show-preview', book)"
+          >
+            <Icon icon="solar:eye-bold-duotone" class="h-4 w-4" />
+          </Button>
+          <Button
+            size="icon-sm"
+            variant="secondary"
+            title="새 창으로 열기"
+            @click.stop="openInNewWindow"
+          >
+            <Icon icon="solar:square-top-down-bold-duotone" class="h-4 w-4" />
+          </Button>
+          <BookCardMenuButton :items="menuItems" />
+        </div>
+      </div>
     </ContextMenuTrigger>
 
-    <ContextMenuContent>
-      <ContextMenuItem @click="toggleFavorite">
-        <Icon
-          :icon="
-            book.is_favorite
-              ? 'solar:heart-broken-line-duotone'
-              : 'solar:heart-bold-duotone'
-          "
-          class="h-4 w-4"
-        />
-        {{ book.is_favorite ? "즐겨찾기 해제" : "즐겨찾기 추가" }}
-      </ContextMenuItem>
-      <ContextMenuItem @click="openBookFolder">
-        <Icon icon="solar:folder-open-bold-duotone" class="h-4 w-4" />
-        폴더 열기
-      </ContextMenuItem>
-      <ContextMenuItem @click="openInNewWindow">
-        <Icon icon="solar:square-top-down-bold-duotone" class="h-4 w-4" />
-        새 창으로 열기
-      </ContextMenuItem>
-      <ContextMenuItem v-if="hasExternalViewer" @click="openWithExternalViewer">
-        <Icon icon="solar:monitor-bold-duotone" class="h-4 w-4" />
-        외부 프로그램으로 열기
-      </ContextMenuItem>
-      <ContextMenuItem @click="emit('show-details', book)">
-        <Icon icon="solar:info-circle-bold-duotone" class="h-4 w-4" />
-        상세 정보
-      </ContextMenuItem>
-      <ContextMenuItem @click.stop="emit('show-preview', book)">
-        <Icon icon="solar:eye-bold-duotone" class="h-4 w-4" />
-        미리보기
-      </ContextMenuItem>
-      <ContextMenuItem @click.stop="handleRescanMetadata">
-        <Icon
-          icon="solar:refresh-bold-duotone"
-          class="h-4 w-4"
-          :class="{ 'animate-spin': isRescanning }"
-        />
-        메타데이터 재스캔
-      </ContextMenuItem>
-      <ContextMenuSeparator />
-      <ContextMenuItem @click="handleDeleteBook">
-        <Icon icon="solar:trash-bin-trash-bold-duotone" class="h-4 w-4" />
-        삭제
-      </ContextMenuItem>
-    </ContextMenuContent>
+    <BookCardMenu :items="menuItems" />
   </ContextMenu>
-  <AlertDialog
-    :open="isDeleteDialogOpen"
-    @update:open="isDeleteDialogOpen = $event"
-  >
-    <AlertDialogContent>
-      <AlertDialogHeader>
-        <AlertDialogTitle>책을 삭제하시겠습니까?</AlertDialogTitle>
-        <AlertDialogDescription>
-          {{
-            permanentDelete
-              ? "데이터베이스에서 책 정보가 삭제되고, 파일이 영구적으로 삭제됩니다."
-              : "데이터베이스에서 책 정보가 삭제되고, 파일은 휴지통으로 이동합니다."
-          }}
-        </AlertDialogDescription>
-      </AlertDialogHeader>
-      <Label class="flex cursor-pointer items-center gap-2 font-normal">
-        <Checkbox v-model="permanentDelete" />
-        휴지통을 거치지 않고 영구 삭제
-      </Label>
-      <AlertDialogFooter>
-        <AlertDialogCancel>취소</AlertDialogCancel>
-        <AlertDialogAction @click="confirmDeleteBook">삭제</AlertDialogAction>
-      </AlertDialogFooter>
-    </AlertDialogContent>
-  </AlertDialog>
 </template>

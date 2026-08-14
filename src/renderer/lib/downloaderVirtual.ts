@@ -1,10 +1,15 @@
 /**
- * 다운로더 가상 스크롤의 좌표·페이지·청크 계산.
+ * 다운로더 가상 스크롤의 좌표·페이지 계산.
  *
  * 전부 순수 함수로 둡니다. 여기 있는 것들은 상호작용 버그가 아니라 계산 오류로
  * 깨지는 종류라(뺄셈 순서, 클램프 대상, offset 환산) 컴포넌트 밖에서 테스트할 수
  * 있어야 합니다. 컴포넌트에는 DOM 측정과 렌더링만 남깁니다.
+ *
+ * 라이브러리와 나눠 쓰는 것들(`chunksForRange`·`computeCols`·`computeListCols`·
+ * `shouldShowSkeleton`)은 `virtualList.ts`로 옮겼습니다. 여기 남은 것은 전부
+ * 구간(PAGE) 나누기에 딸린 다운로더 전용입니다.
  */
+import { computeCols, usableGridWidth } from "./virtualList";
 
 /**
  * 한 번에 스크롤할 수 있는 최대 건수.
@@ -66,53 +71,6 @@ export const locateNth = (
   return { page: Math.floor(index / PAGE), localIndex: index % PAGE };
 };
 
-/**
- * 보이는 인덱스 범위를 덮는 청크 번호 집합.
- *
- * 청크 번호는 **페이지가 아니라 전체 결과 기준의 절대 번호**입니다.
- * 그래야 페이지를 오가도 같은 청크가 캐시에 그대로 남습니다.
- */
-export const chunksForRange = (
-  absoluteStart: number,
-  absoluteEnd: number,
-): number[] => {
-  if (absoluteEnd < absoluteStart) return [];
-
-  const first = Math.floor(Math.max(0, absoluteStart) / CHUNK_SIZE);
-  const last = Math.floor(Math.max(0, absoluteEnd) / CHUNK_SIZE);
-
-  const out: number[] = [];
-  for (let i = first; i <= last; i++) out.push(i);
-  return out;
-};
-
-/**
- * 결과 영역 전체를 덮는 스켈레톤을 띄울지 정합니다.
- *
- * **"지금 로드된 항목이 0개"를 로딩으로 치면 안 됩니다.** 활성 청크는 보이는
- * 범위를 따라가므로, 멀리 점프하면 보던 청크가 목록에서 빠지고 목표 청크는
- * 아직 안 와서 한순간 0개가 됩니다. 그때 스켈레톤으로 갈아끼우면 총 높이를
- * 잡고 있던 스페이서가 언마운트되고, 스크롤러 높이가 무너지며 브라우저가
- * scrollTop을 0으로 클램프합니다. 데이터가 도착해 스페이서가 돌아와도
- * 스크롤 위치는 이미 사라진 뒤라 첫 항목으로 튕깁니다.
- *
- * 목록이 한 번 그려진 다음부터는 칸마다 개별 스켈레톤이 있으므로 전체 화면
- * 스켈레톤은 첫 렌더 전까지만 씁니다.
- *
- * @param hasRendered 이번 검색에서 목록을 한 번이라도 그렸는지
- */
-export const shouldShowSkeleton = ({
-  searchStarted,
-  isMetaLoading,
-  total,
-  hasRendered,
-}: {
-  searchStarted: boolean;
-  isMetaLoading: boolean;
-  total: number;
-  hasRendered: boolean;
-}): boolean => searchStarted && (isMetaLoading || (total > 0 && !hasRendered));
-
 export interface GridMetrics {
   cols: number;
   /** zoom 컨테이너 안쪽 기준 행 높이 */
@@ -124,14 +82,13 @@ export interface GridMetrics {
 /**
  * 그리드 열 수와 행 높이를 계산합니다.
  *
- * **뺄셈 순서를 지켜야 합니다.** 패딩은 zoom 바깥의 실제 px이므로 실제 px
- * 공간에서 먼저 빼고 나서 z로 나눕니다. `clientWidth / z - padding*2`로 쓰면
- * 폭 600·패딩 8·z 0.7에서 819.7이 나오는데 정답은 812.9입니다. 6.9 단위 차이는
- * 카드+gap 216의 3.2%라, 창 너비 분포의 약 3%에서 열 수가 1 틀어져
- * 재현하기 어려운 버그가 됩니다.
- *
- * 카드 높이는 `aspect-3/4`이고 정보·버튼 영역이 전부 absolute라 폭에서 확정됩니다.
+ * 열 수 계산은 `virtualList.computeCols`와 같아서 그쪽을 씁니다. 여기 남은 건
+ * **행 높이**인데, 이건 다운로더 카드에서만 성립합니다. `GalleryThumbnailCard`는
+ * `aspect-3/4`이고 정보·버튼 영역이 전부 absolute라 높이가 폭에서 확정됩니다.
  * 루트에 border 1px(border-box)가 있어 `(cardW - 2) * 4/3 + 2`입니다.
+ *
+ * 라이브러리 `BookCard`는 하단 정보 영역이 제목·작가·태그에 따라 늘어나서
+ * 이 계산이 성립하지 않습니다. 그쪽은 행마다 실측합니다.
  */
 export const computeGridMetrics = (
   scrollerClientWidth: number,
@@ -141,48 +98,19 @@ export const computeGridMetrics = (
   minCardWidth: number,
 ): GridMetrics => {
   const z = zoom > 0 ? zoom : 1;
-  const usableUnit = Math.max(0, (scrollerClientWidth - padding * 2) / z);
+  const usableUnit = usableGridWidth(scrollerClientWidth, zoom, padding);
 
-  const cols = Math.max(
-    1,
-    Math.floor((usableUnit + gap) / (minCardWidth + gap)),
+  const cols = computeCols(
+    scrollerClientWidth,
+    zoom,
+    padding,
+    gap,
+    minCardWidth,
   );
   const cardWUnit = Math.max(1, (usableUnit - gap * (cols - 1)) / cols);
   const rowHUnit = (cardWUnit - 2) * (4 / 3) + 2 + gap;
 
   return { cols, rowHUnit, rowHActual: rowHUnit * z };
-};
-
-/**
- * 리스트 뷰의 열 수.
- *
- * **`computeGridMetrics`와 줌 처리가 반대입니다.** 그리드는 컨테이너에 CSS
- * `zoom`이 걸려 있어서 실제 px을 z로 나눠 단위 공간으로 내려보내지만, 리스트는
- * `zoom`을 못 씁니다(동적 측정이 1/z만큼 어긋납니다 — `galleryCard.ts` 참고).
- * 대신 썸네일 px에 z를 직접 곱하므로, 카드가 필요로 하는 최소 폭도 같이
- * 커집니다. 그래서 여기서는 **폭을 나누는 게 아니라 임계값에 곱합니다.**
- *
- * 행 높이는 태그 개수에 따라 달라 실측에 맡기므로 여기서 계산하지 않습니다.
- * 열 수만 나오면 됩니다.
- *
- * @param maxCols 상한. 3열부터는 카드 하나가 태그 줄을 못 담아 세로로만 길어집니다
- */
-export const computeListCols = (
-  scrollerClientWidth: number,
-  zoom: number,
-  padding: number,
-  gap: number,
-  minCardWidth: number,
-  maxCols = 2,
-): number => {
-  const z = zoom > 0 ? zoom : 1;
-  const usable = Math.max(0, scrollerClientWidth - padding * 2);
-  const minW = minCardWidth * z;
-
-  return Math.min(
-    maxCols,
-    Math.max(1, Math.floor((usable + gap) / (minW + gap))),
-  );
 };
 
 /**
