@@ -224,11 +224,14 @@ export const handleSearchGalleries = async ({
     let galleryId: number | null = null;
 
     for (const term of terms) {
-      if (term.startsWith("id:")) {
-        const id = parseInt(term.substring(3).trim());
-        if (!isNaN(id)) {
-          galleryId = id;
-        }
+      // 프리픽스를 붙이든 안 붙이든 같게 굽니다. 히토미 제목에 숫자만으로 된
+      // 낱말이 들어가는 일은 사실상 없어서, 숫자만 쳤으면 ID를 찾는 것으로 봅니다
+      const value = term.startsWith("id:") ? term.substring(3).trim() : term;
+      if (!/^\d+$/.test(value)) continue;
+
+      const id = parseInt(value);
+      if (!isNaN(id)) {
+        galleryId = id;
       }
     }
 

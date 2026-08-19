@@ -192,6 +192,26 @@ describe("블랙리스트 주입", () => {
     expect(result.data).toEqual([12345]);
     expect(mockGetGalleryIds).not.toHaveBeenCalled();
   });
+
+  it("프리픽스 없는 숫자도 id: 검색과 똑같이 블랙리스트를 타지 않는다", async () => {
+    withBlacklist(["male:yaoi"]);
+
+    const result = await handleSearchGalleries({
+      searchQuery: "12345",
+    });
+
+    expect(result.data).toEqual([12345]);
+    expect(mockGetGalleryIds).not.toHaveBeenCalled();
+  });
+
+  it("숫자가 섞인 낱말은 ID로 보지 않는다", async () => {
+    mockGetGalleryIds.mockResolvedValue([1, 2]);
+
+    const result = await handleSearchGalleries({ searchQuery: "12345화" });
+
+    expect(result.data).toEqual([1, 2]);
+    expect(mockGetGalleryIds).toHaveBeenCalled();
+  });
 });
 
 describe("ID 캐시", () => {

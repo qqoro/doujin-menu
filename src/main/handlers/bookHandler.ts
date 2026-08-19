@@ -28,6 +28,12 @@ export interface ParsedSearchTerms extends ExcludeTerms {
 const PREFIXED_TERM_REGEX =
   /(-?)(id|artist|group|type|language|series|character|tag):(.+?)(?=\s+(?!(?:-?(?:id|artist|group|type|language|series|character|tag)):)|\s*-?(?:id|artist|group|type|language|series|character|tag):|$)/g;
 
+/**
+ * 숫자만으로 이루어진 낱말인지. `id:`를 붙이지 않아도 히토미 ID로 찾아주려고
+ * 쓴다. "1234567화"처럼 숫자에 글자가 붙은 건 제목으로 본다.
+ */
+const isNumericTerm = (term: string): boolean => /^\d+$/.test(term);
+
 // 검색어 문자열을 프리픽스별로 분류하여 반환
 export function parseSearchQuery(searchQuery: string): ParsedSearchTerms {
   const result: ParsedSearchTerms = {
@@ -310,7 +316,17 @@ function buildFilteredQuery(
     }
     if (titleTerms.length > 0) {
       for (const titleTerm of titleTerms) {
-        mainQuery.whereRaw("LOWER(sub.title) LIKE ?", [`%${titleTerm}%`]);
+        // 숫자만 친 낱말은 히토미 ID일 수 있다. 제목 검색을 OR로 남겨둬야
+        // "3권"처럼 제목에 숫자가 든 책을 찾던 경우가 죽지 않는다
+        if (isNumericTerm(titleTerm)) {
+          mainQuery.where(function () {
+            this.whereRaw("LOWER(sub.title) LIKE ?", [
+              `%${titleTerm}%`,
+            ]).orWhere("sub.hitomi_id", titleTerm);
+          });
+        } else {
+          mainQuery.whereRaw("LOWER(sub.title) LIKE ?", [`%${titleTerm}%`]);
+        }
       }
     }
 
@@ -388,6 +404,12 @@ function buildFilteredQuery(
     if (exclude.titleTerms.length > 0) {
       for (const titleTerm of exclude.titleTerms) {
         mainQuery.whereRaw("LOWER(sub.title) NOT LIKE ?", [`%${titleTerm}%`]);
+        // 포함과 짝을 맞춘다. 숫자로 찾아지는 책은 숫자로 제외도 되어야 한다
+        if (isNumericTerm(titleTerm)) {
+          mainQuery.whereRaw("(sub.hitomi_id IS NULL OR sub.hitomi_id != ?)", [
+            titleTerm,
+          ]);
+        }
       }
     }
   }
