@@ -677,6 +677,51 @@ useKeybindings(
             </h1>
           </div>
           <div class="flex items-center gap-1">
+            <!-- 시리즈 네비게이션 버튼 -->
+            <div
+              v-if="book?.series_collection_id"
+              class="border-background/25 mr-1 flex items-center gap-1 border-r pr-1"
+            >
+              <Tooltip>
+                <TooltipTrigger as-child>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    class="text-background hover:bg-background/15 hover:text-background size-8"
+                    style="-webkit-app-region: no-drag"
+                    @click="store.loadPrevBookInSeries()"
+                  >
+                    <Icon
+                      icon="solar:skip-previous-bold-duotone"
+                      class="size-5"
+                    />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p class="flex items-center gap-1">
+                    시리즈 이전 권 <kbd>Shift</kbd>+<kbd>[</kbd>
+                  </p>
+                </TooltipContent>
+              </Tooltip>
+              <Tooltip>
+                <TooltipTrigger as-child>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    class="text-background hover:bg-background/15 hover:text-background size-8"
+                    style="-webkit-app-region: no-drag"
+                    @click="store.loadNextBookInSeries()"
+                  >
+                    <Icon icon="solar:skip-next-bold-duotone" class="size-5" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p class="flex items-center gap-1">
+                    시리즈 다음 권 <kbd>Shift</kbd>+<kbd>]</kbd>
+                  </p>
+                </TooltipContent>
+              </Tooltip>
+            </div>
             <Tooltip>
               <TooltipTrigger as-child>
                 <Button
@@ -761,51 +806,6 @@ useKeybindings(
                 <p class="flex items-center gap-1">랜덤 책 <kbd>\</kbd></p>
               </TooltipContent>
             </Tooltip>
-            <!-- 시리즈 네비게이션 버튼 -->
-            <div
-              v-if="book?.series_collection_id"
-              class="border-background/25 ml-1 flex items-center gap-1 border-l pl-1"
-            >
-              <Tooltip>
-                <TooltipTrigger as-child>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    class="text-background hover:bg-background/15 hover:text-background size-8"
-                    style="-webkit-app-region: no-drag"
-                    @click="store.loadPrevBookInSeries()"
-                  >
-                    <Icon
-                      icon="solar:skip-previous-bold-duotone"
-                      class="size-5"
-                    />
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent>
-                  <p class="flex items-center gap-1">
-                    시리즈 이전 권 <kbd>Shift</kbd>+<kbd>[</kbd>
-                  </p>
-                </TooltipContent>
-              </Tooltip>
-              <Tooltip>
-                <TooltipTrigger as-child>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    class="text-background hover:bg-background/15 hover:text-background size-8"
-                    style="-webkit-app-region: no-drag"
-                    @click="store.loadNextBookInSeries()"
-                  >
-                    <Icon icon="solar:skip-next-bold-duotone" class="size-5" />
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent>
-                  <p class="flex items-center gap-1">
-                    시리즈 다음 권 <kbd>Shift</kbd>+<kbd>]</kbd>
-                  </p>
-                </TooltipContent>
-              </Tooltip>
-            </div>
             <Tooltip>
               <TooltipTrigger as-child>
                 <Button
