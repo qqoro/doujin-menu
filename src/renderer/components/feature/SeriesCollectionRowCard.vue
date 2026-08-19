@@ -1,13 +1,9 @@
 <script setup lang="ts">
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
 import { Icon } from "@iconify/vue";
 import { computed } from "vue";
+import RowCardShell from "./parts/RowCardShell.vue";
 
 interface Props {
   series: {
@@ -28,6 +24,19 @@ const emit = defineEmits<{
   delete: [];
 }>();
 
+const coverUrl = computed(() =>
+  props.series.cover_image
+    ? `file://${props.series.cover_image}`
+    : "https://via.placeholder.com/256x384",
+);
+
+const confidenceLevel = computed(() => {
+  const score = props.series.confidence_score;
+  if (score >= 0.8) return { label: "신뢰도 높음", class: "bg-green-500/80" };
+  if (score >= 0.5) return { label: "신뢰도 중간", class: "bg-yellow-500/80" };
+  return { label: "신뢰도 낮음", class: "bg-red-500/80" };
+});
+
 const creationType = computed(() => {
   if (props.series.is_manually_edited) return "수동";
   if (props.series.is_auto_generated) return "자동";
@@ -36,75 +45,46 @@ const creationType = computed(() => {
 </script>
 
 <template>
-  <div
-    class="bg-card hover:bg-accent/50 flex cursor-pointer items-center gap-4 rounded-lg border p-3 transition-colors"
-    @click="emit('click')"
-  >
-    <!-- 썸네일 -->
-    <div class="bg-muted h-20 w-14 flex-shrink-0 overflow-hidden rounded">
-      <img
-        v-if="series.cover_image"
-        :src="`file://${series.cover_image}`"
-        :alt="series.name"
-        class="h-full w-full object-cover"
-        @error="(e) => ((e.target as HTMLImageElement).style.display = 'none')"
-      />
-      <div v-else class="flex h-full w-full items-center justify-center">
-        <Icon
-          icon="solar:library-bold-duotone"
-          class="text-muted-foreground/30 h-8 w-8"
-        />
-      </div>
-    </div>
-
-    <!-- 정보 -->
-    <div class="min-w-0 flex-1">
-      <div class="flex items-center gap-2">
-        <h3 class="truncate font-semibold" :title="series.name">
-          {{ series.name }}
-        </h3>
-        <div
-          class="bg-secondary text-secondary-foreground rounded px-1.5 py-0.5 text-xs"
-        >
-          {{ creationType }}
-        </div>
-      </div>
+  <!-- 라이브러리·읽음 기록과 같은 RowCardShell. 썸네일이 줌을 따라간다 -->
+  <RowCardShell :cover-url="coverUrl" :alt="series.name" @click="emit('click')">
+    <template #content>
+      <h3 class="text-[15px] leading-snug font-bold" :title="series.name">
+        {{ series.name }}
+      </h3>
       <p
         v-if="series.description"
-        class="text-muted-foreground truncate text-sm"
+        class="text-muted-foreground line-clamp-2 text-[12.5px]"
       >
         {{ series.description }}
       </p>
-      <div class="text-muted-foreground mt-1 text-xs">
-        {{ series.book_count || 0 }}권
+      <div class="flex flex-wrap items-center gap-1">
+        <Badge variant="secondary">{{ series.book_count || 0 }}권</Badge>
+        <Badge variant="outline">{{ creationType }}</Badge>
+        <Badge
+          v-if="series.is_auto_generated"
+          class="text-white"
+          :class="confidenceLevel.class"
+        >
+          {{ confidenceLevel.label }}
+        </Badge>
       </div>
-    </div>
+    </template>
 
-    <!-- 액션 -->
-    <div class="flex-shrink-0" @click.stop>
-      <DropdownMenu>
-        <DropdownMenuTrigger as-child>
-          <Button variant="ghost" size="icon" class="h-8 w-8">
-            <Icon icon="solar:menu-dots-bold" class="h-4 w-4" />
-          </Button>
-        </DropdownMenuTrigger>
-        <DropdownMenuContent align="end">
-          <DropdownMenuItem @click.stop="emit('click')">
-            <Icon icon="solar:eye-bold-duotone" class="mr-2 h-4 w-4" />
-            상세 보기
-          </DropdownMenuItem>
-          <DropdownMenuItem
-            class="text-destructive"
-            @click.stop="emit('delete')"
-          >
-            <Icon
-              icon="solar:trash-bin-trash-bold-duotone"
-              class="mr-2 h-4 w-4"
-            />
-            삭제
-          </DropdownMenuItem>
-        </DropdownMenuContent>
-      </DropdownMenu>
-    </div>
-  </div>
+    <!-- 버튼 열. 라이브러리 리스트와 같이 폭을 고정해 본문 폭이 흔들리지 않게 한다 -->
+    <template #actions>
+      <div class="flex w-[92px] shrink-0 flex-col gap-1.5">
+        <Button size="sm" variant="outline" @click.stop="emit('click')">
+          <Icon icon="solar:eye-bold-duotone" class="h-4 w-4" />
+          상세 보기
+        </Button>
+        <Button size="sm" variant="destructive" @click.stop="emit('delete')">
+          <Icon
+            icon="solar:trash-bin-minimalistic-bold-duotone"
+            class="h-4 w-4"
+          />
+          삭제
+        </Button>
+      </div>
+    </template>
+  </RowCardShell>
 </template>

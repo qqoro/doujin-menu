@@ -21,19 +21,15 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { useQueryAndParams } from "@/composable/useQueryAndParams";
-import { useScrollRestoration } from "@/composable/useScrollRestoration";
+import { useVirtualCardList } from "@/composable/useVirtualCardList";
+import { useUiStore } from "@/store/uiStore";
 import { Icon } from "@iconify/vue";
 import AppliedFilterChips from "../common/AppliedFilterChips.vue";
 import SortMenu from "../common/SortMenu.vue";
 import ViewOptionsBar from "../common/ViewOptionsBar.vue";
 import PageHeader from "../layout/PageHeader.vue";
 import PageToolbar from "../layout/PageToolbar.vue";
-import {
-  useInfiniteQuery,
-  useMutation,
-  useQuery,
-  useQueryClient,
-} from "@tanstack/vue-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/vue-query";
 import { debouncedRef, debouncedWatch } from "@vueuse/core";
 import {
   computed,
@@ -42,20 +38,17 @@ import {
   onDeactivated,
   onMounted,
   ref,
-  shallowRef,
   watch,
 } from "vue";
 import { useRoute } from "vue-router";
 import { toast } from "vue-sonner";
-import type {
-  SeriesCollection,
-  SeriesCollectionWithBooks,
-} from "../../../main/db/types";
+import type { SeriesCollectionWithBooks } from "../../../main/db/types";
 import {
   deleteSeriesCollection,
   getSeriesCollections,
   ipcRenderer,
   runSeriesDetection,
+  type SeriesCollectionPage,
 } from "../../api";
 import CreateSeriesDialog from "../feature/CreateSeriesDialog.vue";
 import SeriesCollectionCard from "../feature/SeriesCollectionCard.vue";
@@ -65,9 +58,10 @@ import SeriesDetectionDialog from "../feature/SeriesDetectionDialog.vue";
 
 const queryClient = useQueryClient();
 const route = useRoute();
+const uiStore = useUiStore();
 
-// 무한 스크롤 IntersectionObserver용 로더 ref
-const loader = ref<HTMLElement | null>(null);
+/** 목록 한 칸에 들어가는 시리즈. book_count가 붙어 있어 DB 타입과 다르다 */
+type SeriesListItem = SeriesCollectionPage["collections"][number];
 
 // 필터 및 정렬 상태 (URL 동기화)
 const filterType = ref<"all" | "auto" | "manual">("all");
@@ -219,7 +213,7 @@ const showDeleteDialog = ref(false);
 const selectedSeries = ref<SeriesCollectionWithBooks | null>(null);
 const seriesToDelete = ref<number | null>(null);
 
-// 무한 쿼리 키
+// 조회 조건. 바뀌면 청크 캐시 키가 통째로 갈린다
 const queryKey = computed(
   () =>
     [
@@ -233,76 +227,70 @@ const queryKey = computed(
     ] as const,
 );
 
-// 시리즈 컬렉션 무한 스크롤 조회
+/** 청크 하나에 담는 시리즈 수. 기존 get-series-collections pageSize와 같다 */
+const CHUNK_SIZE = 50;
+
+// 배치·줌·스크롤 복원은 useVirtualCardList가 담당한다. 여기는 데이터를 어떻게
+// 가져올지만 알려준다
 const {
-  data,
-  fetchNextPage,
-  hasNextPage,
-  isFetchingNextPage,
+  scrollerRef,
+  updateVisibleRange,
+  handleGridWheel,
+  gridVirtualizer,
+  listVirtualizer,
+  gridCols,
+  listCols,
+  totalSize,
+  totalCount,
   isLoading,
-  refetch,
-} = useInfiniteQuery({
-  queryKey,
-  queryFn: async ({ pageParam = 0 }) => {
-    return await getSeriesCollections({
-      pageParam,
-      pageSize: 50,
-      searchQuery: debouncedSearchQuery.value,
-      filterType: filterType.value as "all" | "auto" | "manual",
-      sortBy: sortBy.value as
-        | "name"
-        | "book_count"
-        | "confidence_score"
-        | "created_at",
-      sortOrder: sortOrder.value,
+  itemAt,
+  GRID_GAP,
+  LIST_GAP,
+  listSkeletonHeight,
+} = useVirtualCardList<SeriesListItem>({
+  viewMode,
+  chunkSize: CHUNK_SIZE,
+  // 1건만 요청해 총 건수만 확보한다 (스크롤러 총 높이용)
+  fetchTotal: async () => {
+    const result = await getSeriesCollections({
+      ...queryKey.value[1],
+      pageParam: 0,
+      pageSize: 1,
     });
+    return result.pagination?.totalCount ?? 0;
   },
-  getNextPageParam: (lastPage) =>
-    lastPage.hasNextPage ? lastPage.nextPage : undefined,
-  initialPageParam: 0,
-  refetchOnWindowFocus: false,
-  refetchOnMount: false,
+  fetchChunk: async (chunkIndex) => {
+    const result = await getSeriesCollections({
+      ...queryKey.value[1],
+      pageParam: chunkIndex,
+      pageSize: CHUNK_SIZE,
+    });
+    return result.collections;
+  },
+  metaKey: () => ["seriesCollections-meta", queryKey.value[1]],
+  chunkKey: (chunkIndex) => [
+    "seriesCollections",
+    queryKey.value[1],
+    chunkIndex,
+  ],
+  // 조건이 바뀌면 새 키의 청크를 받아 다시 그려야 하므로 스켈레톤 상태로 돌린다
+  resetKey: () => queryKey.value[1],
 });
 
-// 컬렉션 목록 및 전체 카운트
-const collections = computed(
-  () => data.value?.pages.flatMap((page) => page.collections) ?? [],
-);
-const totalCount = computed(() => {
-  const pages = data.value?.pages;
-  if (!pages || pages.length === 0) return 0;
-  return pages[pages.length - 1]?.pagination?.totalCount || 0;
-});
+/** 목록을 처음부터 다시 받는다. 총 건수 메타도 같이 갈아야 스크롤러 높이가 맞는다 */
+const refetchCollections = () => {
+  queryClient.invalidateQueries({ queryKey: ["seriesCollections"] });
+  queryClient.invalidateQueries({ queryKey: ["seriesCollections-meta"] });
+};
 
 // IPC 이벤트 수신 - 시리즈 컬렉션 업데이트 시 쿼리 무효화
 onMounted(() => {
-  ipcRenderer.on("series-collections-updated", () =>
-    queryClient.invalidateQueries({ queryKey: ["seriesCollections"] }),
-  );
+  ipcRenderer.on("series-collections-updated", refetchCollections);
 });
 
 // keep-alive로 캐시된 컴포넌트가 활성화될 때 쿼리 다시 불러오기
 onActivated(() => {
-  refetch();
-});
-
-// 무한 스크롤 IntersectionObserver
-const observer = shallowRef<IntersectionObserver>();
-watch(loader, (newLoaderEl) => {
-  observer.value?.disconnect();
-  observer.value = new IntersectionObserver((entries) => {
-    if (
-      entries[0].isIntersecting &&
-      hasNextPage.value &&
-      !isFetchingNextPage.value
-    ) {
-      fetchNextPage();
-    }
-  });
-
-  if (newLoaderEl) {
-    observer.value.observe(newLoaderEl);
-  }
+  refetchCollections();
 });
 
 // 자동 감지 실행 뮤테이션
@@ -348,7 +336,7 @@ const handleConfirmDetection = (options: {
 };
 
 // 시리즈 클릭 → 상세 다이얼로그
-const handleSeriesClick = (series: SeriesCollection) => {
+const handleSeriesClick = (series: SeriesListItem) => {
   selectedSeries.value = series as SeriesCollectionWithBooks;
   showDetailDialog.value = true;
 };
@@ -376,9 +364,6 @@ const setSortBy = (column: string) => {
     | "confidence_score"
     | "created_at";
 };
-
-// 스크롤 위치 복원
-useScrollRestoration(".flex-grow.overflow-y-auto");
 </script>
 
 <template>
@@ -489,8 +474,7 @@ useScrollRestoration(".flex-grow.overflow-y-auto");
         </template>
 
         <template #view>
-          <!-- 시리즈 그리드는 고정 폭이라 썸네일 줌이 없다 -->
-          <ViewOptionsBar v-model="viewMode" :show-zoom="false" />
+          <ViewOptionsBar v-model="viewMode" />
         </template>
 
         <template #status>
@@ -501,100 +485,152 @@ useScrollRestoration(".flex-grow.overflow-y-auto");
           />
         </template>
 
-        <template #count> 총 {{ totalCount }}개 시리즈 </template>
+        <template #count>
+          총 {{ totalCount.toLocaleString("ko-KR") }}개 시리즈
+        </template>
       </PageToolbar>
 
-      <!-- 로딩 중 -->
+      <!-- 목록 (가상 스크롤)
+           스크롤러는 항상 마운트해야 한다. 조건부로 두면 virtualizer가 초기화
+           시점에 스크롤 요소를 못 잡아 행이 하나도 안 그려진다.
+           .vspace는 zoom 바깥, 카드만 행 안쪽 .zoomed에 들어간다 -->
       <div
-        v-if="isLoading"
-        class="flex flex-grow flex-col items-center justify-center text-center"
+        ref="scrollerRef"
+        class="series-scroller relative min-h-0 flex-grow overflow-y-auto"
+        @wheel="handleGridWheel"
+        @scroll="updateVisibleRange"
       >
         <div
-          class="text-muted-foreground mb-4 flex flex-col items-center justify-center gap-2 text-lg"
+          v-if="isLoading"
+          class="flex h-full flex-col items-center justify-center text-center"
         >
-          <Icon icon="svg-spinners:ring-resize" class="size-8" />
-          <p>로딩중...</p>
-        </div>
-      </div>
-
-      <!-- 그리드 뷰 -->
-      <div
-        v-else-if="collections.length > 0 && viewMode === 'grid'"
-        class="grid flex-grow grid-cols-1 items-start gap-4 overflow-y-auto sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-6"
-      >
-        <SeriesCollectionCard
-          v-for="series in collections"
-          :key="series.id"
-          :series="series"
-          @click="handleSeriesClick(series)"
-          @delete="handleDeleteSeries(series.id)"
-        />
-        <div
-          v-if="hasNextPage"
-          ref="loader"
-          class="col-span-full p-4 text-center"
-        >
-          <Button :disabled="isFetchingNextPage" @click="fetchNextPage">
-            <Icon v-if="isFetchingNextPage" icon="svg-spinners:ring-resize" />
-            <span>더 불러오기</span>
-          </Button>
-        </div>
-      </div>
-
-      <!-- 리스트 뷰 -->
-      <div
-        v-else-if="collections.length > 0 && viewMode === 'list'"
-        class="flex flex-grow flex-col gap-2 overflow-y-auto"
-      >
-        <SeriesCollectionRowCard
-          v-for="series in collections"
-          :key="series.id"
-          :series="series"
-          @click="handleSeriesClick(series)"
-          @delete="handleDeleteSeries(series.id)"
-        />
-        <div v-if="hasNextPage" ref="loader" class="p-4 text-center">
-          <Button :disabled="isFetchingNextPage" @click="fetchNextPage">
-            <Icon v-if="isFetchingNextPage" icon="svg-spinners:ring-resize" />
-            <span>더 불러오기</span>
-          </Button>
-        </div>
-      </div>
-
-      <!-- 빈 상태 - 검색 결과 없음 -->
-      <div
-        v-else-if="searchQuery.trim().length > 0"
-        class="flex flex-grow flex-col items-center justify-center text-center"
-      >
-        <div
-          class="text-muted-foreground mb-4 flex flex-col items-center justify-center gap-2 text-lg"
-        >
-          <p>검색된 데이터가 없습니다.</p>
-        </div>
-      </div>
-
-      <!-- 빈 상태 - 시리즈 없음 -->
-      <div
-        v-else
-        class="flex flex-grow flex-col items-center justify-center text-center"
-      >
-        <div
-          class="text-muted-foreground mb-4 flex flex-col items-center justify-center gap-2 text-lg"
-        >
-          <Icon icon="solar:library-bold-duotone" class="h-16 w-16" />
-          <div>
-            <h3 class="text-lg font-semibold">시리즈가 없습니다</h3>
-            <p class="text-muted-foreground mt-1 text-sm">
-              자동 감지를 실행하여 시리즈를 생성하세요
-            </p>
+          <div
+            class="text-muted-foreground mb-4 flex flex-col items-center justify-center gap-2 text-lg"
+          >
+            <Icon icon="svg-spinners:ring-resize" class="size-8" />
+            <p>로딩중...</p>
           </div>
-          <Button @click="handleRunDetection">
-            <Icon
-              icon="solar:magic-stick-3-bold-duotone"
-              class="mr-2 h-4 w-4"
-            />
-            자동 감지 실행
-          </Button>
+        </div>
+        <div
+          v-else-if="totalCount > 0"
+          class="vspace relative w-full"
+          :style="{ height: `${totalSize}px` }"
+        >
+          <!-- 그리드 -->
+          <template v-if="viewMode === 'grid'">
+            <div
+              v-for="row in gridVirtualizer?.getVirtualItems() ?? []"
+              :key="row.index"
+              :ref="(el) => gridVirtualizer?.measureElement(el as Element)"
+              :data-index="row.index"
+              class="absolute inset-x-0 top-0"
+              :style="{ transform: `translateY(${row.start}px)` }"
+            >
+              <div
+                class="zoomed grid items-start"
+                :style="{
+                  zoom: uiStore.thumbnailZoom,
+                  gridTemplateColumns: `repeat(${gridCols}, minmax(0, 1fr))`,
+                  gap: `${GRID_GAP}px`,
+                  paddingBottom: `${GRID_GAP}px`,
+                }"
+              >
+                <template v-for="col in gridCols" :key="`${row.index}-${col}`">
+                  <SeriesCollectionCard
+                    v-if="itemAt(row.index * gridCols + col - 1)"
+                    :series="itemAt(row.index * gridCols + col - 1)!"
+                    @click="
+                      handleSeriesClick(itemAt(row.index * gridCols + col - 1)!)
+                    "
+                    @delete="
+                      handleDeleteSeries(
+                        itemAt(row.index * gridCols + col - 1)!.id,
+                      )
+                    "
+                  />
+                  <!-- 아직 청크가 안 온 자리. 높이를 잡아둬야 행이 안 무너진다 -->
+                  <div
+                    v-else-if="row.index * gridCols + col - 1 < totalCount"
+                    class="bg-muted aspect-[2/3] animate-pulse rounded-lg"
+                  ></div>
+                </template>
+              </div>
+            </div>
+          </template>
+
+          <!-- 리스트 -->
+          <template v-else>
+            <div
+              v-for="row in listVirtualizer?.getVirtualItems() ?? []"
+              :key="row.index"
+              :ref="(el) => listVirtualizer?.measureElement(el as Element)"
+              :data-index="row.index"
+              class="absolute inset-x-0 top-0 grid pb-2"
+              :style="{
+                transform: `translateY(${row.start}px)`,
+                gridTemplateColumns: `repeat(${listCols}, minmax(0, 1fr))`,
+                gap: `${LIST_GAP}px`,
+              }"
+            >
+              <template v-for="col in listCols" :key="`${row.index}-${col}`">
+                <SeriesCollectionRowCard
+                  v-if="itemAt(row.index * listCols + col - 1)"
+                  :series="itemAt(row.index * listCols + col - 1)!"
+                  @click="
+                    handleSeriesClick(itemAt(row.index * listCols + col - 1)!)
+                  "
+                  @delete="
+                    handleDeleteSeries(
+                      itemAt(row.index * listCols + col - 1)!.id,
+                    )
+                  "
+                />
+                <!-- 아직 청크가 안 온 자리. 카드와 같은 껍데기로 둔다 -->
+                <div
+                  v-else-if="row.index * listCols + col - 1 < totalCount"
+                  class="bg-muted animate-pulse rounded-lg border"
+                  :style="{ height: `${listSkeletonHeight}px` }"
+                ></div>
+              </template>
+            </div>
+          </template>
+        </div>
+
+        <!-- 빈 상태 - 검색 결과 없음 -->
+        <div
+          v-else-if="searchQuery.trim().length > 0"
+          class="flex h-full flex-col items-center justify-center text-center"
+        >
+          <div
+            class="text-muted-foreground mb-4 flex flex-col items-center justify-center gap-2 text-lg"
+          >
+            <p>검색된 데이터가 없습니다.</p>
+          </div>
+        </div>
+
+        <!-- 빈 상태 - 시리즈 없음 -->
+        <div
+          v-else
+          class="flex h-full flex-col items-center justify-center text-center"
+        >
+          <div
+            class="text-muted-foreground mb-4 flex flex-col items-center justify-center gap-2 text-lg"
+          >
+            <Icon icon="solar:library-bold-duotone" class="h-16 w-16" />
+            <div>
+              <h3 class="text-lg font-semibold">시리즈가 없습니다</h3>
+              <p class="text-muted-foreground mt-1 text-sm">
+                자동 감지를 실행하여 시리즈를 생성하세요
+              </p>
+            </div>
+            <Button @click="handleRunDetection">
+              <Icon
+                icon="solar:magic-stick-3-bold-duotone"
+                class="mr-2 h-4 w-4"
+              />
+              자동 감지 실행
+            </Button>
+          </div>
         </div>
       </div>
 
@@ -608,11 +644,14 @@ useScrollRestoration(".flex-grow.overflow-y-auto");
       <SeriesDetailDialog
         v-model:open="showDetailDialog"
         :series="selectedSeries"
-        @updated="refetch"
+        @updated="refetchCollections"
       />
 
       <!-- 새 시리즈 만들기 다이얼로그 -->
-      <CreateSeriesDialog v-model:open="showCreateDialog" @created="refetch" />
+      <CreateSeriesDialog
+        v-model:open="showCreateDialog"
+        @created="refetchCollections"
+      />
 
       <!-- 시리즈 삭제 확인 다이얼로그 -->
       <AlertDialog
