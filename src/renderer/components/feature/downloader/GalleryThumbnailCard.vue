@@ -15,9 +15,9 @@ interface Props {
   gallery: Gallery & { thumbnailUrl: string };
   downloadStatus?: { status: string; progress?: number; error?: string };
   selected?: boolean;
-  /** 라이브러리 보유 여부. 상위에서 한 번에 조회해 내려줍니다. */
+  /** 라이브러리 보유 여부. 상위에서 한 번에 조회해 내려준다 */
   bookId?: number | null;
-  /** 다운로드 경로. 상위에서 한 번만 읽어 내려줍니다. */
+  /** 다운로드 경로. 상위에서 한 번만 읽어 내려준다 */
   downloadPath?: string;
 }
 
@@ -31,22 +31,18 @@ const props = withDefaults(defineProps<Props>(), {
 const emit = defineEmits<{
   "select-gallery": [gallery: Gallery];
   "preview-gallery": [gallery: Gallery];
-  // 삭제 다이얼로그는 페이지가 들고 있습니다 (useGalleryDelete 참고)
+  // 삭제 다이얼로그는 페이지가 들고 있다 (useGalleryDelete 참고)
   "request-delete": [gallery: Gallery];
 }>();
 
-/**
- * 템플릿에 배열 리터럴을 직접 쓰면 vue-tsc가 `string[]`로 추론해
- * `MetaField[]` prop에 대입할 수 없다고 걸립니다. 상수로 빼서 타입을 박습니다.
- */
+// 템플릿에 배열 리터럴을 직접 쓰면 vue-tsc가 `string[]`로 추론해 걸린다
 const META_FIELDS: MetaField[] = ["pages", "language", "date"];
 
-/** 그리드는 세 줄만 쓰므로 작가만 그립니다 */
+/** 그리드는 세 줄만 쓰므로 작가만 그린다 */
 const CREDIT_FIELDS: CreditPrefix[] = ["artist"];
 
 const metaParts = computed(() => buildMetaLine(props.gallery, META_FIELDS));
 
-// composable 사용
 const {
   cardStatus,
   isDownloading,
@@ -85,25 +81,18 @@ const {
     ></div>
 
     <!--
-      하단 정보. 3단(제목/작가/메타)으로 줄여 표지가 60% 이상 남습니다.
+      하단 정보. z-30 아래로 내리면 안 된다 — 호버 버튼 영역이 `absolute inset-0
+      z-20`으로 카드 전면을 덮는데 `opacity-0`은 히트테스트에 영향이 없어, 이
+      영역이 더 낮으면 작가 클릭 복사가 영영 안 걸린다.
 
-      **z-30 아래로 내리면 안 됩니다.** 호버 버튼 영역이 `absolute inset-0
-      z-20`이라 카드 전면을 덮는데, `opacity-0`은 히트테스트에 영향이 없어서
-      호버 중이 아닐 때도 클릭을 가로챕니다. 이 영역이 그보다 낮으면 작가
-      클릭 복사가 영영 안 걸리고 미리보기만 열립니다.
-
-      영역 자체는 pointer-events-none이라 제목·메타를 누르면 클릭이 호버
-      버튼 영역으로 통과합니다. 작가 링크에만 pointer-events-auto를 줍니다.
+      영역 자체는 pointer-events-none이라 제목·메타를 누르면 클릭이 통과한다.
+      작가 링크에만 pointer-events-auto를 준다.
     -->
     <div
       class="pointer-events-none absolute right-0 bottom-0 left-0 z-30 bg-gradient-to-t from-black/80 via-black/60 to-transparent px-2.5 pt-7 pb-2.5 text-white"
     >
-      <!--
-        그림자는 스크림이 얇아지는 자리를 보강합니다. 제목은 오버레이 위쪽
-        20px 지점에 앉는데 그 높이의 그라디언트 알파가 약 0.33이라, 밝은 표지
-        위에서는 흰 글씨 대비가 2.3:1까지 떨어집니다. 스크림 자체를 진하게
-        하면 표지를 덜 보여주게 되므로 글씨만 띄웁니다.
-      -->
+      <!-- 그림자로 스크림이 얇아지는 자리를 보강한다. 스크림을 진하게 하면
+           표지를 덜 보여주게 되므로 글씨만 띄운다 -->
       <p
         class="line-clamp-2 text-[13px] leading-snug font-bold break-all [text-shadow:0_1px_3px_rgb(0_0_0/0.9)]"
       >
@@ -135,20 +124,11 @@ const {
     </div>
 
     <!--
-      버튼 영역 (호버 시 표시).
+      버튼 영역 (호버 시 표시). 문구는 그 상태의 주된 행동에만 단다.
 
-      **문구는 그 상태의 주된 행동에만 답니다.** 카드 최소 폭이 200px인데
-      (`Downloader.vue`의 `MIN_CARD_WIDTH`) `Button`은 기본 클래스에
-      `shrink-0 whitespace-nowrap`이 있어 절대 줄지 않습니다. 버튼 넷에 전부
-      한글 문구를 달면 약 261px이라 카드 밖으로 나가고, 루트의
-      `overflow-hidden`이 양끝을 잘라 먹습니다.
-
-      그래서 상태마다 문구를 하나만 둡니다. 받기 전에는 다운로드가, 보유중일
-      때는 열기가 주된 행동입니다. 보유중 다운로드 버튼("완료")은 아예
-      감춥니다 — 눌리지도 않는 데다 좌상단 배지가 이미 같은 말을 합니다.
-
-      `flex-wrap`은 그래도 안 맞는 경우의 안전망입니다. 창이 아주 좁으면
-      1열이 되면서 카드 폭이 200px 아래로 내려갈 수 있습니다.
+      카드 최소 폭이 200px인데 `Button`은 `shrink-0 whitespace-nowrap`이라 줄지
+      않는다. 버튼 넷에 전부 문구를 달면 약 261px이라 카드 밖으로 나가고 루트의
+      `overflow-hidden`이 잘라 먹는다. `flex-wrap`은 그래도 안 맞을 때의 안전망.
     -->
     <div
       class="absolute inset-0 z-20 flex cursor-zoom-in flex-wrap items-center justify-center gap-2 px-2 opacity-0 transition-opacity group-hover:opacity-100"

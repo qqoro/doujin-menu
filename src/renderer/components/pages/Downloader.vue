@@ -159,15 +159,10 @@ const blacklistTags = ref<string[]>([]);
 const isPreviewDialogOpen = ref(false);
 const selectedGallery = ref<Gallery>();
 
-/** 현재 보고 있는 PAGE 단위 구간 (0-based). offset·shownCount는 여기서 유도됩니다 */
+/** 현재 보고 있는 PAGE 단위 구간 (0-based). offset·shownCount는 여기서 유도된다 */
 const currentPage = ref(0);
 
-/**
- * 지금 입력창에 있는 검색어·언어를 합친 문자열.
- *
- * **이건 "입력 중인 값"이지 "조회에 쓸 값"이 아닙니다.** 조회는 아래
- * `committedSearch`를 씁니다.
- */
+/** 입력창에 있는 검색어·언어를 합친 값. 조회는 아래 `committedSearch`를 쓴다 */
 const finalSearchQuery = computed(() =>
   (downloaderLanguage.value !== "all"
     ? `language:${downloaderLanguage.value} ${searchQuery.value}`
@@ -176,18 +171,12 @@ const finalSearchQuery = computed(() =>
 );
 
 /**
- * 검색 버튼을 누른 시점의 조회 조건. **모든 조회는 이것만 읽습니다.**
+ * 검색 버튼을 누른 시점의 조회 조건. 모든 조회는 이것만 읽는다.
  *
- * queryFn이 `finalSearchQuery`를 직접 읽으면, 검색어는 queryKey에 없는데
- * 값은 입력할 때마다 바뀌므로 이런 일이 벌어집니다 — 입력창만 고치고 검색을
- * 안 눌러도, 그 뒤에 새로 페칭되는 청크만 수정된 검색어로 조회됩니다. 이미
- * 캐시된 청크는 옛 결과 그대로라 **한 화면에 두 검색 결과가 섞입니다.**
- * total·generation은 `["gallery-meta", searchKey]`라 옛 검색 기준으로 남아
- * 있어서 start 인덱스가 가리키는 좌표계까지 어긋납니다.
- *
- * 그렇다고 queryKey에 검색어를 넣으면 타이핑 한 글자마다 재검색이 됩니다.
- * 원하는 건 "검색 버튼을 눌러야 반영"이므로 값을 키에 넣는 대신 누른 시점에
- * 못박습니다. `searchKey`가 검색마다 증가하니 키는 그대로 둬도 됩니다.
+ * queryFn이 입력값을 직접 읽으면 검색어가 queryKey에 없는데 값만 바뀌므로, 그
+ * 뒤에 새로 페칭되는 청크만 새 검색어로 조회되어 한 화면에 두 검색 결과가
+ * 섞인다. queryKey에 검색어를 넣으면 타이핑 한 글자마다 재검색이 되므로, 키에
+ * 넣는 대신 버튼을 누른 시점에 값을 못박는다.
  */
 const committedSearch = ref<{
   query: string;
@@ -195,10 +184,8 @@ const committedSearch = ref<{
 }>({ query: "", popularity: "" });
 
 /**
- * 입력창·필터 값이 아직 조회에 반영되지 않은 상태.
- *
- * 다른 화면은 고치는 즉시 목록이 걸러지는데 여기만 검색 버튼을 눌러야 합니다.
- * 검색창이 다른 화면과 같은 모양이라 더 헷갈리므로 버튼으로 알립니다.
+ * 입력값이 아직 조회에 반영되지 않은 상태. 다른 화면은 고치는 즉시 걸러지는데
+ * 여기만 검색 버튼을 눌러야 해서 버튼으로 알린다.
  */
 const hasPendingSearch = computed(
   () =>
@@ -206,10 +193,8 @@ const hasPendingSearch = computed(
     downloaderPopularity.value !== committedSearch.value.popularity,
 );
 
-// ── 총 건수·세대 조회 ───────────────────────────────────────────────
-// 스크롤 영역 높이를 잡으려면 청크가 하나라도 오기 전에 total이 필요합니다.
-// ID 1건만 요청해 total과 generation을 먼저 확보합니다. 메인의 ID 캐시를
-// 청크 조회와 공유하므로 인덱스를 두 번 받지 않습니다.
+// 스크롤 영역 높이를 잡으려면 청크가 오기 전에 total이 필요해 ID 1건만 먼저
+// 요청한다. 메인의 ID 캐시를 청크 조회와 공유하므로 인덱스를 두 번 받지 않는다.
 const {
   data: searchMeta,
   isLoading: isMetaLoading,
@@ -240,11 +225,9 @@ const {
 const totalCount = computed(() => searchMeta.value?.total ?? 0);
 
 /**
- * 검색 결과 ID 배열의 세대.
- *
- * 히토미 인덱스는 신작이 앞에 붙는 구조라, ID 캐시 TTL이 만료돼 재조회하면
- * **같은 start가 다른 작품을 가리킵니다.** 청크 queryKey에 이 값이 들어가야
- * 옛 좌표계 청크와 새 좌표계 청크가 섞이지 않습니다.
+ * 검색 결과 ID 배열의 세대. 히토미 인덱스는 신작이 앞에 붙는 구조라, 캐시 TTL이
+ * 만료돼 재조회하면 같은 start가 다른 작품을 가리킨다. 청크 queryKey에 이 값이
+ * 들어가야 옛 좌표계와 새 좌표계가 섞이지 않는다.
  */
 const generation = computed(() => searchMeta.value?.generation ?? 0);
 
@@ -254,16 +237,14 @@ const shownCount = computed(() =>
   getShownCount(totalCount.value, currentPage.value),
 );
 
-// ── 청크 페칭 ───────────────────────────────────────────────────────
-// 보이는 절대 인덱스 범위를 30개 단위 청크로 나눠 필요한 것만 조회합니다.
-// 청크 번호는 페이지가 아니라 **전체 결과 기준 절대 번호**라, 구간을 오가도
-// 같은 청크가 캐시에 그대로 남습니다.
+// 보이는 절대 인덱스 범위를 30개 단위 청크로 나눠 필요한 것만 조회한다. 청크
+// 번호는 페이지가 아니라 전체 결과 기준 절대 번호라 구간을 오가도 캐시에 남는다.
 const visibleAbsRange = ref<{ start: number; end: number } | null>(null);
 
 const activeChunks = computed(() => {
   if (searchKey.value === 0 || totalCount.value === 0) return [];
 
-  // 아직 가상 스크롤러가 범위를 못 정한 초기 상태에서는 구간 첫 청크를 씁니다
+  // 가상 스크롤러가 아직 범위를 못 정한 초기 상태에서는 구간 첫 청크를 쓴다
   const range = visibleAbsRange.value ?? {
     start: offset.value,
     end: offset.value + CHUNK_SIZE - 1,
@@ -328,10 +309,8 @@ const chunkQueries = useQueries({
 });
 
 /**
- * 절대 인덱스 → 갤러리. 화면에 없는 인덱스는 undefined입니다.
- *
- * 배열이 아니라 Map인 이유는 우리가 들고 있는 게 결과 전체가 아니라
- * 드문드문한 몇 개 청크뿐이기 때문입니다.
+ * 절대 인덱스 → 갤러리. 없는 인덱스는 undefined.
+ * 들고 있는 게 결과 전체가 아니라 드문드문한 몇 개 청크뿐이라 Map을 쓴다.
  */
 const galleryByIndex = computed(() => {
   const map = new Map<number, Gallery & { thumbnailUrl: string }>();
@@ -345,14 +324,10 @@ const galleryByIndex = computed(() => {
   return map;
 });
 
-/** 지금 화면에 실제로 그려진 갤러리들. 존재 여부 배치 조회에 씁니다 */
+/** 지금 화면에 그려진 갤러리들. 존재 여부 배치 조회에 쓴다 */
 const loadedGalleries = computed(() => [...galleryByIndex.value.values()]);
 
-/**
- * 구간 안 인덱스로 갤러리를 찾습니다. 아직 청크가 안 왔으면 undefined.
- *
- * 템플릿이 주는 건 구간 안 좌표라 offset을 더해 절대 좌표로 올립니다.
- */
+/** 구간 안 인덱스로 갤러리를 찾는다. 템플릿 좌표라 offset을 더해 절대 좌표로 올린다 */
 const itemAt = (localIndex: number) =>
   galleryByIndex.value.get(offset.value + localIndex);
 
@@ -365,11 +340,8 @@ const failedDetailCount = computed(() =>
 );
 
 /**
- * 이번 검색에서 결과 목록을 한 번이라도 그렸는지.
- *
- * 전체 화면 스켈레톤을 첫 렌더 전으로 제한하는 데 씁니다. 자세한 이유는
- * `shouldShowSkeleton` 주석 참고. 검색 조건이 바뀌면 handleSearch에서
- * 다시 false로 돌립니다.
+ * 이번 검색에서 목록을 한 번이라도 그렸는지. 전체 스켈레톤을 첫 렌더 전으로
+ * 제한하는 데 쓴다 (`shouldShowSkeleton` 주석 참고).
  */
 const hasRenderedList = ref(false);
 
@@ -394,12 +366,8 @@ const retryFailedDetails = () => {
   queryClient.invalidateQueries({ queryKey: ["gallery-chunk"] });
 };
 
-// ── 라이브러리 보유 여부 ────────────────────────────────────────────
-// 예전에는 카드가 마운트될 때 각자 조회해서 한 페이지에 30번 왕복했습니다.
-// 지금은 화면에 있는 ID를 모아 한 번에 묻습니다.
-//
-// 갤러리 상세와 쿼리 키를 분리해둡니다. 같은 키에 묶으면 보유 여부를
-// 다시 조회할 때 상세 30건까지 덩달아 다시 받습니다.
+// 라이브러리 보유 여부. 화면에 있는 ID를 모아 한 번에 묻는다. 갤러리 상세와
+// 쿼리 키를 분리해야 보유 여부만 다시 조회할 때 상세 30건이 딸려오지 않는다.
 const galleryIds = computed(() => loadedGalleries.value.map((item) => item.id));
 
 const { data: bookExistsMap, refetch: refetchBookExists } = useQuery({
@@ -416,10 +384,8 @@ const { data: bookExistsMap, refetch: refetchBookExists } = useQuery({
 });
 
 /**
- * 배치 조회 결과보다 우선하는 로컬 보정값.
- *
- * 삭제 직후에는 재조회 응답이 오기 전까지 맵에 아직 그 책이 남아 있어
- * "보유중" 배지가 잠깐 더 보입니다. 그 사이를 메웁니다.
+ * 배치 조회 결과보다 우선하는 로컬 보정값. 삭제 직후 재조회 응답이 오기 전까지
+ * "보유중" 배지가 잠깐 더 보이는 사이를 메운다.
  */
 const bookIdOverrides = reactive<Record<number, number | null>>({});
 
@@ -458,11 +424,8 @@ useKeybindings("downloader", {
 });
 
 /**
- * 설정을 다시 읽습니다.
- *
- * 이 화면은 keep-alive라 onMounted가 한 번만 돕니다. 설정 화면에서 차단
- * 태그를 바꾸고 돌아왔을 때 반영되도록 onActivated에서도 호출합니다.
- * 차단 태그가 실제로 바뀌었으면 검색 결과 캐시도 버립니다.
+ * 설정을 다시 읽는다. 이 화면은 keep-alive라 onMounted가 한 번만 돌아서, 설정
+ * 화면에서 차단 태그를 바꾸고 돌아온 경우를 onActivated에서 받는다.
  */
 const loadDownloaderConfig = async () => {
   const config = await ipcRenderer.invoke("get-config");
@@ -492,7 +455,7 @@ const loadDownloaderConfig = async () => {
   }
 };
 
-/** 헤더 팝오버에서 차단 태그를 고쳤을 때 저장하고 결과를 갱신합니다. */
+/** 헤더 팝오버에서 차단 태그를 고쳤을 때 저장하고 결과를 갱신한다 */
 const saveBlacklistTags = async (tags: string[]) => {
   blacklistTags.value = tags;
   await ipcRenderer.invoke("set-config", {
@@ -554,11 +517,8 @@ const syncQueueToStatuses = () => {
 };
 
 /**
- * 다운로드 진행 상황 수신.
- *
- * 완료 토스트의 제목은 큐에서 찾습니다. 화면에 보이는 목록에서 찾으면
- * 다운로드를 걸어놓고 멀리 스크롤했을 때(또는 다시 검색했을 때) 제목을
- * 못 찾아 토스트가 통째로 사라집니다.
+ * 다운로드 진행 상황 수신. 완료 토스트의 제목은 화면 목록이 아니라 큐에서
+ * 찾는다 — 멀리 스크롤했거나 다시 검색했으면 목록에서는 못 찾는다.
  */
 const handleDownloadProgress = (
   _event: Electron.IpcRendererEvent,
@@ -629,33 +589,29 @@ onUnmounted(() => {
 });
 
 const handleSearch = () => {
-  // 조회에 쓸 조건을 지금 값으로 못박습니다. searchKey를 올리기 **전**이어야
-  // 새 키로 도는 첫 조회부터 새 조건을 봅니다
+  // searchKey를 올리기 전이어야 새 키로 도는 첫 조회부터 새 조건을 본다
   committedSearch.value = {
     query: finalSearchQuery.value,
     popularity: downloaderPopularity.value,
   };
 
-  // 검색 조건이 바뀌면 모든 위치가 달라지므로 첫 구간으로 되돌립니다
+  // 검색 조건이 바뀌면 모든 위치가 달라지므로 첫 구간으로 되돌린다
   currentPage.value = 0;
   visibleAbsRange.value = null;
   hasRenderedList.value = false;
   searchKey.value++;
 };
 
-// ── 가상 스크롤 ─────────────────────────────────────────────────────
-//
-// ⚠️ DOM 계층을 바꾸지 마세요.
+// 가상 스크롤. DOM 계층을 바꾸지 말 것:
 //
 //   .downloader-scroller   ← overflow-y:auto, zoom 없음. scrollTop은 실제 px
 //     └ .vspace            ← 총 높이 스페이서. zoom 없음
 //         └ .zoomed-grid   ← style="zoom: z". 카드만 이 안에
 //             └ .card      ← top = virtualRow.start / z
 //
-// 스페이서를 zoom 바깥에 두는 게 핵심입니다. 안에 두면 렌더 높이가 총높이 × z가
-// 되어 z=0.7이면 뒤쪽 30%에 도달할 수 없습니다. 또 zoom 아래에서는
-// measureElement의 borderBoxSize와 getBoundingClientRect가 1/z만큼 어긋나므로,
-// 나중에 누가 zoom을 스크롤러로 올리면 리스트 뷰가 조용히 깨집니다.
+// 스페이서를 zoom 안에 두면 렌더 높이가 총높이 × z가 되어 z=0.7이면 뒤쪽 30%에
+// 도달할 수 없다. zoom 아래에서는 measureElement의 borderBoxSize와
+// getBoundingClientRect도 1/z만큼 어긋난다.
 const scrollerRef = ref<HTMLElement | null>(null);
 const scrollerWidth = ref(0);
 
@@ -673,13 +629,11 @@ const gridMetrics = computed(() =>
   ),
 );
 
-const LIST_GAP = 8; // 리스트 카드 사이 간격 (gap-2, pb-2와 맞춥니다)
+const LIST_GAP = 8; // 리스트 카드 사이 간격 (gap-2, pb-2와 맞춘다)
 
 /**
- * 리스트 카드 하나의 최소 폭 (줌 1.0 기준).
- *
- * 태그가 많은 작품에서 배지 줄이 3줄 넘게 늘어지지 않는 하한입니다. 이보다
- * 좁아지면 2열로 아낀 세로 공간을 태그 줄바꿈으로 도로 뱉습니다.
+ * 리스트 카드 하나의 최소 폭 (줌 1.0 기준). 이보다 좁아지면 2열로 아낀 세로
+ * 공간을 태그 줄바꿈으로 도로 뱉는다.
  */
 const MIN_LIST_CARD_WIDTH = 560;
 
@@ -693,12 +647,12 @@ const listCols = computed(() =>
   ),
 );
 
-/** 그리드는 행 단위로 가상화합니다 */
+/** 그리드는 행 단위로 가상화한다 */
 const gridRowCount = computed(() =>
   Math.ceil(shownCount.value / gridMetrics.value.cols),
 );
 
-/** 리스트도 2열이 될 수 있어 행 단위로 가상화합니다 */
+/** 리스트도 2열이 될 수 있어 행 단위로 가상화한다 */
 const listRowCount = computed(() =>
   Math.ceil(shownCount.value / listCols.value),
 );
@@ -727,17 +681,11 @@ const listVirtualizer = useVirtualizer(
 );
 
 /**
- * 지금 쓰는 virtualizer.
+ * 지금 쓰는 virtualizer. 절대 computed로 만들지 말 것.
  *
- * **⚠️ 절대 computed로 만들지 마세요.** vue-virtual은 스크롤할 때마다
- * `onChange`에서 `triggerRef(state)`로 알리는데(`vue-virtual` 내부), Vue 3.4부터
- * computed는 **재계산 결과가 이전과 같으면 하류로 알림을 전파하지 않습니다.**
- * 여기는 늘 같은 virtualizer 인스턴스를 반환하므로, computed로 두면 스크롤
- * 알림이 전부 이 지점에서 흡수되어 `totalSize`·`visiblePosition` 같은 파생
- * computed가 첫 계산값에서 영원히 멈춥니다.
- *
- * 일반 함수면 호출한 쪽의 effect가 `gridVirtualizer`(shallowRef)를 직접
- * 구독하므로 `triggerRef`가 그대로 전달됩니다.
+ * vue-virtual은 스크롤마다 `triggerRef`로 알리는데, Vue 3.4부터 computed는
+ * 재계산 결과가 이전과 같으면 알림을 전파하지 않는다. 여기는 늘 같은 인스턴스를
+ * 반환하므로 computed로 두면 파생 computed가 첫 값에서 영원히 멈춘다.
  */
 const getActiveVirtualizer = () =>
   viewMode.value === "grid" ? gridVirtualizer.value : listVirtualizer.value;
@@ -745,23 +693,18 @@ const getActiveVirtualizer = () =>
 const totalSize = computed(() => getActiveVirtualizer()?.getTotalSize() ?? 0);
 
 /**
- * 지금 뷰의 열 수.
- *
- * 가상 항목의 인덱스는 **행** 번호라, 항목 인덱스와 오가려면 어디서든 이 값이
- * 필요합니다(보이는 범위, 위치 표시, 스크롤 복원, N번째 이동). 리스트가 1열로
- * 고정이던 시절에는 호출부마다 `: 1`을 적어뒀는데, 리스트도 2열이 되면서
- * 그걸 한 군데라도 빠뜨리면 좌표계가 조용히 어긋납니다. 한 곳으로 모읍니다.
+ * 지금 뷰의 열 수. 가상 항목 인덱스는 행 번호라 항목 인덱스와 오가려면 어디서든
+ * 이 값이 필요하다(보이는 범위, 위치 표시, 스크롤 복원, N번째 이동). 호출부마다
+ * 따로 계산하면 한 군데만 빠뜨려도 좌표계가 조용히 어긋난다.
  */
 const activeCols = computed(() =>
   viewMode.value === "grid" ? gridMetrics.value.cols : listCols.value,
 );
 
 /**
- * 지금 보이는 절대 인덱스 범위. 청크 조회 대상을 정합니다.
- *
- * 여기는 overscan을 포함한 getVirtualItems 기준입니다 — 미리 받아둬야
- * 스크롤할 때 빈 칸이 안 보입니다. 사용자에게 보여주는 "몇 번째 보는 중"과는
- * 다른 값이며 그쪽은 virtualizer.range를 씁니다.
+ * 지금 보이는 절대 인덱스 범위. 청크 조회 대상을 정한다. overscan을 포함한
+ * getVirtualItems 기준이라, 화면에 표시하는 "몇 번째 보는 중"과는 다른 값이다
+ * (그쪽은 virtualizer.range를 쓴다).
  */
 const updateVisibleRange = () => {
   const virtualizer = getActiveVirtualizer();
@@ -799,11 +742,9 @@ watch(
 );
 
 /**
- * 폭이나 줌이 바뀌면 rowH를 다시 재고 virtualizer에 알립니다.
- *
- * estimateSize는 memo 의존성에 없어서 값만 바꿔서는 반영되지 않습니다.
- * 열 수가 바뀌면 같은 항목의 행 인덱스가 달라지므로, 보고 있던 첫 항목을
- * 기준으로 다시 스크롤해 위치를 유지합니다.
+ * 폭이나 줌이 바뀌면 rowH를 다시 재고 virtualizer에 알린다. estimateSize는 memo
+ * 의존성에 없어 값만 바꿔서는 반영되지 않는다. 열 수가 바뀌면 같은 항목의 행
+ * 인덱스도 달라지므로 보고 있던 첫 항목 기준으로 다시 스크롤한다.
  */
 watch(
   () => ({
@@ -814,7 +755,7 @@ watch(
     const virtualizer = gridVirtualizer.value;
     if (!virtualizer) return;
 
-    // 열 수가 바뀌기 **전** 기준으로 보고 있던 첫 항목을 계산합니다
+    // 열 수가 바뀌기 전 기준으로 보고 있던 첫 항목을 계산한다
     const firstLocal = (virtualizer.range?.startIndex ?? 0) * (prev?.cols || 1);
 
     virtualizer.measure();
@@ -828,31 +769,27 @@ watch(
   },
 );
 
-// count가 바뀌거나 줌이 바뀌면 캐시된 측정값을 버립니다.
-// 줌 변경 후 measure()를 안 부르면 옛 높이가 남아 행이 겹치거나 벌어집니다.
+// count나 줌이 바뀌면 캐시된 측정값을 버린다. 안 그러면 옛 높이가 남아 행이
+// 겹치거나 벌어진다.
 //
-// **소스를 `() => [a, b]`로 쓰면 안 됩니다.** 배열 리터럴은 매번 새 참조라
-// Vue가 Object.is로 항상 "바뀜"으로 판정합니다. 그러면 measure()가
-// virtualizer의 반응형 상태를 건드리고 → 소스가 재평가되어 또 새 배열이 나오고
-// → 콜백이 다시 도는 무한 루프가 됩니다("Maximum recursive updates exceeded").
-// getter 배열로 넘기면 Vue가 요소별로 비교해 실제로 바뀐 경우만 돕니다.
+// 소스를 `() => [a, b]`로 쓰면 안 된다. 배열 리터럴은 매번 새 참조라 Vue가 항상
+// "바뀜"으로 판정해 measure() → 재평가 → 콜백 무한 루프가 된다. getter 배열로
+// 넘기면 요소별로 비교한다.
 watch(
   [() => listVirtualizer.value?.options.count, () => uiStore.thumbnailZoom],
   () => listVirtualizer.value?.measure(),
 );
 
 /**
- * 리스트 열 수가 바뀌면 보던 항목으로 되돌립니다.
- *
- * 위 watch가 이미 measure()는 부르지만(열 수가 바뀌면 count도 바뀝니다) 그것만
- * 으로는 부족합니다. 1열 3000행이 2열 1500행이 되면 같은 행 인덱스가 두 배
- * 아래 항목을 가리켜, 재측정만 하면 보던 자리에서 그대로 튕깁니다.
+ * 리스트 열 수가 바뀌면 보던 항목으로 되돌린다. 위 watch가 measure()는 부르지만,
+ * 1열 3000행이 2열 1500행이 되면 같은 행 인덱스가 두 배 아래를 가리켜 재측정만
+ * 으로는 보던 자리에서 튕긴다.
  */
 watch(listCols, (nextCols, prevCols) => {
   const virtualizer = listVirtualizer.value;
   if (!virtualizer || viewMode.value !== "list") return;
 
-  // 열 수가 바뀌기 **전** 기준으로 보고 있던 첫 항목을 계산합니다
+  // 열 수가 바뀌기 전 기준으로 보고 있던 첫 항목을 계산한다
   const firstLocal = (virtualizer.range?.startIndex ?? 0) * (prevCols || 1);
   if (firstLocal <= 0) return;
 
@@ -878,18 +815,11 @@ const observeScroller = (element: HTMLElement | null) => {
 
 watch(scrollerRef, (element) => observeScroller(element), { immediate: true });
 
-// ── N번째로 이동 ────────────────────────────────────────────────────
-// 검색 결과가 백만 건 단위라 스크롤만으로는 원하는 지점에 닿을 수 없습니다.
-//
-// 목표가 현재 구간 안이면 순수 스크롤이고, 밖이면 구간을 바꾼 뒤 **같은**
-// scrollToIndex를 부릅니다. 분기는 "스크롤이냐 재검색이냐"가 아니라
-// "구간을 바꾸고 나서 스크롤이냐, 그냥 스크롤이냐"입니다.
+// N번째로 이동. 검색 결과가 백만 건 단위라 스크롤만으로는 닿을 수 없다. 목표가
+// 현재 구간 안이면 순수 스크롤, 밖이면 구간을 바꾼 뒤 같은 scrollToIndex를 부른다.
 const jumpInput = ref("");
 
-/**
- * 이 칸의 어려움은 "무엇을 넣는지"가 아니라 "얼마까지 넣을 수 있는지"입니다.
- * 9만 건짜리 결과에서 상한을 알 방법이 달리 없어 여기서 알려줍니다.
- */
+/** 결과가 몇만 건일 때 상한을 알 방법이 달리 없어 이 칸에서 알려준다 */
 const jumpRangeLabel = computed(
   () => `1–${totalCount.value.toLocaleString("ko-KR")}`,
 );
@@ -899,10 +829,8 @@ const jumpPlaceholder = computed(() =>
 );
 
 /**
- * 검색 전에는 이동할 결과 자체가 없습니다.
- *
- * 막지 않으면 숫자를 넣고 눌러도 handleJump가 locateNth에서 null을 받고 그냥
- * 돌아옵니다. 아무 반응이 없으니 사용자는 자기가 뭘 잘못했는지 알 수 없습니다.
+ * 검색 전에는 이동할 결과가 없다. 막지 않으면 눌러도 아무 반응이 없어 사용자가
+ * 뭘 잘못했는지 알 수 없다.
  */
 const canJump = computed(() => totalCount.value > 0);
 
@@ -923,15 +851,9 @@ const handleJump = () => {
 };
 
 /**
- * 이전·다음 구간으로 옮깁니다.
- *
- * "N번째로 이동"은 갈 곳을 알 때 쓰는 것이고, 이건 스크롤로 훑다 구간 끝에
- * 닿았을 때 씁니다. 끝을 감지해 자동으로 넘기지 않는 이유는 스크롤 위치가
- * 맨 위로 튀는 게 사용자에게는 미끄러진 것처럼 보이기 때문입니다.
- *
- * 구간을 바꾸면 항상 맨 앞부터 봅니다. 이전으로 갈 때 그 구간의 끝으로
- * 보내면 스크롤 방향과는 이어지지만 "몇 번째 구간의 처음"이라는 기준이
- * 사라져 지금 어디인지 알기 어려워집니다.
+ * 이전·다음 구간으로 옮긴다. 끝을 감지해 자동으로 넘기지 않는 건 스크롤 위치가
+ * 맨 위로 튀는 게 미끄러진 것처럼 보이기 때문이다. 구간을 바꾸면 항상 맨 앞부터
+ * 본다.
  */
 const canGoPrevPage = computed(() => currentPage.value > 0);
 const canGoNextPage = computed(() => currentPage.value < pageCount.value - 1);
@@ -945,10 +867,8 @@ const movePage = (delta: number) => {
 };
 
 /**
- * 구간을 바꾼 직후에는 바로 scrollToIndex를 부르면 안 됩니다.
- *
- * 새 구간의 count가 virtualizer에 반영되기 전이라 목표가 0으로 클램프됩니다.
- * 스크롤 복원이 겪던 것과 같은 함정이라 대기 로직을 공유합니다.
+ * 구간을 바꾼 직후에는 바로 scrollToIndex를 부르면 안 된다. 새 count가
+ * virtualizer에 반영되기 전이라 목표가 0으로 클램프된다.
  */
 let cancelPendingScroll: (() => void) | null = null;
 
@@ -1018,11 +938,9 @@ const goToSettings = () => {
   router.push({ path: "/settings", query: { tab: "downloader" } });
 };
 
-// ── 위치·구간 표시 ─────────────────────────────────────────────────
-//
-// 사용자는 이 숫자를 보고 다음에 "N번째로 이동"에 넣을 값을 정합니다.
-// 그래서 로드한 범위나 구간 범위가 아니라 **지금 뷰포트에 보이는 범위**여야
-// 하고, offset을 더해 전체 결과 기준 절대 위치로 올려야 합니다.
+// 위치 표시. 사용자는 이 숫자를 보고 "N번째로 이동"에 넣을 값을 정하므로, 로드한
+// 범위가 아니라 지금 뷰포트에 보이는 범위여야 하고 offset을 더해 전체 결과 기준
+// 절대 위치로 올려야 한다.
 const visiblePosition = computed(() =>
   visibleRange(
     getActiveVirtualizer()?.range ?? null,
@@ -1032,21 +950,12 @@ const visiblePosition = computed(() =>
   ),
 );
 
-/**
- * 결과가 한 구간에 안 들어갈 때만 이전·다음 구간 버튼을 띄웁니다.
- *
- * 예전에는 같은 조건으로 "전체 N건 중 1–5,000번째 구간 (1/19)" 배너도 함께
- * 띄웠는데 뺐습니다. 총 건수는 결과 헤더가 이미 말하고, 구간 경계가 몇 번째인지
- * 자체는 사용자가 쓸 일이 없습니다 — 위치는 헤더의 "몇 번째 보는 중"으로,
- * 이동은 "N번째로 이동" 칸으로 하고 그 칸이 상한도 알려줍니다.
- */
+/** 결과가 한 구간에 안 들어갈 때만 이전·다음 구간 버튼을 띄운다 */
 const showPageBanner = computed(() => pageCount.value > 1);
 
-// ── 스크롤 복원 ─────────────────────────────────────────────────────
-//
-// 픽셀 오프셋 저장은 폐기했습니다. 열 수가 창 너비와 줌의 함수라, 다른 화면에
-// 있는 동안 창을 리사이즈하면 같은 픽셀이 전혀 다른 항목을 가리킵니다.
-// 구간 번호와 첫 보이는 항목 인덱스를 저장하고 scrollToIndex로 되돌립니다.
+// 스크롤 복원. 픽셀 오프셋은 못 쓴다 — 열 수가 창 너비와 줌의 함수라 다른
+// 화면에 있는 동안 리사이즈하면 같은 픽셀이 다른 항목을 가리킨다. 구간 번호와
+// 첫 보이는 항목 인덱스를 저장하고 scrollToIndex로 되돌린다.
 useIndexScrollRestoration({
   capture: () => {
     const range = getActiveVirtualizer()?.range;
@@ -1411,7 +1320,7 @@ useSearchPersistence(searchQuery, "downloader-search-query");
       </div>
 
       <!-- 결과 목록 (가상 스크롤) -->
-      <!-- ⚠️ .vspace는 zoom 바깥, 카드만 .zoomed-grid 안. 스페이서를 zoom
+      <!-- .vspace는 zoom 바깥, 카드만 .zoomed-grid 안. 스페이서를 zoom
            안으로 옮기면 렌더 높이가 총높이 × z가 되어 뒤쪽에 도달할 수 없습니다 -->
       <div
         v-else-if="shownCount > 0"
@@ -1475,9 +1384,9 @@ useSearchPersistence(searchQuery, "downloader-search-query");
           </div>
         </div>
 
-        <!-- 리스트: 행 단위 가상화 + 동적 측정 (CSS zoom 없음)
-             측정 대상은 **행 래퍼**입니다. 2열이면 두 카드 중 높은 쪽이 행
-             높이가 되는데, 래퍼 하나만 재면 그게 저절로 맞습니다 -->
+        <!-- 리스트: 행 단위 가상화 + 동적 측정 (CSS zoom 없음).
+             측정 대상은 행 래퍼다. 2열이면 두 카드 중 높은 쪽이 행 높이가 되는데
+             래퍼 하나만 재면 저절로 맞는다 -->
         <div v-else class="absolute inset-x-0 top-0" @wheel="handleZoomWheel">
           <div
             v-for="virtualRow in listVirtualizer?.getVirtualItems() ?? []"

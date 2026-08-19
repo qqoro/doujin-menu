@@ -16,19 +16,18 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
+import { useVirtualCardList } from "@/composable/useVirtualCardList";
 import { useUiStore } from "@/store/uiStore";
 import { Icon } from "@iconify/vue";
 import ViewOptionsBar from "../common/ViewOptionsBar.vue";
 import PageHeader from "../layout/PageHeader.vue";
 import PageToolbar from "../layout/PageToolbar.vue";
-import {
-  useInfiniteQuery,
-  useQuery,
-  useQueryClient,
-} from "@tanstack/vue-query";
-import { computed, nextTick, ref, watch } from "vue";
+import { useQuery, useQueryClient } from "@tanstack/vue-query";
+import { nextTick, onMounted, ref, watch } from "vue";
 import { useRouter } from "vue-router";
 import { toast } from "vue-sonner";
+import CoverCardShell from "../feature/parts/CoverCardShell.vue";
+import RowCardShell from "../feature/parts/RowCardShell.vue";
 
 interface HistoryItem {
   history_id: number;
@@ -40,36 +39,7 @@ interface HistoryItem {
 
 const router = useRouter();
 const queryClient = useQueryClient();
-
-const { data, fetchNextPage, hasNextPage, isFetchingNextPage, status } =
-  useInfiniteQuery({
-    queryKey: ["bookHistory"],
-    queryFn: ({ pageParam = 0 }) => getBookHistory({ pageParam }),
-    getNextPageParam: (lastPage) => {
-      if (lastPage.hasNextPage) {
-        return lastPage.nextPage;
-      }
-      return undefined;
-    },
-    initialPageParam: 0,
-  });
-
-const allItems = computed<HistoryItem[]>(
-  () =>
-    data.value?.pages
-      .flatMap((page) => page.data)
-      .filter((item): item is HistoryItem => item !== undefined) ?? [],
-);
-
-const scrollContainerRef = ref<HTMLElement | null>(null);
-const isClearAllDialogOpen = ref(false);
-
 const uiStore = useUiStore();
-
-// 그리드 카드의 최소 폭과 간격. 라이브러리 그리드와 같은 값을 써서 두 화면의
-// 카드 크기가 어긋나지 않게 한다
-const MIN_CARD_WIDTH = 184;
-const GRID_GAP = 12;
 
 // 뷰 모드는 설정에 저장해 다음에 들어와도 유지한다
 const viewMode = ref<"grid" | "list">("grid");
@@ -136,20 +106,6 @@ function formatDate(dateString: string) {
   return dateFormatter.format(date);
 }
 
-function handleScroll() {
-  const container = scrollContainerRef.value;
-  if (container) {
-    const { scrollTop, scrollHeight, clientHeight } = container;
-    if (
-      scrollTop + clientHeight >= scrollHeight - 100 &&
-      hasNextPage.value &&
-      !isFetchingNextPage.value
-    ) {
-      fetchNextPage();
-    }
-  }
-}
-
 const goToBook = (bookId: number) => {
   router.push({ name: "Viewer", params: { id: bookId } });
 };
@@ -164,11 +120,56 @@ const handleDelete = async (historyId: number) => {
   try {
     await deleteBookHistory(historyId);
     queryClient.invalidateQueries({ queryKey: ["bookHistory"] });
+    queryClient.invalidateQueries({ queryKey: ["bookHistory-meta"] });
     queryClient.invalidateQueries({ queryKey: ["books"] });
   } catch (error) {
     console.error("기록 삭제 실패:", error);
   }
 };
+
+// 배치·줌·스크롤 복원은 useVirtualCardList가 담당한다. 여기는 데이터를 어떻게
+// 가져올지만 알려준다
+
+/** 청크 하나에 담는 기록 수. 기존 get-book-history pageSize와 같다 */
+const CHUNK_SIZE = 50;
+
+const {
+  scrollerRef,
+  updateVisibleRange,
+  handleGridWheel,
+  gridVirtualizer,
+  listVirtualizer,
+  gridCols,
+  listCols,
+  totalSize,
+  totalCount,
+  isLoading,
+  itemAt,
+  GRID_GAP,
+  LIST_GAP,
+  listSkeletonHeight,
+} = useVirtualCardList<HistoryItem>({
+  viewMode,
+  chunkSize: CHUNK_SIZE,
+  // 1건만 요청해 총 건수만 확보한다 (스크롤러 총 높이용)
+  fetchTotal: async () => {
+    const result = await getBookHistory({ pageParam: 0, pageSize: 1 });
+    return result.total ?? 0;
+  },
+  fetchChunk: async (chunkIndex) => {
+    const result = await getBookHistory({
+      pageParam: chunkIndex,
+      pageSize: CHUNK_SIZE,
+      skipCount: true, // 총 건수는 메타 조회가 이미 갖고 있다
+    });
+    return (result.data ?? []) as HistoryItem[];
+  },
+  metaKey: () => ["bookHistory-meta"],
+  chunkKey: (chunkIndex) => ["bookHistory", chunkIndex],
+});
+
+// 전체 기록 삭제
+const isClearAllDialogOpen = ref(false);
 
 const handleClearAll = () => {
   isClearAllDialogOpen.value = true;
@@ -179,6 +180,7 @@ const confirmClearAll = async () => {
     await clearBookHistory();
     toast.success("모든 기록 삭제 완료");
     queryClient.invalidateQueries({ queryKey: ["bookHistory"] });
+    queryClient.invalidateQueries({ queryKey: ["bookHistory-meta"] });
     queryClient.invalidateQueries({ queryKey: ["books"] });
   } catch (error) {
     console.error("모든 기록 삭제 실패:", error);
@@ -187,6 +189,15 @@ const confirmClearAll = async () => {
     isClearAllDialogOpen.value = false;
   }
 };
+
+// 기록은 뷰어에서 추가되므로 이 화면이 스스로 알 방법이 없다. 청크 쿼리
+// staleTime이 5분이라 재마운트만으로는 갱신되지 않아 브로드캐스트로 무효화한다
+onMounted(() => {
+  ipcRenderer.on("book-history-updated", () => {
+    queryClient.invalidateQueries({ queryKey: ["bookHistory"] });
+    queryClient.invalidateQueries({ queryKey: ["bookHistory-meta"] });
+  });
+});
 </script>
 
 <template>
@@ -196,7 +207,7 @@ const confirmClearAll = async () => {
         <Button
           variant="destructive"
           size="icon"
-          :disabled="allItems.length === 0"
+          :disabled="totalCount === 0"
           @click="handleClearAll"
         >
           <Icon
@@ -211,109 +222,181 @@ const confirmClearAll = async () => {
     <div class="flex min-h-0 flex-1 flex-col gap-4">
       <PageToolbar>
         <template #view>
-          <!-- 리스트 뷰는 줌을 쓰지 않아 그리드에서만 켠다 -->
-          <ViewOptionsBar
-            v-model="viewMode"
-            :zoom-disabled="viewMode !== 'grid'"
-          />
+          <!-- 리스트도 썸네일 px가 줌을 따라가므로 양쪽 다 줌을 켠다 -->
+          <ViewOptionsBar v-model="viewMode" />
         </template>
       </PageToolbar>
 
+      <!--
+        스크롤러는 항상 마운트해야 한다. 조건부로 두면 virtualizer가 초기화
+        시점에 스크롤 요소를 못 잡아 행이 하나도 안 그려진다.
+      -->
       <div
-        ref="scrollContainerRef"
-        class="flex-grow overflow-y-auto pr-4"
-        @scroll="handleScroll"
+        ref="scrollerRef"
+        class="history-scroller relative min-h-0 flex-grow overflow-y-auto"
+        @wheel="handleGridWheel"
+        @scroll="updateVisibleRange"
       >
-        <div v-if="status === 'pending'" class="p-4 text-center">
+        <div v-if="isLoading" class="p-4 text-center">
           <p>읽음 기록을 불러오는 중...</p>
         </div>
         <div
-          v-else-if="status === 'error'"
-          class="text-destructive p-4 text-center"
+          v-else-if="totalCount > 0"
+          class="vspace relative w-full"
+          :style="{ height: `${totalSize}px` }"
         >
-          <p>오류가 발생했습니다.</p>
-        </div>
-        <div v-else-if="allItems.length > 0">
-          <!-- 그리드: 표지를 크게 본다.
-             기록은 열람 한 번이 한 칸이라, 같은 책을 여러 번 봤으면 그 횟수만큼
-             나온다. 언제 몇 번 봤는지가 남는 게 이 화면의 목적이라 묶지 않는다.
-             줌은 라이브러리와 같은 방식(컨테이너에 zoom)으로 건다 -->
-          <div
-            v-if="viewMode === 'grid'"
-            class="zoomed grid items-start"
-            :style="{
-              zoom: uiStore.thumbnailZoom,
-              gridTemplateColumns: `repeat(auto-fill, minmax(${MIN_CARD_WIDTH}px, 1fr))`,
-              gap: `${GRID_GAP}px`,
-            }"
-          >
+          <!-- 그리드.
+               기록은 열람 한 번이 한 칸이라, 같은 책을 여러 번 봤으면 그 횟수만큼
+               나온다. 언제 몇 번 봤는지가 남는 게 이 화면의 목적이라 묶지 않는다 -->
+          <template v-if="viewMode === 'grid'">
             <div
-              v-for="item in allItems"
-              :key="item.history_id"
-              class="hover:bg-accent/40 relative cursor-pointer rounded-md p-2"
-              @click="goToBook(item.id)"
+              v-for="row in gridVirtualizer?.getVirtualItems() ?? []"
+              :key="row.index"
+              :ref="(el) => gridVirtualizer?.measureElement(el as Element)"
+              :data-index="row.index"
+              class="absolute inset-x-0 top-0"
+              :style="{ transform: `translateY(${row.start}px)` }"
             >
-              <img
-                :src="getCoverUrl(item.cover_path)"
-                class="aspect-[3/4] w-full rounded-md object-cover"
-              />
-              <p class="mt-2 truncate font-semibold" :title="item.title">
-                {{ item.title }}
-              </p>
-              <p class="text-muted-foreground text-sm">
-                {{ formatDate(item.viewed_at) }}
-              </p>
-              <!-- 라이브러리 카드의 삭제와 달리 여기서는 기록만 지운다 -->
-              <Button
-                variant="destructive"
-                size="icon"
-                class="absolute top-3 right-3"
-                aria-label="기록 삭제"
-                @click.stop="handleDelete(item.history_id)"
-              >
-                <Icon
-                  icon="solar:trash-bin-trash-bold-duotone"
-                  class="h-5 w-5"
-                />
-              </Button>
-            </div>
-          </div>
-
-          <div v-else class="space-y-2">
-            <div v-for="item in allItems" :key="item.history_id">
               <div
-                class="hover:bg-accent/40 flex cursor-pointer items-center rounded-md p-2"
-                @click="goToBook(item.id)"
+                class="zoomed grid items-start"
+                :style="{
+                  zoom: uiStore.thumbnailZoom,
+                  gridTemplateColumns: `repeat(${gridCols}, minmax(0, 1fr))`,
+                  gap: `${GRID_GAP}px`,
+                  paddingBottom: `${GRID_GAP}px`,
+                }"
               >
-                <img
-                  :src="getCoverUrl(item.cover_path)"
-                  class="h-20 w-16 flex-shrink-0 rounded-md object-cover"
-                />
-                <div class="ml-4 min-w-0 flex-grow">
-                  <p class="truncate font-semibold">{{ item.title }}</p>
-                  <p class="text-muted-foreground text-sm">
-                    {{ formatDate(item.viewed_at) }}
-                  </p>
-                </div>
-                <Button
-                  variant="destructive"
-                  size="icon"
-                  class="ml-4 flex-shrink-0"
-                  aria-label="기록 삭제"
-                  @click.stop="handleDelete(item.history_id)"
-                >
-                  <Icon
-                    icon="solar:trash-bin-trash-bold-duotone"
-                    class="h-5 w-5"
-                  />
-                </Button>
+                <template v-for="col in gridCols" :key="`${row.index}-${col}`">
+                  <!-- 카드 골격은 라이브러리 그리드와 같은 CoverCardShell.
+                       데이터는 기록 데이터만 있어 오버레이에 제목·본 시각만 그린다 -->
+                  <CoverCardShell
+                    v-if="itemAt(row.index * gridCols + col - 1)"
+                    :cover-url="
+                      getCoverUrl(
+                        itemAt(row.index * gridCols + col - 1)!.cover_path,
+                      )
+                    "
+                    :alt="itemAt(row.index * gridCols + col - 1)!.title"
+                    @click="
+                      goToBook(itemAt(row.index * gridCols + col - 1)!.id)
+                    "
+                  >
+                    <template #overlay>
+                      <p
+                        class="line-clamp-2 text-[13px] leading-snug font-bold break-all [text-shadow:0_1px_3px_rgb(0_0_0/0.9)]"
+                        :title="itemAt(row.index * gridCols + col - 1)!.title"
+                      >
+                        {{ itemAt(row.index * gridCols + col - 1)!.title }}
+                      </p>
+                      <p class="mt-0.5 text-[11.5px] opacity-95">
+                        {{
+                          formatDate(
+                            itemAt(row.index * gridCols + col - 1)!.viewed_at,
+                          )
+                        }}
+                      </p>
+                    </template>
+                    <!--
+                      기록만 지우는 버튼(책은 남는다). 카드 중앙은 책을 여는
+                      자리라 오조작을 피해 구석에 붙인다
+                    -->
+                    <template #actions>
+                      <Button
+                        size="icon-sm"
+                        variant="destructive"
+                        class="absolute top-2 right-2"
+                        title="기록 삭제"
+                        aria-label="기록 삭제"
+                        @click.stop="
+                          handleDelete(
+                            itemAt(row.index * gridCols + col - 1)!.history_id,
+                          )
+                        "
+                      >
+                        <Icon
+                          icon="solar:trash-bin-trash-bold-duotone"
+                          class="h-4 w-4"
+                        />
+                      </Button>
+                    </template>
+                  </CoverCardShell>
+                  <!-- 아직 청크가 안 온 자리. 높이를 잡아둬야 행이 안 무너진다 -->
+                  <div
+                    v-else-if="row.index * gridCols + col - 1 < totalCount"
+                    class="bg-muted aspect-[2/3] animate-pulse rounded-lg"
+                  ></div>
+                </template>
               </div>
             </div>
-          </div>
+          </template>
 
-          <div v-if="isFetchingNextPage" class="p-4 text-center">
-            <p>더 많은 기록을 불러오는 중...</p>
-          </div>
+          <!-- 리스트. 라이브러리와 같은 RowCardShell + 멀티컬럼 -->
+          <template v-else>
+            <div
+              v-for="row in listVirtualizer?.getVirtualItems() ?? []"
+              :key="row.index"
+              :ref="(el) => listVirtualizer?.measureElement(el as Element)"
+              :data-index="row.index"
+              class="absolute inset-x-0 top-0 grid pb-2"
+              :style="{
+                transform: `translateY(${row.start}px)`,
+                gridTemplateColumns: `repeat(${listCols}, minmax(0, 1fr))`,
+                gap: `${LIST_GAP}px`,
+              }"
+            >
+              <template v-for="col in listCols" :key="`${row.index}-${col}`">
+                <RowCardShell
+                  v-if="itemAt(row.index * listCols + col - 1)"
+                  :cover-url="
+                    getCoverUrl(
+                      itemAt(row.index * listCols + col - 1)!.cover_path,
+                    )
+                  "
+                  :alt="itemAt(row.index * listCols + col - 1)!.title"
+                  @click="goToBook(itemAt(row.index * listCols + col - 1)!.id)"
+                >
+                  <template #content>
+                    <h3 class="text-[15px] leading-snug font-bold">
+                      {{ itemAt(row.index * listCols + col - 1)!.title }}
+                    </h3>
+                    <p class="text-muted-foreground text-[12.5px]">
+                      {{
+                        formatDate(
+                          itemAt(row.index * listCols + col - 1)!.viewed_at,
+                        )
+                      }}
+                    </p>
+                  </template>
+                  <template #actions>
+                    <Button
+                      variant="destructive"
+                      size="icon"
+                      class="mr-1 self-center"
+                      aria-label="기록 삭제"
+                      @click.stop="
+                        handleDelete(
+                          itemAt(row.index * listCols + col - 1)!.history_id,
+                        )
+                      "
+                    >
+                      <Icon
+                        icon="solar:trash-bin-trash-bold-duotone"
+                        class="h-5 w-5"
+                      />
+                    </Button>
+                  </template>
+                </RowCardShell>
+                <!-- 아직 청크가 안 온 자리. 카드와 같은 껍데기로 둔다 -->
+                <div
+                  v-else-if="row.index * listCols + col - 1 < totalCount"
+                  class="bg-muted animate-pulse rounded-lg border"
+                  :style="{
+                    height: `${listSkeletonHeight}px`,
+                  }"
+                ></div>
+              </template>
+            </div>
+          </template>
         </div>
         <div v-else class="p-4 text-center">
           <p>읽음 기록이 없습니다.</p>

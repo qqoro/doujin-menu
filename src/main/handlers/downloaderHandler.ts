@@ -27,10 +27,8 @@ interface SearchGalleriesResult {
   error?: string;
 }
 
-// ── 검색 결과 ID 캐시 ────────────────────────────────────────────────
-// node-hitomi의 getGalleryIds는 호출할 때마다 index-all.nozomi 전체를 다시
-// 받습니다. 페이지를 넘길 때마다 그 비용을 내지 않도록 검색어별로 ID 배열을
-// 통째로 캐시합니다.
+// 검색 결과 ID 캐시. node-hitomi의 getGalleryIds는 호출할 때마다
+// index-all.nozomi 전체를 다시 받으므로, 검색어별로 ID 배열을 통째로 캐시한다.
 
 interface CachedIds {
   ids: Int32Array; // number[]는 항목당 8바이트, Int32Array는 4바이트

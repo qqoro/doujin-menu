@@ -115,11 +115,17 @@ export function openNewWindow(url: string) {
 export async function getBookHistory({
   pageParam = 0,
   pageSize = 50,
+  skipCount = false,
 }: {
   pageParam?: number;
   pageSize?: number;
+  skipCount?: boolean;
 }) {
-  return ipcRenderer.invoke("get-book-history", { pageParam, pageSize });
+  return ipcRenderer.invoke("get-book-history", {
+    pageParam,
+    pageSize,
+    skipCount,
+  });
 }
 
 export async function deleteBookHistory(historyId: number) {

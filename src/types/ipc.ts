@@ -334,9 +334,16 @@ export interface IpcChannels {
     response: { success: boolean; error?: string };
   };
   "get-book-history": {
-    request: { pageParam?: number; pageSize?: number };
+    request: {
+      pageParam?: number;
+      pageSize?: number;
+      /** true면 총 건수 카운트를 건너뛴다 (청크 조회용) */
+      skipCount?: boolean;
+    };
     response: {
       data?: BookHistory[];
+      /** 전체 기록 수. skipCount가 아니어야만 채워진다 */
+      total?: number;
       hasNextPage?: boolean;
       nextPage?: number;
       success?: boolean;

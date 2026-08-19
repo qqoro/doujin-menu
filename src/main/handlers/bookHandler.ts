@@ -1,4 +1,4 @@
-import { ipcMain, shell } from "electron";
+import { BrowserWindow, ipcMain, shell } from "electron";
 import fs from "fs/promises";
 import type { Knex } from "knex";
 import path from "path";
@@ -140,12 +140,11 @@ export function extractKoreanTitle(
 /**
  * 책 하나에 딸린 관계 이름들을 한 줄로 모으는 조인·집계.
  *
- * **이 집계는 화면 표시용이다. 필터 조건은 어느 것도 이 컬럼을 보지 않는다**
- * (전부 Book 자체 컬럼이거나 관계 테이블에 대한 EXISTS다). 그래서 조회 범위를
- * 자른 뒤에 붙이면 되고, 그게 `fetchBookRelations`다.
+ * 화면 표시용이라 필터 조건은 이 컬럼을 보지 않는다(전부 Book 자체 컬럼이거나
+ * 관계 테이블 EXISTS다). 그래서 조회 범위를 자른 뒤에 붙인다.
  *
- * 예외가 하나 있다. `sortBy=artists`는 `artists` 문자열을 정렬 기준이자 next/prev의
- * 커서 비교 값으로 쓴다. 그때만 `buildFilteredQuery`가 작가 조인을 미리 붙인다.
+ * 예외는 `sortBy=artists`뿐이다. 정렬 기준이자 next/prev 커서 비교 값이라 그때만
+ * `buildFilteredQuery`가 작가 조인을 미리 붙인다.
  */
 const withRelationAggregates = (query: Knex.QueryBuilder) =>
   query
@@ -162,10 +161,8 @@ const withRelationAggregates = (query: Knex.QueryBuilder) =>
     .groupBy("Book.id");
 
 /**
- * 확정된 책 id들에 대해서만 관계 이름을 모아 온다.
- *
- * **전체 책에 집계를 걸고 나서 자르면 안 된다.** 5만 권 기준으로 조인·집계가
- * 호출당 0.9초인데 offset과 무관하게 매번 든다. 자른 뒤에 붙이면 0.002초다.
+ * 확정된 책 id들에 대해서만 관계 이름을 모아 온다. 전체에 집계를 걸고 나서
+ * 자르면 5만 권 기준 호출당 0.9초인데, 자른 뒤에 붙이면 0.002초다.
  */
 async function fetchBookRelations(bookIds: number[]) {
   const relations = new Map<number, Record<string, string | null>>();
@@ -441,12 +438,9 @@ export const handleGetBooks = async (
     pageParam?: number;
     pageSize?: number;
     /**
-     * 총 건수 계산을 건너뛴다.
-     *
-     * 가상 스크롤은 목록당 한 번만 총 건수가 필요한데 청크마다 다시 세면
-     * 5만 권 기준으로 호출당 0.02~0.17초를 그냥 버린다(자르기·집계는 각각
-     * 0.002초라 COUNT가 지배적인 고정비다). 켜면 `totalCount`와
-     * `hasNextPage`가 `undefined`가 된다.
+     * 총 건수 계산을 건너뛴다. 가상 스크롤은 목록당 한 번만 총 건수가 필요한데
+     * 청크마다 다시 세면 5만 권 기준 호출당 0.02~0.17초를 버린다.
+     * 켜면 `totalCount`와 `hasNextPage`가 `undefined`가 된다.
      */
     skipCount?: boolean;
   },
@@ -1246,6 +1240,12 @@ export const handleAddBookHistory = async (bookId: number) => {
       return { success: false, error: "Book ID is required." };
     }
     await db("BookHistory").insert({ book_id: bookId });
+
+    // 뷰어가 별도 창일 수 있어 렌더러 쪽 무효화만으로는 메인 창 목록이 그대로 남는다
+    BrowserWindow.getAllWindows().forEach((window) => {
+      window.webContents.send("book-history-updated");
+    });
+
     return { success: true };
   } catch (error) {
     console.error(`Failed to add book history for book ${bookId}:`, error);
@@ -1272,27 +1272,22 @@ export const handleCheckBookExistsByHitomiId = async (hitomiId: number) => {
 };
 
 /**
- * check-books-exist-by-hitomi-ids 응답.
- *
- * 반환 타입을 명시하는 이유: try/catch로 성공/실패 두 모양을 반환하면 추론
- * 결과가 유니온이 되어, tsconfig의 include가 잡는 tests/에서 result.data 접근이
- * tsc --noEmit에 걸립니다.
+ * check-books-exist-by-hitomi-ids 응답. 타입을 명시하지 않으면 try/catch가
+ * 유니온으로 추론되어 tests/에서 `result.data` 접근이 tsc에 걸린다.
  */
 interface CheckBooksExistResult {
   success: boolean;
-  /** { [hitomiId]: bookId } — 라이브러리에 없는 ID는 키 자체가 없습니다 */
+  /** { [hitomiId]: bookId } — 라이브러리에 없는 ID는 키 자체가 없다 */
   data?: Record<number, number>;
   error?: string;
 }
 
-/** whereIn에 한 번에 넣을 최대 개수. SQLite 바인딩 변수 상한을 넉넉히 피합니다. */
+/** whereIn에 한 번에 넣을 최대 개수. SQLite 바인딩 변수 상한을 넉넉히 피한다 */
 const HITOMI_ID_CHUNK_SIZE = 500;
 
 /**
- * 여러 갤러리 ID의 보유 여부를 한 번에 확인합니다.
- *
- * 카드마다 check-book-exists-by-hitomi-id를 부르면 한 페이지(30장)에 30번의
- * IPC 왕복이 생깁니다. 화면 단위로 묶어서 한 번에 조회합니다.
+ * 여러 갤러리 ID의 보유 여부를 한 번에 확인한다. 카드마다 단건 조회를 부르면
+ * 한 페이지(30장)에 30번의 IPC 왕복이 생긴다.
  */
 export const handleCheckBooksExistByHitomiIds = async (
   hitomiIds: number[],
@@ -1340,9 +1335,11 @@ export const handleCheckBooksExistByHitomiIds = async (
 export const handleGetBookHistory = async ({
   pageParam = 0,
   pageSize = 50,
+  skipCount = false,
 }: {
   pageParam?: number;
   pageSize?: number;
+  skipCount?: boolean;
 }) => {
   try {
     const historyQuery = db("BookHistory")
@@ -1356,8 +1353,12 @@ export const handleGetBookHistory = async ({
       .join("Book", "BookHistory.book_id", "Book.id")
       .orderBy("BookHistory.viewed_at", "desc");
 
-    const totalCountQuery = db("BookHistory").count("* as count").first();
-    const totalHistory = await totalCountQuery;
+    // 메타 조회(1건)에서만 세고 청크 조회에서는 건너뛴다 (라이브러리와 같은 규약)
+    const total = skipCount
+      ? undefined
+      : Number(
+          (await db("BookHistory").count("* as count").first())?.count || 0,
+        );
 
     historyQuery.offset(pageParam * pageSize).limit(pageSize);
 
@@ -1365,8 +1366,9 @@ export const handleGetBookHistory = async ({
 
     return {
       data: history,
+      total,
       hasNextPage:
-        (pageParam + 1) * pageSize < Number(totalHistory?.count || 0),
+        total === undefined ? undefined : (pageParam + 1) * pageSize < total,
       nextPage: pageParam + 1,
     };
   } catch (error) {

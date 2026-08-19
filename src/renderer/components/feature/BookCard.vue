@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { Badge, LightBadge } from "@/components/ui/badge";
+import { LightBadge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { ContextMenu, ContextMenuTrigger } from "@/components/ui/context-menu";
 import { useBookCard } from "@/composable/useBookCard";
@@ -11,6 +11,7 @@ import { computed, ref } from "vue";
 import type { Book } from "../../../types/ipc";
 import BookCardMenu from "./parts/BookCardMenu.vue";
 import BookCardMenuButton from "./parts/BookCardMenuButton.vue";
+import CoverCardShell from "./parts/CoverCardShell.vue";
 import CreditsLine from "./parts/CreditsLine.vue";
 import MetaLine from "./parts/MetaLine.vue";
 
@@ -69,59 +70,18 @@ const handleCreditSelect = (credit: { prefix: CreditPrefix; name: string }) => {
 
 <template>
   <ContextMenu>
-    <!-- as-child로 카드 자체를 트리거로 쓴다. 래퍼가 하나 더 끼면 표지 비율로
-         확정한 카드 높이가 래퍼 기준과 어긋난다 -->
+    <!-- as-child로 카드 자체를 트리거로 쓴다. 셸(CoverCardShell)이 단일 루트
+         컴포넌트라 트리거 프롭이 셸 루트로 전달된다. 래퍼가 하나 더 끼면 표지
+         비율로 확정한 카드 높이가 래퍼 기준과 어긋난다 -->
     <ContextMenuTrigger as-child>
-      <div
-        class="group relative cursor-pointer overflow-hidden rounded-lg border"
+      <CoverCardShell
+        :cover-url="coverUrl"
+        :alt="book.title"
+        :is-offline="isOffline"
+        :is-favorite="!!book.is_favorite"
         @click="handleCardClick"
       >
-        <!-- 표지가 카드 전면을 채운다. 나머지는 전부 absolute라 카드 높이가
-             폭으로 확정된다 -->
-        <div class="relative aspect-[2/3] h-auto w-full overflow-hidden">
-          <img
-            :src="coverUrl"
-            :alt="book.title"
-            class="h-full w-full object-cover transition-transform duration-300 group-hover:scale-110"
-            :class="{ 'opacity-50 grayscale': isOffline }"
-          />
-        </div>
-
-        <!-- 상태 배지. 호버 액션 오버레이(z-20)보다 위에 둔다 -->
-        <Badge
-          v-if="isOffline"
-          variant="secondary"
-          class="absolute top-2 left-2 z-40 gap-1"
-        >
-          <Icon icon="solar:plug-circle-bold-duotone" class="h-3 w-3" />
-          오프라인
-        </Badge>
-        <div
-          v-if="book.is_favorite"
-          class="absolute top-2 right-2 z-40 rounded-full bg-red-500 p-1 text-white"
-        >
-          <Icon icon="solar:heart-bold" class="h-4 w-4" />
-        </div>
-
-        <!-- 호버 시 배경 dim -->
-        <div
-          class="absolute inset-0 bg-black/0 transition-colors group-hover:bg-black/50"
-        ></div>
-
-        <!--
-          하단 정보.
-
-          **z-30 아래로 내리면 안 된다.** 호버 버튼 영역이 `absolute inset-0
-          z-20`이라 카드 전면을 덮는데, `opacity-0`은 히트테스트에 영향이 없어서
-          호버 중이 아닐 때도 클릭을 가로챈다. 이 영역이 그보다 낮으면 작가·태그
-          클릭이 영영 안 걸린다.
-
-          영역 자체는 pointer-events-none이라 제목을 누르면 클릭이 카드로
-          통과해 뷰어가 열린다. 필터를 거는 링크에만 pointer-events-auto를 준다.
-        -->
-        <div
-          class="pointer-events-none absolute right-0 bottom-0 left-0 z-30 bg-gradient-to-t from-black/80 via-black/60 to-transparent px-2.5 pt-7 pb-2.5 text-white"
-        >
+        <template #overlay>
           <!-- 그림자는 스크림이 얇아지는 자리를 보강한다. 밝은 표지 위에서는
                흰 글씨 대비가 2.3:1까지 떨어지는 지점이다 -->
           <p
@@ -179,21 +139,15 @@ const handleCreditSelect = (credit: { prefix: CreditPrefix; name: string }) => {
               />
             </button>
           </div>
-        </div>
+        </template>
 
         <!--
           버튼 영역 (호버 시 표시).
 
-          카드 최소 폭이 184px(`Library.vue`의 `MIN_CARD_WIDTH`)이고 `Button`은
-          `shrink-0 whitespace-nowrap`이라 줄지 않는다. 넷 다 아이콘만 두면
-          32×4 + 간격 24 = 152라 여유가 있다. 하나라도 문구를 달면 넘친다.
-
           ⋮는 우클릭 메뉴와 같은 항목을 연다. 우클릭만 두면 폴더 열기·상세
           정보·재스캔이 있다는 걸 알 방법이 없다.
         -->
-        <div
-          class="absolute inset-0 z-20 flex flex-wrap items-center justify-center gap-2 px-2 opacity-0 transition-opacity group-hover:opacity-100"
-        >
+        <template #actions>
           <Button
             size="icon-sm"
             variant="secondary"
@@ -226,8 +180,8 @@ const handleCreditSelect = (credit: { prefix: CreditPrefix; name: string }) => {
             <Icon icon="solar:square-top-down-bold-duotone" class="h-4 w-4" />
           </Button>
           <BookCardMenuButton :items="menuItems" />
-        </div>
-      </div>
+        </template>
+      </CoverCardShell>
     </ContextMenuTrigger>
 
     <BookCardMenu :items="menuItems" />

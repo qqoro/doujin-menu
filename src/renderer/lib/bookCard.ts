@@ -1,9 +1,4 @@
-/**
- * 책 카드의 순수 계산.
- *
- * `BookCard`와 `BookRowCard`가 각자 들고 있던 것들이다. 컴포넌트 밖으로 빼면
- * 두 카드가 같은 결과를 내는 것이 보장되고 단위 테스트가 붙는다.
- */
+/** 책 카드의 순수 계산. `BookCard`와 `BookRowCard`가 같은 결과를 내도록 공유한다 */
 
 import type { MetaField, MetaPart } from "./cardLayout";
 import { formatPublishDate } from "./formatDate";
@@ -13,10 +8,8 @@ export interface NamedItem {
 }
 
 /**
- * 이름이 비어 있는 항목을 걸러낸다.
- *
- * 메타데이터가 없는 책은 `[{ name: "" }]`처럼 빈 이름이 들어오는 경우가 있어서
- * 길이만 보고 판단하면 화면에 빈 칩이 그려진다.
+ * 이름이 비어 있는 항목을 걸러낸다. 메타데이터가 없는 책은 `[{ name: "" }]`처럼
+ * 들어오는 경우가 있어 길이만 보고 판단하면 빈 칩이 그려진다.
  */
 export const filterValidNames = <T extends NamedItem>(
   items: T[] | null | undefined,
@@ -24,10 +17,8 @@ export const filterValidNames = <T extends NamedItem>(
   (items ?? []).filter((item) => !!item?.name && item.name.trim() !== "");
 
 /**
- * 표지 이미지 URL.
- *
- * `version`은 캐시 무효화용이다. 메타데이터 재스캔으로 썸네일 파일이 같은 경로에
- * 새로 쓰이면 브라우저가 옛 이미지를 그대로 보여주므로 쿼리로 강제 갱신한다.
+ * 표지 이미지 URL. `version`은 캐시 무효화용이다 — 재스캔으로 썸네일이 같은
+ * 경로에 새로 쓰이면 브라우저가 옛 이미지를 그대로 보여준다.
  */
 export const buildCoverUrl = (
   coverPath: string | null | undefined,
@@ -43,12 +34,7 @@ export const hasCreatorInfo = (
   groups: NamedItem[],
 ): boolean => artists.length > 0 || groups.length > 0;
 
-/**
- * 메타 한 줄에 필요한 최소 모양.
- *
- * `Book` 전체를 받지 않는 이유는 테스트에서 책 한 권을 통째로 만들지 않기
- * 위해서다. 이 함수가 읽는 건 아래 여섯 개뿐이다.
- */
+/** 메타 한 줄에 필요한 최소 모양. 테스트에서 책을 통째로 만들지 않으려고 좁혔다 */
 export interface BookMetaSource {
   page_count?: number;
   type?: string;
@@ -59,14 +45,9 @@ export interface BookMetaSource {
 }
 
 /**
- * `·`으로 이어붙일 메타 조각들을 만든다.
- *
- * 다운로더의 `buildMetaLine`과 같은 모양(`MetaPart[]`)을 내보내 같은 `MetaLine`
- * 컴포넌트가 그린다. 원본 필드가 서로 달라(갤러리는 `files`/`publishedDate`,
- * 책은 `page_count`/`added_at`) 함수만 화면별로 둔다.
- *
- * 값이 없는 항목은 자리를 남기지 않고 통째로 빠진다. 안 그러면 정보가 적은
- * 책에서 `· · ·`만 남은 줄이 나온다.
+ * `·`으로 이어붙일 메타 조각들을 만든다. 다운로더의 `buildMetaLine`과 같은
+ * `MetaPart[]`를 내보내 같은 컴포넌트가 그린다(원본 필드가 달라 함수만 나눈다).
+ * 값이 없는 항목은 통째로 빠진다 — 안 그러면 `· · ·`만 남은 줄이 나온다.
  */
 export const buildBookMetaLine = (
   book: BookMetaSource,
@@ -105,7 +86,7 @@ export const buildBookMetaLine = (
   return parts;
 };
 
-// ── 카드 메뉴 ───────────────────────────────────────────────────────
+// 카드 메뉴
 
 export interface BookMenuItem {
   key: string;
@@ -137,11 +118,9 @@ export type BookMenuActions = Record<
 >;
 
 /**
- * 카드 메뉴 항목.
- *
- * **우클릭 메뉴와 ⋮ 드롭다운이 같은 배열을 그린다.** Reka UI는 두 메뉴의 항목
- * 컴포넌트가 달라서(`ContextMenuItem` / `DropdownMenuItem`) 마크업은 따로
- * 가져가야 하는데, 항목 정의까지 따로 두면 한쪽만 고쳐져 두 메뉴가 갈라진다.
+ * 카드 메뉴 항목. 우클릭 메뉴와 드롭다운이 같은 배열을 그린다.
+ * Reka UI는 항목 컴포넌트가 달라 마크업은 따로지만, 정의까지 나누면 한쪽만
+ * 고쳐져 두 메뉴가 갈라진다.
  */
 export const buildBookMenuItems = (
   flags: BookMenuFlags,

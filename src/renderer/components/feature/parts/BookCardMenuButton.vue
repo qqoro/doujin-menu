@@ -11,10 +11,8 @@ import type { BookMenuItem } from "@/lib/bookCard";
 import { Icon } from "@iconify/vue";
 
 /**
- * ⋮ 메뉴 버튼.
- *
- * 우클릭 메뉴와 **같은 `items` 배열**을 그린다. 우클릭은 발견되지 않는
- * 기능이라 눈에 보이는 입구를 하나 둔다.
+ * 더보기 메뉴 버튼. 우클릭 메뉴와 같은 `items` 배열을 그린다.
+ * 우클릭은 발견되지 않는 기능이라 눈에 보이는 입구를 하나 둔다.
  */
 withDefaults(
   defineProps<{

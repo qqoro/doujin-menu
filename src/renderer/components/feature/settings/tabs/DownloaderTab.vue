@@ -40,8 +40,7 @@ const compressDownload = ref(false);
 const compressFormat = ref<"cbz" | "zip">("cbz");
 const capitalizeNames = ref(false);
 
-// ── 블랙리스트 ──────────────────────────────────────────────────────
-// 타입 목록과 정규화 규칙은 다운로더 헤더 팝오버와 공유합니다.
+// 블랙리스트. 타입 목록과 정규화 규칙은 다운로더 헤더 팝오버와 공유한다.
 const blacklistTags = ref<string[]>([]);
 const newTagType = ref<string>("tag");
 const newTagName = ref("");

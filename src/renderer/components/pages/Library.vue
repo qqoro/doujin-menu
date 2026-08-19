@@ -32,22 +32,13 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { useKeybindings } from "@/composable/useKeybindings";
 import { useQueryAndParams } from "@/composable/useQueryAndParams";
-import { useIndexScrollRestoration } from "@/composable/useScrollRestoration";
-import {
-  chunksForRange,
-  computeCols,
-  computeListCols,
-  shouldShowSkeleton,
-  usableGridWidth,
-} from "@/lib/virtualList";
-import { BOOK_ASPECT, listRowEstimate } from "@/lib/cardLayout";
+import { useVirtualCardList } from "@/composable/useVirtualCardList";
 import { useLibraryScanStore } from "@/store/libraryScanStore";
 import { SORT_CYCLE, SORT_LABELS, nextSortBy } from "@/store/sortCycle";
 import { useUiStore } from "@/store/uiStore";
 import { Icon } from "@iconify/vue";
 import PageHeader from "../layout/PageHeader.vue";
-import { useQueries, useQuery, useQueryClient } from "@tanstack/vue-query";
-import { useVirtualizer } from "@tanstack/vue-virtual";
+import { useQuery, useQueryClient } from "@tanstack/vue-query";
 import { debouncedRef, debouncedWatch } from "@vueuse/core";
 import {
   computed,
@@ -57,7 +48,6 @@ import {
   onMounted,
   ref,
   toRaw,
-  onUnmounted,
   watch,
 } from "vue";
 import { useRoute, useRouter } from "vue-router";
@@ -328,107 +318,53 @@ const queryKey = computed(
     ] as const,
 );
 
+// 배치·줌·스크롤 복원은 useVirtualCardList가 담당한다. 여기는 데이터를 어떻게
+// 가져올지만 알려준다
+
 /** 청크 하나에 담는 책 수. 기존 get-books pageSize와 같다 */
 const CHUNK_SIZE = 50;
 
-// ── 총 건수 ─────────────────────────────────────────────────────────
-// 스크롤러 전체 높이를 잡으려면 청크가 하나라도 오기 전에 총 건수가 필요하다.
-// 1건만 요청해 totalCount만 확보한다.
-//
-// **첫 청크 응답의 totalCount를 재사용하지 않는다.** 필터가 바뀌면 모든 청크가
-// 새 키가 되어 총 건수가 잠시 비고, 그때 높이를 잡던 스페이서가 무너진다.
-const { data: metaData, isLoading: isMetaLoading } = useQuery({
-  queryKey: computed(() => ["books-meta", queryKey.value[1]] as const),
-  queryFn: async () => {
+const {
+  scrollerRef,
+  updateVisibleRange,
+  handleGridWheel,
+  gridVirtualizer,
+  listVirtualizer,
+  gridCols,
+  listCols,
+  totalSize,
+  totalCount,
+  isLoading,
+  itemAt,
+  GRID_GAP,
+  LIST_GAP,
+  listSkeletonHeight,
+} = useVirtualCardList<Book>({
+  viewMode,
+  chunkSize: CHUNK_SIZE,
+  // 1건만 요청해 총 건수만 확보한다 (스크롤러 총 높이용)
+  fetchTotal: async () => {
     const result = await ipcRenderer.invoke("get-books", {
       pageParam: 0,
       pageSize: 1,
       ...queryKey.value[1],
     });
-    return { total: result.totalCount ?? 0 };
+    return result.totalCount ?? 0;
   },
-  staleTime: 5 * 60 * 1000,
-  gcTime: 10 * 60 * 1000,
-  refetchOnWindowFocus: false,
-});
-
-const totalCount = computed(() => metaData.value?.total ?? 0);
-
-// ── 청크 페칭 ───────────────────────────────────────────────────────
-// 보이는 절대 인덱스 범위를 50개 단위로 나눠 필요한 것만 조회한다.
-// 다운로더와 달리 generation도 committedSearch도 필요 없다. 로컬 DB라 좌표계가
-// 흔들리지 않고, 검색은 이미 300ms 디바운스로 자동 반영이 정상 동작이다.
-const visibleAbsRange = ref<{ start: number; end: number } | null>(null);
-
-const activeChunks = computed(() => {
-  if (totalCount.value === 0) return [];
-
-  // 가상 스크롤러가 아직 범위를 못 정한 초기 상태에서는 첫 청크를 쓴다
-  const range = visibleAbsRange.value ?? { start: 0, end: CHUNK_SIZE - 1 };
-  return chunksForRange(
-    Math.max(0, range.start),
-    Math.min(totalCount.value - 1, range.end),
-    CHUNK_SIZE,
-  );
-});
-
-const chunkQueries = useQueries({
-  queries: computed(() =>
-    activeChunks.value.map((chunkIndex) => ({
-      queryKey: ["books", queryKey.value[1], chunkIndex] as const,
-      queryFn: async () => {
-        const result = await ipcRenderer.invoke("get-books", {
-          pageParam: chunkIndex,
-          pageSize: CHUNK_SIZE,
-          skipCount: true, // 총 건수는 메타 쿼리가 이미 갖고 있다
-          ...queryKey.value[1],
-        });
-        return { chunkIndex, books: (result.data ?? []) as Book[] };
-      },
-      // 기본값(staleTime 0)이면 청크가 화면에 다시 들어올 때마다 백그라운드
-      // refetch가 돈다. 위아래로 10회만 왕복해도 수백 번의 IPC가 된다.
-      staleTime: 5 * 60 * 1000,
-      gcTime: 10 * 60 * 1000,
-      refetchOnWindowFocus: false,
-    })),
-  ),
-});
-
-/** 절대 인덱스 → 책. 아직 안 온 자리는 undefined */
-const loadedBooks = computed(() => {
-  const map = new Map<number, Book>();
-  for (const q of chunkQueries.value) {
-    const data = q.data;
-    if (!data) continue;
-    data.books.forEach((book, i) => {
-      map.set(data.chunkIndex * CHUNK_SIZE + i, book);
+  fetchChunk: async (chunkIndex) => {
+    const result = await ipcRenderer.invoke("get-books", {
+      pageParam: chunkIndex,
+      pageSize: CHUNK_SIZE,
+      skipCount: true, // 총 건수는 메타 조회가 이미 갖고 있다
+      ...queryKey.value[1],
     });
-  }
-  return map;
-});
-
-const itemAt = (index: number) => loadedBooks.value.get(index);
-
-/** 화면에 실제로 그려진 적이 있는지. 전체 스켈레톤을 첫 렌더 전까지만 쓰려고 본다 */
-const hasRendered = ref(false);
-watch(loadedBooks, (map) => {
-  if (map.size > 0) hasRendered.value = true;
-});
-watch(
-  () => queryKey.value[1],
-  () => {
-    hasRendered.value = false;
+    return (result.data ?? []) as Book[];
   },
-);
-
-const isLoading = computed(() =>
-  shouldShowSkeleton({
-    searchStarted: true,
-    isMetaLoading: isMetaLoading.value,
-    total: totalCount.value,
-    hasRendered: hasRendered.value,
-  }),
-);
+  metaKey: () => ["books-meta", queryKey.value[1]],
+  chunkKey: (chunkIndex) => ["books", queryKey.value[1], chunkIndex],
+  // 필터가 바뀌면 새 키의 청크를 받아 다시 그려야 하므로 스켈레톤 상태로 돌린다
+  resetKey: () => queryKey.value[1],
+});
 
 onMounted(() => {
   // 라이브러리 스캔 Store 초기화
@@ -621,163 +557,6 @@ useKeybindings("library", {
   "library:next-library": () => cycleLibrary(1),
 });
 
-// Ctrl+Wheel로 썸네일 줌 조절
-const handleGridWheel = (event: WheelEvent) => {
-  if (!event.ctrlKey) return;
-  event.preventDefault();
-  if (event.deltaY < 0) {
-    uiStore.zoomIn();
-  } else {
-    uiStore.zoomOut();
-  }
-};
-
-// ── 가상 스크롤 ─────────────────────────────────────────────────────
-//
-// ⚠️ DOM 계층을 바꾸지 마세요.
-//
-//   .library-scroller   ← overflow-y:auto, zoom 없음. scrollTop은 실제 px
-//     └ .vspace         ← 총 높이 스페이서. zoom 없음
-//         └ .row        ← 측정 대상. zoom 없음. top = virtualRow.start
-//             └ .zoomed ← style="zoom: z". 카드만 이 안에
-//
-// **다운로더와 zoom 위치가 반대입니다.** 다운로더 그리드는 행 전체를 zoom 안에
-// 두는데, 라이브러리는 행 높이를 실측해야 해서 그럴 수 없습니다. zoom 아래에서는
-// measureElement가 보는 borderBoxSize(레이아웃 px)와 getBoundingClientRect(실제 px)가
-// 1/z만큼 어긋나기 때문입니다. 행을 zoom 바깥에 두면 행 높이가 실제 px로 나오고
-// virtualizer의 좌표계(실제 px)와 맞습니다.
-const scrollerRef = ref<HTMLElement | null>(null);
-const scrollerWidth = ref(0);
-
-const GRID_PADDING = 0; // 스크롤러에 좌우 패딩 없음
-const GRID_GAP = 12; // gap-3
-const MIN_CARD_WIDTH = 184; // minmax(184px, 1fr)
-const LIST_GAP = 8; // 리스트 카드 사이 간격 (pb-2와 맞춘다)
-const MIN_LIST_CARD_WIDTH = 560;
-
-const gridCols = computed(() =>
-  computeCols(
-    scrollerWidth.value,
-    uiStore.thumbnailZoom,
-    GRID_PADDING,
-    GRID_GAP,
-    MIN_CARD_WIDTH,
-  ),
-);
-
-const listCols = computed(() =>
-  computeListCols(
-    scrollerWidth.value,
-    uiStore.thumbnailZoom,
-    GRID_PADDING,
-    LIST_GAP,
-    MIN_LIST_CARD_WIDTH,
-  ),
-);
-
-const activeCols = computed(() =>
-  viewMode.value === "grid" ? gridCols.value : listCols.value,
-);
-
-/**
- * 그리드 행의 추정 높이.
- *
- * 카드가 표지 한 장(2:3)에 정보를 오버레이로 얹는 형태라 **높이가 폭으로
- * 확정된다.** 그래서 고정값 대신 계산한다. `usableGridWidth`는 zoom 안쪽 단위
- * 공간을 주는데 행 래퍼는 zoom 바깥에 있으므로 다시 곱해 실제 px로 되돌린다.
- */
-const gridRowEstimate = computed(() => {
-  const cols = Math.max(1, gridCols.value);
-  const unitWidth =
-    (usableGridWidth(scrollerWidth.value, uiStore.thumbnailZoom, GRID_PADDING) -
-      GRID_GAP * (cols - 1)) /
-    cols;
-  if (unitWidth <= 0) return 300;
-  return (unitWidth * BOOK_ASPECT + GRID_GAP) * uiStore.thumbnailZoom;
-});
-
-const rowCount = computed(() =>
-  Math.ceil(totalCount.value / Math.max(1, activeCols.value)),
-);
-
-const gridVirtualizer = useVirtualizer(
-  computed(() => ({
-    count: viewMode.value === "grid" ? rowCount.value : 0,
-    getScrollElement: () => scrollerRef.value,
-    estimateSize: () => gridRowEstimate.value,
-    overscan: 2,
-  })),
-);
-
-const listVirtualizer = useVirtualizer(
-  computed(() => ({
-    count: viewMode.value === "list" ? rowCount.value : 0,
-    getScrollElement: () => scrollerRef.value,
-    // 리스트 썸네일이 줌을 따라가므로 추정 높이도 같이 움직여야 한다.
-    // 고정값이면 최소 줌에서 스크롤바가 실제보다 세 배 길어진다
-    estimateSize: () => listRowEstimate(uiStore.thumbnailZoom, BOOK_ASPECT),
-    overscan: 3,
-  })),
-);
-
-/**
- * 지금 쓰는 virtualizer.
- *
- * **⚠️ 절대 computed로 만들지 마세요.** vue-virtual은 스크롤할 때마다
- * `onChange`에서 `triggerRef(state)`로 알리는데, Vue 3.4부터 computed는
- * 재계산 결과가 이전과 같으면 하류로 알림을 전파하지 않습니다. 여기는 늘 같은
- * 인스턴스를 반환하므로 computed로 두면 스크롤 알림이 전부 흡수되어 파생
- * computed가 첫 계산값에서 영원히 멈춥니다.
- */
-const getActiveVirtualizer = () =>
-  viewMode.value === "grid" ? gridVirtualizer.value : listVirtualizer.value;
-
-const totalSize = computed(() => getActiveVirtualizer()?.getTotalSize() ?? 0);
-
-/** 보이는 절대 인덱스 범위. 청크 조회 대상을 정한다 (overscan 포함) */
-const updateVisibleRange = () => {
-  const virtualizer = getActiveVirtualizer();
-  if (!virtualizer || totalCount.value === 0) return;
-
-  const items = virtualizer.getVirtualItems();
-  if (items.length === 0) return;
-
-  const lanes = Math.max(1, activeCols.value);
-  const start = items[0].index * lanes;
-  const end = Math.min(
-    (items[items.length - 1].index + 1) * lanes - 1,
-    totalCount.value - 1,
-  );
-
-  const prev = visibleAbsRange.value;
-  if (prev && prev.start === start && prev.end === end) return;
-  visibleAbsRange.value = { start, end };
-};
-
-watch(
-  () => [
-    getActiveVirtualizer()?.getVirtualItems().length,
-    getActiveVirtualizer()?.range?.startIndex,
-    totalCount.value,
-    activeCols.value,
-  ],
-  updateVisibleRange,
-  { immediate: true },
-);
-
-// 폭이 바뀌면 열 수가 바뀌고 행 수도 바뀐다
-let resizeObserver: ResizeObserver | null = null;
-watch(scrollerRef, (el) => {
-  resizeObserver?.disconnect();
-  if (!el) return;
-  scrollerWidth.value = el.clientWidth;
-  resizeObserver = new ResizeObserver(() => {
-    scrollerWidth.value = el.clientWidth;
-  });
-  resizeObserver.observe(el);
-});
-onUnmounted(() => resizeObserver?.disconnect());
-
 // 삭제 다이얼로그는 페이지가 하나만 들고 있는다. 카드가 각자 들고 있으면
 // 다이얼로그를 연 채 스크롤해 카드가 언마운트될 때 같이 사라진다.
 const {
@@ -787,24 +566,6 @@ const {
   requestDelete: handleRequestDelete,
   confirmDelete: confirmDeleteBook,
 } = useBookDelete();
-
-// 스크롤 위치 복원. 픽셀 저장은 가상 스크롤에서 못 쓴다 — 열 수가 창 너비와
-// 줌의 함수라, 다른 화면에 있는 동안 리사이즈하면 같은 픽셀이 다른 책을 가리킨다.
-useIndexScrollRestoration({
-  capture: () => {
-    const virtualizer = getActiveVirtualizer();
-    const startIndex = virtualizer?.range?.startIndex;
-    if (startIndex === undefined) return null;
-    return { index: startIndex * Math.max(1, activeCols.value), page: 0 };
-  },
-  ready: () => totalCount.value > 0 && !!getActiveVirtualizer(),
-  restore: (saved) => {
-    const lanes = Math.max(1, activeCols.value);
-    getActiveVirtualizer()?.scrollToIndex(Math.floor(saved.index / lanes), {
-      align: "start",
-    });
-  },
-});
 </script>
 
 <template>
@@ -1069,9 +830,9 @@ useIndexScrollRestoration({
       </PageToolbar>
 
       <!-- 목록 (가상 스크롤)
-           ⚠️ 스크롤러는 항상 마운트해야 합니다. 조건부로 두면 virtualizer가
+           스크롤러는 항상 마운트해야 합니다. 조건부로 두면 virtualizer가
            초기화 시점에 스크롤 요소를 못 잡아 행이 하나도 안 그려집니다.
-           ⚠️ .vspace는 zoom 바깥, 카드만 행 안쪽 .zoomed에 들어갑니다.
+           .vspace는 zoom 바깥, 카드만 행 안쪽 .zoomed에 들어갑니다.
            행을 zoom 안으로 옮기면 measureElement가 1/z만큼 어긋납니다 -->
       <div
         ref="scrollerRef"
@@ -1187,7 +948,7 @@ useIndexScrollRestoration({
                   v-else-if="row.index * listCols + col - 1 < totalCount"
                   class="bg-muted animate-pulse rounded-lg border"
                   :style="{
-                    height: `${listRowEstimate(uiStore.thumbnailZoom, BOOK_ASPECT) - LIST_GAP}px`,
+                    height: `${listSkeletonHeight}px`,
                   }"
                 ></div>
               </template>
