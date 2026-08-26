@@ -9,24 +9,28 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
+  DialogContent,
   DialogHeader,
-  DialogScrollContent,
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { ScrollArea } from "@/components/ui/scroll-area";
 import { Textarea } from "@/components/ui/textarea";
 import { Icon } from "@iconify/vue";
 import { useMutation, useQuery } from "@tanstack/vue-query";
+import { useDebounceFn } from "@vueuse/core";
 import { computed, ref, watch } from "vue";
 import { useRouter } from "vue-router";
 import { toast } from "vue-sonner";
-import type { SeriesCollectionWithBooks } from "../../../main/db/types";
-import type { Book } from "../../../types/ipc";
+import type {
+  Book,
+  SeriesCollection,
+  SeriesCollectionWithBooks,
+} from "../../../types/ipc";
 import {
   getSeriesCollectionById,
   removeBookFromSeries,
@@ -34,10 +38,12 @@ import {
   updateSeriesCollection,
 } from "../../api";
 import AddBookToSeriesDialog from "./AddBookToSeriesDialog.vue";
+import RowCardShell from "./parts/RowCardShell.vue";
 
 interface Props {
   open: boolean;
-  series: SeriesCollectionWithBooks | null;
+  /** 목록이 넘겨주는 시리즈. 책 목록은 이 컴포넌트가 따로 조회한다 */
+  series: SeriesCollection | null;
 }
 
 const props = defineProps<Props>();
@@ -47,6 +53,9 @@ const emit = defineEmits<{
 }>();
 
 const router = useRouter();
+
+/** 표지가 없을 때 쓰는 자리 채우기. 셸은 항상 img를 그린다 */
+const COVER_PLACEHOLDER = "https://via.placeholder.com/256x384";
 
 // 편집 모드
 const isEditing = ref(false);
@@ -65,27 +74,48 @@ const draggedIndex = ref<number | null>(null);
 const dragOverIndex = ref<number | null>(null);
 const books = ref<Book[]>([]);
 
+/**
+ * 드래그 허용 여부.
+ *
+ * 행 전체에 draggable을 상수로 걸면 제목 글자를 끌어도 행이 끌려가고, 정작
+ * 잡으라고 그려둔 그립은 아무 의미가 없다. 그립을 누른 순간에만 켠다.
+ */
+const isDragArmed = ref(false);
+
 // 시리즈 상세 조회
 const { data: seriesDetail, refetch } = useQuery({
   queryKey: computed(() => ["seriesCollection", props.series?.id]),
-  queryFn: () => getSeriesCollectionById(props.series!.id),
+  // API가 any를 돌려줘서 여기서 타입을 못박는다
+  queryFn: (): Promise<SeriesCollectionWithBooks | undefined> =>
+    getSeriesCollectionById(props.series!.id),
   enabled: computed(() => props.open && !!props.series),
 });
+
+/**
+ * 화면에 그릴 시리즈. 상세 조회 결과를 우선한다.
+ *
+ * props.series는 목록이 넘겨준 값이라 이름을 고쳐도 그대로다. 이걸 그리면
+ * 저장 직후에도 헤더에 옛 이름이 남는다.
+ */
+const detail = computed<SeriesCollection | null>(
+  () => seriesDetail.value ?? props.series,
+);
 
 // 시리즈가 변경되면 기존 데이터 초기화
 watch(
   () => props.series?.id,
   () => {
     books.value = [];
+    isEditing.value = false;
   },
 );
 
 // 시리즈 상세 데이터가 변경되면 books 배열 업데이트
 watch(
   () => seriesDetail.value,
-  (detail) => {
-    if (detail?.books) {
-      books.value = [...detail.books];
+  (data) => {
+    if (data?.books) {
+      books.value = [...data.books];
     }
   },
   { immediate: true },
@@ -124,7 +154,9 @@ const removeBookMutation = useMutation({
   },
 });
 
-// 순서 변경 뮤테이션
+// 순서 변경 뮤테이션.
+// 성공 토스트는 두지 않는다 — 순서가 눈앞에서 바뀌는 게 이미 피드백이고,
+// 한 칸씩 옮길 때마다 토스트가 쌓인다
 const reorderMutation = useMutation({
   mutationFn: ({
     seriesId,
@@ -134,7 +166,6 @@ const reorderMutation = useMutation({
     bookIds: number[];
   }) => reorderBooksInSeries(seriesId, bookIds),
   onSuccess: () => {
-    toast.success("순서가 변경되었습니다");
     refetch();
     emit("updated");
   },
@@ -142,6 +173,19 @@ const reorderMutation = useMutation({
     toast.error(`순서 변경 실패: ${error.message}`);
   },
 });
+
+/**
+ * 순서 저장. 화살표 연타를 한 번으로 묶는다.
+ *
+ * 클릭마다 저장하면 요청과 상세 재조회가 겹쳐 응답 순서가 엇갈릴 때 목록이 튄다.
+ */
+const saveOrder = useDebounceFn(() => {
+  if (!props.series) return;
+  reorderMutation.mutate({
+    seriesId: props.series.id,
+    bookIds: books.value.map((book) => book.id),
+  });
+}, 400);
 
 // props.series 변경 시 편집 폼 초기화
 watch(
@@ -158,15 +202,15 @@ watch(
 // 편집 시작
 const startEdit = () => {
   isEditing.value = true;
-  editName.value = props.series?.name || "";
-  editDescription.value = props.series?.description || "";
+  editName.value = detail.value?.name || "";
+  editDescription.value = detail.value?.description || "";
 };
 
 // 편집 취소
 const cancelEdit = () => {
   isEditing.value = false;
-  editName.value = props.series?.name || "";
-  editDescription.value = props.series?.description || "";
+  editName.value = detail.value?.name || "";
+  editDescription.value = detail.value?.description || "";
 };
 
 // 저장
@@ -206,20 +250,30 @@ const handleBookClick = (bookId: number) => {
   emit("update:open", false);
 };
 
-// 신뢰도 표시
+// 신뢰도 표시. 목록 카드와 같은 문구를 쓴다
 const confidenceLevel = computed(() => {
-  if (!props.series) return { label: "", class: "" };
-  const score = props.series.confidence_score;
-  if (score >= 0.8) return { label: "높음", class: "bg-green-500" };
-  if (score >= 0.5) return { label: "중간", class: "bg-yellow-500" };
-  return { label: "낮음", class: "bg-red-500" };
+  const score = detail.value?.confidence_score ?? 0;
+  if (score >= 0.8) return { label: "신뢰도 높음", class: "bg-green-500/80" };
+  if (score >= 0.5) return { label: "신뢰도 중간", class: "bg-yellow-500/80" };
+  return { label: "신뢰도 낮음", class: "bg-red-500/80" };
 });
 
-// 썸네일 URL 생성
-const getCoverUrl = (book: Book) => {
-  if (!book.cover_path) return "";
-  return `file://${book.cover_path}`;
-};
+// 생성 방식 표시
+const creationType = computed(() => {
+  if (detail.value?.is_manually_edited) return "수동";
+  if (detail.value?.is_auto_generated) return "자동";
+  return "혼합";
+});
+
+// 시리즈 표지. 없으면 첫 책의 표지로 대신한다
+const seriesCoverUrl = computed(() => {
+  const cover = detail.value?.cover_image || books.value[0]?.cover_path;
+  return cover ? `file://${cover}` : COVER_PLACEHOLDER;
+});
+
+// 책 썸네일 URL 생성
+const getCoverUrl = (book: Book) =>
+  book.cover_path ? `file://${book.cover_path}` : COVER_PLACEHOLDER;
 
 // 작가명 표시
 // 참고: 시리즈 상세 API에서는 GROUP_CONCAT으로 인해 artists가 문자열로 내려옴
@@ -253,10 +307,15 @@ const handleDragLeave = () => {
   dragOverIndex.value = null;
 };
 
+const handleDragEnd = () => {
+  draggedIndex.value = null;
+  dragOverIndex.value = null;
+  isDragArmed.value = false;
+};
+
 const handleDrop = (index: number) => {
   if (draggedIndex.value === null || draggedIndex.value === index) {
-    draggedIndex.value = null;
-    dragOverIndex.value = null;
+    handleDragEnd();
     return;
   }
 
@@ -266,24 +325,12 @@ const handleDrop = (index: number) => {
   newBooks.splice(index, 0, draggedBook);
   books.value = newBooks;
 
-  // 서버에 순서 저장
-  if (props.series) {
-    const bookIds = books.value.map((book) => book.id);
-    reorderMutation.mutate({ seriesId: props.series.id, bookIds });
-  }
-
-  draggedIndex.value = null;
-  dragOverIndex.value = null;
-};
-
-const handleDragEnd = () => {
-  draggedIndex.value = null;
-  dragOverIndex.value = null;
+  saveOrder();
+  handleDragEnd();
 };
 
 // 위/아래 버튼으로 순서 변경
 const moveBook = (index: number, direction: "up" | "down") => {
-  if (!props.series) return;
   const newIndex = direction === "up" ? index - 1 : index + 1;
   if (newIndex < 0 || newIndex >= books.value.length) return;
 
@@ -293,8 +340,7 @@ const moveBook = (index: number, direction: "up" | "down") => {
   newBooks[newIndex] = temp;
   books.value = newBooks;
 
-  const bookIds = books.value.map((book) => book.id);
-  reorderMutation.mutate({ seriesId: props.series.id, bookIds });
+  saveOrder();
 };
 
 // 책 추가 완료
@@ -310,43 +356,56 @@ const excludeBookIds = computed(() => books.value.map((book) => book.id));
 
 <template>
   <Dialog :open="props.open" @update:open="emit('update:open', $event)">
-    <DialogScrollContent class="max-h-[85vh] max-w-[700px]">
+    <!-- 스크롤 영역은 하나다. 예전에는 오버레이를 스크롤시키는
+         DialogScrollContent 안에 다시 ScrollArea를 넣고 높이를
+         calc(85vh-120px)로 손계산해서, 헤더 높이가 바뀌면 어긋났다 -->
+    <DialogContent class="flex max-h-[85vh] flex-col gap-4 sm:max-w-[860px]">
       <DialogHeader>
-        <DialogTitle class="flex items-center justify-between">
-          <span>시리즈 상세</span>
-          <div class="flex items-center gap-2">
-            <!-- 생성 방식 -->
-            <span class="bg-secondary rounded px-2 py-1 text-xs">
-              {{ series?.is_manually_edited ? "수동" : "자동" }}
-            </span>
-            <!-- 신뢰도 -->
-            <span
-              v-if="series?.is_auto_generated"
-              class="rounded px-2 py-1 text-xs text-white"
-              :class="confidenceLevel.class"
-            >
-              {{ confidenceLevel.label }}
-            </span>
-          </div>
+        <DialogTitle class="flex min-w-0 items-center gap-2 pr-8">
+          <span class="truncate" :title="detail?.name">
+            {{ isEditing ? "시리즈 편집" : detail?.name }}
+          </span>
+          <Badge variant="outline" class="shrink-0">{{ creationType }}</Badge>
+          <Badge
+            v-if="detail?.is_auto_generated"
+            class="shrink-0 text-white"
+            :class="confidenceLevel.class"
+          >
+            {{ confidenceLevel.label }}
+          </Badge>
         </DialogTitle>
       </DialogHeader>
 
-      <ScrollArea class="max-h-[calc(85vh-120px)] min-w-0">
-        <div class="space-y-6 pr-4 pb-4">
-          <!-- 시리즈 정보 편집 -->
-          <div class="space-y-4">
-            <div class="flex items-center justify-between">
-              <h3 class="font-semibold">시리즈 정보</h3>
-              <Button
-                v-if="!isEditing"
-                variant="outline"
-                size="sm"
-                @click="startEdit"
-              >
-                <Icon icon="solar:pen-bold-duotone" class="mr-2 h-4 w-4" />
-                편집
-              </Button>
-              <div v-else class="flex gap-2">
+      <div class="min-h-0 flex-1 overflow-y-auto pr-1">
+        <!-- 시리즈 정보 -->
+        <div class="flex gap-5">
+          <img
+            :src="seriesCoverUrl"
+            :alt="detail?.name"
+            class="aspect-[2/3] w-28 shrink-0 rounded-lg object-cover shadow-md"
+          />
+
+          <div class="flex min-w-0 flex-1 flex-col gap-3">
+            <!-- 편집 중에만 라벨을 그린다. 읽기 상태에서도 띄우면 폼처럼 보인다 -->
+            <template v-if="isEditing">
+              <div class="space-y-1.5">
+                <Label for="series-name">시리즈명</Label>
+                <Input
+                  id="series-name"
+                  v-model="editName"
+                  placeholder="시리즈 이름을 입력하세요"
+                />
+              </div>
+              <div class="space-y-1.5">
+                <Label for="series-description">설명</Label>
+                <Textarea
+                  id="series-description"
+                  v-model="editDescription"
+                  placeholder="시리즈 설명을 입력하세요 (선택사항)"
+                  rows="3"
+                />
+              </div>
+              <div class="flex justify-end gap-2">
                 <Button variant="outline" size="sm" @click="cancelEdit">
                   취소
                 </Button>
@@ -358,217 +417,173 @@ const excludeBookIds = computed(() => books.value.map((book) => book.id));
                   저장
                 </Button>
               </div>
-            </div>
+            </template>
 
-            <!-- 이름 -->
-            <div class="space-y-2">
-              <Label for="series-name">시리즈명</Label>
-              <Input
-                v-if="isEditing"
-                id="series-name"
-                v-model="editName"
-                placeholder="시리즈 이름을 입력하세요"
-              />
-              <div v-else class="text-lg font-semibold">
-                {{ series?.name }}
-              </div>
-            </div>
-
-            <!-- 설명 -->
-            <div class="space-y-2">
-              <Label for="series-description">설명</Label>
-              <Textarea
-                v-if="isEditing"
-                id="series-description"
-                v-model="editDescription"
-                placeholder="시리즈 설명을 입력하세요 (선택사항)"
-                rows="3"
-              />
-              <div
-                v-else-if="series?.description"
-                class="text-muted-foreground text-sm"
+            <template v-else>
+              <p class="text-muted-foreground text-sm">{{ books.length }}권</p>
+              <p
+                v-if="detail?.description"
+                class="text-sm leading-relaxed whitespace-pre-line"
               >
-                {{ series.description }}
-              </div>
-              <div v-else class="text-muted-foreground text-sm italic">
+                {{ detail.description }}
+              </p>
+              <p v-else class="text-muted-foreground text-sm italic">
                 설명 없음
+              </p>
+              <div class="mt-auto flex justify-end">
+                <Button variant="outline" size="sm" @click="startEdit">
+                  <Icon icon="solar:pen-bold-duotone" class="mr-2 h-4 w-4" />
+                  편집
+                </Button>
               </div>
-            </div>
-          </div>
-
-          <!-- 소속 책 목록 -->
-          <div class="space-y-4">
-            <div class="flex items-center justify-between">
-              <h3 class="font-semibold">소속 책 ({{ books.length || 0 }}권)</h3>
-              <Button
-                variant="outline"
-                size="sm"
-                @click="showAddBookDialog = true"
-              >
-                <Icon
-                  icon="solar:add-circle-bold-duotone"
-                  class="mr-2 h-4 w-4"
-                />
-                책 추가
-              </Button>
-            </div>
-
-            <div class="space-y-1">
-              <template v-for="(book, index) in books" :key="book.id">
-                <!-- 드롭 위치 표시줄 -->
-                <div
-                  v-if="
-                    dragOverIndex === index &&
-                    draggedIndex !== null &&
-                    draggedIndex !== index
-                  "
-                  class="bg-primary h-0.5 rounded-full transition-all"
-                />
-
-                <div
-                  class="group flex items-stretch gap-3 rounded-lg border p-2 transition-colors"
-                  :class="{
-                    'opacity-40': draggedIndex === index,
-                    'hover:bg-accent/50': draggedIndex !== index,
-                  }"
-                  draggable="true"
-                  @dragstart="handleDragStart(index)"
-                  @dragover="handleDragOver($event, index)"
-                  @dragleave="handleDragLeave"
-                  @drop="handleDrop(index)"
-                  @dragend="handleDragEnd"
-                >
-                  <!-- 썸네일 -->
-                  <div
-                    class="bg-muted relative h-20 w-14 shrink-0 cursor-pointer overflow-hidden rounded"
-                    @click="handleBookClick(book.id)"
-                  >
-                    <img
-                      v-if="getCoverUrl(book)"
-                      :src="getCoverUrl(book)"
-                      :alt="book.title"
-                      class="h-full w-full object-cover"
-                      @error="
-                        (e) =>
-                          ((e.target as HTMLImageElement).style.display =
-                            'none')
-                      "
-                    />
-                    <div
-                      v-else
-                      class="flex h-full w-full items-center justify-center"
-                    >
-                      <Icon
-                        icon="solar:book-bold-duotone"
-                        class="text-muted-foreground/30 h-8 w-8"
-                      />
-                    </div>
-                  </div>
-
-                  <!-- 책 정보 (클릭 가능) -->
-                  <div
-                    class="min-w-0 flex-1 basis-0 cursor-pointer overflow-hidden py-0.5"
-                    @click="handleBookClick(book.id)"
-                  >
-                    <div
-                      class="hover:text-primary w-full truncate text-sm font-medium transition-colors"
-                    >
-                      {{ book.title }}
-                    </div>
-                    <div
-                      class="text-muted-foreground mt-1 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs"
-                    >
-                      <span
-                        v-if="getArtistNames(book)"
-                        class="flex items-center gap-1"
-                      >
-                        <Icon icon="solar:user-bold-duotone" class="h-3 w-3" />
-                        {{ getArtistNames(book) }}
-                      </span>
-                      <span
-                        v-if="book.page_count"
-                        class="flex items-center gap-1"
-                      >
-                        <Icon
-                          icon="solar:document-text-bold-duotone"
-                          class="h-3 w-3"
-                        />
-                        {{ book.page_count }}페이지
-                      </span>
-                    </div>
-                  </div>
-
-                  <!-- 순서 + 정렬 버튼 -->
-                  <div
-                    class="flex shrink-0 flex-col items-center justify-center gap-0.5"
-                    @click.stop
-                  >
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      class="h-5 w-5"
-                      :disabled="index === 0"
-                      @click="moveBook(index, 'up')"
-                    >
-                      <Icon
-                        icon="solar:alt-arrow-up-bold-duotone"
-                        class="h-3.5 w-3.5"
-                      />
-                    </Button>
-                    <span class="text-muted-foreground text-xs font-semibold">
-                      {{ index + 1 }}
-                    </span>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      class="h-5 w-5"
-                      :disabled="index === books.length - 1"
-                      @click="moveBook(index, 'down')"
-                    >
-                      <Icon
-                        icon="solar:alt-arrow-down-bold-duotone"
-                        class="h-3.5 w-3.5"
-                      />
-                    </Button>
-                  </div>
-
-                  <!-- 드래그 핸들 + 제거 버튼 -->
-                  <div
-                    class="flex shrink-0 flex-col items-center justify-center gap-1"
-                    @click.stop
-                  >
-                    <div class="cursor-grab active:cursor-grabbing">
-                      <Icon
-                        icon="solar:hamburger-menu-bold-duotone"
-                        class="text-muted-foreground h-4 w-4"
-                      />
-                    </div>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      class="text-muted-foreground hover:text-destructive h-6 w-6 opacity-0 transition-opacity group-hover:opacity-100"
-                      @click="handleRemoveBook(book.id)"
-                    >
-                      <Icon
-                        icon="solar:trash-bin-trash-bold-duotone"
-                        class="h-3.5 w-3.5"
-                      />
-                    </Button>
-                  </div>
-                </div>
-              </template>
-
-              <div
-                v-if="!books || books.length === 0"
-                class="text-muted-foreground py-8 text-center"
-              >
-                이 시리즈에 속한 책이 없습니다
-              </div>
-            </div>
+            </template>
           </div>
         </div>
-      </ScrollArea>
-    </DialogScrollContent>
+
+        <!-- 소속 책 목록.
+             제목 줄은 sticky라 목록을 내려도 "책 추가"에 계속 닿는다 -->
+        <div
+          class="bg-popover sticky top-0 z-10 mt-6 flex items-center justify-between py-2"
+        >
+          <h3 class="font-semibold">소속 책 ({{ books.length }}권)</h3>
+          <Button variant="outline" size="sm" @click="showAddBookDialog = true">
+            <Icon icon="solar:add-circle-bold-duotone" class="mr-2 h-4 w-4" />
+            책 추가
+          </Button>
+        </div>
+
+        <div class="space-y-1">
+          <template v-for="(book, index) in books" :key="book.id">
+            <!-- 드롭 위치 표시줄 -->
+            <div
+              v-if="
+                dragOverIndex === index &&
+                draggedIndex !== null &&
+                draggedIndex !== index
+              "
+              class="bg-primary h-0.5 rounded-full transition-all"
+            />
+
+            <div
+              class="group flex items-stretch gap-2"
+              :class="{ 'opacity-40': draggedIndex === index }"
+              :draggable="isDragArmed"
+              @dragstart="handleDragStart(index)"
+              @dragover="handleDragOver($event, index)"
+              @dragleave="handleDragLeave"
+              @drop="handleDrop(index)"
+              @dragend="handleDragEnd"
+            >
+              <!-- 순서 열. 번호·화살표·그립을 한쪽에 모은다 -->
+              <div
+                class="flex w-8 shrink-0 flex-col items-center justify-center gap-0.5"
+              >
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  class="h-5 w-5"
+                  :disabled="index === 0"
+                  aria-label="위로 이동"
+                  @click="moveBook(index, 'up')"
+                >
+                  <Icon
+                    icon="solar:alt-arrow-up-bold-duotone"
+                    class="h-3.5 w-3.5"
+                  />
+                </Button>
+                <span class="text-muted-foreground text-xs font-semibold">
+                  {{ index + 1 }}
+                </span>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  class="h-5 w-5"
+                  :disabled="index === books.length - 1"
+                  aria-label="아래로 이동"
+                  @click="moveBook(index, 'down')"
+                >
+                  <Icon
+                    icon="solar:alt-arrow-down-bold-duotone"
+                    class="h-3.5 w-3.5"
+                  />
+                </Button>
+                <div
+                  class="text-muted-foreground mt-1 cursor-grab active:cursor-grabbing"
+                  title="끌어서 순서 변경"
+                  @mousedown="isDragArmed = true"
+                  @mouseup="isDragArmed = false"
+                >
+                  <Icon
+                    icon="solar:hamburger-menu-bold-duotone"
+                    class="h-4 w-4"
+                  />
+                </div>
+              </div>
+
+              <RowCardShell
+                class="min-w-0 flex-1"
+                :cover-url="getCoverUrl(book)"
+                :alt="book.title"
+                @click="handleBookClick(book.id)"
+              >
+                <template #content>
+                  <h4
+                    class="text-sm leading-snug font-semibold"
+                    :title="book.title"
+                  >
+                    {{ book.title }}
+                  </h4>
+                  <div
+                    class="text-muted-foreground flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs"
+                  >
+                    <span
+                      v-if="getArtistNames(book)"
+                      class="flex items-center gap-1"
+                    >
+                      <Icon icon="solar:user-bold-duotone" class="h-3 w-3" />
+                      {{ getArtistNames(book) }}
+                    </span>
+                    <span
+                      v-if="book.page_count"
+                      class="flex items-center gap-1"
+                    >
+                      <Icon
+                        icon="solar:document-text-bold-duotone"
+                        class="h-3 w-3"
+                      />
+                      {{ book.page_count }}페이지
+                    </span>
+                  </div>
+                </template>
+
+                <!-- 항상 보이게 둔다. 호버로만 나타나면 키보드로는 닿을 수 없다 -->
+                <template #actions>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    class="text-muted-foreground hover:text-destructive self-center"
+                    aria-label="시리즈에서 제거"
+                    @click.stop="handleRemoveBook(book.id)"
+                  >
+                    <Icon
+                      icon="solar:trash-bin-trash-bold-duotone"
+                      class="h-4 w-4"
+                    />
+                  </Button>
+                </template>
+              </RowCardShell>
+            </div>
+          </template>
+
+          <div
+            v-if="books.length === 0"
+            class="text-muted-foreground py-8 text-center"
+          >
+            이 시리즈에 속한 책이 없습니다
+          </div>
+        </div>
+      </div>
+    </DialogContent>
   </Dialog>
 
   <!-- 책 추가 다이얼로그 -->

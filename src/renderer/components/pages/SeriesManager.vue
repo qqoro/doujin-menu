@@ -42,7 +42,6 @@ import {
 } from "vue";
 import { useRoute } from "vue-router";
 import { toast } from "vue-sonner";
-import type { SeriesCollectionWithBooks } from "../../../main/db/types";
 import {
   deleteSeriesCollection,
   getSeriesCollections,
@@ -210,7 +209,7 @@ const showDetectionDialog = ref(false);
 const showDetailDialog = ref(false);
 const showCreateDialog = ref(false);
 const showDeleteDialog = ref(false);
-const selectedSeries = ref<SeriesCollectionWithBooks | null>(null);
+const selectedSeries = ref<SeriesListItem | null>(null);
 const seriesToDelete = ref<number | null>(null);
 
 // 조회 조건. 바뀌면 청크 캐시 키가 통째로 갈린다
@@ -337,7 +336,7 @@ const handleConfirmDetection = (options: {
 
 // 시리즈 클릭 → 상세 다이얼로그
 const handleSeriesClick = (series: SeriesListItem) => {
-  selectedSeries.value = series as SeriesCollectionWithBooks;
+  selectedSeries.value = series;
   showDetailDialog.value = true;
 };
 
