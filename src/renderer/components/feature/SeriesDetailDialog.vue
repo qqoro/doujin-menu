@@ -432,7 +432,7 @@ const excludeBookIds = computed(() => books.value.map((book) => book.id));
               </p>
               <div class="mt-auto flex justify-end">
                 <Button variant="outline" size="sm" @click="startEdit">
-                  <Icon icon="solar:pen-bold-duotone" class="mr-2 h-4 w-4" />
+                  <Icon icon="solar:pen-bold-duotone" class="h-4 w-4" />
                   편집
                 </Button>
               </div>
@@ -447,7 +447,7 @@ const excludeBookIds = computed(() => books.value.map((book) => book.id));
         >
           <h3 class="font-semibold">소속 책 ({{ books.length }}권)</h3>
           <Button variant="outline" size="sm" @click="showAddBookDialog = true">
-            <Icon icon="solar:add-circle-bold-duotone" class="mr-2 h-4 w-4" />
+            <Icon icon="solar:add-circle-bold-duotone" class="h-4 w-4" />
             책 추가
           </Button>
         </div>

@@ -264,7 +264,7 @@ const generateMissingInfoFiles = async () => {
       </CardContent>
       <CardFooter>
         <Button class="w-full" @click="addLibraryFolder">
-          <Icon icon="solar:folder-add-bold-duotone" class="h-5 w-5" />
+          <Icon icon="solar:add-folder-bold-duotone" class="h-5 w-5" />
           라이브러리 폴더 추가
         </Button>
       </CardFooter>
@@ -374,7 +374,7 @@ const generateMissingInfoFiles = async () => {
             <Icon
               v-if="isGeneratingInfoFiles"
               icon="svg-spinners:ring-resize"
-              class="mr-2 h-4 w-4"
+              class="h-4 w-4"
             />
             생성 시작
           </Button>

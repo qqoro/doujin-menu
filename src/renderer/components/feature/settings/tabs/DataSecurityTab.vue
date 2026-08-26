@@ -269,7 +269,7 @@ const resetAllData = async () => {
         <Button @click="handleSetPassword">
           <Icon
             icon="solar:lock-keyhole-minimalistic-bold-duotone"
-            class="mr-2 h-5 w-5"
+            class="h-5 w-5"
           />
           비밀번호 설정
         </Button>

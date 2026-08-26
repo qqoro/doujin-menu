@@ -223,12 +223,11 @@ function isRecording(actionId: string, keyIndex: number) {
           class="shrink-0"
           @click="resetAll"
         >
-          <Icon icon="solar:refresh-bold-duotone" class="mr-1.5 h-4 w-4" />
+          <Icon icon="solar:refresh-bold-duotone" class="h-4 w-4" />
           전체 초기화
-          <span
-            class="bg-muted ml-1.5 rounded-full px-1.5 py-0.5 font-mono text-xs"
-            >{{ modifiedCount }}</span
-          >
+          <span class="bg-muted rounded-full px-1.5 py-0.5 font-mono text-xs">{{
+            modifiedCount
+          }}</span>
         </Button>
       </div>
       <!-- 검색 필터 -->

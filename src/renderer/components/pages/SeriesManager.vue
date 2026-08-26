@@ -415,14 +415,14 @@ const setSortBy = (column: string) => {
       </template>
       <template #actions>
         <Button variant="outline" @click="showCreateDialog = true">
-          <Icon icon="solar:add-circle-bold-duotone" class="mr-2 h-4 w-4" />
+          <Icon icon="solar:add-circle-bold-duotone" class="h-4 w-4" />
           새 시리즈
         </Button>
         <Button
           :disabled="detectionMutation.isPending.value"
           @click="handleRunDetection"
         >
-          <Icon icon="solar:magic-stick-3-bold-duotone" class="mr-2 h-4 w-4" />
+          <Icon icon="solar:magic-stick-3-bold-duotone" class="h-4 w-4" />
           자동 감지 실행
         </Button>
       </template>
@@ -623,10 +623,7 @@ const setSortBy = (column: string) => {
               </p>
             </div>
             <Button @click="handleRunDetection">
-              <Icon
-                icon="solar:magic-stick-3-bold-duotone"
-                class="mr-2 h-4 w-4"
-              />
+              <Icon icon="solar:magic-stick-3-bold-duotone" class="h-4 w-4" />
               자동 감지 실행
             </Button>
           </div>

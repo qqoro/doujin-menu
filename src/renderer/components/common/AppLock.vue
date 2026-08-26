@@ -81,7 +81,7 @@ const resetAllData = async () => {
           <Icon
             v-if="isVerifying"
             icon="svg-spinners:ring-resize"
-            class="mr-2 h-4 w-4"
+            class="h-4 w-4"
           />
           잠금 해제
         </Button>

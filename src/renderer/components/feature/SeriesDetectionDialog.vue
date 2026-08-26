@@ -142,7 +142,7 @@ const handleConfirm = () => {
       <DialogFooter>
         <Button variant="outline" @click="closeDialog">취소</Button>
         <Button @click="handleConfirm">
-          <Icon icon="solar:play-bold-duotone" class="mr-2 h-4 w-4" />
+          <Icon icon="solar:play-bold-duotone" class="h-4 w-4" />
           실행
         </Button>
       </DialogFooter>

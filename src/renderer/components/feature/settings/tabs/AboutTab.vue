@@ -145,7 +145,7 @@ onMounted(async () => {
             <Icon
               v-if="updateStatus === 'checking'"
               icon="svg-spinners:ring-resize"
-              class="mr-2 h-4 w-4"
+              class="h-4 w-4"
             />
             업데이트 확인
           </Button>

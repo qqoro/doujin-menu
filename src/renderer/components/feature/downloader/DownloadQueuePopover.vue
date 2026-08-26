@@ -251,7 +251,7 @@ const sortedQueue = computed(() => {
                 >
                   <Icon
                     :icon="getStatusInfo(item.status).icon"
-                    class="mr-1 h-3 w-3"
+                    class="h-3 w-3"
                   />
                   {{ getStatusInfo(item.status).label }}
                 </Badge>
