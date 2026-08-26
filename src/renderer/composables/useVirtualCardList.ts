@@ -28,6 +28,7 @@ import { BOOK_ASPECT, listRowEstimate } from "@/lib/cardLayout";
 import { useUiStore } from "@/store/uiStore";
 import { computed, onUnmounted, ref, watch, type Ref } from "vue";
 import { useIndexScrollRestoration } from "./useScrollRestoration";
+import { useZoomWheel } from "./useZoomWheel";
 
 export interface VirtualCardListOptions<T> {
   /** 뷰 모드. 훅은 읽기만 한다 (저장은 화면이 한다) */
@@ -272,15 +273,7 @@ export function useVirtualCardList<T>(options: VirtualCardListOptions<T>) {
   onUnmounted(() => resizeObserver?.disconnect());
 
   // Ctrl+Wheel 줌. 그리드는 컨테이너 zoom, 리스트는 썸네일 px가 줌을 따라간다
-  const handleGridWheel = (event: WheelEvent) => {
-    if (!event.ctrlKey) return;
-    event.preventDefault();
-    if (event.deltaY < 0) {
-      uiStore.zoomIn();
-    } else {
-      uiStore.zoomOut();
-    }
-  };
+  const { handleZoomWheel } = useZoomWheel();
 
   // 스크롤 위치 복원. 픽셀 저장은 못 쓴다 — 열 수가 창 너비와 줌의 함수라 다른
   // 화면에 있는 동안 리사이즈하면 같은 픽셀이 다른 항목을 가리킨다.
@@ -316,7 +309,7 @@ export function useVirtualCardList<T>(options: VirtualCardListOptions<T>) {
     // 템플릿이 직접 쓰는 값들
     scrollerRef,
     updateVisibleRange,
-    handleGridWheel,
+    handleZoomWheel,
     gridVirtualizer,
     listVirtualizer,
     gridCols,

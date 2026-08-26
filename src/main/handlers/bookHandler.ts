@@ -3,7 +3,7 @@ import fs from "fs/promises";
 import type { Knex } from "knex";
 import path from "path";
 import * as yauzl from "yauzl";
-import type { FilterParams } from "../../types/ipc.js";
+import type { Book, FilterParams } from "../../types/ipc.js";
 import db from "../db/index.js";
 import { console } from "../main.js";
 import { broadcast } from "../utils/broadcast.js";
@@ -195,6 +195,46 @@ async function fetchBookRelations(bookIds: number[]) {
 /** 관계 이름 문자열을 `[{ name }]` 배열로 편다 */
 const toNameList = (value: string | null | undefined) =>
   value ? value.split(",").map((name: string) => ({ name })) : [];
+
+/** `mapBooksToResponse`가 받는 최소 모양. 관계를 붙일 id와 치환할 제목만 있으면 된다 */
+interface MappableBookRow {
+  id: number;
+  title: string;
+}
+
+type BookRelationFields = Pick<
+  Book,
+  "artists" | "tags" | "series" | "groups" | "characters"
+>;
+
+/**
+ * DB 행에 관계 이름을 붙이고 제목을 응답용으로 치환한다.
+ *
+ * 제목 치환(`extractKoreanTitle`)은 응답 매핑 시점에만 일어난다. DB와 검색 조건은
+ * 원본 제목을 그대로 쓰므로 영어 제목으로도 계속 검색된다.
+ */
+export async function mapBooksToResponse<T extends MappableBookRow>(
+  rows: T[],
+): Promise<(T & BookRelationFields)[]> {
+  const prioritizeKoreanTitles = configStore.get(
+    "prioritizeKoreanTitles",
+    false,
+  );
+  const relations = await fetchBookRelations(rows.map((row) => row.id));
+
+  return rows.map((row) => {
+    const related = relations.get(row.id);
+    return {
+      ...row,
+      title: extractKoreanTitle(row.title, prioritizeKoreanTitles),
+      artists: toNameList(related?.artists),
+      tags: toNameList(related?.tags),
+      series: toNameList(related?.series),
+      groups: toNameList(related?.groups),
+      characters: toNameList(related?.characters),
+    };
+  });
+}
 
 /**
  * @param withArtists `sub.artists`(작가명 집계)를 정렬·커서 비교에 쓸 때만 true.
@@ -508,28 +548,8 @@ export const handleGetBooks = async (
 
   const books = await mainQuery;
 
-  const prioritizeKoreanTitles = configStore.get(
-    "prioritizeKoreanTitles",
-    false,
-  );
-
   // 조회 범위가 확정된 뒤에 관계를 붙인다
-  const relations = await fetchBookRelations(
-    books.map((book) => book.id as number),
-  );
-
-  const formattedBooks = books.map((book) => {
-    const related = relations.get(book.id);
-    return {
-      ...book,
-      title: extractKoreanTitle(book.title, prioritizeKoreanTitles),
-      artists: toNameList(related?.artists),
-      tags: toNameList(related?.tags),
-      series: toNameList(related?.series),
-      groups: toNameList(related?.groups),
-      characters: toNameList(related?.characters),
-    };
-  });
+  const formattedBooks = await mapBooksToResponse(books);
 
   return {
     data: formattedBooks,
@@ -549,22 +569,8 @@ export const handleGetBook = async (bookId: number) => {
     return null;
   }
 
-  const prioritizeKoreanTitles = configStore.get(
-    "prioritizeKoreanTitles",
-    false,
-  );
-
-  const related = (await fetchBookRelations([book.id])).get(book.id);
-
-  return {
-    ...book,
-    title: extractKoreanTitle(book.title, prioritizeKoreanTitles),
-    artists: toNameList(related?.artists),
-    tags: toNameList(related?.tags),
-    series: toNameList(related?.series),
-    groups: toNameList(related?.groups),
-    characters: toNameList(related?.characters),
-  };
+  const [formatted] = await mapBooksToResponse([book]);
+  return formatted;
 };
 
 export const handleGetTags = async () => {

@@ -46,9 +46,14 @@ describe("listRowEstimate", () => {
     expect(listRowEstimate(1)).toBeGreaterThan(listRowEstimate(0.4));
   });
 
-  // 썸네일을 아무리 줄여도 제목·메타·크레딧·태그가 차지하는 바닥이 있습니다
-  it("썸네일이 작아져도 본문 최소 높이 아래로는 안 내려간다", () => {
-    expect(listRowEstimate(0.4)).toBeGreaterThanOrEqual(150);
+  // 썸네일이 아무리 납작해도 제목·메타·크레딧·태그가 차지하는 바닥이 있습니다.
+  // 그 바닥과 패딩도 카드 배율을 따라갑니다 (`listCardScaleStyle`) — 예전처럼
+  // 고정 px로 두면 축소했을 때 실제보다 크게 잡습니다
+  it("본문 최소 높이가 바닥을 잡고, 그 바닥도 줌을 따라간다", () => {
+    const FLAT = 0.2; // 썸네일이 본문보다 납작해지는 극단 비율
+
+    expect(listRowEstimate(1, FLAT)).toBeGreaterThanOrEqual(120 + 24);
+    expect(listRowEstimate(0.5, FLAT)).toBeCloseTo((120 + 24) * 0.5 + 8, 1);
   });
 
   it("기본 줌에서 썸네일 높이보다 크다", () => {

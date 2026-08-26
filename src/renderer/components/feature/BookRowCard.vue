@@ -83,12 +83,14 @@ const handleCreditSelect = (credit: { prefix: CreditPrefix; name: string }) => {
         @click="handleCardClick"
       >
         <template #content>
-          <h3 class="text-[15px] leading-snug font-bold">{{ book.title }}</h3>
+          <h3 class="text-[0.9375em] leading-snug font-bold">
+            {{ book.title }}
+          </h3>
 
           <MetaLine class="text-muted-foreground" :parts="metaParts" />
 
           <CreditsLine
-            class="text-muted-foreground text-[12.5px]"
+            class="text-muted-foreground text-[0.78125em]"
             :credits="credits"
             @select="handleCreditSelect"
           />
@@ -112,10 +114,10 @@ const handleCreditSelect = (credit: { prefix: CreditPrefix; name: string }) => {
           같은 항목이다. 일곱 개를 세로로 쌓으면 카드 높이를 버튼 열이
           정해버려서 표지보다 버튼이 먼저 눈에 들어온다.
 
-          폭을 `w-[92px]`로 고정해 문구 길이에 따라 본문 폭이 흔들리지 않게 한다.
+          폭을 `w-[5.75em]`로 고정해 문구 길이에 따라 본문 폭이 흔들리지 않게 한다.
         -->
         <template #actions>
-          <div class="flex w-[92px] shrink-0 flex-col gap-1.5">
+          <div class="flex w-[5.75em] shrink-0 flex-col gap-1.5">
             <Button
               size="sm"
               variant="outline"

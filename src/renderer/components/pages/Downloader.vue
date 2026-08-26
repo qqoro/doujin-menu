@@ -34,6 +34,7 @@ import {
   useIndexScrollRestoration,
 } from "@/composables/useScrollRestoration";
 import { useSearchPersistence } from "@/composables/useSearchPersistence";
+import { useZoomWheel } from "@/composables/useZoomWheel";
 import {
   CHUNK_SIZE,
   clampPage,
@@ -89,15 +90,7 @@ const downloaderGridStyle = computed(() => ({
 }));
 
 // Ctrl+Wheel로 썸네일 줌 조절. 그리드와 리스트 양쪽에 붙습니다
-const handleZoomWheel = (event: WheelEvent) => {
-  if (!event.ctrlKey) return;
-  event.preventDefault();
-  if (event.deltaY < 0) {
-    uiStore.zoomIn();
-  } else {
-    uiStore.zoomOut();
-  }
-};
+const { handleZoomWheel } = useZoomWheel();
 
 // 검색어 상태
 const searchQuery = ref("");

@@ -234,7 +234,7 @@ const CHUNK_SIZE = 50;
 const {
   scrollerRef,
   updateVisibleRange,
-  handleGridWheel,
+  handleZoomWheel,
   gridVirtualizer,
   listVirtualizer,
   gridCols,
@@ -496,7 +496,7 @@ const setSortBy = (column: string) => {
       <div
         ref="scrollerRef"
         class="series-scroller relative min-h-0 flex-grow overflow-y-auto"
-        @wheel="handleGridWheel"
+        @wheel="handleZoomWheel"
         @scroll="updateVisibleRange"
       >
         <div

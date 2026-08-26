@@ -4,7 +4,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { useGalleryCard } from "@/composables/useGalleryCard";
 import type { MetaField } from "@/lib/cardLayout";
-import { listThumbnailSize } from "@/lib/cardLayout";
+import { listCardScaleStyle, listThumbnailSize } from "@/lib/cardLayout";
 import { buildMetaLine } from "@/lib/galleryCard";
 import { useUiStore } from "@/store/uiStore";
 import { Icon } from "@iconify/vue";
@@ -56,6 +56,9 @@ const metaParts = computed(() => buildMetaLine(props.gallery, META_FIELDS));
  */
 const thumbSize = computed(() => listThumbnailSize(uiStore.thumbnailZoom));
 
+/** 카드 안쪽 글자·여백도 같은 배율로 키웁니다. `listCardScaleStyle` 주석 참고 */
+const scaleStyle = computed(() => listCardScaleStyle(uiStore.thumbnailZoom));
+
 // composable 사용
 const {
   cardStatus,
@@ -82,9 +85,15 @@ const tagTerm = (type: string, name: string) =>
 </script>
 
 <template>
+  <!--
+    `[&_[data-size=sm]]:text-[0.8em]`은 카드 안의 `Button size="sm"`을 위한 것입니다.
+    그 변형만 글자 크기를 `text-[0.8rem]`으로 박아 둬서 `--text-*` 재정의가
+    안 먹습니다. 후손 선택자라 특이도가 이겨 버튼 쪽 유틸을 덮습니다.
+  -->
   <div
-    class="hover:bg-muted/50 relative flex cursor-pointer gap-3.5 overflow-hidden rounded-lg border p-3 transition-colors"
+    class="hover:bg-muted/50 relative flex cursor-pointer gap-3.5 overflow-hidden rounded-lg border p-3 transition-colors [&_[data-size=sm]]:text-[0.8em]"
     :class="{ 'ring-2 ring-blue-500': selected }"
+    :style="scaleStyle"
     @click="emit('select-gallery', gallery)"
   >
     <div
@@ -108,7 +117,7 @@ const tagTerm = (type: string, name: string) =>
     </div>
 
     <div class="flex min-w-0 flex-1 flex-col gap-1.5">
-      <h3 class="text-[15px] leading-snug font-bold">
+      <h3 class="text-[0.9375em] leading-snug font-bold">
         {{ props.gallery.title.display }}
       </h3>
 
@@ -125,7 +134,7 @@ const tagTerm = (type: string, name: string) =>
       />
 
       <CreditsLine
-        class="text-muted-foreground text-[12.5px]"
+        class="text-muted-foreground text-[0.78125em]"
         :credits="props.gallery"
         @select="copyToClipboard(`${$event.prefix}:${$event.name}`)"
       />
@@ -151,12 +160,12 @@ const tagTerm = (type: string, name: string) =>
     <!--
       버튼 열. 리스트는 카드 폭이 넉넉하므로 문구를 답니다. 아이콘만 두면
       무슨 버튼인지 매번 호버해서 확인해야 합니다. 폭이 고정되도록
-      `w-[92px]`을 줘서 보유중 여부에 따라 본문 폭이 흔들리지 않게 합니다.
+      `w-[5.75em]`을 줘서 보유중 여부에 따라 본문 폭이 흔들리지 않게 합니다.
 
       보유중이면 다운로드 버튼("완료")을 감춥니다. 눌리지도 않는 버튼이고
       썸네일 배지가 이미 같은 말을 하므로, 그 자리를 열기가 대신합니다.
     -->
-    <div class="flex w-[92px] shrink-0 flex-col gap-1.5">
+    <div class="flex w-[5.75em] shrink-0 flex-col gap-1.5">
       <Button
         size="sm"
         variant="outline"

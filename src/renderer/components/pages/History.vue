@@ -136,7 +136,7 @@ const CHUNK_SIZE = 50;
 const {
   scrollerRef,
   updateVisibleRange,
-  handleGridWheel,
+  handleZoomWheel,
   gridVirtualizer,
   listVirtualizer,
   gridCols,
@@ -234,7 +234,7 @@ onMounted(() => {
       <div
         ref="scrollerRef"
         class="history-scroller relative min-h-0 flex-grow overflow-y-auto"
-        @wheel="handleGridWheel"
+        @wheel="handleZoomWheel"
         @scroll="updateVisibleRange"
       >
         <div v-if="isLoading" class="p-4 text-center">
@@ -356,10 +356,10 @@ onMounted(() => {
                   @click="goToBook(itemAt(row.index * listCols + col - 1)!.id)"
                 >
                   <template #content>
-                    <h3 class="text-[15px] leading-snug font-bold">
+                    <h3 class="text-[0.9375em] leading-snug font-bold">
                       {{ itemAt(row.index * listCols + col - 1)!.title }}
                     </h3>
-                    <p class="text-muted-foreground text-[12.5px]">
+                    <p class="text-muted-foreground text-[0.78125em]">
                       {{
                         formatDate(
                           itemAt(row.index * listCols + col - 1)!.viewed_at,

@@ -1,62 +1,95 @@
 import { ipcMain } from "electron";
+import fs from "fs/promises";
+import path from "path";
 import type { DuplicateBookInfo, DuplicateGroup } from "../../types/ipc.js";
 import db from "../db/index.js";
 import { console } from "../main.js";
-import { handleDeleteBook } from "./bookHandler.js";
+import { handleDeleteBook, mapBooksToResponse } from "./bookHandler.js";
 
 // 경로 확장자로 압축파일 여부 판별 (Book.type은 장르 메타데이터이므로 사용 불가)
 const isArchivePath = (p: string) => /\.(zip|cbz)$/i.test(p);
-
-// 중복 그룹 조회 시 사용하는 Book 컬럼
-const BOOK_COLUMNS = [
-  "id",
-  "title",
-  "path",
-  "page_count",
-  "cover_path",
-  "is_offline",
-  "is_favorite",
-  "current_page",
-  "last_read_at",
-  "hitomi_id",
-];
 
 interface BookRow {
   id: number;
   title: string;
   path: string;
-  page_count: number | null;
-  cover_path: string | null;
   is_offline: number | boolean;
-  is_favorite: number | boolean;
-  current_page: number | null;
-  last_read_at: string | null;
-  hitomi_id: string | null;
+  file_size: number | null;
+  file_mtime: number | null;
+  [key: string]: unknown;
 }
 
-// DB 행을 응답용 사본 정보로 변환 (SQLite의 0/1을 boolean으로)
-const toBookInfo = (row: BookRow): DuplicateBookInfo => ({
-  id: row.id,
-  title: row.title,
-  path: row.path,
-  isArchive: isArchivePath(row.path),
-  page_count: row.page_count,
-  cover_path: row.cover_path,
-  is_offline: Boolean(row.is_offline),
-  is_favorite: Boolean(row.is_favorite),
-  current_page: row.current_page,
-  last_read_at: row.last_read_at,
-});
+/**
+ * 폴더 책의 용량을 합산한다.
+ *
+ * 스캔은 ZIP/CBZ에만 `file_size`를 남긴다(폴더 크기는 재스캔 판단에 못 쓴다).
+ * 중복 그룹에 뜬 폴더는 수십 개 규모라 조회 시점에 직접 재도 부담이 없다.
+ * 책 폴더는 이미지가 평면으로 놓인 구조라 하위 폴더는 훑지 않는다.
+ */
+const calcFolderSize = async (dirPath: string): Promise<number | null> => {
+  try {
+    const entries = await fs.readdir(dirPath, { withFileTypes: true });
+    const sizes = await Promise.all(
+      entries
+        .filter((entry) => entry.isFile())
+        .map(async (entry) => {
+          try {
+            return (await fs.stat(path.join(dirPath, entry.name))).size;
+          } catch {
+            return 0;
+          }
+        }),
+    );
+    return sizes.reduce((sum, size) => sum + size, 0);
+  } catch {
+    return null;
+  }
+};
+
+/**
+ * 사본 정보를 완성한다. 라이브러리와 같은 매퍼를 거치므로 제목 표기
+ * (`prioritizeKoreanTitles`)와 작가·태그가 라이브러리 화면과 일치한다.
+ */
+const toBookInfos = async (rows: BookRow[]): Promise<DuplicateBookInfo[]> => {
+  const mapped = await mapBooksToResponse(rows);
+
+  return Promise.all(
+    mapped.map(async (row) => {
+      const isArchive = isArchivePath(row.path);
+      // 오프라인은 경로 접근이 안 되는 게 확정이라 재는 시도 자체를 건너뛴다
+      const needsMeasure =
+        !isArchive && row.file_size == null && !row.is_offline;
+
+      return {
+        ...row,
+        isArchive,
+        file_size: needsMeasure
+          ? await calcFolderSize(row.path)
+          : (row.file_size ?? null),
+        file_mtime: row.file_mtime ?? null,
+        // SQLite의 0/1을 boolean으로
+        is_offline: Boolean(row.is_offline),
+        is_favorite: Boolean(row.is_favorite),
+      } as DuplicateBookInfo;
+    }),
+  );
+};
 
 export const handleGetDuplicateGroups = async () => {
   try {
-    const groups: DuplicateGroup[] = [];
+    // id 쌍으로만 그룹을 잡아 두고, 사본 정보는 마지막에 한 번에 채운다
+    const idGroups: {
+      key: string;
+      matchType: DuplicateGroup["matchType"];
+      ids: number[];
+    }[] = [];
+    const rowsById = new Map<number, BookRow>();
     // hitomi_id 그룹에 포함된 book id 집합 (title 그룹 교차 중복 제거용)
     const hitomiGroupedIds = new Set<number>();
 
     // 1) hitomi_id 기준 중복 그룹 — 서브쿼리 1회로 중복 키와 행을 함께 가져옴
     const hitomiRows: BookRow[] = await db("Book")
-      .select(BOOK_COLUMNS)
+      .select("*")
       .whereIn(
         "hitomi_id",
         db("Book")
@@ -73,20 +106,21 @@ export const handleGetDuplicateGroups = async () => {
         const key = String(row.hitomi_id);
         if (!byHitomiId.has(key)) byHitomiId.set(key, []);
         byHitomiId.get(key)!.push(row);
+        rowsById.set(row.id, row);
         hitomiGroupedIds.add(row.id);
       }
       for (const [key, books] of byHitomiId) {
-        groups.push({
+        idGroups.push({
           key,
           matchType: "hitomi_id",
-          books: books.map(toBookInfo),
+          ids: books.map((b) => b.id),
         });
       }
     }
 
     // 2) 제목 기준 중복 그룹 — 서브쿼리 1회, 빈 제목은 제외
     const titleRows: BookRow[] = await db("Book")
-      .select(BOOK_COLUMNS)
+      .select("*")
       .whereIn(
         "title",
         db("Book")
@@ -106,9 +140,24 @@ export const handleGetDuplicateGroups = async () => {
       for (const [key, books] of byTitle) {
         // 모든 사본이 이미 hitomi_id 그룹에 포함되면 같은 묶음이므로 title 그룹 제외 (교차 중복 제거)
         if (books.every((b) => hitomiGroupedIds.has(b.id))) continue;
-        groups.push({ key, matchType: "title", books: books.map(toBookInfo) });
+        for (const row of books) rowsById.set(row.id, row);
+        idGroups.push({ key, matchType: "title", ids: books.map((b) => b.id) });
       }
     }
+
+    // 그룹이 겹쳐도 책 하나당 한 번만 매핑한다
+    const infos = await toBookInfos(Array.from(rowsById.values()));
+    const infoById = new Map(infos.map((info) => [info.id, info]));
+
+    const groups: DuplicateGroup[] = idGroups.map(
+      ({ key, matchType, ids }) => ({
+        key,
+        matchType,
+        books: ids
+          .map((id) => infoById.get(id))
+          .filter((book): book is DuplicateBookInfo => !!book),
+      }),
+    );
 
     return { success: true, groups };
   } catch (error) {

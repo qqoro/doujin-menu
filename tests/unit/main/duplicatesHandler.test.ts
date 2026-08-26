@@ -48,8 +48,11 @@ import {
 import {
   createTestDb,
   truncateAll,
+  seedArtist,
   seedBook,
+  seedTag,
 } from "../../../src/main/db/test-utils.js";
+import { store as configStore } from "../../../src/main/handlers/configHandler.js";
 
 // trashItem mock 참조 (permanent: true 경로 검증용)
 const mockTrashItem = vi.mocked(shell.trashItem);
@@ -65,6 +68,8 @@ beforeAll(async () => {
 beforeEach(async () => {
   await truncateAll(db);
   vi.clearAllMocks();
+  // clearAllMocks는 구현을 안 지운다. 설정 목이 다음 테스트로 새면 제목 표기가 달라진다
+  vi.mocked(configStore.get).mockReset();
 });
 
 afterAll(async () => {
@@ -229,6 +234,129 @@ describe("handleGetDuplicateGroups", () => {
 
     expect(result.success).toBe(true);
     expect(result.groups).toEqual([]);
+  });
+
+  it("작가·태그가 함께 실린다 (제목만 같고 작가가 다르면 오탐 판별 근거)", async () => {
+    const bookA = await seedBook(db, {
+      title: "관계 테스트",
+      path: "/lib/rel-a",
+    });
+    const bookB = await seedBook(db, {
+      title: "관계 테스트",
+      path: "/lib/rel-b",
+    });
+    const artistA = await seedArtist(db, "작가A");
+    const artistB = await seedArtist(db, "작가B");
+    const tag = await seedTag(db, "태그1");
+    await db("BookArtist").insert([
+      { book_id: bookA.id, artist_id: artistA.id },
+      { book_id: bookB.id, artist_id: artistB.id },
+    ]);
+    await db("BookTag").insert({ book_id: bookA.id, tag_id: tag.id });
+
+    const result = await handleGetDuplicateGroups();
+    const books = result.groups![0].books;
+
+    expect(books.find((b) => b.path === "/lib/rel-a")!.artists).toEqual([
+      { name: "작가A" },
+    ]);
+    expect(books.find((b) => b.path === "/lib/rel-b")!.artists).toEqual([
+      { name: "작가B" },
+    ]);
+    expect(books.find((b) => b.path === "/lib/rel-a")!.tags).toEqual([
+      { name: "태그1" },
+    ]);
+  });
+
+  it("prioritizeKoreanTitles가 켜지면 라이브러리와 같은 제목 표기를 쓴다", async () => {
+    vi.mocked(configStore.get).mockImplementation((key: string) =>
+      key === "prioritizeKoreanTitles" ? true : undefined,
+    );
+    await seedBook(db, { title: "English | 한글제목", path: "/lib/ko-a" });
+    await seedBook(db, { title: "English | 한글제목", path: "/lib/ko-b" });
+
+    const result = await handleGetDuplicateGroups();
+
+    // 그룹 키는 DB 원본, 표시용 제목만 치환된다
+    expect(result.groups![0].key).toBe("English | 한글제목");
+    expect(result.groups![0].books[0].title).toBe("한글제목");
+  });
+
+  it("압축파일은 DB의 file_size를 그대로 싣는다", async () => {
+    await seedBook(db, {
+      title: "용량 테스트",
+      path: "/lib/sized-a.zip",
+      file_size: 1024,
+    });
+    await seedBook(db, {
+      title: "용량 테스트",
+      path: "/lib/sized-b.zip",
+      file_size: 2048,
+    });
+
+    const result = await handleGetDuplicateGroups();
+    const books = result.groups![0].books;
+
+    expect(books.find((b) => b.path === "/lib/sized-a.zip")!.file_size).toBe(
+      1024,
+    );
+    expect(books.find((b) => b.path === "/lib/sized-b.zip")!.file_size).toBe(
+      2048,
+    );
+  });
+
+  it("폴더는 DB에 용량이 없으므로 조회 시점에 합산한다", async () => {
+    // 스캔은 ZIP/CBZ에만 file_size를 남긴다. 폴더는 여기서 직접 재야 값이 생긴다
+    const tmp = await fs.mkdtemp(path.join(os.tmpdir(), "dup-folder-"));
+    const folderA = path.join(tmp, "a");
+    const folderB = path.join(tmp, "b");
+    await fs.mkdir(folderA);
+    await fs.mkdir(folderB);
+    await fs.writeFile(path.join(folderA, "1.jpg"), Buffer.alloc(300));
+    await fs.writeFile(path.join(folderA, "2.jpg"), Buffer.alloc(200));
+    await fs.writeFile(path.join(folderB, "1.jpg"), Buffer.alloc(100));
+
+    await seedBook(db, { title: "폴더 용량", path: folderA });
+    await seedBook(db, { title: "폴더 용량", path: folderB });
+
+    const result = await handleGetDuplicateGroups();
+    const books = result.groups![0].books;
+
+    expect(books.find((b) => b.path === folderA)!.file_size).toBe(500);
+    expect(books.find((b) => b.path === folderB)!.file_size).toBe(100);
+
+    await fs.rm(tmp, { recursive: true, force: true });
+  });
+
+  it("접근할 수 없는 폴더는 용량이 null이고 조회는 계속된다", async () => {
+    await seedBook(db, { title: "없는 폴더", path: "/lib/does-not-exist-a" });
+    await seedBook(db, { title: "없는 폴더", path: "/lib/does-not-exist-b" });
+
+    const result = await handleGetDuplicateGroups();
+
+    expect(result.success).toBe(true);
+    expect(result.groups![0].books.every((b) => b.file_size === null)).toBe(
+      true,
+    );
+  });
+
+  it("오프라인 책은 용량을 재려 하지 않는다 (경로 접근 불가가 확정)", async () => {
+    await seedBook(db, {
+      title: "오프라인 용량",
+      path: "/lib/offline-size-a",
+      is_offline: true,
+    });
+    await seedBook(db, {
+      title: "오프라인 용량",
+      path: "/lib/offline-size-b",
+      is_offline: true,
+    });
+
+    const result = await handleGetDuplicateGroups();
+
+    expect(result.groups![0].books.every((b) => b.file_size === null)).toBe(
+      true,
+    );
   });
 });
 

@@ -327,7 +327,7 @@ const CHUNK_SIZE = 50;
 const {
   scrollerRef,
   updateVisibleRange,
-  handleGridWheel,
+  handleZoomWheel,
   gridVirtualizer,
   listVirtualizer,
   gridCols,
@@ -843,7 +843,7 @@ const {
       <div
         ref="scrollerRef"
         class="library-scroller relative min-h-0 flex-grow overflow-y-auto"
-        @wheel="handleGridWheel"
+        @wheel="handleZoomWheel"
         @scroll="updateVisibleRange"
       >
         <div

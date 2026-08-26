@@ -148,17 +148,11 @@ export interface Statistics {
 // ========== 중복 책 정리 ==========
 
 // 중복 그룹 내 개별 사본 정보
-export interface DuplicateBookInfo {
-  id: number;
-  title: string;
-  path: string;
+export interface DuplicateBookInfo extends Book {
   isArchive: boolean; // 경로 확장자(.zip/.cbz) 기준 압축파일 여부
-  page_count: number | null;
-  cover_path: string | null;
-  is_offline: boolean;
-  is_favorite: boolean;
-  current_page: number | null;
-  last_read_at: string | null;
+  /** 압축파일은 스캔 시 저장된 값, 폴더는 조회 시점에 합산한 값. 접근 불가 시 null */
+  file_size: number | null;
+  file_mtime: number | null;
 }
 
 // 중복 그룹 (hitomi_id 또는 제목 일치)

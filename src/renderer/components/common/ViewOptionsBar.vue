@@ -15,8 +15,10 @@ withDefaults(
     showZoom?: boolean;
     /** 현재 뷰에서 줌이 안 먹는 경우에만 (예: 읽음 기록의 리스트 뷰) */
     zoomDisabled?: boolean;
+    /** 그리드/리스트 전환이 없는 화면은 끈다 (예: 중복 정리) */
+    showMode?: boolean;
   }>(),
-  { showZoom: true, zoomDisabled: false },
+  { showZoom: true, zoomDisabled: false, showMode: true },
 );
 
 const emit = defineEmits<{
@@ -66,6 +68,7 @@ const handleChange = (value: unknown) => {
   </div>
 
   <ToggleGroup
+    v-if="showMode"
     :model-value="modelValue"
     type="single"
     @update:model-value="handleChange"

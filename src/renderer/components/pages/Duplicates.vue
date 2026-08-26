@@ -1,5 +1,8 @@
 <script setup lang="ts">
 import { deleteDuplicateBooks, getDuplicateGroups } from "@/api";
+import SmartSearchInput from "@/components/common/SmartSearchInput.vue";
+import SortMenu from "@/components/common/SortMenu.vue";
+import ViewOptionsBar from "@/components/common/ViewOptionsBar.vue";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -12,48 +15,128 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Card } from "@/components/ui/card";
-import { Checkbox } from "@/components/ui/checkbox";
+import {
+  DropdownMenu,
+  DropdownMenuCheckboxItem,
+  DropdownMenuContent,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { useZoomWheel } from "@/composables/useZoomWheel";
+import {
+  computeGroupHighlight,
+  filterGroups,
+  formatBytes,
+  groupReclaimableSize,
+  groupTitle,
+  sortGroups,
+  summarizeGroups,
+  type DuplicateSortBy,
+} from "@/lib/duplicateCompare";
 import { Icon } from "@iconify/vue";
-import PageHeader from "../layout/PageHeader.vue";
 import { useQuery, useQueryClient } from "@tanstack/vue-query";
 import { computed, ref } from "vue";
 import { toast } from "vue-sonner";
-import type { DuplicateGroup } from "../../../types/ipc";
+import type { DuplicateBookInfo, DuplicateGroup } from "../../../types/ipc";
+import BookPreviewDialog from "../feature/BookPreviewDialog.vue";
+import DuplicateBookRow from "../feature/DuplicateBookRow.vue";
+import PageHeader from "../layout/PageHeader.vue";
+import PageToolbar from "../layout/PageToolbar.vue";
 
 const queryClient = useQueryClient();
 
+const { handleZoomWheel } = useZoomWheel();
+
 // 중복 그룹 목록 조회
-const { data, status } = useQuery<DuplicateGroup[]>({
+const { data, status, isFetching, refetch } = useQuery<DuplicateGroup[]>({
   queryKey: ["duplicateGroups"],
   queryFn: getDuplicateGroups,
 });
 
 const groups = computed(() => data.value ?? []);
 
+// 검색·필터·정렬
+const searchQuery = ref("");
+const matchTypeFilter = ref<"all" | DuplicateGroup["matchType"]>("all");
+const sortBy = ref<DuplicateSortBy>("reclaimable");
+
+const SORT_OPTIONS = [
+  { value: "reclaimable", label: "절약 가능 용량" },
+  { value: "count", label: "사본 수" },
+  { value: "title", label: "제목" },
+];
+
+const visibleGroups = computed(() =>
+  sortGroups(
+    filterGroups(groups.value, searchQuery.value, matchTypeFilter.value),
+    sortBy.value,
+  ),
+);
+
+const summary = computed(() => summarizeGroups(visibleGroups.value));
+
+/** hitomi_id와 제목이 우연히 같아도 키가 겹치지 않게 매치 타입을 섞는다 */
+const groupId = (group: DuplicateGroup) => `${group.matchType}:${group.key}`;
+
+// 강조 값은 그룹당 한 번만 센다. 행마다 부르면 사본 수의 제곱만큼 돈다
+const highlightById = computed(
+  () =>
+    new Map(
+      visibleGroups.value.map((group) => [
+        groupId(group),
+        computeGroupHighlight(group.books),
+      ]),
+    ),
+);
+
+// 접힌 그룹. 판단이 끝난 그룹을 치워가며 진행하라고 둔다
+const collapsedIds = ref<Set<string>>(new Set());
+
+const isCollapsed = (group: DuplicateGroup) =>
+  collapsedIds.value.has(groupId(group));
+
+const toggleCollapse = (group: DuplicateGroup) => {
+  const next = new Set(collapsedIds.value);
+  const id = groupId(group);
+  if (next.has(id)) {
+    next.delete(id);
+  } else {
+    next.add(id);
+  }
+  collapsedIds.value = next;
+};
+
+const isAllCollapsed = computed(
+  () =>
+    visibleGroups.value.length > 0 &&
+    visibleGroups.value.every((group) => isCollapsed(group)),
+);
+
+const toggleCollapseAll = () => {
+  collapsedIds.value = isAllCollapsed.value
+    ? new Set()
+    : new Set(visibleGroups.value.map(groupId));
+};
+
 // 선택된 책 ID 집합 (반응성 보장을 위해 토글 시 new Set으로 교체)
 const selectedIds = ref<Set<number>>(new Set());
 
-// 삭제 진행 중 여부
 const isDeleting = ref(false);
-
-// 확인 다이얼로그 상태
 const isTrashDialogOpen = ref(false);
 const isPermanentDialogOpen = ref(false);
 
-// 커버 이미지 URL (없으면 placeholder)
-const getCoverUrl = (coverPath: string | null) => {
-  return coverPath
-    ? `file://${coverPath}`
-    : "https://via.placeholder.com/256x384";
+const previewBook = ref<DuplicateBookInfo | null>(null);
+const isPreviewOpen = ref(false);
+
+const openPreview = (book: DuplicateBookInfo) => {
+  previewBook.value = book;
+  isPreviewOpen.value = true;
 };
 
-// 매치 타입 라벨
-const getMatchTypeLabel = (matchType: DuplicateGroup["matchType"]) => {
-  return matchType === "hitomi_id" ? "ID 일치" : "제목 일치";
-};
+const getMatchTypeLabel = (matchType: DuplicateGroup["matchType"]) =>
+  matchType === "hitomi_id" ? "ID 일치" : "제목 일치";
 
-// 선택 토글 (오프라인 책은 호출되지 않음 — 체크박스 비활성화)
 const toggleSelect = (bookId: number) => {
   const next = new Set(selectedIds.value);
   if (next.has(bookId)) {
@@ -64,22 +147,27 @@ const toggleSelect = (bookId: number) => {
   selectedIds.value = next;
 };
 
-const isSelected = (bookId: number) => selectedIds.value.has(bookId);
-
-// 선택 개수
 const selectedCount = computed(() => selectedIds.value.size);
 
 // 그룹 전체가 선택되었는지 여부 (원본까지 전부 삭제 — 경고 대상)
-const isGroupFullySelected = (group: DuplicateGroup) => {
-  return group.books.every((book) => selectedIds.value.has(book.id));
-};
+const isGroupFullySelected = (group: DuplicateGroup) =>
+  group.books.every((book) => selectedIds.value.has(book.id));
 
-// 전체 선택 중 그룹 전부 선택된 그룹이 하나라도 있는지
-const hasFullySelectedGroup = computed(() => {
-  return groups.value.some(
+/**
+ * 필터에 걸러진 그룹까지 본다. 선택해 둔 뒤 검색을 걸었다고 경고가 사라지면
+ * 위험한 선택이 화면 밖에 숨은 채로 삭제된다.
+ */
+const hasFullySelectedGroup = computed(() =>
+  groups.value.some(
     (group) => group.books.length > 0 && isGroupFullySelected(group),
-  );
-});
+  ),
+);
+
+/** 그룹 헤더에 띄우는 절약 가능 용량. 용량 미상 사본이 섞이면 표시하지 않는다 */
+const reclaimableLabel = (group: DuplicateGroup) => {
+  const size = groupReclaimableSize(group.books);
+  return size == null ? null : `${formatBytes(size)} 절약 가능`;
+};
 
 // 휴지통/영구 삭제 실행
 const performDelete = async (permanent: boolean) => {
@@ -125,137 +213,203 @@ const confirmPermanent = () => performDelete(true);
 </script>
 
 <template>
-  <div class="flex h-full flex-col gap-6">
-    <PageHeader icon="solar:copy-bold-duotone" title="중복 정리" />
+  <div class="flex h-full flex-col gap-4">
+    <PageHeader icon="solar:copy-bold-duotone" title="중복 정리">
+      <template #actions>
+        <Button
+          variant="outline"
+          :disabled="visibleGroups.length === 0"
+          @click="toggleCollapseAll"
+        >
+          <Icon
+            :icon="
+              isAllCollapsed
+                ? 'solar:maximize-square-3-bold-duotone'
+                : 'solar:minimize-square-3-bold-duotone'
+            "
+            class="h-4 w-4"
+          />
+          {{ isAllCollapsed ? "모두 펼치기" : "모두 접기" }}
+        </Button>
+        <Button variant="outline" :disabled="isFetching" @click="refetch()">
+          <Icon
+            icon="solar:refresh-bold-duotone"
+            class="h-4 w-4"
+            :class="{ 'animate-spin': isFetching }"
+          />
+          새로고침
+        </Button>
+      </template>
+    </PageHeader>
 
-    <!-- 본문 (스크롤 영역) -->
-    <div class="flex-grow overflow-y-auto pr-4">
-      <!-- 로딩 -->
-      <div v-if="status === 'pending'" class="p-4 text-center">
-        <p>중복 목록을 불러오는 중...</p>
-      </div>
+    <div class="flex min-h-0 flex-1 flex-col gap-4">
+      <PageToolbar>
+        <template #search>
+          <SmartSearchInput
+            v-model="searchQuery"
+            placeholder="제목, 작가로 그룹 검색"
+          />
+        </template>
 
-      <!-- 에러 -->
-      <div
-        v-else-if="status === 'error'"
-        class="text-destructive p-4 text-center"
-      >
-        <p>중복 목록을 불러오는 중 오류가 발생했습니다.</p>
-      </div>
+        <template #filter>
+          <DropdownMenu>
+            <DropdownMenuTrigger as-child>
+              <Button variant="outline">
+                <Icon icon="solar:filter-bold-duotone" class="h-4 w-4" />
+                필터
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent>
+              <DropdownMenuLabel>일치 기준</DropdownMenuLabel>
+              <DropdownMenuSeparator />
+              <DropdownMenuCheckboxItem
+                :model-value="matchTypeFilter === 'all'"
+                @click="matchTypeFilter = 'all'"
+              >
+                전체
+              </DropdownMenuCheckboxItem>
+              <DropdownMenuCheckboxItem
+                :model-value="matchTypeFilter === 'hitomi_id'"
+                @click="matchTypeFilter = 'hitomi_id'"
+              >
+                ID 일치
+              </DropdownMenuCheckboxItem>
+              <DropdownMenuCheckboxItem
+                :model-value="matchTypeFilter === 'title'"
+                @click="matchTypeFilter = 'title'"
+              >
+                제목 일치
+              </DropdownMenuCheckboxItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </template>
 
-      <!-- 빈 상태 (중복 없음) -->
-      <div
-        v-else-if="groups.length === 0"
-        class="text-muted-foreground flex h-full flex-col items-center justify-center gap-3 p-4 text-center"
-      >
-        <Icon
-          icon="solar:check-circle-bold-duotone"
-          class="h-16 w-16 opacity-50"
-        />
-        <p>중복된 책이 없습니다.</p>
-      </div>
+        <template #sort>
+          <!-- 기준마다 방향이 정해져 있다 (용량·사본 수는 많은 순, 제목은 가나다) -->
+          <SortMenu
+            :options="SORT_OPTIONS"
+            :sort-by="sortBy"
+            sort-order="desc"
+            :show-order="false"
+            @update:sort-by="sortBy = $event as DuplicateSortBy"
+          />
+        </template>
 
-      <!-- 중복 그룹 목록 -->
-      <div v-else class="space-y-4">
-        <Card v-for="group in groups" :key="group.key" class="p-4">
-          <!-- 그룹 헤더 (전체 선택 경고를 같은 줄에 표시해 본문 레이아웃 시프팅 방지) -->
-          <div class="mb-3 flex items-center gap-2">
-            <Badge
-              :variant="
-                group.matchType === 'hitomi_id' ? 'default' : 'secondary'
-              "
-            >
-              {{ getMatchTypeLabel(group.matchType) }}
-            </Badge>
-            <span class="text-muted-foreground text-sm">
-              {{ group.books.length }}개의 책
-            </span>
-            <span
-              v-if="isGroupFullySelected(group)"
-              class="text-destructive ml-auto flex items-center gap-1 text-sm font-medium whitespace-nowrap"
+        <template #view>
+          <!-- 그리드/리스트 전환은 이 화면에 의미가 없다. 썸네일 줌만 쓴다 -->
+          <ViewOptionsBar model-value="list" :show-mode="false" />
+        </template>
+
+        <template #status>
+          <span class="text-muted-foreground text-sm">
+            {{ summary.groupCount }}그룹 · {{ summary.bookCount }}권
+            <template v-if="summary.reclaimableSize > 0">
+              · 최대 {{ formatBytes(summary.reclaimableSize) }} 절약 가능
+            </template>
+            <template v-if="summary.unknownSizeGroups > 0">
+              <span class="opacity-70">
+                ({{ summary.unknownSizeGroups }}개 그룹 용량 미상)
+              </span>
+            </template>
+          </span>
+        </template>
+      </PageToolbar>
+
+      <!-- 본문 (스크롤 영역) -->
+      <div class="min-h-0 flex-1 overflow-y-auto pr-2" @wheel="handleZoomWheel">
+        <div v-if="status === 'pending'" class="p-4 text-center">
+          <p>중복 목록을 불러오는 중...</p>
+        </div>
+
+        <div
+          v-else-if="status === 'error'"
+          class="text-destructive p-4 text-center"
+        >
+          <p>중복 목록을 불러오는 중 오류가 발생했습니다.</p>
+        </div>
+
+        <!-- 빈 상태 (중복 없음) -->
+        <div
+          v-else-if="groups.length === 0"
+          class="text-muted-foreground flex h-full flex-col items-center justify-center gap-3 p-4 text-center"
+        >
+          <Icon
+            icon="solar:check-circle-bold-duotone"
+            class="h-16 w-16 opacity-50"
+          />
+          <p>중복된 책이 없습니다.</p>
+        </div>
+
+        <!-- 검색·필터 결과 없음 (중복 자체는 있는 상태) -->
+        <div
+          v-else-if="visibleGroups.length === 0"
+          class="text-muted-foreground flex h-full flex-col items-center justify-center gap-3 p-4 text-center"
+        >
+          <Icon
+            icon="solar:magnifer-bold-duotone"
+            class="h-16 w-16 opacity-50"
+          />
+          <p>조건에 맞는 중복 그룹이 없습니다.</p>
+        </div>
+
+        <div v-else class="space-y-4">
+          <section v-for="group in visibleGroups" :key="groupId(group)">
+            <!-- 그룹 헤더. 스크롤 중에도 어느 그룹을 보고 있는지 남는다 -->
+            <div
+              class="bg-background sticky top-0 z-10 flex cursor-pointer items-center gap-2 py-2"
+              @click="toggleCollapse(group)"
             >
               <Icon
-                icon="solar:danger-triangle-bold-duotone"
+                :icon="
+                  isCollapsed(group)
+                    ? 'solar:alt-arrow-right-linear'
+                    : 'solar:alt-arrow-down-linear'
+                "
                 class="h-4 w-4 flex-shrink-0"
               />
-              모든 책 선택됨 · 원본까지 삭제
-            </span>
-          </div>
-
-          <!-- 그룹 내 책 목록 -->
-          <div class="space-y-2">
-            <div
-              v-for="book in group.books"
-              :key="book.id"
-              :class="[
-                'flex items-center gap-3 rounded-md p-2 transition-colors select-none',
-                book.is_offline
-                  ? 'cursor-not-allowed opacity-70'
-                  : 'cursor-pointer',
-                isSelected(book.id) ? 'bg-accent/40' : 'hover:bg-accent/20',
-              ]"
-              @click="!book.is_offline && toggleSelect(book.id)"
-            >
-              <!-- 체크박스 (오프라인 책은 비활성화). 행 전체 클릭으로 토글되므로 체크박스 직접 클릭은 전파를 막아 이중 토글을 방지 -->
-              <Checkbox
-                :model-value="isSelected(book.id)"
-                :disabled="book.is_offline"
-                @click.stop="!book.is_offline && toggleSelect(book.id)"
-              />
-
-              <!-- 커버 (오프라인/파일 접근 불가 시 placeholder로 폴백) -->
-              <img
-                :src="getCoverUrl(book.cover_path)"
-                :alt="book.title"
-                class="h-20 w-16 flex-shrink-0 rounded-md object-cover"
-                @error="
-                  ($event.target as HTMLImageElement).src =
-                    'https://via.placeholder.com/256x384'
+              <Badge
+                :variant="
+                  group.matchType === 'hitomi_id' ? 'default' : 'secondary'
                 "
-              />
-
-              <!-- 정보 -->
-              <div class="min-w-0 flex-grow">
-                <div class="flex items-center gap-2">
-                  <p class="truncate font-semibold">{{ book.title }}</p>
-                  <Badge
-                    v-if="book.is_offline"
-                    variant="outline"
-                    class="flex-shrink-0"
-                  >
-                    오프라인
-                  </Badge>
-                  <Icon
-                    v-if="book.is_favorite"
-                    icon="solar:heart-bold"
-                    class="text-destructive h-4 w-4 flex-shrink-0"
-                  />
-                </div>
-                <p class="text-muted-foreground truncate text-xs">
-                  {{ book.path }}
-                </p>
-                <div
-                  class="text-muted-foreground mt-1 flex items-center gap-3 text-xs"
-                >
-                  <span v-if="book.page_count !== null">
-                    {{ book.page_count }}페이지
-                  </span>
-                  <span class="flex items-center gap-1">
-                    <Icon
-                      :icon="
-                        book.isArchive
-                          ? 'solar:archive-bold-duotone'
-                          : 'solar:folder-bold-duotone'
-                      "
-                      class="h-3.5 w-3.5"
-                    />
-                    {{ book.isArchive ? "압축파일" : "폴더" }}
-                  </span>
-                </div>
-              </div>
+              >
+                {{ getMatchTypeLabel(group.matchType) }}
+              </Badge>
+              <span class="truncate text-sm font-semibold">
+                {{ groupTitle(group) }}
+              </span>
+              <span
+                class="text-muted-foreground flex-shrink-0 text-sm whitespace-nowrap"
+              >
+                {{ group.books.length }}권
+                <template v-if="reclaimableLabel(group)">
+                  · {{ reclaimableLabel(group) }}
+                </template>
+              </span>
+              <span
+                v-if="isGroupFullySelected(group)"
+                class="text-destructive ml-auto flex flex-shrink-0 items-center gap-1 text-sm font-medium whitespace-nowrap"
+              >
+                <Icon
+                  icon="solar:danger-triangle-bold-duotone"
+                  class="h-4 w-4 flex-shrink-0"
+                />
+                모든 책 선택됨 · 원본까지 삭제
+              </span>
             </div>
-          </div>
-        </Card>
+
+            <div v-if="!isCollapsed(group)" class="space-y-2">
+              <DuplicateBookRow
+                v-for="book in group.books"
+                :key="book.id"
+                :book="book"
+                :selected="selectedIds.has(book.id)"
+                :highlight="highlightById.get(groupId(group))!"
+                @toggle="toggleSelect(book.id)"
+                @preview="openPreview(book)"
+              />
+            </div>
+          </section>
+        </div>
       </div>
     </div>
 
@@ -295,6 +449,12 @@ const confirmPermanent = () => performDelete(true);
         </Button>
       </div>
     </div>
+
+    <BookPreviewDialog
+      :open="isPreviewOpen"
+      :book="previewBook"
+      @update:open="isPreviewOpen = $event"
+    />
 
     <!-- 휴지통 이동 확인 다이얼로그 -->
     <AlertDialog
