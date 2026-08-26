@@ -41,6 +41,7 @@ import {
 import { useKeybindings } from "@/composables/useKeybindings";
 import { usePermanentDelete } from "@/composables/usePermanentDelete";
 import { useWindowEvent } from "@/composables/useWindowEvent";
+import { hasOpenDialog } from "@/lib/utils";
 import { useUiStore } from "@/store/uiStore";
 import { useViewerStore } from "@/store/viewerStore";
 import { Icon } from "@iconify/vue";
@@ -304,6 +305,11 @@ const handleDeleteBook = async () => {
 };
 
 const handleWheel = (e: WheelEvent) => {
+  // 다이얼로그가 열려 있으면 무시한다. window 리스너라 모달 위에서도 발동해
+  // 모달 내용은 스크롤되면서 뒤 페이지까지 같이 넘어간다. 단축키(useKeybindings)와
+  // 같은 가드를 써서 동작을 맞춘다.
+  if (hasOpenDialog()) return;
+
   // Ctrl + 휠로 확대/축소 (모든 모드에서 동작)
   if (e.ctrlKey) {
     e.preventDefault();
