@@ -1,6 +1,9 @@
 <script setup lang="ts">
 import { Progress } from "@/components/ui/progress";
-import { useLibraryScanStore } from "@/store/libraryScanStore";
+import {
+  AUTO_DISMISS_DELAY,
+  useLibraryScanStore,
+} from "@/store/libraryScanStore";
 import { Icon } from "@iconify/vue";
 import { storeToRefs } from "pinia";
 import { computed } from "vue";
@@ -12,6 +15,7 @@ const {
   progressPercent,
   phaseMessage,
   statsSummary,
+  completionId,
 } = storeToRefs(libraryScanStore);
 
 // 현재 처리 중인 파일명 (말줄임표 처리)
@@ -40,35 +44,43 @@ const progressText = computed(() => {
     class="bg-primary/5 border-primary/20 mb-4 rounded-lg border p-4"
   >
     <!-- 완료 상태 -->
-    <div
-      v-if="scanProgress?.phase === 'completed'"
-      class="flex items-center gap-3"
-    >
-      <div
-        class="bg-primary/10 flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full"
-      >
-        <Icon
-          icon="solar:check-circle-bold-duotone"
-          class="text-primary h-6 w-6"
+    <div v-if="scanProgress?.phase === 'completed'">
+      <div class="flex items-center gap-3">
+        <div
+          class="bg-primary/10 flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full"
+        >
+          <Icon
+            icon="solar:check-circle-bold-duotone"
+            class="text-primary h-6 w-6"
+          />
+        </div>
+        <div class="flex-grow">
+          <div class="flex items-center gap-2">
+            <span class="font-medium">스캔 완료</span>
+            <span v-if="statsSummary" class="text-muted-foreground text-sm">
+              ({{ statsSummary }})
+            </span>
+          </div>
+          <div class="text-muted-foreground text-xs">
+            총 {{ scanProgress.processedCount }}개 항목 처리됨
+          </div>
+        </div>
+        <button
+          class="text-muted-foreground hover:text-foreground text-sm underline"
+          @click="libraryScanStore.resetScanState()"
+        >
+          닫기
+        </button>
+      </div>
+
+      <!-- 자동으로 닫히기까지 남은 시간 -->
+      <div class="bg-primary/10 mt-3 h-1 overflow-hidden rounded-full">
+        <div
+          :key="completionId"
+          class="dismiss-bar bg-primary/50 h-full"
+          :style="{ animationDuration: `${AUTO_DISMISS_DELAY}ms` }"
         />
       </div>
-      <div class="flex-grow">
-        <div class="flex items-center gap-2">
-          <span class="font-medium">스캔 완료</span>
-          <span v-if="statsSummary" class="text-muted-foreground text-sm">
-            ({{ statsSummary }})
-          </span>
-        </div>
-        <div class="text-muted-foreground text-xs">
-          총 {{ scanProgress.processedCount }}개 항목 처리됨
-        </div>
-      </div>
-      <button
-        class="text-muted-foreground hover:text-foreground text-sm underline"
-        @click="libraryScanStore.resetScanState()"
-      >
-        닫기
-      </button>
     </div>
 
     <!-- 스캔 중 상태 -->
@@ -102,3 +114,19 @@ const progressText = computed(() => {
     </div>
   </div>
 </template>
+
+<style scoped>
+@keyframes dismiss-countdown {
+  from {
+    transform: scaleX(1);
+  }
+  to {
+    transform: scaleX(0);
+  }
+}
+
+.dismiss-bar {
+  transform-origin: left;
+  animation: dismiss-countdown linear forwards;
+}
+</style>
