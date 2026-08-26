@@ -1,5 +1,10 @@
 <script setup lang="ts">
 import { Input } from "@/components/ui/input";
+import {
+  Popover,
+  PopoverAnchor,
+  PopoverContent,
+} from "@/components/ui/popover";
 import { useLookupData } from "@/composables/useLookupData";
 import { Icon } from "@iconify/vue";
 import { watchDebounced } from "@vueuse/core";
@@ -289,6 +294,12 @@ const applySuggestion = (suggestion: string) => {
 
 const input = useTemplateRef<typeof Input>("input");
 
+// open을 이쪽에서만 정한다. reka에 넘기지 않으므로 바깥 클릭 같은 reka의
+// 닫기 요청은 무시되고, 입력칸 포커스가 빠질 때만 닫힌다
+const isSuggestionOpen = computed(
+  () => suggestions.value.length > 0 && isFocused.value,
+);
+
 const manualSuggestTrigger = ref(false);
 
 const showAllPrefixSuggestions = () => {
@@ -355,67 +366,83 @@ defineExpose({ focus });
 </script>
 
 <template>
-  <div class="relative w-full">
-    <Input
-      ref="input"
-      :model-value="props.modelValue"
-      :placeholder="placeholder"
-      :class="[
-        'w-full',
-        showActions ? (props.modelValue.length > 0 ? 'pr-20' : 'pr-12') : '',
-      ]"
-      @update:model-value="emit('update:modelValue', $event)"
-      @keydown="handleKeyDown"
-      @focus="isFocused = true"
-      @blur="isFocused = false"
-    />
-    <template v-if="showActions">
-      <div
-        v-if="props.modelValue.length > 0"
-        class="absolute inset-y-0 right-0 flex items-center gap-1 pr-3"
-      >
-        <button
-          type="button"
-          class="text-muted-foreground hover:text-foreground p-1 transition-colors"
-          @click="clearInput"
-        >
-          <Icon icon="solar:close-circle-bold-duotone" class="h-5 w-5" />
-        </button>
-        <button
-          type="button"
-          class="text-muted-foreground hover:text-foreground p-1 transition-colors"
-          @click="copyToClipboard"
-        >
-          <Icon icon="solar:copy-bold-duotone" class="h-5 w-5" />
-        </button>
+  <!-- 후보 목록을 body로 포탈합니다. absolute로 두면 스크롤 컨테이너 안에서 잘립니다 -->
+  <Popover :open="isSuggestionOpen">
+    <PopoverAnchor as-child>
+      <div class="relative w-full">
+        <Input
+          ref="input"
+          :model-value="props.modelValue"
+          :placeholder="placeholder"
+          :class="[
+            'w-full',
+            showActions
+              ? props.modelValue.length > 0
+                ? 'pr-20'
+                : 'pr-12'
+              : '',
+          ]"
+          @update:model-value="emit('update:modelValue', $event)"
+          @keydown="handleKeyDown"
+          @focus="isFocused = true"
+          @blur="isFocused = false"
+        />
+        <template v-if="showActions">
+          <div
+            v-if="props.modelValue.length > 0"
+            class="absolute inset-y-0 right-0 flex items-center gap-1 pr-3"
+          >
+            <button
+              type="button"
+              class="text-muted-foreground hover:text-foreground p-1 transition-colors"
+              @click="clearInput"
+            >
+              <Icon icon="solar:close-circle-bold-duotone" class="h-5 w-5" />
+            </button>
+            <button
+              type="button"
+              class="text-muted-foreground hover:text-foreground p-1 transition-colors"
+              @click="copyToClipboard"
+            >
+              <Icon icon="solar:copy-bold-duotone" class="h-5 w-5" />
+            </button>
+          </div>
+          <div
+            v-else
+            class="absolute inset-y-0 right-0 flex items-center gap-1 pr-3"
+          >
+            <button
+              type="button"
+              class="text-muted-foreground hover:text-foreground p-1 transition-colors"
+              @click="pasteFromClipboard"
+            >
+              <Icon icon="solar:clipboard-text-bold-duotone" class="h-5 w-5" />
+            </button>
+          </div>
+        </template>
       </div>
-      <div
-        v-else
-        class="absolute inset-y-0 right-0 flex items-center gap-1 pr-3"
-      >
-        <button
-          type="button"
-          class="text-muted-foreground hover:text-foreground p-1 transition-colors"
-          @click="pasteFromClipboard"
-        >
-          <Icon icon="solar:clipboard-text-bold-duotone" class="h-5 w-5" />
-        </button>
-      </div>
-    </template>
-    <ul
-      v-if="suggestions.length > 0 && isFocused"
-      class="bg-popover absolute z-10 mt-1 w-full rounded-md border shadow-lg"
+    </PopoverAnchor>
+
+    <!-- 자동 포커스를 막지 않으면 커서가 입력칸에서 빠져 계속 칠 수 없습니다 -->
+    <PopoverContent
+      align="start"
+      :side-offset="4"
+      class="w-(--reka-popover-trigger-width) gap-0 p-1"
+      @open-auto-focus.prevent
+      @close-auto-focus.prevent
     >
-      <li
-        v-for="(suggestion, index) in suggestions"
-        :key="suggestion"
-        class="hover:bg-accent cursor-pointer px-4 py-2"
-        :class="{ 'bg-accent': index === activeSuggestionIndex }"
-        @mousedown.prevent
-        @click="applySuggestion(suggestion)"
-      >
-        {{ suggestion }}
-      </li>
-    </ul>
-  </div>
+      <ul>
+        <li
+          v-for="(suggestion, index) in suggestions"
+          :key="suggestion"
+          class="hover:bg-accent cursor-pointer rounded-md px-3 py-1.5"
+          :class="{ 'bg-accent': index === activeSuggestionIndex }"
+          @mousedown.prevent
+          @click="applySuggestion(suggestion)"
+        >
+          {{ suggestion }}
+        </li>
+      </ul>
+    </PopoverContent>
+  </Popover>
 </template>
