@@ -15,7 +15,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { useTheme } from "@/composable/useTheme";
+import { useTheme } from "@/composables/useTheme";
 import { themeList } from "@/lib/themeList";
 import { ColorTheme } from "@/types/themes";
 import { useQueryClient } from "@tanstack/vue-query";

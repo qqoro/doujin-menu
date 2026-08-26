@@ -1,4 +1,4 @@
-import { app, BrowserWindow, ipcMain } from "electron";
+import { app, ipcMain } from "electron";
 import fs from "fs/promises";
 import os from "os"; // os 모듈 임포트
 import PQueue from "p-queue"; // p-queue 임포트
@@ -7,6 +7,7 @@ import { fileURLToPath } from "url"; // fileURLToPath 임포트
 import { Worker } from "worker_threads"; // Worker 임포트
 import db from "../db/index.js";
 import { console } from "../main.js";
+import { broadcast } from "../utils/broadcast.js";
 import { extractCoverFromZip } from "./directoryHandler.js";
 
 const __filename = fileURLToPath(import.meta.url);
@@ -234,9 +235,7 @@ export const handleRegenerateAllThumbnails = async () => {
       }
     });
 
-    BrowserWindow.getAllWindows().forEach((window) => {
-      window.webContents.send("books-updated"); // UI 갱신
-    });
+    broadcast("books-updated"); // UI 갱신
 
     global.console.timeEnd("handleRegenerateAllThumbnails >>>>>>>>>");
     return { success: true, count: books.length };

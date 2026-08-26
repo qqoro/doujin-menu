@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { Toaster } from "@/components/ui/sonner";
-import { useKeybindings } from "@/composable/useKeybindings";
-import { useTheme } from "@/composable/useTheme";
+import { useKeybindings } from "@/composables/useKeybindings";
+import { useTheme } from "@/composables/useTheme";
 import type { KeybindingOverride } from "@/lib/keybindings/types";
 import { useKeybindingStore } from "@/store/keybindingStore";
 import { useUiStore } from "@/store/uiStore";
@@ -47,12 +47,7 @@ onMounted(async () => {
     uiStore.setLocked(true);
   }
 
-  ipcRenderer.on("update-status", (_event, ...args) => {
-    const { status, info, error } = args[0] as {
-      status: string;
-      info?: { version: string };
-      error?: string;
-    };
+  ipcRenderer.on("update-status", (_event, { status, info, error }) => {
     if (status === "update-available" && info) {
       toast.info(`새로운 업데이트가 있습니다: ${info.version}`, {
         action: {

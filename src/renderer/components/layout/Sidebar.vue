@@ -5,7 +5,7 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
-import { clearScrollPosition } from "@/composable/useScrollRestoration";
+import { clearScrollPosition } from "@/composables/useScrollRestoration";
 import { cn } from "@/lib/utils";
 import { useUiStore } from "@/store/uiStore";
 import { Icon } from "@iconify/vue";

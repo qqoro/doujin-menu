@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { ipcRenderer } from "@/api";
+import type { DownloadProgressEvent } from "../../../types/ipc";
 import HelpDialog from "@/components/common/HelpDialog.vue";
 import SmartSearchInput from "@/components/common/SmartSearchInput.vue";
 import {
@@ -26,13 +27,13 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { useGalleryDelete } from "@/composable/useGalleryDelete";
-import { useKeybindings } from "@/composable/useKeybindings";
+import { useGalleryDelete } from "@/composables/useGalleryDelete";
+import { useKeybindings } from "@/composables/useKeybindings";
 import {
   runWhenReady,
   useIndexScrollRestoration,
-} from "@/composable/useScrollRestoration";
-import { useSearchPersistence } from "@/composable/useSearchPersistence";
+} from "@/composables/useScrollRestoration";
+import { useSearchPersistence } from "@/composables/useSearchPersistence";
 import {
   CHUNK_SIZE,
   clampPage,
@@ -522,14 +523,8 @@ const syncQueueToStatuses = () => {
  */
 const handleDownloadProgress = (
   _event: Electron.IpcRendererEvent,
-  ...args: unknown[]
+  { galleryId, status, progress, error }: DownloadProgressEvent,
 ) => {
-  const { galleryId, status, progress, error } = args[0] as {
-    galleryId: number;
-    status: string;
-    progress?: number;
-    error?: string;
-  };
   downloadStatuses[galleryId] = { status, progress, error };
 
   if (status === "completed") {

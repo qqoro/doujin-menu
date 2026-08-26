@@ -49,9 +49,8 @@ export const useLibraryScanStore = defineStore("libraryScan", () => {
   // IPC 이벤트 핸들러
   const handleProgressUpdate = (
     _event: Electron.IpcRendererEvent,
-    ...args: unknown[]
+    progress: LibraryScanProgress,
   ) => {
-    const progress = args[0] as LibraryScanProgress;
     scanProgress.value = progress;
 
     // 완료 단계가 아니면 스캔 중으로 표시

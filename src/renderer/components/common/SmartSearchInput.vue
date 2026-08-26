@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { Input } from "@/components/ui/input";
-import { useLookupData } from "@/composable/useLookupData";
+import { useLookupData } from "@/composables/useLookupData";
 import { Icon } from "@iconify/vue";
 import { watchDebounced } from "@vueuse/core";
 import type { PropType } from "vue";

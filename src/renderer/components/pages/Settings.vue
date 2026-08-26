@@ -1,6 +1,6 @@
 <script lang="ts" setup>
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { useQueryAndParams } from "@/composable/useQueryAndParams";
+import { useQueryAndParams } from "@/composables/useQueryAndParams";
 import { useLibraryScanStore } from "@/store/libraryScanStore";
 import { Icon } from "@iconify/vue";
 import PageHeader from "../layout/PageHeader.vue";

@@ -1,4 +1,4 @@
-import { BrowserWindow, ipcMain, shell } from "electron";
+import { ipcMain, shell } from "electron";
 import fs from "fs/promises";
 import type { Knex } from "knex";
 import path from "path";
@@ -6,6 +6,7 @@ import * as yauzl from "yauzl";
 import type { FilterParams } from "../../types/ipc.js";
 import db from "../db/index.js";
 import { console } from "../main.js";
+import { broadcast } from "../utils/broadcast.js";
 import { naturalSort } from "../utils/index.js";
 import { store as configStore } from "./configHandler.js";
 
@@ -1264,9 +1265,7 @@ export const handleAddBookHistory = async (bookId: number) => {
     await db("BookHistory").insert({ book_id: bookId });
 
     // 뷰어가 별도 창일 수 있어 렌더러 쪽 무효화만으로는 메인 창 목록이 그대로 남는다
-    BrowserWindow.getAllWindows().forEach((window) => {
-      window.webContents.send("book-history-updated");
-    });
+    broadcast("book-history-updated");
 
     return { success: true };
   } catch (error) {

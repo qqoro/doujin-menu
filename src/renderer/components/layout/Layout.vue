@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { getAppVersion, ipcRenderer, isFullscreen } from "@/api";
-import { useKeybindings } from "@/composable/useKeybindings";
+import { useKeybindings } from "@/composables/useKeybindings";
 import { cn } from "@/lib/utils";
 import { useUiStore } from "@/store/uiStore";
 import { storeToRefs } from "pinia";

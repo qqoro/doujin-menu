@@ -8,6 +8,7 @@ import type {
 } from "../../types/ipc.js";
 import db from "../db/index.js";
 import { console } from "../main.js";
+import { broadcast } from "../utils/broadcast.js";
 import { buildGalleryDownloadPath } from "../utils/index.js";
 import { store as configStore } from "./configHandler.js";
 import { handleDownloadGallery } from "./downloaderHandler.js";
@@ -502,10 +503,7 @@ async function processDownloadQueue() {
  * 모든 렌더러에 큐 업데이트 브로드캐스트
  */
 function broadcastQueueUpdate() {
-  const windows = BrowserWindow.getAllWindows();
-  windows.forEach((window) => {
-    window.webContents.send("download-queue-updated");
-  });
+  broadcast("download-queue-updated");
 }
 
 /**

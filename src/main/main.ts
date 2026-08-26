@@ -45,6 +45,7 @@ import {
 } from "./handlers/thumbnailHandler.js";
 import { registerWindowHandlers } from "./handlers/windowHandler.js";
 import { registerUpdaterHandlers } from "./updater.js";
+import { sendTo } from "./utils/broadcast.js";
 import { naturalSort } from "./utils/index.js";
 
 log.initialize();
@@ -226,10 +227,10 @@ function createWindow() {
 
   // 창 상태 변경 시 Renderer에 알림
   mainWindow.on("maximize", () => {
-    mainWindow.webContents.send("window-maximized", true);
+    sendTo(mainWindow.webContents, "window-maximized", true);
   });
   mainWindow.on("unmaximize", () => {
-    mainWindow.webContents.send("window-maximized", false);
+    sendTo(mainWindow.webContents, "window-maximized", false);
   });
 
   // Renderer가 로드된 후 시리즈 감지 실행 (UI 차단 방지)
@@ -561,7 +562,7 @@ app.whenReady().then(async () => {
         }
 
         // 스캔 완료 후 UI에 알림
-        mainWindow.webContents.send("library-scan-completed");
+        sendTo(mainWindow.webContents, "library-scan-completed");
       });
     });
   }

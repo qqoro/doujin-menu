@@ -6,6 +6,7 @@ import hitomi from "node-hitomi";
 import path from "path";
 import { pathToFileURL } from "url";
 import { console } from "../main.js";
+import { broadcast, sendTo } from "../utils/broadcast.js";
 import { buildGalleryDownloadPath } from "../utils/index.js";
 import { store as configStore } from "./configHandler.js";
 import { scanFile } from "./directoryHandler.js";
@@ -318,7 +319,7 @@ export const handleDownloadGallery = async (
 ) => {
   const webContents = event.sender;
   try {
-    webContents.send("download-progress", {
+    sendTo(webContents, "download-progress", {
       galleryId,
       status: "starting",
     });
@@ -379,7 +380,7 @@ export const handleDownloadGallery = async (
 
         // 진행률 업데이트
         const progress = Math.round(((i + 1) / totalFiles) * 100);
-        webContents.send("download-progress", {
+        sendTo(webContents, "download-progress", {
           galleryId,
           status: "progress",
           progress,
@@ -396,11 +397,7 @@ export const handleDownloadGallery = async (
             });
 
           // 모든 윈도우에 큐 업데이트 알림
-          const { BrowserWindow } = await import("electron");
-          const windows = BrowserWindow.getAllWindows();
-          windows.forEach((window) => {
-            window.webContents.send("download-queue-updated");
-          });
+          broadcast("download-queue-updated");
         }
 
         continue; // 다음 파일로
@@ -466,7 +463,7 @@ export const handleDownloadGallery = async (
       }
 
       const progress = Math.round(((i + 1) / totalFiles) * 100);
-      webContents.send("download-progress", {
+      sendTo(webContents, "download-progress", {
         galleryId,
         status: "progress",
         progress,
@@ -483,11 +480,7 @@ export const handleDownloadGallery = async (
           });
 
         // 모든 윈도우에 큐 업데이트 알림
-        const { BrowserWindow } = await import("electron");
-        const windows = BrowserWindow.getAllWindows();
-        windows.forEach((window) => {
-          window.webContents.send("download-queue-updated");
-        });
+        broadcast("download-queue-updated");
       }
     }
 
@@ -548,7 +541,7 @@ export const handleDownloadGallery = async (
       await fs.rm(galleryDownloadPath, { recursive: true, force: true });
     }
 
-    webContents.send("download-progress", {
+    sendTo(webContents, "download-progress", {
       galleryId,
       status: "completed",
     });
@@ -573,7 +566,7 @@ export const handleDownloadGallery = async (
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     console.error(`Error downloading gallery ${galleryId}:`, error);
-    webContents.send("download-progress", {
+    sendTo(webContents, "download-progress", {
       galleryId,
       status: "failed",
       error: message,

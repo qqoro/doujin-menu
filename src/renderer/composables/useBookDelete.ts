@@ -1,5 +1,5 @@
 import * as api from "@/api";
-import { usePermanentDelete } from "@/composable/usePermanentDelete";
+import { usePermanentDelete } from "@/composables/usePermanentDelete";
 import { useQueryClient } from "@tanstack/vue-query";
 import { ref } from "vue";
 import { toast } from "vue-sonner";

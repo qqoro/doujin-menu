@@ -13,6 +13,7 @@ import { computeComparisonKey } from "../services/seriesDetection/titlePatternMa
 import { PrefixIndex } from "../services/seriesDetection/prefixIndex.js";
 import type { SerializedIndexEntry } from "../services/seriesDetection/prefixIndex.js";
 import type { DetectionOptions } from "../services/seriesDetection/types.js";
+import { broadcast } from "../utils/broadcast.js";
 import { store } from "./configHandler.js";
 
 // 전역 접두사 인덱스 (앱 시작 시 초기화)
@@ -657,6 +658,9 @@ export async function handleRunSeriesDetection(
       `[SeriesCollection] 시리즈 감지 완료: ${result.created_count}개 생성`,
     );
 
+    // 시리즈 관리 화면이 열려 있으면 목록을 다시 불러오게 한다
+    broadcast("series-collections-updated");
+
     return {
       success: true,
       data: result,
@@ -898,6 +902,7 @@ export async function handleAutoDetectSeriesForBook(bookId: number) {
         });
 
         index.setSeriesForPrefix(prefix, lookup.seriesId);
+        broadcast("series-collections-updated");
         return { success: true, matched: true, action: "added_to_existing" };
       }
 
@@ -942,6 +947,7 @@ export async function handleAutoDetectSeriesForBook(bookId: number) {
             }
             index.setSeriesForPrefix(prefix, seriesId);
           });
+          broadcast("series-collections-updated");
           return { success: true, matched: true, action: "new_series" };
         }
       }
@@ -971,6 +977,7 @@ export async function handleAutoDetectSeriesForBook(bookId: number) {
           series_order_index: nextOrder,
         });
 
+        broadcast("series-collections-updated");
         return { success: true, matched: true, action: "added_to_existing" };
       }
     }
@@ -1021,6 +1028,7 @@ export async function handleAutoDetectSeriesForBook(bookId: number) {
       }
     });
 
+    broadcast("series-collections-updated");
     return { success: true, matched: true, action: "new_series" };
   } catch (error) {
     console.error("자동 시리즈 감지 실패:", error);

@@ -16,7 +16,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
-import { useVirtualCardList } from "@/composable/useVirtualCardList";
+import { useVirtualCardList } from "@/composables/useVirtualCardList";
 import { useUiStore } from "@/store/uiStore";
 import { Icon } from "@iconify/vue";
 import ViewOptionsBar from "../common/ViewOptionsBar.vue";

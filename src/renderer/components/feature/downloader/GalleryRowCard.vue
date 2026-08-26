@@ -2,7 +2,7 @@
 import ProxiedImage from "@/components/common/ProxiedImage.vue";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { useGalleryCard } from "@/composable/useGalleryCard";
+import { useGalleryCard } from "@/composables/useGalleryCard";
 import type { MetaField } from "@/lib/cardLayout";
 import { listThumbnailSize } from "@/lib/cardLayout";
 import { buildMetaLine } from "@/lib/galleryCard";

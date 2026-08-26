@@ -13,7 +13,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
-import { useBookDelete } from "@/composable/useBookDelete";
+import { useBookDelete } from "@/composables/useBookDelete";
 import {
   activeFilters,
   libraryPathLabel,
@@ -30,9 +30,9 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { useKeybindings } from "@/composable/useKeybindings";
-import { useQueryAndParams } from "@/composable/useQueryAndParams";
-import { useVirtualCardList } from "@/composable/useVirtualCardList";
+import { useKeybindings } from "@/composables/useKeybindings";
+import { useQueryAndParams } from "@/composables/useQueryAndParams";
+import { useVirtualCardList } from "@/composables/useVirtualCardList";
 import { useLibraryScanStore } from "@/store/libraryScanStore";
 import { SORT_CYCLE, SORT_LABELS, nextSortBy } from "@/store/sortCycle";
 import { useUiStore } from "@/store/uiStore";
@@ -373,10 +373,16 @@ onMounted(() => {
 
   // 프리픽스 무효화라 마운트된 청크만 즉시 다시 받고 나머지는 stale 표시만 된다.
   // "보이는 구간만 다시 받기 + 스크롤 위치 유지"가 여기서 나온다.
-  ipcRenderer.on("books-updated", () => {
+  const invalidateBooks = () => {
     queryClient.invalidateQueries({ queryKey: ["books"] });
     queryClient.invalidateQueries({ queryKey: ["books-meta"] });
-  });
+  };
+
+  ipcRenderer.on("books-updated", invalidateBooks);
+
+  // 시작 시 자동 스캔은 스캔이 끝난 뒤 썸네일을 따로 만든다. 그 단계에서는
+  // books-updated가 나가지 않아, 이 신호를 받아야 새 표지가 목록에 반영된다.
+  ipcRenderer.on("library-scan-completed", invalidateBooks);
 });
 
 // 메타데이터 칩 클릭은 전부 "검색어에서 해당 항목을 켜고 끄기"로 같다

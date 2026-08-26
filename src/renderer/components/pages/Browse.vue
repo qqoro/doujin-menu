@@ -6,7 +6,7 @@ import SmartSearchInput from "../common/SmartSearchInput.vue";
 import SortMenu from "../common/SortMenu.vue";
 import PageHeader from "../layout/PageHeader.vue";
 import PageToolbar from "../layout/PageToolbar.vue";
-import { useQueryAndParams } from "@/composable/useQueryAndParams";
+import { useQueryAndParams } from "@/composables/useQueryAndParams";
 import {
   getArtistsWithCount,
   getTagsWithCount,

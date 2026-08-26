@@ -8,6 +8,7 @@ import hitomi from "node-hitomi";
 import path from "path";
 import * as yauzl from "yauzl";
 import db from "../db/index.js";
+import { sendTo } from "../utils/broadcast.js";
 import { naturalSort } from "../utils/index.js";
 import { console } from "../main.js";
 import { store as configStore } from "./configHandler.js";
@@ -98,7 +99,7 @@ async function handleGenerateMissingInfoFiles(
 
   const totalFolders = allFolders.length;
 
-  event.sender.send("info-generation-progress", {
+  sendTo(event.sender, "info-generation-progress", {
     total: totalFolders,
     current: 0,
     message: "작업을 시작합니다...",
@@ -164,7 +165,7 @@ async function handleGenerateMissingInfoFiles(
       }
     }
 
-    event.sender.send("info-generation-progress", {
+    sendTo(event.sender, "info-generation-progress", {
       total: totalFolders,
       current: processedCount,
       message: statusMessage,
@@ -172,7 +173,7 @@ async function handleGenerateMissingInfoFiles(
   }
 
   const finalMessage = `작업 완료: ${createdCount}개 생성, ${skippedCount}개 건너뜀, ${errorCount}개 오류`;
-  event.sender.send("info-generation-progress", {
+  sendTo(event.sender, "info-generation-progress", {
     total: totalFolders,
     current: totalFolders,
     message: finalMessage,

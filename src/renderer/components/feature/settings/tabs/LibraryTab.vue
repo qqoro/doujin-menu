@@ -54,12 +54,7 @@ onMounted(async () => {
   hideLibraryTags.value = config.hideLibraryTags === true;
   await loadLibraryFolders();
 
-  ipcRenderer.on("info-generation-progress", (_event, ...args) => {
-    const progress = args[0] as {
-      current: number;
-      total: number;
-      message: string;
-    };
+  ipcRenderer.on("info-generation-progress", (_event, progress) => {
     generationProgress.value = progress;
     if (progress.current >= progress.total) {
       isGeneratingInfoFiles.value = false;

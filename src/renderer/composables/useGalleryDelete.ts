@@ -1,6 +1,6 @@
 import * as api from "@/api";
 import { ipcRenderer } from "@/api";
-import { usePermanentDelete } from "@/composable/usePermanentDelete";
+import { usePermanentDelete } from "@/composables/usePermanentDelete";
 import type { Gallery } from "node-hitomi";
 import { ref } from "vue";
 import { toast } from "vue-sonner";

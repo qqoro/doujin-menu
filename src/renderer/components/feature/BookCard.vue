@@ -2,8 +2,8 @@
 import { LightBadge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { ContextMenu, ContextMenuTrigger } from "@/components/ui/context-menu";
-import { useBookCard } from "@/composable/useBookCard";
-import { useTagDisplay } from "@/composable/useTagDisplay";
+import { useBookCard } from "@/composables/useBookCard";
+import { useTagDisplay } from "@/composables/useTagDisplay";
 import { buildBookMetaLine } from "@/lib/bookCard";
 import type { CreditPrefix, MetaField } from "@/lib/cardLayout";
 import { Icon } from "@iconify/vue";

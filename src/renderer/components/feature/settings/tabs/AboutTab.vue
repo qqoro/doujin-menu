@@ -93,13 +93,7 @@ const showChangelog = () => {
 onMounted(async () => {
   appVersion.value = await api.getAppVersion();
 
-  ipcRenderer.on("update-status", (_event, ...args) => {
-    const data = args[0] as {
-      status: string;
-      info?: { version: string };
-      progressObj?: { percent: number };
-      error?: string;
-    };
+  ipcRenderer.on("update-status", (_event, data) => {
     updateStatus.value = data.status;
     if (data.status === "update-available" && data.info) {
       latestVersion.value = data.info.version;

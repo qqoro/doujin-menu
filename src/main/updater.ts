@@ -2,6 +2,7 @@ import { app, BrowserWindow, ipcMain, shell } from "electron";
 import log from "electron-log";
 import updater from "electron-updater";
 import semver from "semver"; // semver 추가
+import { sendTo } from "./utils/broadcast.js";
 const { autoUpdater } = updater;
 
 export interface GitHubReleaseResponse {
@@ -115,7 +116,7 @@ export function registerUpdaterHandlers(mainWindow: BrowserWindow) {
 
   autoUpdater.on("update-available", (info) => {
     log.info(`Update available: ${info.version}`);
-    mainWindow.webContents.send("update-status", {
+    sendTo(mainWindow.webContents, "update-status", {
       status: "update-available",
       info,
     });
@@ -123,14 +124,14 @@ export function registerUpdaterHandlers(mainWindow: BrowserWindow) {
 
   autoUpdater.on("update-not-available", () => {
     log.info("Update not available.");
-    mainWindow.webContents.send("update-status", {
+    sendTo(mainWindow.webContents, "update-status", {
       status: "update-not-available",
     });
   });
 
   autoUpdater.on("download-progress", (progressObj) => {
     log.info(`Download progress: ${progressObj.percent}%`);
-    mainWindow.webContents.send("update-status", {
+    sendTo(mainWindow.webContents, "update-status", {
       status: "download-progress",
       progressObj,
     });
@@ -138,7 +139,7 @@ export function registerUpdaterHandlers(mainWindow: BrowserWindow) {
 
   autoUpdater.on("update-downloaded", (info) => {
     log.info(`Update downloaded: ${info.version}`);
-    mainWindow.webContents.send("update-status", {
+    sendTo(mainWindow.webContents, "update-status", {
       status: "update-downloaded",
       info,
     });
@@ -146,7 +147,7 @@ export function registerUpdaterHandlers(mainWindow: BrowserWindow) {
 
   autoUpdater.on("error", (err) => {
     log.error(`Update error: ${err.message}`);
-    mainWindow.webContents.send("update-status", {
+    sendTo(mainWindow.webContents, "update-status", {
       status: "error",
       error: err.message,
     });
@@ -172,7 +173,7 @@ export function registerUpdaterHandlers(mainWindow: BrowserWindow) {
         if (semver.gt(latestVersion, currentVersion)) {
           const githubReleasesUrl =
             "https://github.com/qqoro/doujin-menu/releases";
-          mainWindow.webContents.send("update-status", {
+          sendTo(mainWindow.webContents, "update-status", {
             status: "update-available-portable",
             info: { version: latestVersion },
             githubReleasesUrl: githubReleasesUrl,
@@ -185,7 +186,7 @@ export function registerUpdaterHandlers(mainWindow: BrowserWindow) {
             githubReleasesUrl: githubReleasesUrl,
           };
         } else {
-          mainWindow.webContents.send("update-status", {
+          sendTo(mainWindow.webContents, "update-status", {
             status: "update-not-available",
           });
           return { success: true, portable: true, updateAvailable: false };

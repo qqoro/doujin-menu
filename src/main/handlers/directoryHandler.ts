@@ -1,4 +1,4 @@
-import { BrowserWindow, dialog, ipcMain } from "electron";
+import { dialog, ipcMain } from "electron";
 import fg from "fast-glob";
 import * as fsSync from "fs";
 import fs from "fs/promises";
@@ -11,6 +11,7 @@ import db from "../db/index.js";
 import { Book } from "../db/types.js";
 import { console } from "../main.js";
 import { ParsedMetadata, parseInfoTxt } from "../parsers/infoTxtParser.js";
+import { broadcast } from "../utils/broadcast.js";
 import type { LibraryScanProgress } from "../../types/ipc.js";
 import { naturalSort } from "../utils/index.js";
 import {
@@ -44,9 +45,7 @@ function broadcastScanProgress(progress: LibraryScanProgress) {
   }
   lastProgressBroadcastTime = now;
 
-  BrowserWindow.getAllWindows().forEach((window) => {
-    window.webContents.send("library-scan-progress", progress);
-  });
+  broadcast("library-scan-progress", progress);
 }
 
 export function cleanValue(value: string | null | undefined): string | null {
@@ -617,9 +616,7 @@ export async function isPathAccessible(dirPath: string): Promise<boolean> {
 
 // 모든 창에 books-updated를 전파해 라이브러리 화면 쿼리 캐시를 즉시 무효화
 function broadcastBooksUpdated() {
-  BrowserWindow.getAllWindows().forEach((window) => {
-    window.webContents.send("books-updated");
-  });
+  broadcast("books-updated");
 }
 
 // 해당 경로 하위의 모든 책을 오프라인 상태로 표시하고 처리된 개수를 반환
@@ -1252,9 +1249,7 @@ export async function scanFile(filePath: string) {
       }
     }
 
-    BrowserWindow.getAllWindows().forEach((window) => {
-      window.webContents.send("books-updated");
-    });
+    broadcastBooksUpdated();
   } catch (error) {
     console.error(`[Main] 파일 스캔 오류 ${filePath}:`, error);
   }

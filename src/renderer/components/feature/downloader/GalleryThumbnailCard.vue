@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import ProxiedImage from "@/components/common/ProxiedImage.vue";
 import { Button } from "@/components/ui/button";
-import { useGalleryCard } from "@/composable/useGalleryCard";
+import { useGalleryCard } from "@/composables/useGalleryCard";
 import type { CreditPrefix, MetaField } from "@/lib/cardLayout";
 import { buildMetaLine } from "@/lib/galleryCard";
 import { Icon } from "@iconify/vue";

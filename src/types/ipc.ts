@@ -901,6 +901,59 @@ export interface IpcSendChannels {
   "renderer-ready": void; // 렌더러 준비 완료 신호 (자동 스캔 결과 수신 준비)
 }
 
+// 다운로드 진행 상황 브로드캐스트 페이로드
+export interface DownloadProgressEvent {
+  galleryId: number;
+  status: "starting" | "progress" | "completed" | "failed";
+  progress?: number;
+  error?: string;
+}
+
+// info.txt 일괄 생성 진행 상황 페이로드
+export interface InfoGenerationProgress {
+  total: number;
+  current: number;
+  message: string;
+}
+
+// 업데이트 상태 브로드캐스트 페이로드
+export interface UpdateStatusEvent {
+  status:
+    | "update-available"
+    | "update-available-portable"
+    | "update-not-available"
+    | "download-progress"
+    | "update-downloaded"
+    | "error";
+  info?: { version: string };
+  progressObj?: { percent: number };
+  error?: string;
+  githubReleasesUrl?: string;
+}
+
+// 메인 → 렌더러 푸시 이벤트. 값이 void면 페이로드가 없다.
+// 메인에서는 src/main/utils/broadcast.ts의 broadcast/sendTo가,
+// 렌더러에서는 TypedIpcRenderer의 on/off가 이 맵을 공유한다.
+// 덕분에 한쪽에만 존재하는 채널(오타, 죽은 리스너)이 컴파일 단계에서 걸린다.
+export interface IpcListenChannels {
+  "books-updated": void;
+  "book-history-updated": void;
+  "series-collections-updated": void;
+  "download-queue-updated": void;
+  "library-scan-completed": void;
+  "library-scan-progress": LibraryScanProgress;
+  "info-generation-progress": InfoGenerationProgress;
+  "window-maximized": boolean;
+  "download-progress": DownloadProgressEvent;
+  "update-status": UpdateStatusEvent;
+}
+
+// 페이로드가 없는 채널은 리스너도 event만 받는다.
+export type IpcListener<K extends keyof IpcListenChannels> =
+  IpcListenChannels[K] extends void
+    ? (event: Electron.IpcRendererEvent) => void
+    : (event: Electron.IpcRendererEvent, payload: IpcListenChannels[K]) => void;
+
 // Typed IpcRenderer wrapper
 export interface TypedIpcRenderer {
   invoke<K extends keyof IpcChannels>(
@@ -915,15 +968,15 @@ export interface TypedIpcRenderer {
     ...args: IpcSendChannels[K] extends void ? [] : [IpcSendChannels[K]]
   ): void;
 
-  on(
-    channel: string,
-    listener: (event: Electron.IpcRendererEvent, ...args: unknown[]) => void,
+  on<K extends keyof IpcListenChannels>(
+    channel: K,
+    listener: IpcListener<K>,
   ): void;
 
-  off(
-    channel: string,
-    listener: (event: Electron.IpcRendererEvent, ...args: unknown[]) => void,
+  off<K extends keyof IpcListenChannels>(
+    channel: K,
+    listener: IpcListener<K>,
   ): void;
 
-  removeAllListeners(channel: string): void;
+  removeAllListeners<K extends keyof IpcListenChannels>(channel: K): void;
 }

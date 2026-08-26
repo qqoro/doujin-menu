@@ -38,9 +38,9 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
-import { useKeybindings } from "@/composable/useKeybindings";
-import { usePermanentDelete } from "@/composable/usePermanentDelete";
-import { useWindowEvent } from "@/composable/useWindowEvent";
+import { useKeybindings } from "@/composables/useKeybindings";
+import { usePermanentDelete } from "@/composables/usePermanentDelete";
+import { useWindowEvent } from "@/composables/useWindowEvent";
 import { useUiStore } from "@/store/uiStore";
 import { useViewerStore } from "@/store/viewerStore";
 import { Icon } from "@iconify/vue";
@@ -433,8 +433,8 @@ onMounted(async () => {
   isNewWindow.value = await apiIsNewWindow();
   // 새 창 모드일 때 최대화 상태 동기화
   isMaximized.value = await ipcRenderer.invoke("get-window-maximized-state");
-  ipcRenderer.on("window-maximized", (_event, ...args) => {
-    isMaximized.value = args[0] as boolean;
+  ipcRenderer.on("window-maximized", (_event, maximized) => {
+    isMaximized.value = maximized;
   });
   store.loadViewerSettings();
   const bookId = Number(route.params.id);

@@ -20,8 +20,8 @@ import {
   DropdownMenuRadioItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { useQueryAndParams } from "@/composable/useQueryAndParams";
-import { useVirtualCardList } from "@/composable/useVirtualCardList";
+import { useQueryAndParams } from "@/composables/useQueryAndParams";
+import { useVirtualCardList } from "@/composables/useVirtualCardList";
 import { useUiStore } from "@/store/uiStore";
 import { Icon } from "@iconify/vue";
 import AppliedFilterChips from "../common/AppliedFilterChips.vue";
