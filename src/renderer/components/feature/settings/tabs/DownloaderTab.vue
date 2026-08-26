@@ -35,6 +35,7 @@ const saveConfig = async (key: string, value: unknown) => {
 };
 
 const createInfoTxtFile = ref(true);
+const subscriptionEnabled = ref(true);
 const downloadPattern = ref("%artist% - %title%");
 const compressDownload = ref(false);
 const compressFormat = ref<"cbz" | "zip">("cbz");
@@ -73,6 +74,7 @@ const removeBlacklistTag = (entry: string) => {
 onMounted(async () => {
   const config = await ipcRenderer.invoke("get-config");
   createInfoTxtFile.value = config.createInfoTxtFile !== false;
+  subscriptionEnabled.value = config.subscriptionEnabled !== false;
   downloadPattern.value =
     (config.downloadPattern as string) || "%artist% - %title%";
   compressDownload.value = config.compressDownload === true;
@@ -84,6 +86,11 @@ onMounted(async () => {
 const onCreateInfoTxtFileChange = (value: boolean) => {
   createInfoTxtFile.value = value;
   saveConfig("createInfoTxtFile", value);
+};
+
+const onSubscriptionEnabledChange = (value: boolean) => {
+  subscriptionEnabled.value = value;
+  saveConfig("subscriptionEnabled", value);
 };
 
 const onDownloadPatternChange = (value: string) => {
@@ -124,6 +131,18 @@ const onCapitalizeNamesChange = (value: boolean) => {
           :model-value="createInfoTxtFile"
           class="justify-self-end"
           @update:model-value="onCreateInfoTxtFileChange"
+        />
+      </SettingItem>
+      <SettingItem
+        label-for="subscription-enabled"
+        title="구독 신작 확인"
+        subtitle="앱이 켜져 있는 동안 1시간마다 구독한 검색어의 신작을 확인합니다."
+      >
+        <Switch
+          id="subscription-enabled"
+          :model-value="subscriptionEnabled"
+          class="justify-self-end"
+          @update:model-value="onSubscriptionEnabledChange"
         />
       </SettingItem>
       <SettingItem

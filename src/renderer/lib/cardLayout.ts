@@ -28,8 +28,8 @@ export interface CreditSource {
 // 대신 줌 값을 받아 px에 직접 곱한다 (그리드는 `estimateSize`로 계산해 측정 API를
 // 안 타므로 `zoom`을 쓸 수 있다).
 
-/** 줌 1.0에서의 리스트 썸네일 폭 */
-export const LIST_THUMB_BASE_WIDTH = 128;
+/** 줌 1.0에서의 리스트 썸네일 폭 (최대 줌 1.5에서 255px) */
+export const LIST_THUMB_BASE_WIDTH = 170;
 
 /** 히토미 썸네일 비율(3:4)의 세로/가로 */
 export const GALLERY_ASPECT = 4 / 3;

@@ -947,10 +947,7 @@ useKeybindings(
         </div>
       </Transition>
       <div v-if="loading" class="text-center">
-        <Icon
-          icon="solar:spinner-8-bold-duotone"
-          class="h-12 w-12 animate-spin"
-        />
+        <Icon icon="svg-spinners:ring-resize" class="h-12 w-12" />
         <p class="mt-2">페이지를 불러오는 중...</p>
       </div>
       <div v-else-if="error" class="text-center text-red-400">

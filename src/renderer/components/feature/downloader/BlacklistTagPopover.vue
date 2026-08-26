@@ -129,12 +129,6 @@ const removeTag = (entry: string) => {
         </Button>
       </div>
 
-      <p class="text-muted-foreground text-xs">
-        타입을 안 쓰면 <code>tag:</code>로 봅니다. 라이브러리에 있는 태그·작가가
-        자동완성되고, <kbd>Ctrl</kbd>+<kbd>Space</kbd>로 타입 목록을 볼 수
-        있습니다.
-      </p>
-
       <p v-if="error" class="text-destructive text-xs">{{ error }}</p>
 
       <div v-if="modelValue.length > 0" class="flex flex-wrap gap-1.5">

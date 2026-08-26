@@ -7,14 +7,14 @@ import {
 } from "../../../src/renderer/lib/cardLayout";
 
 describe("listThumbnailSize", () => {
-  it("기본 줌에서 128px, 3:4 비율", () => {
-    expect(listThumbnailSize(1)).toEqual({ width: 128, height: 171 });
+  it("기본 줌에서 170px, 3:4 비율", () => {
+    expect(listThumbnailSize(1)).toEqual({ width: 170, height: 227 });
   });
 
   // uiStore의 줌 범위가 0.4~1.5입니다
   it("최소·최대 줌 경계", () => {
-    expect(listThumbnailSize(0.4)).toEqual({ width: 51, height: 68 });
-    expect(listThumbnailSize(1.5)).toEqual({ width: 192, height: 256 });
+    expect(listThumbnailSize(0.4)).toEqual({ width: 68, height: 91 });
+    expect(listThumbnailSize(1.5)).toEqual({ width: 255, height: 340 });
   });
 
   // localStorage가 비었거나 오염되면 0이나 NaN이 들어옵니다
@@ -29,7 +29,7 @@ describe("listThumbnailSize", () => {
     const gallery = listThumbnailSize(1, GALLERY_ASPECT);
     const book = listThumbnailSize(1, BOOK_ASPECT);
     expect(book.width).toBe(gallery.width);
-    expect(book.height).toBe(192);
+    expect(book.height).toBe(255);
     expect(book.height).toBeGreaterThan(gallery.height);
   });
 

@@ -6,9 +6,11 @@ import type { KeybindingOverride } from "@/lib/keybindings/types";
 import { useKeybindingStore } from "@/store/keybindingStore";
 import { useUiStore } from "@/store/uiStore";
 import { onMounted } from "vue";
-import { RouterView } from "vue-router";
+import { RouterView, useRouter } from "vue-router";
 import { toast } from "vue-sonner";
 import { ipcRenderer } from "./api";
+
+const router = useRouter();
 
 // 앱 전역 단축키 등록 (새로고침, 창 닫기)
 useKeybindings("global", {
@@ -72,8 +74,24 @@ onMounted(async () => {
     }
   });
 
+  // 구독 신작 토스트. 메인이 메인 창에만 보내므로 뷰어 창에서는 뜨지 않는다
+  ipcRenderer.on(
+    "subscription-new-found",
+    (_event, { subscriptionCount, newCount }) => {
+      toast.info(`구독 ${subscriptionCount}건에 신작 ${newCount}개`, {
+        action: {
+          label: "보러가기",
+          onClick: () => {
+            router.push("/downloader");
+          },
+        },
+      });
+    },
+  );
+
   // 모든 리스너 등록이 끝난 뒤 준비 신호 전송.
   // main은 이 신호를 받은 이후에만 자동 스캔 결과를 보내므로 결과 이벤트를 유실하지 않는다.
+  // 구독 폴링도 이 신호를 기준으로 시작한다 (리스너 등록 전에 보내면 토스트가 사라진다).
   ipcRenderer.send("renderer-ready");
 });
 </script>

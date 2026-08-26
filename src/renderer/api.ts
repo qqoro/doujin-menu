@@ -653,3 +653,67 @@ export async function getCharactersWithCount() {
 export async function getGroupsWithCount() {
   return ipcRenderer.invoke("get-groups-with-count");
 }
+
+// Subscription API
+export async function getSubscriptions() {
+  const result = await ipcRenderer.invoke("get-subscriptions");
+  if (result.success && result.data) {
+    return { items: result.data, errors: result.errors ?? {} };
+  } else {
+    throw new Error(result.error || "구독 목록을 불러오지 못했습니다.");
+  }
+}
+
+export async function addSubscription(params: {
+  query: string;
+  label?: string;
+}) {
+  const result = await ipcRenderer.invoke("add-subscription", params);
+  if (result.success && result.data) {
+    return result.data;
+  } else {
+    throw new Error(result.error || "구독을 추가하지 못했습니다.");
+  }
+}
+
+export async function updateSubscription(params: {
+  id: number;
+  query?: string;
+  label?: string;
+  enabled?: boolean;
+}) {
+  const result = await ipcRenderer.invoke("update-subscription", params);
+  if (!result.success) {
+    throw new Error(result.error || "구독을 수정하지 못했습니다.");
+  }
+}
+
+export async function removeSubscription(id: number) {
+  const result = await ipcRenderer.invoke("remove-subscription", id);
+  if (!result.success) {
+    throw new Error(result.error || "구독을 삭제하지 못했습니다.");
+  }
+}
+
+export async function getSubscriptionStatus() {
+  const result = await ipcRenderer.invoke("get-subscription-status");
+  if (result.success && result.data) {
+    return result.data;
+  } else {
+    throw new Error(result.error || "구독 상태를 불러오지 못했습니다.");
+  }
+}
+
+export async function enterSubscriptionTab() {
+  const result = await ipcRenderer.invoke("enter-subscription-tab");
+  if (!result.success) {
+    throw new Error(result.error || "읽음 처리에 실패했습니다.");
+  }
+}
+
+export async function refreshSubscriptions() {
+  const result = await ipcRenderer.invoke("refresh-subscriptions");
+  if (!result.success) {
+    throw new Error(result.error || "구독을 새로고침하지 못했습니다.");
+  }
+}

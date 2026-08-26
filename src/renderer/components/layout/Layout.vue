@@ -2,14 +2,16 @@
 import { getAppVersion, ipcRenderer, isFullscreen } from "@/api";
 import { useKeybindings } from "@/composables/useKeybindings";
 import { cn } from "@/lib/utils";
+import { useSubscriptionStore } from "@/store/subscriptionStore";
 import { useUiStore } from "@/store/uiStore";
 import { storeToRefs } from "pinia";
-import { computed, onMounted, ref } from "vue";
+import { computed, onMounted, onUnmounted, ref } from "vue";
 import AppLock from "../common/AppLock.vue";
 import ChangelogDialog from "../common/ChangelogDialog.vue";
 import Header from "./Header.vue";
 import Sidebar from "./Sidebar.vue";
 
+const subscriptionStore = useSubscriptionStore();
 const uiStore = useUiStore();
 const { isSidebarCollapsed, screenRotation } = storeToRefs(uiStore);
 
@@ -55,6 +57,16 @@ useKeybindings("layout", {
     }
     ipcRenderer.send("minimize-window");
   },
+});
+
+// 구독 상태 리스너는 여기서 건다. Downloader에서 걸면 다운로더를 한 번도
+// 열지 않은 세션에서 사이드바 빨간 점이 뜨지 않는다
+onMounted(() => {
+  subscriptionStore.initialize();
+});
+
+onUnmounted(() => {
+  subscriptionStore.cleanup();
 });
 
 onMounted(async () => {

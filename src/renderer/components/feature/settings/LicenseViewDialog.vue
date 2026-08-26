@@ -53,10 +53,7 @@ const closeDialog = () => {
       </DialogHeader>
 
       <div v-if="isLoading" class="flex flex-1 items-center justify-center">
-        <Icon
-          icon="solar:spinner-8-bold-duotone"
-          class="h-12 w-12 animate-spin"
-        />
+        <Icon icon="svg-spinners:ring-resize" class="h-12 w-12" />
         <p class="ml-2">라이선스 정보를 불러오는 중...</p>
       </div>
       <div

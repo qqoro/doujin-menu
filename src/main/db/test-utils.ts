@@ -71,6 +71,7 @@ export async function truncateAll(db: Knex): Promise<void> {
     "BookTag",
     "BookArtist",
     "DownloadQueue",
+    "Subscription",
     "AppUsageLog",
     "presets",
     "Book",

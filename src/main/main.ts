@@ -44,6 +44,10 @@ import {
   registerThumbnailHandlers,
 } from "./handlers/thumbnailHandler.js";
 import { registerWindowHandlers } from "./handlers/windowHandler.js";
+import {
+  registerSubscriptionHandlers,
+  startSubscriptionPollingIfEnabled,
+} from "./handlers/subscriptionHandler.js";
 import { registerUpdaterHandlers } from "./updater.js";
 import { sendTo } from "./utils/broadcast.js";
 import { naturalSort } from "./utils/index.js";
@@ -78,6 +82,7 @@ let hasRunInitialSeriesDetection = false;
 
 // 최초 부팅 시 라이브러리 자동 스캔을 1회만 실행했는지 추적 (새로고침 시 재실행 방지)
 let hasRunInitialLibraryScan = false;
+let hasStartedSubscriptionPolling = false;
 
 /** 임시 썸네일 보관 기간. 이 기간이 지난 파일은 앱 시작 시 지웁니다 */
 const TEMP_THUMBNAIL_MAX_AGE = 7 * 24 * 60 * 60 * 1000;
@@ -287,6 +292,7 @@ app.whenReady().then(async () => {
   registerDuplicatesHandlers();
   registerThumbnailHandlers();
   registerWindowHandlers(mainWindow, createViewerWindow, viewerWindows);
+  registerSubscriptionHandlers(mainWindow);
 
   // 다운로드 큐 초기화 (미완료 다운로드 복구)
   await initializeDownloadQueue();
@@ -566,6 +572,20 @@ app.whenReady().then(async () => {
       });
     });
   }
+
+  // 구독 신작 확인 시작.
+  // renderer-ready를 쓰는 이유는 시간이 아니라 렌더러 생존 보장이다 —
+  // 리스너 등록 전에 broadcast하면 첫 토스트가 그냥 사라진다.
+  // 초기 로딩(테마 CSS, 설정 왕복, 자동 스캔)과 겹치지 않게 10초 늦춘다.
+  ipcMain.on("renderer-ready", () => {
+    // Ctrl+R로 renderer-ready가 재전송돼도 최초 1회만 건다
+    if (hasStartedSubscriptionPolling) return;
+    hasStartedSubscriptionPolling = true;
+
+    setTimeout(() => {
+      startSubscriptionPollingIfEnabled();
+    }, 10_000);
+  });
 });
 
 app.on("window-all-closed", async function () {

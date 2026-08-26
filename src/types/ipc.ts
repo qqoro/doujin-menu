@@ -117,6 +117,27 @@ export interface DownloadQueueItem {
   priority: number;
 }
 
+/** 구독 = 다운로더 검색어 문자열 하나 */
+export interface Subscription {
+  id: number;
+  query: string;
+  normalized_query: string;
+  label?: string | null;
+  enabled: boolean;
+  /** 확인한 최대 갤러리 ID. null이면 기준선 미설정 */
+  last_seen_id: number | null;
+  created_at: string;
+  last_checked_at: string | null;
+}
+
+/** 사이드바 빨간 점과 구독 탭 건수 표시에 쓰는 요약 */
+export interface SubscriptionStatus {
+  newCount: number;
+  subscriptionCount: number;
+  feedTotal: number;
+  lastCheckedAt: string | null;
+}
+
 export interface Statistics {
   totalBooks: number;
   readingProgress: {
@@ -589,6 +610,54 @@ export interface IpcChannels {
     response: { success: boolean; error?: string };
   };
 
+  // Subscription handlers
+  "get-subscriptions": {
+    request: void;
+    response: {
+      success: boolean;
+      data?: Subscription[];
+      /** 구독별 마지막 오류. 관리 팝오버의 실패 표시에 쓴다 */
+      errors?: Record<number, string>;
+      error?: string;
+    };
+  };
+  "add-subscription": {
+    request: { query: string; label?: string };
+    response: { success: boolean; data?: Subscription; error?: string };
+  };
+  "update-subscription": {
+    request: { id: number; query?: string; label?: string; enabled?: boolean };
+    response: { success: boolean; error?: string };
+  };
+  "remove-subscription": {
+    request: number; // subscriptionId
+    response: { success: boolean; error?: string };
+  };
+  // 응답 모양을 search-galleries와 같게 맞춘다. 그래야 렌더러의 청크·가상 스크롤·
+  // 좌표계(generation) 로직을 그대로 쓰고 채널만 갈아끼울 수 있다
+  "get-subscription-feed": {
+    request: { start: number; count: number };
+    response: {
+      success: boolean;
+      data?: number[];
+      total?: number;
+      generation?: number;
+      error?: string;
+    };
+  };
+  "get-subscription-status": {
+    request: void;
+    response: { success: boolean; data?: SubscriptionStatus; error?: string };
+  };
+  "enter-subscription-tab": {
+    request: void;
+    response: { success: boolean; error?: string };
+  };
+  "refresh-subscriptions": {
+    request: void;
+    response: { success: boolean; error?: string };
+  };
+
   // Series Collection handlers
   "get-series-collections": {
     request: {
@@ -940,6 +1009,11 @@ export interface IpcListenChannels {
   "window-maximized": boolean;
   "download-progress": DownloadProgressEvent;
   "update-status": UpdateStatusEvent;
+  // void 신호다. 받은 쪽이 get-subscription-status로 당겨간다
+  // (books-updated 등과 같은 관례. push 전용으로 두면 Ctrl+R 직후 상태가 빈다)
+  "subscriptions-updated": void;
+  // 토스트용. broadcast가 아니라 메인 창에만 보낸다 — 뷰어 창에도 뜨면 안 된다
+  "subscription-new-found": { subscriptionCount: number; newCount: number };
 }
 
 // 페이로드가 없는 채널은 리스너도 event만 받는다.

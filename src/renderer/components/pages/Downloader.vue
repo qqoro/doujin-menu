@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import * as api from "@/api";
 import { ipcRenderer } from "@/api";
 import type { DownloadProgressEvent } from "../../../types/ipc";
 import HelpDialog from "@/components/common/HelpDialog.vue";
@@ -27,6 +28,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useGalleryDelete } from "@/composables/useGalleryDelete";
 import { useKeybindings } from "@/composables/useKeybindings";
 import {
@@ -51,7 +53,9 @@ import {
   shouldShowSkeleton,
 } from "@/lib/virtualList";
 import { listRowEstimate } from "@/lib/cardLayout";
+import { LANGUAGE_OPTIONS, withLanguage } from "@/lib/subscriptionQuery";
 import { useDownloadQueueStore } from "@/store/downloadQueueStore";
+import { useSubscriptionStore } from "@/store/subscriptionStore";
 import { useUiStore } from "@/store/uiStore";
 import { Icon } from "@iconify/vue";
 import { useQueries, useQuery, useQueryClient } from "@tanstack/vue-query";
@@ -78,6 +82,7 @@ import GalleryPreviewDialog from "../feature/downloader/GalleryPreviewDialog.vue
 import GalleryRowCard from "../feature/downloader/GalleryRowCard.vue";
 import GalleryThumbnailCard from "../feature/downloader/GalleryThumbnailCard.vue";
 import PageHeader from "../layout/PageHeader.vue";
+import SubscriptionToolbar from "../feature/downloader/SubscriptionToolbar.vue";
 
 const uiStore = useUiStore();
 const router = useRouter();
@@ -96,13 +101,7 @@ const { handleZoomWheel } = useZoomWheel();
 const searchQuery = ref("");
 const downloaderLanguage = ref("korean");
 
-const languageOptions = [
-  { value: "all", label: "전체 언어" },
-  { value: "korean", label: "한국어" },
-  { value: "japanese", label: "일본어" },
-  { value: "english", label: "영어" },
-  { value: "chinese", label: "중국어" },
-];
+const languageOptions = LANGUAGE_OPTIONS;
 
 const downloaderPopularity = ref<"" | "day" | "week" | "month" | "year">("");
 
@@ -145,6 +144,7 @@ const downloadStatuses = reactive<{
 }>({});
 
 const downloadQueueStore = useDownloadQueueStore();
+const subscriptionStore = useSubscriptionStore();
 
 const searchKey = ref(0); // 검색 트리거를 위한 키
 const blacklistTags = ref<string[]>([]);
@@ -156,12 +156,36 @@ const selectedGallery = ref<Gallery>();
 /** 현재 보고 있는 PAGE 단위 구간 (0-based). offset·shownCount는 여기서 유도된다 */
 const currentPage = ref(0);
 
+/**
+ * 검색 / 구독 탭. 툴바만 갈리고 결과 목록은 두 탭이 공유한다.
+ *
+ * get-subscription-feed의 응답 모양을 search-galleries와 같게 맞춰 두었기 때문에
+ * (total·generation 포함) 청크·가상 스크롤·좌표계 로직을 그대로 쓴다.
+ */
+const activeTab = ref<"search" | "subscription">("search");
+const isSubscriptionTab = computed(() => activeTab.value === "subscription");
+
+/** 구독 피드 재조회 트리거. 폴링 결과가 오거나 수동 새로고침을 하면 올린다 */
+const subscriptionKey = ref(1);
+
+/** 활성 탭의 조회 트리거. 검색은 버튼을 눌러야 올라가고 구독은 항상 준비돼 있다 */
+const sourceKey = computed(() =>
+  isSubscriptionTab.value ? subscriptionKey.value : searchKey.value,
+);
+
+/**
+ * 목록을 그릴 준비가 됐는지.
+ *
+ * 검색 탭은 검색 버튼을 눌러야 하지만 구독 탭에는 검색 버튼이 없다.
+ * searchKey만 보면 구독 탭이 영영 빈 화면이 된다.
+ */
+const isSourceReady = computed(
+  () => isSubscriptionTab.value || searchKey.value > 0,
+);
+
 /** 입력창에 있는 검색어·언어를 합친 값. 조회는 아래 `committedSearch`를 쓴다 */
 const finalSearchQuery = computed(() =>
-  (downloaderLanguage.value !== "all"
-    ? `language:${downloaderLanguage.value} ${searchQuery.value}`
-    : searchQuery.value
-  ).trim(),
+  withLanguage(downloaderLanguage.value, searchQuery.value),
 );
 
 /**
@@ -195,8 +219,21 @@ const {
   isError,
   error,
 } = useQuery({
-  queryKey: ["gallery-meta", searchKey],
+  queryKey: ["gallery-meta", activeTab, sourceKey],
   queryFn: async () => {
+    if (isSubscriptionTab.value) {
+      const result = await ipcRenderer.invoke("get-subscription-feed", {
+        start: 0,
+        count: 1,
+      });
+      if (!result.success)
+        throw new Error(result.error || "구독 목록 조회 실패");
+      return {
+        total: result.total ?? 0,
+        generation: result.generation ?? 0,
+      };
+    }
+
     const result = await ipcRenderer.invoke("search-galleries", {
       searchQuery: committedSearch.value.query,
       popularityOrderBy: committedSearch.value.popularity,
@@ -209,7 +246,7 @@ const {
       generation: result.generation ?? 0,
     };
   },
-  enabled: computed(() => searchKey.value > 0),
+  enabled: isSourceReady,
   staleTime: 5 * 60 * 1000,
   gcTime: 10 * 60 * 1000,
   refetchOnWindowFocus: false,
@@ -236,7 +273,7 @@ const shownCount = computed(() =>
 const visibleAbsRange = ref<{ start: number; end: number } | null>(null);
 
 const activeChunks = computed(() => {
-  if (searchKey.value === 0 || totalCount.value === 0) return [];
+  if (!isSourceReady.value || totalCount.value === 0) return [];
 
   // 가상 스크롤러가 아직 범위를 못 정한 초기 상태에서는 구간 첫 청크를 쓴다
   const range = visibleAbsRange.value ?? {
@@ -255,21 +292,29 @@ const activeChunks = computed(() => {
 const chunkQueries = useQueries({
   queries: computed(() =>
     activeChunks.value.map((chunkIndex) => ({
+      // 탭 식별자가 없으면 두 탭이 같은 캐시 칸을 쓴다. staleTime 안이면
+      // queryFn이 호출조차 되지 않아 검색 결과가 구독 탭 자리에 그대로 뜬다
       queryKey: [
         "gallery-chunk",
-        searchKey.value,
+        activeTab.value,
+        sourceKey.value,
         generation.value,
         chunkIndex,
       ],
       queryFn: async () => {
-        const result = await ipcRenderer.invoke("search-galleries", {
-          searchQuery: committedSearch.value.query,
-          popularityOrderBy: committedSearch.value.popularity,
-          start: chunkIndex * CHUNK_SIZE,
-          count: CHUNK_SIZE,
-        });
+        const result = isSubscriptionTab.value
+          ? await ipcRenderer.invoke("get-subscription-feed", {
+              start: chunkIndex * CHUNK_SIZE,
+              count: CHUNK_SIZE,
+            })
+          : await ipcRenderer.invoke("search-galleries", {
+              searchQuery: committedSearch.value.query,
+              popularityOrderBy: committedSearch.value.popularity,
+              start: chunkIndex * CHUNK_SIZE,
+              count: CHUNK_SIZE,
+            });
         if (!result.success || !result.data) {
-          throw new Error(result.error || "검색 실패");
+          throw new Error(result.error || "목록을 불러오지 못했습니다");
         }
 
         const detailResults = (await Promise.all(
@@ -349,7 +394,7 @@ watch(
 
 const isLoading = computed(() =>
   shouldShowSkeleton({
-    searchStarted: searchKey.value > 0,
+    searchStarted: isSourceReady.value,
     isMetaLoading: isMetaLoading.value,
     total: totalCount.value,
     hasRendered: hasRenderedList.value,
@@ -357,7 +402,10 @@ const isLoading = computed(() =>
 );
 
 const retryFailedDetails = () => {
-  queryClient.invalidateQueries({ queryKey: ["gallery-chunk"] });
+  // 탭 키까지 넣는다. 접두사만 주면 다른 탭의 캐시된 청크까지 함께 버려진다
+  queryClient.invalidateQueries({
+    queryKey: ["gallery-chunk", activeTab.value],
+  });
 };
 
 // 라이브러리 보유 여부. 화면에 있는 ID를 모아 한 번에 묻는다. 갤러리 상세와
@@ -443,10 +491,55 @@ const loadDownloaderConfig = async () => {
   const changed = next.join(",") !== blacklistTags.value.join(",");
   blacklistTags.value = next;
 
-  if (changed && searchKey.value > 0) {
+  if (changed && isSourceReady.value) {
     queryClient.invalidateQueries({ queryKey: ["gallery-meta"] });
     queryClient.invalidateQueries({ queryKey: ["gallery-chunk"] });
+    // 구독 피드는 메인 프로세스가 들고 있어서 무효화만으로는 안 바뀐다.
+    // 차단 태그는 폴링에도 적용되므로 다시 만들어야 반영된다
+    if (isSubscriptionTab.value) void refreshSubscriptionFeed();
   }
+};
+
+/** 구독 피드를 다시 만들고 화면을 갱신한다 */
+const refreshSubscriptionFeed = async () => {
+  try {
+    await api.refreshSubscriptions();
+  } catch (err) {
+    console.error("구독 새로고침 실패:", err);
+  }
+  subscriptionKey.value++;
+};
+
+/** 검색어를 비운 채 구독하려 할 때 한 번 확인한다 */
+const isSubscribeConfirmOpen = ref(false);
+
+/** 구독 등록 중. 메인이 구독 전체를 한 바퀴 돌고 오므로 몇 초 걸린다 */
+const isSubscribing = ref(false);
+
+const subscribeToQuery = async (query: string) => {
+  isSubscribing.value = true;
+  try {
+    await api.addSubscription({ query });
+    toast.success("구독에 추가했습니다.");
+    subscriptionKey.value++;
+    void subscriptionStore.refreshStatus();
+  } catch (err) {
+    toast.error(
+      err instanceof Error ? err.message : "구독을 추가하지 못했습니다.",
+    );
+  } finally {
+    isSubscribing.value = false;
+  }
+};
+
+const handleSubscribeCurrentSearch = () => {
+  // 검색창이 비어 있으면 finalSearchQuery는 language:korean 하나가 된다.
+  // 그대로 넘기면 한국어 전체(실측 약 9만 건)를 구독하게 되므로 한 번 묻는다
+  if (searchQuery.value.trim() === "") {
+    isSubscribeConfirmOpen.value = true;
+    return;
+  }
+  void subscribeToQuery(finalSearchQuery.value);
 };
 
 /** 헤더 팝오버에서 차단 태그를 고쳤을 때 저장하고 결과를 갱신한다 */
@@ -461,6 +554,8 @@ const saveBlacklistTags = async (tags: string[]) => {
     queryClient.invalidateQueries({ queryKey: ["gallery-meta"] });
     queryClient.invalidateQueries({ queryKey: ["gallery-chunk"] });
   }
+  // 구독 피드는 메인이 들고 있어 무효화만으로는 안 바뀐다
+  if (isSubscriptionTab.value) void refreshSubscriptionFeed();
 };
 
 // 인기 필터는 전세계 인기 목록과의 교집합이라, 언어를 함께 걸면
@@ -469,9 +564,19 @@ const showPopularityHint = computed(
   () =>
     downloaderPopularity.value !== "" &&
     downloaderLanguage.value !== "all" &&
+    // 구독에는 인기순을 저장하지 않으므로 구독 탭에서는 뜨면 안 된다
+    !isSubscriptionTab.value &&
     searchKey.value > 0 &&
     !isLoading.value &&
     totalCount.value < 10,
+);
+
+// 폴링이 끝나면 메인의 피드가 새로 만들어진다. 탭을 열어둔 채였다면 다시 조회한다
+watch(
+  () => subscriptionStore.lastCheckedAt,
+  () => {
+    if (isSubscriptionTab.value) subscriptionKey.value++;
+  },
 );
 
 // 큐 상태를 downloadStatuses에 반영하는 함수
@@ -589,6 +694,31 @@ const handleSearch = () => {
   hasRenderedList.value = false;
   searchKey.value++;
 };
+
+/**
+ * 탭을 바꾸면 좌표 상태를 되돌린다.
+ *
+ * 이 셋은 handleSearch에서만 초기화되는데, 탭 전환에는 그 경로가 없다.
+ * 검색 결과 12만 번째를 보다 구독 탭(300건)으로 넘어가면 visibleAbsRange가
+ * 범위를 한참 벗어나 chunksForRange가 빈 배열을 돌려주고, 화면이 통째로 빈다.
+ */
+watch(activeTab, async (tab) => {
+  currentPage.value = 0;
+  visibleAbsRange.value = null;
+  hasRenderedList.value = false;
+
+  if (tab !== "subscription") return;
+
+  // 구독 탭에 실제로 들어왔을 때만 읽음 처리한다.
+  // onMounted면 세션당 한 번뿐이고, onActivated면 검색하러 들어온 것만으로
+  // 빨간 점이 지워진다
+  subscriptionStore.markSeenLocally();
+  try {
+    await api.enterSubscriptionTab();
+  } catch (err) {
+    console.error("구독 읽음 처리 실패:", err);
+  }
+});
 
 // 가상 스크롤. DOM 계층을 바꾸지 말 것:
 //
@@ -897,7 +1027,9 @@ const handleLanguageChange = async (lang: AcceptableValue) => {
   });
   // 이미 검색한 상태면 즉시 다시 검색합니다.
   // 검색어가 비어 있어도(= 전체 목록) 언어가 바뀌면 결과가 달라집니다.
-  if (searchKey.value > 0) {
+  // 구독 탭에서는 건너뜁니다. handleSearch가 두 탭이 공유하는 좌표 상태를
+  // 되돌려 보고 있던 피드 위치가 날아갑니다
+  if (searchKey.value > 0 && !isSubscriptionTab.value) {
     handleSearch();
   }
 };
@@ -1091,10 +1223,41 @@ useSearchPersistence(searchQuery, "downloader-search-query");
       </template>
     </PageHeader>
 
-    <!-- 검색바 -->
+    <!-- 검색 / 구독 탭.
+         PageToolbar 바깥에 둔다. 그 셸은 Browse·History·Library·SeriesManager와
+         공유하므로 슬롯을 늘리면 다른 4개 화면에 영향이 간다 -->
+    <Tabs v-model="activeTab" class="shrink-0">
+      <TabsList>
+        <TabsTrigger value="search">
+          <Icon icon="solar:magnifer-bold-duotone" class="h-4 w-4" />
+          검색
+        </TabsTrigger>
+        <TabsTrigger value="subscription" class="relative">
+          <Icon icon="solar:feed-bold-duotone" class="h-4 w-4" />
+          구독
+          <span
+            v-if="subscriptionStore.hasUnseen"
+            class="bg-destructive ml-1.5 h-2 w-2 rounded-full"
+          />
+        </TabsTrigger>
+      </TabsList>
+    </Tabs>
+
+    <!-- 검색바. 구독 탭에서는 #search 슬롯만 갈아끼우고 나머지 슬롯
+         (구간 이동·N번째 이동·건수)은 그대로 쓴다 -->
     <PageToolbar>
       <template #search>
+        <SubscriptionToolbar
+          v-if="isSubscriptionTab"
+          :new-count="subscriptionStore.newCount"
+          :last-checked-at="subscriptionStore.lastCheckedAt"
+          :language="downloaderLanguage"
+          :blacklist-count="blacklistTags.length"
+          @changed="subscriptionKey++"
+          @refresh="refreshSubscriptionFeed"
+        />
         <SmartSearchInput
+          v-else
           id="search-input"
           v-model="searchQuery"
           placeholder="예: artist:작가명 female:sole_female -female:guro"
@@ -1103,9 +1266,15 @@ useSearchPersistence(searchQuery, "downloader-search-query");
       </template>
 
       <template #preset>
-        <PresetDropdown v-model="searchQuery" @apply-preset="handleSearch" />
+        <PresetDropdown
+          v-if="!isSubscriptionTab"
+          v-model="searchQuery"
+          @apply-preset="handleSearch"
+        />
       </template>
 
+      <!-- 언어는 두 탭이 같은 설정을 씁니다. 인기 범위는 구독에 저장하지 않아
+           검색 탭 전용입니다 -->
       <template #filter>
         <DropdownMenu>
           <DropdownMenuTrigger as-child>
@@ -1128,21 +1297,23 @@ useSearchPersistence(searchQuery, "downloader-search-query");
                 {{ lang.label }}
               </DropdownMenuRadioItem>
             </DropdownMenuRadioGroup>
-            <DropdownMenuSeparator />
-            <!-- 이건 "정렬"이 아니라 인기 목록과의 교집합 필터입니다 -->
-            <DropdownMenuLabel>인기 범위</DropdownMenuLabel>
-            <DropdownMenuRadioGroup
-              :model-value="popularitySelectValue"
-              @update:model-value="handlePopularityChange"
-            >
-              <DropdownMenuRadioItem
-                v-for="opt in popularityOptions"
-                :key="opt.value"
-                :value="opt.value"
+            <template v-if="!isSubscriptionTab">
+              <DropdownMenuSeparator />
+              <!-- 이건 "정렬"이 아니라 인기 목록과의 교집합 필터입니다 -->
+              <DropdownMenuLabel>인기 범위</DropdownMenuLabel>
+              <DropdownMenuRadioGroup
+                :model-value="popularitySelectValue"
+                @update:model-value="handlePopularityChange"
               >
-                {{ opt.label }}
-              </DropdownMenuRadioItem>
-            </DropdownMenuRadioGroup>
+                <DropdownMenuRadioItem
+                  v-for="opt in popularityOptions"
+                  :key="opt.value"
+                  :value="opt.value"
+                >
+                  {{ opt.label }}
+                </DropdownMenuRadioItem>
+              </DropdownMenuRadioGroup>
+            </template>
           </DropdownMenuContent>
         </DropdownMenu>
       </template>
@@ -1151,11 +1322,30 @@ useSearchPersistence(searchQuery, "downloader-search-query");
         <!-- 다른 화면과 달리 여기만 눌러야 조회가 돕니다. 입력창 값이 아직
              조회에 반영되지 않았으면 버튼에 테를 둘러 알립니다 -->
         <Button
+          v-if="!isSubscriptionTab"
           :class="hasPendingSearch ? 'ring-primary/50 ring-2' : ''"
           @click="handleSearch"
         >
           <Icon icon="solar:magnifer-bold-duotone" class="h-5 w-5" />검색
         </Button>
+        <!-- 검색과 같은 검색어를 대상으로 하는 동작이라 검색 버튼 옆에 둡니다 -->
+        <Button
+          v-if="!isSubscriptionTab"
+          variant="secondary"
+          :disabled="isSubscribing"
+          title="현재 검색어를 구독합니다"
+          @click="handleSubscribeCurrentSearch"
+        >
+          <Icon
+            :icon="
+              isSubscribing
+                ? 'svg-spinners:ring-resize'
+                : 'solar:feed-bold-duotone'
+            "
+            class="h-5 w-5"
+          />{{ isSubscribing ? "구독 중" : "구독" }}
+        </Button>
+        <!-- 차단 태그는 구독 폴링에도 걸리므로 구독 탭에서도 보여야 합니다 -->
         <BlacklistTagPopover
           :model-value="blacklistTags"
           @update:model-value="saveBlacklistTags"
@@ -1301,8 +1491,17 @@ useSearchPersistence(searchQuery, "downloader-search-query");
         class="text-destructive flex h-full flex-col items-center justify-center gap-2"
       >
         <Icon icon="solar:danger-triangle-bold-duotone" class="h-8 w-8" />
-        <p>검색에 실패했습니다: {{ error?.message }}</p>
-        <Button variant="outline" size="sm" @click="handleSearch">
+        <p v-if="isSubscriptionTab">
+          구독 목록을 불러오지 못했습니다: {{ error?.message }}
+        </p>
+        <p v-else>검색에 실패했습니다: {{ error?.message }}</p>
+        <Button
+          variant="outline"
+          size="sm"
+          @click="
+            isSubscriptionTab ? refreshSubscriptionFeed() : handleSearch()
+          "
+        >
           다시 시도
         </Button>
       </div>
@@ -1431,7 +1630,7 @@ useSearchPersistence(searchQuery, "downloader-search-query");
 
       <!-- 검색 전 -->
       <div
-        v-else-if="searchKey === 0"
+        v-else-if="!isSourceReady"
         class="text-muted-foreground flex h-full flex-col items-center justify-center gap-2 text-center"
       >
         <Icon icon="solar:magnifer-bold-duotone" class="h-10 w-10 opacity-40" />
@@ -1450,10 +1649,21 @@ useSearchPersistence(searchQuery, "downloader-search-query");
           icon="solar:file-remove-bold-duotone"
           class="h-10 w-10 opacity-40"
         />
-        <p>검색 결과가 없습니다.</p>
-        <p v-if="blacklistTags.length > 0" class="text-xs">
-          차단 태그 {{ blacklistTags.length }}개가 적용 중입니다.
-        </p>
+        <template v-if="isSubscriptionTab">
+          <p v-if="subscriptionStore.subscriptionCount === 0">
+            구독한 검색어가 없습니다.
+          </p>
+          <p v-else>구독한 작품이 없습니다.</p>
+          <p class="text-xs">
+            검색 탭에서 검색어를 정한 뒤 종 모양 버튼으로 구독할 수 있습니다.
+          </p>
+        </template>
+        <template v-else>
+          <p>검색 결과가 없습니다.</p>
+          <p v-if="blacklistTags.length > 0" class="text-xs">
+            차단 태그 {{ blacklistTags.length }}개가 적용 중입니다.
+          </p>
+        </template>
       </div>
     </div>
   </div>
@@ -1463,6 +1673,34 @@ useSearchPersistence(searchQuery, "downloader-search-query");
     :gallery="selectedGallery"
     @update:open="isPreviewDialogOpen = $event"
   />
+
+  <!-- 검색어를 비운 채 구독하면 언어 전체가 구독된다. 의도한 경우가 드물어 확인한다 -->
+  <AlertDialog
+    :open="isSubscribeConfirmOpen"
+    @update:open="isSubscribeConfirmOpen = $event"
+  >
+    <AlertDialogContent>
+      <AlertDialogHeader>
+        <AlertDialogTitle>언어 전체를 구독할까요?</AlertDialogTitle>
+        <AlertDialogDescription>
+          검색어가 비어 있어
+          <strong>{{ finalSearchQuery || "전체" }}</strong>
+          로 구독됩니다. 해당 언어의 모든 신작이 목록에 들어옵니다.
+        </AlertDialogDescription>
+      </AlertDialogHeader>
+      <AlertDialogFooter>
+        <AlertDialogCancel>취소</AlertDialogCancel>
+        <AlertDialogAction
+          @click="
+            isSubscribeConfirmOpen = false;
+            subscribeToQuery(finalSearchQuery);
+          "
+        >
+          구독하기
+        </AlertDialogAction>
+      </AlertDialogFooter>
+    </AlertDialogContent>
+  </AlertDialog>
 
   <!-- 삭제 확인 다이얼로그.
        카드가 아니라 여기 있는 이유: 카드에 두면 다이얼로그를 연 채 스크롤할 때
