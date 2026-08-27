@@ -387,10 +387,15 @@ const handleScroll = useThrottleFn(
     const images = webtoonImageRef.value;
     let newCurrentPage = 1;
 
+    // 컨테이너에 걸린 zoom은 scrollTop에는 반영되지만 offsetTop에는 반영되지
+    // 않는다. 환산하지 않고 비교하면 확대 시 엉뚱한 페이지가 잡히고, 그 값에서
+    // 다음 페이지 이동이 시작돼 키보드로 넘길수록 점점 튄다.
+    const imageSpaceScrollTop = scrollTop / (zoomLevel.value / 100);
+
     for (const img of images) {
       if (
-        img.offsetTop <= scrollTop + 10 &&
-        img.offsetTop + img.offsetHeight > scrollTop
+        img.offsetTop <= imageSpaceScrollTop + 10 &&
+        img.offsetTop + img.offsetHeight > imageSpaceScrollTop
       ) {
         newCurrentPage = Number(img.getAttribute("data-page-num"));
         break;
