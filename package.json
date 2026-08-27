@@ -20,7 +20,7 @@
     "format": "prettier --write src",
     "lint": "eslint . --ext .vue,.js,.jsx,.cjs,.mjs,.ts,.tsx,.cts,.mts",
     "lint:fix": "eslint . --ext .vue,.js,.jsx,.cjs,.mjs,.ts,.tsx,.cts,.mts --fix",
-    "typecheck": "tsc --noEmit && vue-tsc --noEmit",
+    "typecheck": "vue-tsc --noEmit",
     "pretest": "node scripts/rebuild-native.js --node",
     "test": "vitest run",
     "test:series": "node scripts/rebuild-native.js --node && vitest run tests/unit/main/seriesDetector.test.ts",

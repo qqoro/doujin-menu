@@ -474,7 +474,9 @@ export const useViewerStore = defineStore("viewer", () => {
       return;
     }
     viewerDoublePageView.value = value;
-    showToastMessage(value ? "페이지 모드: 더블 페이지" : "페이지 모드: 싱글 페이지");
+    showToastMessage(
+      value ? "페이지 모드: 더블 페이지" : "페이지 모드: 싱글 페이지",
+    );
     ipcRenderer.invoke("set-config", { key: "viewerDoublePageView", value });
     // Adjust current page to be the start of a spread
     goToPage(currentPage.value);

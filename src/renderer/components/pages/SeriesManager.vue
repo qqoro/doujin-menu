@@ -37,6 +37,7 @@ import {
   onActivated,
   onDeactivated,
   onMounted,
+  onUnmounted,
   ref,
   watch,
 } from "vue";
@@ -285,6 +286,10 @@ const refetchCollections = () => {
 // IPC 이벤트 수신 - 시리즈 컬렉션 업데이트 시 쿼리 무효화
 onMounted(() => {
   ipcRenderer.on("series-collections-updated", refetchCollections);
+});
+
+onUnmounted(() => {
+  ipcRenderer.off("series-collections-updated", refetchCollections);
 });
 
 // keep-alive로 캐시된 컴포넌트가 활성화될 때 쿼리 다시 불러오기

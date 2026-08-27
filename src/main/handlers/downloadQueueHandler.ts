@@ -1,4 +1,5 @@
-import { BrowserWindow, ipcMain } from "electron";
+import type { BrowserWindow } from "electron";
+import { ipcMain } from "electron";
 import fs from "fs/promises";
 import hitomi from "node-hitomi";
 import path from "path";
@@ -17,6 +18,9 @@ import { handleDownloadGallery } from "./downloaderHandler.js";
 let isProcessingQueue = false;
 let currentDownloadId: number | null = null;
 let shouldCancelCurrentDownload = false; // 현재 다운로드 취소 플래그
+
+// 진행률을 받을 창. getAllWindows()[0]은 메인 창이 닫히면 뷰어 창이 된다.
+let mainWindow: BrowserWindow | null = null;
 
 /**
  * 삭제된 폴더의 부모를 루트 방향으로 거슬러 올라가며 완전히 빈 폴더만 제거합니다.
@@ -415,9 +419,7 @@ async function processDownloadQueue() {
       await updateQueueItemStatus(nextItem.id, "downloading");
 
       try {
-        // 메인 윈도우 가져오기
-        const mainWindow = BrowserWindow.getAllWindows()[0];
-        if (!mainWindow) {
+        if (!mainWindow || mainWindow.isDestroyed()) {
           throw new Error("메인 윈도우를 찾을 수 없습니다.");
         }
 
@@ -527,7 +529,9 @@ export async function initializeDownloadQueue() {
 /**
  * 다운로드 큐 핸들러 등록
  */
-export function registerDownloadQueueHandlers() {
+export function registerDownloadQueueHandlers(win: BrowserWindow) {
+  mainWindow = win;
+
   ipcMain.handle("get-download-queue", handleGetDownloadQueue);
   ipcMain.handle("add-to-download-queue", (_event, params) =>
     handleAddToDownloadQueue(params),

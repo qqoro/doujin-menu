@@ -36,7 +36,13 @@ db.raw("PRAGMA journal_mode = WAL;")
     console.error("SQLite WAL 모드 활성화 실패:", err);
   });
 
-await db.migrate.latest();
+try {
+  await db.migrate.latest();
+} catch (error) {
+  // 여기서 던지면 모듈 로드가 거부되어 원인 없이 앱이 죽는다.
+  console.error("[DB] 마이그레이션 실패:", error);
+  throw error;
+}
 
 export default db;
 

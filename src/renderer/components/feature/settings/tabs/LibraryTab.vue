@@ -15,9 +15,10 @@ import { Switch } from "@/components/ui/switch";
 import LibraryScanProgress from "@/components/feature/LibraryScanProgress.vue";
 import SettingItem from "@/components/feature/settings/SettingItem.vue";
 import { Icon } from "@iconify/vue";
-import { onMounted, ref } from "vue";
+import { onMounted, onUnmounted, ref } from "vue";
 import { toast } from "vue-sonner";
 import { ipcRenderer } from "@/api";
+import type { InfoGenerationProgress } from "../../../../../types/ipc";
 import { useQueryClient } from "@tanstack/vue-query";
 
 interface LibraryFolder {
@@ -48,18 +49,27 @@ const generationProgress = ref({
 });
 const infoFilePattern = ref("\\((\\d+)\\)$");
 
+const handleInfoProgress = (
+  _event: Electron.IpcRendererEvent,
+  progress: InfoGenerationProgress,
+) => {
+  generationProgress.value = progress;
+  if (progress.current >= progress.total) {
+    isGeneratingInfoFiles.value = false;
+  }
+};
+
 onMounted(async () => {
   const config = await ipcRenderer.invoke("get-config");
   prioritizeKoreanTitles.value = config.prioritizeKoreanTitles === true;
   hideLibraryTags.value = config.hideLibraryTags === true;
   await loadLibraryFolders();
 
-  ipcRenderer.on("info-generation-progress", (_event, progress) => {
-    generationProgress.value = progress;
-    if (progress.current >= progress.total) {
-      isGeneratingInfoFiles.value = false;
-    }
-  });
+  ipcRenderer.on("info-generation-progress", handleInfoProgress);
+});
+
+onUnmounted(() => {
+  ipcRenderer.off("info-generation-progress", handleInfoProgress);
 });
 
 // 라이브러리 폴더 정보 불러오기

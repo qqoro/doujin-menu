@@ -10,8 +10,9 @@ import log from "electron-log";
 import windowStateKeeper from "electron-window-state";
 import { rmSync } from "fs";
 import fs from "fs/promises";
+import os from "os";
+import PQueue from "p-queue";
 import path from "path"; // path 모듈 전체 임포트
-import * as yauzl from "yauzl";
 import db, { closeDbConnection } from "./db/index.js"; // db 모듈 추가
 import "./handlers/bookHandler.js";
 import { registerBookHandlers } from "./handlers/bookHandler.js";
@@ -50,7 +51,9 @@ import {
 } from "./handlers/subscriptionHandler.js";
 import { registerUpdaterHandlers } from "./updater.js";
 import { sendTo } from "./utils/broadcast.js";
-import { naturalSort } from "./utils/index.js";
+import { openExternalIfAllowed } from "./utils/externalLink.js";
+import { imageMimeType, sortImageFiles } from "./utils/imageFiles.js";
+import { readZipPage } from "./utils/zipPages.js";
 
 log.initialize();
 export const console = log;
@@ -160,7 +163,7 @@ function createViewerWindow(fromUrl: string) {
   }
 
   viewerWindow.webContents.setWindowOpenHandler((details) => {
-    shell.openExternal(details.url);
+    openExternalIfAllowed(details.url);
     return { action: "deny" };
   });
 
@@ -216,15 +219,8 @@ function createWindow() {
   }
 
   mainWindow.webContents.setWindowOpenHandler((details) => {
-    // 특정 도메인만 외부 브라우저로 열기
-    const allowedDomains = ["github.com", "www.dlsite.com", "forms.gle"];
-    if (
-      allowedDomains.some((domain) =>
-        details.url.startsWith("https://" + domain),
-      )
-    ) {
-      shell.openExternal(details.url);
-    }
+    // 허용된 도메인만 외부 브라우저로 열기
+    openExternalIfAllowed(details.url);
 
     // Electron 내부 창 생성 차단
     return { action: "deny" };
@@ -276,6 +272,11 @@ function createWindow() {
 }
 
 app.whenReady().then(async () => {
+  // app.quit()은 비동기라 종료 전에 ready가 발화하면 창까지 만들어진다.
+  if (!gotTheLock) {
+    return;
+  }
+
   createWindow();
 
   registerUpdaterHandlers(mainWindow);
@@ -283,7 +284,7 @@ app.whenReady().then(async () => {
   registerConfigHandlers();
   registerDirectoryHandlers();
   registerDownloaderHandlers();
-  registerDownloadQueueHandlers();
+  registerDownloadQueueHandlers(mainWindow);
   registerEtcHandlers(mainWindow);
   registerPresetHandlers();
   registerSeriesCollectionHandlers();
@@ -313,8 +314,8 @@ app.whenReady().then(async () => {
     app.getPath("userData"),
     "downloader_temp_thumbnails",
   );
-  fs.mkdir(tempThumbnailDir, { recursive: true });
-  fs.mkdir(path.join(app.getPath("userData"), "temp_cover"), {
+  await fs.mkdir(tempThumbnailDir, { recursive: true });
+  await fs.mkdir(path.join(app.getPath("userData"), "temp_cover"), {
     recursive: true,
   });
 
@@ -351,119 +352,28 @@ app.whenReady().then(async () => {
         .catch(() => false);
 
       if (isDirectory) {
-        const files = await fs.readdir(bookPath);
-        const imageFiles = files
-          .filter((file) => file.match(/\.(jpg|jpeg|png|webp|gif|bmp)$/i))
-          .sort(naturalSort);
+        const imageFiles = sortImageFiles(await fs.readdir(bookPath));
 
         if (pageIndex >= 0 && pageIndex < imageFiles.length) {
           const imagePath = path.join(bookPath, imageFiles[pageIndex]);
           const imageBuffer = await fs.readFile(imagePath);
-          const mimeType = `image/${path.extname(imagePath).substring(1)}`;
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
           return new Response(imageBuffer as any, {
-            headers: { "Content-Type": mimeType },
+            headers: { "Content-Type": imageMimeType(imagePath) },
           });
         } else {
           return new Response("Page not found", { status: 404 });
         }
-      } else if (/.(cbz|zip)$/i.exec(bookPath)) {
-        // ZIP 파일인 경우
-        return new Promise((resolve, reject) => {
-          yauzl.open(
-            bookPath,
-            { lazyEntries: true, autoClose: false },
-            (err, zipfile) => {
-              if (err) {
-                console.error(
-                  `[Main] Error opening zip file ${bookPath}:`,
-                  err,
-                );
-                return reject(
-                  new Response("Failed to open zip file", { status: 500 }),
-                );
-              }
+      } else if (/\.(cbz|zip)$/i.exec(bookPath)) {
+        const page = await readZipPage(bookPath, pageIndex);
 
-              const imageEntries: { fileName: string; entry: yauzl.Entry }[] =
-                [];
-              zipfile.on("entry", (entry) => {
-                if (!entry.fileName.endsWith("/")) {
-                  // 폴더 엔트리 무시
-                  const ext = path.extname(entry.fileName).toLowerCase();
-                  if (
-                    [`.jpg`, `.jpeg`, `.png`, `.webp`, `.gif`, `.bmp`].includes(
-                      ext,
-                    )
-                  ) {
-                    imageEntries.push({ fileName: entry.fileName, entry });
-                  }
-                }
-                zipfile.readEntry();
-              });
+        if (!page) {
+          return new Response("Page not found in zip", { status: 404 });
+        }
 
-              zipfile.on("end", () => {
-                imageEntries.sort((a, b) =>
-                  naturalSort(a.fileName, b.fileName),
-                ); // 파일명으로 정렬
-
-                if (pageIndex >= 0 && pageIndex < imageEntries.length) {
-                  const targetEntry = imageEntries[pageIndex].entry;
-                  zipfile.openReadStream(targetEntry, (err, readStream) => {
-                    if (err) {
-                      console.error(
-                        `[Main] Error opening read stream for ${targetEntry.fileName}:`,
-                        err,
-                      );
-                      zipfile.close(); // Ensure zipfile is closed on error
-                      return reject(
-                        new Response("Failed to read image from zip", {
-                          status: 500,
-                        }),
-                      );
-                    }
-
-                    const chunks: Buffer[] = [];
-                    readStream.on("data", (chunk) => chunks.push(chunk));
-                    readStream.on("end", () => {
-                      zipfile.close(); // Ensure zipfile is closed after stream ends
-                      const buffer = Buffer.concat(chunks);
-                      const mimeType = `image/${path.extname(targetEntry.fileName).substring(1)}`;
-                      resolve(
-                        new Response(buffer, {
-                          headers: { "Content-Type": mimeType },
-                        }),
-                      );
-                    });
-                    readStream.on("error", (streamErr) => {
-                      console.error(
-                        `[Main] Read stream error for ${targetEntry.fileName}:`,
-                        streamErr,
-                      );
-                      zipfile.close(); // Ensure zipfile is closed on stream error
-                      reject(
-                        new Response("Error reading image stream", {
-                          status: 500,
-                        }),
-                      );
-                    });
-                  });
-                } else {
-                  zipfile.close();
-                  resolve(
-                    new Response("Page not found in zip", { status: 404 }),
-                  );
-                }
-              });
-
-              zipfile.on("error", (zipErr) => {
-                console.error(`[Main] Zip file error for ${bookPath}:`, zipErr);
-                zipfile.close();
-                reject(new Response("Error reading zip file", { status: 500 }));
-              });
-
-              zipfile.readEntry(); // 첫 번째 엔트리 읽기 시작
-            },
-          );
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        return new Response(page.buffer as any, {
+          headers: { "Content-Type": imageMimeType(page.fileName) },
         });
       } else {
         return new Response("Unsupported book format", { status: 400 });
@@ -562,8 +472,12 @@ app.whenReady().then(async () => {
             .whereLike("path", `${folderPath}%`)
             .and.where("cover_path", null);
 
-          await Promise.all(
-            books.map((book) => handleGenerateThumbnail(book.id)),
+          // 썸네일 앞단(ZIP 열기·커버 추출)에는 워커 풀 같은 제한이 없다.
+          const thumbnailQueue = new PQueue({
+            concurrency: os.cpus().length,
+          });
+          await thumbnailQueue.addAll(
+            books.map((book) => () => handleGenerateThumbnail(book.id)),
           );
         }
 

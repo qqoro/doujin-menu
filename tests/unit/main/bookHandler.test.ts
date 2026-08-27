@@ -12,9 +12,35 @@ import type { FilterParams } from "../../../src/types/ipc.js";
 import {
   parseSearchQuery,
   extractKoreanTitle,
+  normalizeSortBy,
+  normalizeSortOrder,
 } from "../../../src/main/handlers/bookHandler.js";
 
 // ========== 유닛 테스트: 순수 함수 ==========
+
+describe("정렬 파라미터 정규화", () => {
+  it("허용 컬럼은 그대로 통과한다", () => {
+    expect(normalizeSortBy("title")).toBe("title");
+    expect(normalizeSortBy("hitomi_id")).toBe("hitomi_id");
+    expect(normalizeSortBy("random")).toBe("random");
+  });
+
+  it("목록에 없는 값은 added_at으로 떨어진다", () => {
+    expect(normalizeSortBy("id; DROP TABLE Book")).toBe("added_at");
+    expect(normalizeSortBy("")).toBe("added_at");
+    expect(normalizeSortBy(undefined)).toBe("added_at");
+    expect(normalizeSortBy(null)).toBe("added_at");
+    expect(normalizeSortBy(123)).toBe("added_at");
+  });
+
+  it("정렬 방향은 asc가 아니면 전부 desc다", () => {
+    expect(normalizeSortOrder("asc")).toBe("asc");
+    expect(normalizeSortOrder("desc")).toBe("desc");
+    expect(normalizeSortOrder("ASC")).toBe("desc");
+    expect(normalizeSortOrder(undefined)).toBe("desc");
+    expect(normalizeSortOrder("desc, (SELECT 1)")).toBe("desc");
+  });
+});
 
 describe("parseSearchQuery", () => {
   it("빈 문자열 → 모든 항목 빈 배열", () => {

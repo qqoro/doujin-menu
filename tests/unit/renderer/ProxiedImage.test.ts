@@ -117,8 +117,7 @@ describe("ProxiedImage 슬롯 재사용", () => {
 
     // 갤러리 2는 이미 캐시에 있다
     (peekTempThumbnail as ReturnType<typeof vi.fn>).mockImplementation(
-      (_id: number, url: string) =>
-        url === "url-b" ? "/cached/2" : undefined,
+      (_id: number, url: string) => (url === "url-b" ? "/cached/2" : undefined),
     );
 
     state.id = 2;

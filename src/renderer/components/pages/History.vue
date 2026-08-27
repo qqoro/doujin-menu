@@ -23,7 +23,7 @@ import ViewOptionsBar from "../common/ViewOptionsBar.vue";
 import PageHeader from "../layout/PageHeader.vue";
 import PageToolbar from "../layout/PageToolbar.vue";
 import { useQuery, useQueryClient } from "@tanstack/vue-query";
-import { nextTick, onMounted, ref, watch } from "vue";
+import { nextTick, onMounted, onUnmounted, ref, watch } from "vue";
 import { useRouter } from "vue-router";
 import { toast } from "vue-sonner";
 import CoverCardShell from "../feature/parts/CoverCardShell.vue";
@@ -192,11 +192,17 @@ const confirmClearAll = async () => {
 
 // 기록은 뷰어에서 추가되므로 이 화면이 스스로 알 방법이 없다. 청크 쿼리
 // staleTime이 5분이라 재마운트만으로는 갱신되지 않아 브로드캐스트로 무효화한다
+const invalidateHistory = () => {
+  queryClient.invalidateQueries({ queryKey: ["bookHistory"] });
+  queryClient.invalidateQueries({ queryKey: ["bookHistory-meta"] });
+};
+
 onMounted(() => {
-  ipcRenderer.on("book-history-updated", () => {
-    queryClient.invalidateQueries({ queryKey: ["bookHistory"] });
-    queryClient.invalidateQueries({ queryKey: ["bookHistory-meta"] });
-  });
+  ipcRenderer.on("book-history-updated", invalidateHistory);
+});
+
+onUnmounted(() => {
+  ipcRenderer.off("book-history-updated", invalidateHistory);
 });
 </script>
 

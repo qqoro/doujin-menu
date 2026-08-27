@@ -435,13 +435,18 @@ watch(currentPage, () => {
   }
 });
 
+const handleWindowMaximized = (
+  _event: Electron.IpcRendererEvent,
+  maximized: boolean,
+) => {
+  isMaximized.value = maximized;
+};
+
 onMounted(async () => {
   isNewWindow.value = await apiIsNewWindow();
   // 새 창 모드일 때 최대화 상태 동기화
   isMaximized.value = await ipcRenderer.invoke("get-window-maximized-state");
-  ipcRenderer.on("window-maximized", (_event, maximized) => {
-    isMaximized.value = maximized;
-  });
+  ipcRenderer.on("window-maximized", handleWindowMaximized);
   store.loadViewerSettings();
   const bookId = Number(route.params.id);
   const filter = route.query.filter;
@@ -488,7 +493,7 @@ onUnmounted(() => {
   store.cleanup();
   store.webtoonScrollRef = null; // ref 제거
   ipcRenderer.send("set-fullscreen-window", false);
-  ipcRenderer.removeAllListeners("window-maximized");
+  ipcRenderer.off("window-maximized", handleWindowMaximized);
   if (cursorHideTimer !== null) {
     clearTimeout(cursorHideTimer);
   }

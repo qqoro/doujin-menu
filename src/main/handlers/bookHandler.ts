@@ -496,6 +496,29 @@ export const seededShuffleOrderSql = (
   return `((((${h1}) | ((${h1}) >> 16)) - ((${h1}) & ((${h1}) >> 16))) * 2246822519) % 4294967296`;
 };
 
+// `sub.${sortBy}`로 SQL에 들어가므로 목록 밖의 값은 받지 않는다.
+export const SORTABLE_COLUMNS = [
+  "title",
+  "added_at",
+  "file_mtime",
+  "last_read_at",
+  "artists",
+  "page_count",
+  "hitomi_id",
+  "random",
+] as const;
+
+export type SortableColumn = (typeof SORTABLE_COLUMNS)[number];
+
+export const normalizeSortBy = (value: unknown): SortableColumn =>
+  SORTABLE_COLUMNS.includes(value as SortableColumn)
+    ? (value as SortableColumn)
+    : "added_at";
+
+// orderByRaw에 그대로 보간된다. 타입은 유니온이지만 값은 라우트 쿼리에서 온다.
+export const normalizeSortOrder = (value: unknown): "asc" | "desc" =>
+  value === "asc" ? "asc" : "desc";
+
 export const handleGetBooks = async (
   params: FilterParams & {
     pageParam?: number;
@@ -508,13 +531,9 @@ export const handleGetBooks = async (
     skipCount?: boolean;
   },
 ) => {
-  const {
-    pageParam = 0,
-    pageSize = 50,
-    sortBy = "added_at",
-    sortOrder = "desc",
-    skipCount = false,
-  } = params;
+  const { pageParam = 0, pageSize = 50, skipCount = false } = params;
+  const sortBy = normalizeSortBy(params.sortBy);
+  const sortOrder = normalizeSortOrder(params.sortOrder);
 
   // artists 정렬만 집계 컬럼을 정렬 기준으로 쓴다
   const mainQuery = buildFilteredQuery(params, {
@@ -792,7 +811,8 @@ export const handleGetNextBook = async ({
       );
     }
 
-    const { sortBy = "added_at", sortOrder = "desc" } = filter || {};
+    const sortBy = normalizeSortBy(filter?.sortBy);
+    const sortOrder = normalizeSortOrder(filter?.sortOrder);
 
     const shuffleSql =
       sortBy === "random" ? seededShuffleOrderSql(filter?.randomSeed) : null;
@@ -1003,7 +1023,8 @@ export const handleGetPrevBook = async ({
     const mainQuery = buildFilteredQuery(filter, {
       withArtists: filter?.sortBy === "artists",
     });
-    const { sortBy = "added_at", sortOrder = "desc" } = filter || {};
+    const sortBy = normalizeSortBy(filter?.sortBy);
+    const sortOrder = normalizeSortOrder(filter?.sortOrder);
 
     const shuffleSql =
       sortBy === "random" ? seededShuffleOrderSql(filter?.randomSeed) : null;

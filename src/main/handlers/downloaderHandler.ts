@@ -12,6 +12,15 @@ import { store as configStore } from "./configHandler.js";
 import { scanFile } from "./directoryHandler.js";
 import type { Tag } from "node-hitomi";
 
+/** 파일 하나에 허용하는 최대 시도 횟수 */
+const MAX_FILE_ATTEMPTS = 10;
+
+const retryDelayMs = (attempt: number) =>
+  Math.min(1000 * 2 ** (attempt - 1), 30_000);
+
+/** 큐 갱신 브로드캐스트 최소 간격(ms) */
+const QUEUE_BROADCAST_INTERVAL = 200;
+
 /**
  * search-galleries IPC 응답. src/types/ipc.ts의 계약과 같은 모양을 유지합니다.
  *
@@ -349,6 +358,29 @@ export const handleDownloadGallery = async (
 
     const totalFiles = gallery.files.length;
 
+    // 이어받기로 수백 개를 건너뛸 때 창마다 큐를 다시 조회하지 않도록 쓰로틀한다.
+    let lastQueueBroadcast = 0;
+    const reportProgress = async (index: number, force = false) => {
+      const progress = Math.round(((index + 1) / totalFiles) * 100);
+      sendTo(webContents, "download-progress", {
+        galleryId,
+        status: "progress",
+        progress,
+      });
+
+      if (!queueId) return;
+
+      const now = Date.now();
+      if (!force && now - lastQueueBroadcast < QUEUE_BROADCAST_INTERVAL) return;
+      lastQueueBroadcast = now;
+
+      const db = (await import("../db/index.js")).default;
+      await db("DownloadQueue")
+        .where("id", queueId)
+        .update({ progress, downloaded_files: index + 1 });
+      broadcast("download-queue-updated");
+    };
+
     // 큐 ID가 있으면 total_files 업데이트
     if (queueId) {
       const db = (await import("../db/index.js")).default;
@@ -378,28 +410,7 @@ export const handleDownloadGallery = async (
       try {
         await fs.access(filePath);
 
-        // 진행률 업데이트
-        const progress = Math.round(((i + 1) / totalFiles) * 100);
-        sendTo(webContents, "download-progress", {
-          galleryId,
-          status: "progress",
-          progress,
-        });
-
-        // 큐 ID가 있으면 DB 업데이트
-        if (queueId) {
-          const db = (await import("../db/index.js")).default;
-          await db("DownloadQueue")
-            .where("id", queueId)
-            .update({
-              progress,
-              downloaded_files: i + 1,
-            });
-
-          // 모든 윈도우에 큐 업데이트 알림
-          broadcast("download-queue-updated");
-        }
-
+        await reportProgress(i, i === totalFiles - 1);
         continue; // 다음 파일로
       } catch {
         // 파일이 없으면 다운로드 진행
@@ -446,42 +457,32 @@ export const handleDownloadGallery = async (
             await fs.writeFile(filePath, Buffer.from(arrayBuffer));
             success = true;
             break; // 다운로드 성공, 재시도 루프 탈출
-          } else {
-            console.warn(
-              `[Downloader] 파일 다운로드 실패. 재시도 (${attempt}회): ${fileName} - ${res.statusText}`,
-            );
-            // 재시도 전 잠시 대기 (점진적 증가)
-            await new Promise<void>((resolve) => setTimeout(resolve, 1000));
           }
+
+          console.warn(
+            `[Downloader] 파일 다운로드 실패. 재시도 (${attempt}/${MAX_FILE_ATTEMPTS}): ${fileName} - ${res.statusText}`,
+          );
         } catch (error) {
           console.warn(
-            `[Downloader] 파일 다운로드 중 오류 발생. 재시도 (${attempt}회): ${fileName}`,
+            `[Downloader] 파일 다운로드 중 오류 발생. 재시도 (${attempt}/${MAX_FILE_ATTEMPTS}): ${fileName}`,
             error,
           );
-          await new Promise<void>((resolve) => setTimeout(resolve, 1000));
         }
+
+        // 상한이 없으면 영구 404 파일 하나가 큐 전체를 영원히 붙잡는다.
+        // 갤러리를 실패로 떨궈 다음 항목이 진행되게 한다 (UI에서 재시도 가능).
+        if (attempt >= MAX_FILE_ATTEMPTS) {
+          throw new Error(
+            `${fileName} 다운로드를 ${MAX_FILE_ATTEMPTS}회 시도했지만 실패했습니다.`,
+          );
+        }
+
+        await new Promise<void>((resolve) =>
+          setTimeout(resolve, retryDelayMs(attempt)),
+        );
       }
 
-      const progress = Math.round(((i + 1) / totalFiles) * 100);
-      sendTo(webContents, "download-progress", {
-        galleryId,
-        status: "progress",
-        progress,
-      });
-
-      // 큐 ID가 있으면 DB 업데이트
-      if (queueId) {
-        const db = (await import("../db/index.js")).default;
-        await db("DownloadQueue")
-          .where("id", queueId)
-          .update({
-            progress,
-            downloaded_files: i + 1,
-          });
-
-        // 모든 윈도우에 큐 업데이트 알림
-        broadcast("download-queue-updated");
-      }
+      await reportProgress(i, i === totalFiles - 1);
     }
 
     // info.txt 파일 생성 (설정에 따라)

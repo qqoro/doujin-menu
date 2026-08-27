@@ -8,6 +8,7 @@ import { Worker } from "worker_threads"; // Worker 임포트
 import db from "../db/index.js";
 import { console } from "../main.js";
 import { broadcast } from "../utils/broadcast.js";
+import { isImageFile, sortImageFiles } from "../utils/imageFiles.js";
 import { extractCoverFromZip } from "./directoryHandler.js";
 
 const __filename = fileURLToPath(import.meta.url);
@@ -17,61 +18,84 @@ const workerPool: Worker[] = [];
 const availableWorkers: Worker[] = [];
 const workerQueue: ((worker: Worker) => void)[] = [];
 
-const initializeWorkerPool = () => {
-  const numCpus = os.cpus().length;
-  for (let i = 0; i < numCpus; i++) {
-    const worker = new Worker(
-      fileURLToPath(new URL("../workers/thumbnailWorker.js", import.meta.url)),
-    );
+/** 워커가 죽었을 때 대기 중인 작업을 깨우기 위한 콜백. 워커별로 하나씩만 유지한다 */
+const pendingRejects = new Map<Worker, (error: Error) => void>();
+
+const workerUrl = () =>
+  fileURLToPath(new URL("../workers/thumbnailWorker.js", import.meta.url));
+
+/**
+ * 워커 하나를 만들고 수명 이벤트를 붙인다.
+ *
+ * 교체 워커를 만들 때 이 함수를 거치지 않으면 error/exit 리스너가 없는 워커가
+ * 풀에 들어가고, 그 워커가 다음에 에러를 내는 순간 처리되지 않은 'error'
+ * 이벤트로 메인 프로세스가 죽는다.
+ */
+const spawnWorker = (): Worker => {
+  const worker = new Worker(workerUrl());
+
+  // error 뒤에는 exit이 따라오므로 정리와 교체는 exit 한 곳에서만 한다.
+  // 양쪽에서 교체하면 에러 한 번에 워커가 두 개씩 늘어난다.
+  worker.on("error", (err) => {
+    console.error(`[Main] 썸네일 워커 오류:`, err);
+    worker.terminate();
+  });
+
+  worker.on("exit", (code) => {
+    if (code !== 0) {
+      console.warn(`[Main] 썸네일 워커가 코드 ${code}로 종료되었습니다.`);
+    }
+    retireWorker(worker);
+  });
+
+  return worker;
+};
+
+/**
+ * 죽은 워커를 풀에서 걷어내고 같은 수만큼 새로 채운다.
+ *
+ * 이 워커를 기다리던 호출자를 반드시 깨워야 한다. 워커가 크래시하면
+ * message가 영영 오지 않으므로, 그냥 두면 호출자의 Promise가 미결로 남는다.
+ */
+const retireWorker = (worker: Worker) => {
+  const poolIndex = workerPool.indexOf(worker);
+  if (poolIndex === -1) {
+    // 이미 정리된 워커 (error → terminate → exit 경로에서 중복 호출)
+    return;
+  }
+  workerPool.splice(poolIndex, 1);
+
+  const availableIndex = availableWorkers.indexOf(worker);
+  if (availableIndex > -1) availableWorkers.splice(availableIndex, 1);
+
+  const reject = pendingRejects.get(worker);
+  pendingRejects.delete(worker);
+  reject?.(new Error("썸네일 워커가 예기치 않게 종료되었습니다."));
+
+  const replacement = spawnWorker();
+  workerPool.push(replacement);
+  releaseWorker(replacement);
+};
+
+/**
+ * 워커 풀을 처음 쓰는 시점에 만든다.
+ *
+ * 앱 시작과 동시에 만들면 썸네일을 한 번도 생성하지 않는 세션에서도
+ * sharp/libvips를 올린 스레드가 코어 수만큼 상주한다.
+ */
+const ensureWorkerPool = () => {
+  if (workerPool.length > 0) return;
+
+  const size = Math.min(4, os.cpus().length);
+  for (let i = 0; i < size; i++) {
+    const worker = spawnWorker();
     workerPool.push(worker);
     availableWorkers.push(worker);
-
-    // 워커에서 메시지를 받으면 (작업 완료 등) 처리
-    worker.on("message", () => {
-      // 이 부분은 generateThumbnailForBook 내의 Promise에서 처리될 것임
-    });
-
-    // 워커 에러 처리
-    worker.on("error", (err) => {
-      console.error(`[Main] Worker pool error:`, err);
-      // 에러 발생 시 해당 워커를 풀에서 제거하고 새 워커로 교체하는 로직 추가 가능
-      const index = workerPool.indexOf(worker);
-      if (index > -1) workerPool.splice(index, 1);
-      const availableIndex = availableWorkers.indexOf(worker);
-      if (availableIndex > -1) availableWorkers.splice(availableIndex, 1);
-      worker.terminate();
-      // 새 워커 생성 (선택 사항: 풀 크기 유지)
-      const newWorker = new Worker(
-        fileURLToPath(
-          new URL("../workers/thumbnailWorker.js", import.meta.url),
-        ),
-      );
-      workerPool.push(newWorker);
-      availableWorkers.push(newWorker);
-    });
-
-    // 워커 종료 처리
-    worker.on("exit", (code) => {
-      console.warn(`[Main] Worker exited with code ${code}.`);
-      // 비정상 종료 시 풀에서 제거하고 새 워커로 교체
-      const index = workerPool.indexOf(worker);
-      if (index > -1) workerPool.splice(index, 1);
-      const availableIndex = availableWorkers.indexOf(worker);
-      if (availableIndex > -1) availableWorkers.splice(availableIndex, 1);
-      if (code !== 0) {
-        const newWorker = new Worker(
-          fileURLToPath(
-            new URL("../workers/thumbnailWorker.js", import.meta.url),
-          ),
-        );
-        workerPool.push(newWorker);
-        availableWorkers.push(newWorker);
-      }
-    });
   }
 };
 
 const getWorker = (): Promise<Worker> => {
+  ensureWorkerPool();
   return new Promise((resolve) => {
     if (availableWorkers.length > 0) {
       const worker = availableWorkers.pop()!;
@@ -122,10 +146,8 @@ export async function generateThumbnailForBook(bookId: number) {
         .then((stat) => stat.isDirectory())
         .catch(() => false)
     ) {
-      // 3-1. 폴더인 경우: 정렬 후 첫 번째 이미지 파일을 소스로 사용
-      const imageFiles = (await fs.readdir(book.path))
-        .filter((f) => f.match(/\.(jpg|jpeg|png|webp)$/i))
-        .sort();
+      // 3-1. 폴더인 경우: 뷰어와 같은 순서로 세운 뒤 첫 페이지를 소스로 사용
+      const imageFiles = sortImageFiles(await fs.readdir(book.path));
       if (imageFiles.length > 0) {
         sourcePath = path.join(book.path, imageFiles[0]);
       }
@@ -140,7 +162,7 @@ export async function generateThumbnailForBook(bookId: number) {
         `${book.id}_temp_cover.webp`,
       );
       sourcePath = await extractCoverFromZip(book.path, tempCoverPath);
-    } else if (ext.match(/\.(jpg|jpeg|png|webp)$/i)) {
+    } else if (isImageFile(book.path)) {
       // 3-3. 단일 이미지 파일인 경우: 해당 파일을 직접 소스로 사용
       sourcePath = book.path;
     }
@@ -162,6 +184,11 @@ export async function generateThumbnailForBook(bookId: number) {
       // 6. 워커로부터 작업 완료/실패 메시지를 수신하는 일회성 핸들러
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const messageHandler = (msg: any) => {
+        pendingRejects.delete(worker);
+        worker.off("message", messageHandler);
+        // 7. 워커를 먼저 풀에 반환해야 reject 이후에도 다음 작업이 이어진다
+        releaseWorker(worker);
+
         if (msg.status === "success") {
           resolve();
         } else {
@@ -170,10 +197,14 @@ export async function generateThumbnailForBook(bookId: number) {
           );
           reject(new Error(msg.error));
         }
-        // 7. 메시지 핸들러를 제거하고 워커를 풀에 반환하여 다른 작업에 사용될 수 있도록 함
-        worker.off("message", messageHandler);
-        releaseWorker(worker);
       };
+
+      // 워커가 크래시하면 message가 오지 않는다. retireWorker가 이 콜백으로
+      // 깨워주지 않으면 이 Promise는 영원히 미결로 남는다.
+      pendingRejects.set(worker, (error) => {
+        worker.off("message", messageHandler);
+        reject(error);
+      });
 
       worker.on("message", messageHandler);
 
@@ -249,7 +280,7 @@ export const handleRegenerateAllThumbnails = async () => {
  * 썸네일 관련 IPC 핸들러를 등록합니다.
  */
 export function registerThumbnailHandlers() {
-  initializeWorkerPool(); // 워커 풀 초기화
+  // 워커 풀은 getWorker()에서 첫 요청 때 만든다.
 
   ipcMain.handle("generate-thumbnail", (_event, bookId) =>
     handleGenerateThumbnail(bookId),

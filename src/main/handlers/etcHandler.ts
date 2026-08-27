@@ -6,10 +6,11 @@ import { existsSync } from "fs";
 import fs from "fs/promises";
 import hitomi from "node-hitomi";
 import path from "path";
-import * as yauzl from "yauzl";
 import db from "../db/index.js";
 import { sendTo } from "../utils/broadcast.js";
-import { naturalSort } from "../utils/index.js";
+import { openExternalIfAllowed } from "../utils/externalLink.js";
+import { sortImageFiles } from "../utils/imageFiles.js";
+import { getZipPageNames, readZipPage } from "../utils/zipPages.js";
 import { console } from "../main.js";
 import { store as configStore } from "./configHandler.js";
 
@@ -203,7 +204,9 @@ export function registerEtcHandlers(win: BrowserWindow) {
 
   // 외부 링크 열기
   ipcMain.on("open-external-link", (_event, url: string) => {
-    shell.openExternal(url);
+    if (!openExternalIfAllowed(url)) {
+      console.warn(`[EtcHandler] 허용되지 않은 외부 링크 차단: ${url}`);
+    }
   });
 
   // 로그 폴더 열기
@@ -251,7 +254,8 @@ export function registerEtcHandlers(win: BrowserWindow) {
       ];
 
       for (const temp of tempPath) {
-        const list = await fs.readdir(temp);
+        // temp_external은 앱 종료 시 폴더째 지워진다. 없는 게 정상.
+        const list = await fs.readdir(temp).catch(() => [] as string[]);
         await Promise.allSettled(
           list.map(async (file) => {
             await fs.rm(path.join(temp, file), {
@@ -307,10 +311,7 @@ export function registerEtcHandlers(win: BrowserWindow) {
           .catch(() => false);
 
         if (isDirectory) {
-          const files = await fs.readdir(bookPath);
-          const imageFiles = files
-            .filter((file) => file.match(/\.(jpg|jpeg|png|webp|gif|bmp)$/i))
-            .sort(naturalSort);
+          const imageFiles = sortImageFiles(await fs.readdir(bookPath));
 
           if (pageIndex < 0 || pageIndex >= imageFiles.length) {
             return { success: false, error: "페이지를 찾을 수 없습니다." };
@@ -376,10 +377,7 @@ export function registerEtcHandlers(win: BrowserWindow) {
               error: "이미지 뷰어가 설정되지 않았습니다.",
             };
           }
-          const files = await fs.readdir(bookPath);
-          const imageFiles = files
-            .filter((file) => file.match(/\.(jpg|jpeg|png|webp|gif|bmp)$/i))
-            .sort(naturalSort);
+          const imageFiles = sortImageFiles(await fs.readdir(bookPath));
           if (imageFiles.length === 0) {
             return { success: false, error: "이미지 파일을 찾을 수 없습니다." };
           }
@@ -408,88 +406,32 @@ export function registerEtcHandlers(win: BrowserWindow) {
   );
 }
 
-/**
- * ZIP/CBZ에서 특정 페이지를 임시 파일로 추출
- */
-function extractPageFromZip(
+/** ZIP/CBZ에서 특정 페이지를 임시 파일로 추출 */
+async function extractPageFromZip(
   zipPath: string,
   bookId: number,
   pageIndex: number,
 ): Promise<string> {
-  return new Promise((resolve, reject) => {
-    yauzl.open(
-      zipPath,
-      { lazyEntries: true, autoClose: false },
-      (err, zipfile) => {
-        if (err) return reject(new Error("ZIP 파일을 열 수 없습니다."));
+  const fileNames = await getZipPageNames(zipPath);
 
-        const imageEntries: { fileName: string; entry: yauzl.Entry }[] = [];
-        zipfile.on("entry", (entry) => {
-          if (!entry.fileName.endsWith("/")) {
-            const ext = path.extname(entry.fileName).toLowerCase();
-            if (
-              [".jpg", ".jpeg", ".png", ".webp", ".gif", ".bmp"].includes(ext)
-            ) {
-              imageEntries.push({ fileName: entry.fileName, entry });
-            }
-          }
-          zipfile.readEntry();
-        });
+  if (pageIndex < 0 || pageIndex >= fileNames.length) {
+    throw new Error("페이지를 찾을 수 없습니다.");
+  }
 
-        zipfile.on("end", async () => {
-          imageEntries.sort((a, b) => naturalSort(a.fileName, b.fileName));
+  const ext = path.extname(fileNames[pageIndex]).toLowerCase();
+  const tempDir = path.join(app.getPath("userData"), "temp_external");
+  await fs.mkdir(tempDir, { recursive: true });
+  const tempFilePath = path.join(tempDir, `${bookId}_${pageIndex}${ext}`);
 
-          if (pageIndex < 0 || pageIndex >= imageEntries.length) {
-            zipfile.close();
-            return reject(new Error("페이지를 찾을 수 없습니다."));
-          }
+  if (existsSync(tempFilePath)) {
+    return tempFilePath;
+  }
 
-          const targetEntry = imageEntries[pageIndex];
-          const ext = path.extname(targetEntry.fileName).toLowerCase();
-          const tempDir = path.join(app.getPath("userData"), "temp_external");
-          await fs.mkdir(tempDir, { recursive: true });
-          const tempFilePath = path.join(
-            tempDir,
-            `${bookId}_${pageIndex}${ext}`,
-          );
+  const page = await readZipPage(zipPath, pageIndex);
+  if (!page) {
+    throw new Error("페이지를 찾을 수 없습니다.");
+  }
 
-          // 이미 추출된 파일이 있으면 재사용
-          if (existsSync(tempFilePath)) {
-            zipfile.close();
-            return resolve(tempFilePath);
-          }
-
-          zipfile.openReadStream(targetEntry.entry, (streamErr, readStream) => {
-            if (streamErr) {
-              zipfile.close();
-              return reject(new Error("이미지 추출에 실패했습니다."));
-            }
-
-            const chunks: Buffer[] = [];
-            readStream.on("data", (chunk) => chunks.push(chunk));
-            readStream.on("end", async () => {
-              zipfile.close();
-              try {
-                await fs.writeFile(tempFilePath, Buffer.concat(chunks));
-                resolve(tempFilePath);
-              } catch {
-                reject(new Error("임시 파일 저장에 실패했습니다."));
-              }
-            });
-            readStream.on("error", () => {
-              zipfile.close();
-              reject(new Error("이미지 스트림 읽기 실패"));
-            });
-          });
-        });
-
-        zipfile.on("error", () => {
-          zipfile.close();
-          reject(new Error("ZIP 파일 읽기 오류"));
-        });
-
-        zipfile.readEntry();
-      },
-    );
-  });
+  await fs.writeFile(tempFilePath, page.buffer);
+  return tempFilePath;
 }
