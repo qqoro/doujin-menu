@@ -1,80 +1,38 @@
-import fs from "fs/promises";
 import * as yauzl from "yauzl";
 import { isImageFile } from "./imageFiles.js";
 import { naturalSort } from "./index.js";
 
-interface CachedPages {
-  mtimeMs: number;
-  size: number;
-  fileNames: string[];
-}
-
-/**
- * 열린 zipfile 핸들을 캐시하면 더 빠르지만, Windows에서 파일이 잠겨 책 삭제와
- * 라이브러리 재스캔이 실패한다. 이름 목록만 들고 있는다.
- */
-const pageCache = new Map<string, CachedPages>();
-
-const MAX_CACHE_ENTRIES = 8;
-
-/** 테스트 전용 */
-export const __resetZipPageCache = (): void => {
-  pageCache.clear();
-};
-
 /** ZIP 안의 이미지 엔트리 이름을 페이지 순서로 돌려준다 */
 export async function getZipPageNames(zipPath: string): Promise<string[]> {
-  const stat = await fs.stat(zipPath);
-  const cached = pageCache.get(zipPath);
-
-  if (cached && cached.mtimeMs === stat.mtimeMs && cached.size === stat.size) {
-    return cached.fileNames;
-  }
-
-  const fileNames = await readImageEntryNames(zipPath);
-
-  // 삽입 순서가 곧 LRU 순서다.
-  pageCache.delete(zipPath);
-  pageCache.set(zipPath, {
-    mtimeMs: stat.mtimeMs,
-    size: stat.size,
-    fileNames,
-  });
-  while (pageCache.size > MAX_CACHE_ENTRIES) {
-    const oldest = pageCache.keys().next().value;
-    if (oldest === undefined) break;
-    pageCache.delete(oldest);
-  }
-
-  return fileNames;
-}
-
-function readImageEntryNames(zipPath: string): Promise<string[]> {
   return new Promise((resolve, reject) => {
-    yauzl.open(zipPath, { lazyEntries: true }, (err, zipfile) => {
-      if (err) return reject(err);
+    yauzl.open(
+      zipPath,
+      { lazyEntries: true, autoClose: false },
+      (err, zipfile) => {
+        if (err) return reject(err);
 
-      const fileNames: string[] = [];
+        const fileNames: string[] = [];
 
-      zipfile.on("entry", (entry: yauzl.Entry) => {
-        if (!entry.fileName.endsWith("/") && isImageFile(entry.fileName)) {
-          fileNames.push(entry.fileName);
-        }
+        zipfile.on("entry", (entry: yauzl.Entry) => {
+          if (!entry.fileName.endsWith("/") && isImageFile(entry.fileName)) {
+            fileNames.push(entry.fileName);
+          }
+          zipfile.readEntry();
+        });
+
+        zipfile.on("end", () => {
+          zipfile.close();
+          resolve(fileNames.sort(naturalSort));
+        });
+
+        zipfile.on("error", (zipErr) => {
+          zipfile.close();
+          reject(zipErr);
+        });
+
         zipfile.readEntry();
-      });
-
-      zipfile.on("end", () => {
-        zipfile.close();
-        resolve(fileNames.sort(naturalSort));
-      });
-
-      zipfile.on("error", (zipErr) => {
-        zipfile.close();
-        reject(zipErr);
-      });
-
-      zipfile.readEntry();
-    });
+      },
+    );
   });
 }
 
@@ -83,61 +41,60 @@ export async function readZipPage(
   zipPath: string,
   pageIndex: number,
 ): Promise<{ fileName: string; buffer: Buffer } | null> {
-  const fileNames = await getZipPageNames(zipPath);
+  return new Promise((resolve, reject) => {
+    yauzl.open(
+      zipPath,
+      { lazyEntries: true, autoClose: false },
+      (err, zipfile) => {
+        if (err) return reject(err);
 
-  if (pageIndex < 0 || pageIndex >= fileNames.length) {
-    return null;
-  }
+        const imageEntries: { fileName: string; entry: yauzl.Entry }[] = [];
 
-  const targetName = fileNames[pageIndex];
-
-  const buffer = await new Promise<Buffer>((resolve, reject) => {
-    yauzl.open(zipPath, { lazyEntries: true }, (err, zipfile) => {
-      if (err) return reject(err);
-
-      let found = false;
-
-      zipfile.on("entry", (entry: yauzl.Entry) => {
-        if (entry.fileName !== targetName) {
+        zipfile.on("entry", (entry: yauzl.Entry) => {
+          if (!entry.fileName.endsWith("/") && isImageFile(entry.fileName)) {
+            imageEntries.push({ fileName: entry.fileName, entry });
+          }
           zipfile.readEntry();
-          return;
-        }
+        });
 
-        found = true;
-        zipfile.openReadStream(entry, (streamErr, readStream) => {
-          if (streamErr) {
+        zipfile.on("end", () => {
+          imageEntries.sort((a, b) => naturalSort(a.fileName, b.fileName));
+
+          if (pageIndex < 0 || pageIndex >= imageEntries.length) {
             zipfile.close();
-            return reject(streamErr);
+            return resolve(null);
           }
 
-          const chunks: Buffer[] = [];
-          readStream.on("data", (chunk: Buffer) => chunks.push(chunk));
-          readStream.on("end", () => {
-            zipfile.close();
-            resolve(Buffer.concat(chunks));
-          });
-          readStream.on("error", (readErr) => {
-            zipfile.close();
-            reject(readErr);
+          const target = imageEntries[pageIndex];
+          zipfile.openReadStream(target.entry, (streamErr, readStream) => {
+            if (streamErr) {
+              zipfile.close();
+              return reject(streamErr);
+            }
+
+            const chunks: Buffer[] = [];
+            readStream.on("data", (chunk: Buffer) => chunks.push(chunk));
+            readStream.on("end", () => {
+              zipfile.close();
+              resolve({
+                fileName: target.fileName,
+                buffer: Buffer.concat(chunks),
+              });
+            });
+            readStream.on("error", (readErr) => {
+              zipfile.close();
+              reject(readErr);
+            });
           });
         });
-      });
 
-      zipfile.on("end", () => {
-        if (!found) {
+        zipfile.on("error", (zipErr) => {
           zipfile.close();
-          reject(new Error(`ZIP에 페이지가 없습니다: ${targetName}`));
-        }
-      });
+          reject(zipErr);
+        });
 
-      zipfile.on("error", (zipErr) => {
-        zipfile.close();
-        reject(zipErr);
-      });
-
-      zipfile.readEntry();
-    });
+        zipfile.readEntry();
+      },
+    );
   });
-
-  return { fileName: targetName, buffer };
 }

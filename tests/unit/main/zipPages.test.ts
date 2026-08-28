@@ -3,9 +3,8 @@ import { createWriteStream } from "fs";
 import fs from "fs/promises";
 import os from "os";
 import path from "path";
-import { afterAll, beforeEach, describe, expect, it } from "vitest";
+import { afterAll, describe, expect, it } from "vitest";
 import {
-  __resetZipPageCache,
   getZipPageNames,
   readZipPage,
 } from "../../../src/main/utils/zipPages.js";
@@ -40,10 +39,6 @@ afterAll(async () => {
   if (tempDir) await fs.rm(tempDir, { recursive: true, force: true });
 });
 
-beforeEach(() => {
-  __resetZipPageCache();
-});
-
 describe("getZipPageNames", () => {
   it("압축 순서가 아니라 자연 정렬 순서로 돌려준다", async () => {
     const zipPath = await makeZip("order.cbz", [
@@ -68,22 +63,6 @@ describe("getZipPageNames", () => {
     expect(await getZipPageNames(zipPath)).toStrictEqual(["001.png"]);
   });
 
-  it("파일이 바뀌면 캐시를 버린다", async () => {
-    const zipPath = await makeZip("cache.cbz", [
-      { fileName: "1.jpg", content: "a" },
-    ]);
-    expect(await getZipPageNames(zipPath)).toStrictEqual(["1.jpg"]);
-
-    // 같은 경로에 다른 내용을 덮어쓴다
-    await fs.rm(zipPath);
-    const rebuilt = await makeZip("cache.cbz", [
-      { fileName: "1.jpg", content: "a" },
-      { fileName: "2.jpg", content: "b" },
-    ]);
-    expect(rebuilt).toBe(zipPath);
-
-    expect(await getZipPageNames(zipPath)).toStrictEqual(["1.jpg", "2.jpg"]);
-  });
 });
 
 describe("readZipPage", () => {
