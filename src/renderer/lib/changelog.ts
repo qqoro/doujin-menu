@@ -15,6 +15,18 @@ export interface Changelog {
  */
 export const changelogData: Changelog[] = [
   {
+    version: "1.25.2",
+    changes: [
+      {
+        type: "fix",
+        title: "🐛 버그 수정",
+        items: [
+          "앱을 켜자마자 책을 열면 이미지가 로드되지 않던 문제를 수정했습니다.",
+        ],
+      },
+    ],
+  },
+  {
     version: "1.25.1",
     changes: [
       {
