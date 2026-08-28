@@ -62,7 +62,6 @@ describe("getZipPageNames", () => {
 
     expect(await getZipPageNames(zipPath)).toStrictEqual(["001.png"]);
   });
-
 });
 
 describe("readZipPage", () => {
