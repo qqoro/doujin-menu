@@ -277,53 +277,8 @@ app.whenReady().then(async () => {
     return;
   }
 
-  createWindow();
-
-  registerUpdaterHandlers(mainWindow);
-  registerBookHandlers();
-  registerConfigHandlers();
-  registerDirectoryHandlers();
-  registerDownloaderHandlers();
-  registerDownloadQueueHandlers(mainWindow);
-  registerEtcHandlers(mainWindow);
-  registerPresetHandlers();
-  registerSeriesCollectionHandlers();
-  registerBrowseHandlers();
-  registerStatisticsHandlers();
-  registerDuplicatesHandlers();
-  registerThumbnailHandlers();
-  registerWindowHandlers(mainWindow, createViewerWindow, viewerWindows);
-  registerSubscriptionHandlers(mainWindow);
-
-  // 다운로드 큐 초기화 (미완료 다운로드 복구)
-  await initializeDownloadQueue();
-
-  // 앱 사용 시간 추적 시작
-  try {
-    const [logId] = await db("AppUsageLog").insert({
-      started_at: new Date().toISOString(),
-      ended_at: null,
-      duration: null,
-    });
-    currentUsageLogId = logId;
-  } catch (error) {
-    console.error("[Main] 앱 사용 시간 추적 시작 실패:", error);
-  }
-
-  const tempThumbnailDir = path.join(
-    app.getPath("userData"),
-    "downloader_temp_thumbnails",
-  );
-  await fs.mkdir(tempThumbnailDir, { recursive: true });
-  await fs.mkdir(path.join(app.getPath("userData"), "temp_cover"), {
-    recursive: true,
-  });
-
-  // 오래된 임시 썸네일 정리. 설정의 수동 삭제만으로는 계속 쌓이기만 합니다.
-  // 실패는 로그만 남기고 넘어갑니다 — 정리 때문에 앱 시작이 막히면 안 됩니다.
-  void pruneTempThumbnails(tempThumbnailDir);
-
-  // 커스텀 프로토콜 등록
+  // 커스텀 프로토콜 등록. 렌더러는 자신이 시작된 시점에 등록된 스킴만 알 수 있으므로
+  // createWindow()보다 반드시 먼저 등록해야 한다.
   protocol.handle("doujin-menu", async (request) => {
     const url = new URL(request.url);
     const bookId = parseInt(url.hostname); // URL의 호스트 부분을 bookId로 사용
@@ -386,6 +341,52 @@ app.whenReady().then(async () => {
       return new Response("Internal server error", { status: 500 });
     }
   });
+
+  createWindow();
+
+  registerUpdaterHandlers(mainWindow);
+  registerBookHandlers();
+  registerConfigHandlers();
+  registerDirectoryHandlers();
+  registerDownloaderHandlers();
+  registerDownloadQueueHandlers(mainWindow);
+  registerEtcHandlers(mainWindow);
+  registerPresetHandlers();
+  registerSeriesCollectionHandlers();
+  registerBrowseHandlers();
+  registerStatisticsHandlers();
+  registerDuplicatesHandlers();
+  registerThumbnailHandlers();
+  registerWindowHandlers(mainWindow, createViewerWindow, viewerWindows);
+  registerSubscriptionHandlers(mainWindow);
+
+  // 다운로드 큐 초기화 (미완료 다운로드 복구)
+  await initializeDownloadQueue();
+
+  // 앱 사용 시간 추적 시작
+  try {
+    const [logId] = await db("AppUsageLog").insert({
+      started_at: new Date().toISOString(),
+      ended_at: null,
+      duration: null,
+    });
+    currentUsageLogId = logId;
+  } catch (error) {
+    console.error("[Main] 앱 사용 시간 추적 시작 실패:", error);
+  }
+
+  const tempThumbnailDir = path.join(
+    app.getPath("userData"),
+    "downloader_temp_thumbnails",
+  );
+  await fs.mkdir(tempThumbnailDir, { recursive: true });
+  await fs.mkdir(path.join(app.getPath("userData"), "temp_cover"), {
+    recursive: true,
+  });
+
+  // 오래된 임시 썸네일 정리. 설정의 수동 삭제만으로는 계속 쌓이기만 합니다.
+  // 실패는 로그만 남기고 넘어갑니다 — 정리 때문에 앱 시작이 막히면 안 됩니다.
+  void pruneTempThumbnails(tempThumbnailDir);
 
   // 앱 종료 시 외부 프로그램 임시 파일 정리
   app.on("before-quit", () => {
