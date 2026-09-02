@@ -174,6 +174,10 @@ describe("filterGroups", () => {
       key: "c",
       matchType: "title_normalized",
     }),
+    group([book({ id: 4, title: "표지만 같은 책" })], {
+      key: "d",
+      matchType: "cover_hash",
+    }),
   ];
 
   it("매치 타입으로 거른다", () => {
@@ -188,11 +192,18 @@ describe("filterGroups", () => {
     ).toEqual(["c"]);
   });
 
+  it("표지 그룹만 따로 거를 수 있다", () => {
+    expect(filterGroups(groups, "", "cover_hash").map((g) => g.key)).toEqual([
+      "d",
+    ]);
+  });
+
   it("전체를 고르면 정규화 그룹도 함께 나온다", () => {
     expect(filterGroups(groups, "", "all").map((g) => g.key)).toEqual([
       "a",
       "b",
       "c",
+      "d",
     ]);
   });
 
@@ -243,18 +254,20 @@ describe("matchTypeLabel / matchTypeBadgeVariant", () => {
     expect(matchTypeLabel("hitomi_id")).toBe("ID 일치");
     expect(matchTypeLabel("title")).toBe("제목 일치");
     expect(matchTypeLabel("title_normalized")).toBe("제목 유사");
+    expect(matchTypeLabel("cover_hash")).toBe("표지 유사");
   });
 
   it("근거가 확실한 순으로 배지 색이 갈린다", () => {
     expect(matchTypeBadgeVariant("hitomi_id")).toBe("default");
     expect(matchTypeBadgeVariant("title")).toBe("secondary");
     expect(matchTypeBadgeVariant("title_normalized")).toBe("outline");
+    expect(matchTypeBadgeVariant("cover_hash")).toBe("ghost");
   });
 
-  it("세 타입의 배지 색이 서로 겹치지 않는다", () => {
-    const variants = (["hitomi_id", "title", "title_normalized"] as const).map(
-      matchTypeBadgeVariant,
-    );
-    expect(new Set(variants).size).toBe(3);
+  it("네 타입의 배지 색이 서로 겹치지 않는다", () => {
+    const variants = (
+      ["hitomi_id", "title", "title_normalized", "cover_hash"] as const
+    ).map(matchTypeBadgeVariant);
+    expect(new Set(variants).size).toBe(4);
   });
 });

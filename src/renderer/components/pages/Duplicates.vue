@@ -1,5 +1,10 @@
 <script setup lang="ts">
-import { deleteDuplicateBooks, getDuplicateGroups } from "@/api";
+import {
+  backfillCoverHashes,
+  deleteDuplicateBooks,
+  getDuplicateGroups,
+  ipcRenderer,
+} from "@/api";
 import SmartSearchInput from "@/components/common/SmartSearchInput.vue";
 import SortMenu from "@/components/common/SortMenu.vue";
 import ViewOptionsBar from "@/components/common/ViewOptionsBar.vue";
@@ -38,9 +43,13 @@ import {
 } from "@/lib/duplicateCompare";
 import { Icon } from "@iconify/vue";
 import { useQuery, useQueryClient } from "@tanstack/vue-query";
-import { computed, ref } from "vue";
+import { computed, onMounted, onUnmounted, ref } from "vue";
 import { toast } from "vue-sonner";
-import type { DuplicateBookInfo, DuplicateGroup } from "../../../types/ipc";
+import type {
+  CoverHashProgress,
+  DuplicateBookInfo,
+  DuplicateGroup,
+} from "../../../types/ipc";
 import BookPreviewDialog from "../feature/BookPreviewDialog.vue";
 import DuplicateBookRow from "../feature/DuplicateBookRow.vue";
 import PageHeader from "../layout/PageHeader.vue";
@@ -57,6 +66,37 @@ const { data, status, isFetching, refetch } = useQuery<DuplicateGroup[]>({
 });
 
 const groups = computed(() => data.value ?? []);
+
+// 표지 해시 백필. 대상이 없으면 즉시 끝나므로 두 번째 진입부터는 체감이 없다
+const hashProgress = ref<CoverHashProgress | null>(null);
+
+const handleHashProgress = (
+  _event: Electron.IpcRendererEvent,
+  progress: CoverHashProgress,
+) => {
+  hashProgress.value = progress;
+};
+
+onMounted(async () => {
+  ipcRenderer.on("cover-hash-progress", handleHashProgress);
+  try {
+    const hashed = await backfillCoverHashes();
+    // 새로 채운 게 있을 때만 다시 가져온다. 없으면 방금 받은 목록이 이미 최신이다
+    if (hashed > 0) {
+      queryClient.invalidateQueries({ queryKey: ["duplicateGroups"] });
+    }
+  } catch (error) {
+    console.error("표지 해시 생성 실패:", error);
+    toast.error("표지 해시 생성에 실패했습니다.");
+  } finally {
+    hashProgress.value = null;
+  }
+});
+
+// keep-alive 아래에서 재마운트되므로 반드시 풀어줘야 핸들러가 쌓이지 않는다
+onUnmounted(() => {
+  ipcRenderer.off("cover-hash-progress", handleHashProgress);
+});
 
 // 검색·필터·정렬
 const searchQuery = ref("");
@@ -241,6 +281,14 @@ const confirmPermanent = () => performDelete(true);
       </template>
     </PageHeader>
 
+    <div
+      v-if="hashProgress"
+      class="bg-muted text-muted-foreground flex items-center gap-2 rounded-md px-3 py-2 text-sm"
+    >
+      <Icon icon="solar:refresh-bold-duotone" class="h-4 w-4 animate-spin" />
+      표지 정보 준비 중 {{ hashProgress.current }} / {{ hashProgress.total }}
+    </div>
+
     <div class="flex min-h-0 flex-1 flex-col gap-4">
       <PageToolbar>
         <template #search>
@@ -284,6 +332,12 @@ const confirmPermanent = () => performDelete(true);
                 @click="matchTypeFilter = 'title_normalized'"
               >
                 제목 유사
+              </DropdownMenuCheckboxItem>
+              <DropdownMenuCheckboxItem
+                :model-value="matchTypeFilter === 'cover_hash'"
+                @click="matchTypeFilter = 'cover_hash'"
+              >
+                표지 유사
               </DropdownMenuCheckboxItem>
             </DropdownMenuContent>
           </DropdownMenu>

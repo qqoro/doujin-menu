@@ -108,6 +108,16 @@ export async function deleteDuplicateBooks(
   return ipcRenderer.invoke("delete-duplicate-books", { bookIds, permanent });
 }
 
+// 표지 해시가 없는 책을 채운다. 대상이 없으면 0을 돌려주고 즉시 끝난다
+export async function backfillCoverHashes(): Promise<number> {
+  const result = await ipcRenderer.invoke("backfill-cover-hashes");
+  if (result.success) {
+    return result.hashedCount ?? 0;
+  } else {
+    throw new Error(result.error || "표지 해시 생성에 실패했습니다.");
+  }
+}
+
 export function openNewWindow(url: string) {
   ipcRenderer.send("open-new-window", url);
 }

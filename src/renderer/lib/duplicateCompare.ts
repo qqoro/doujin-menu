@@ -104,6 +104,7 @@ const MATCH_TYPE_LABELS: Record<DuplicateGroup["matchType"], string> = {
   hitomi_id: "ID 일치",
   title: "제목 일치",
   title_normalized: "제목 유사",
+  cover_hash: "표지 유사",
 };
 
 export const matchTypeLabel = (
@@ -113,9 +114,10 @@ export const matchTypeLabel = (
 /** 근거가 확실한 순으로 배지 색을 달리해 정확도 차이를 눈에 보이게 한다 */
 export const matchTypeBadgeVariant = (
   matchType: DuplicateGroup["matchType"],
-): "default" | "secondary" | "outline" => {
+): "default" | "secondary" | "outline" | "ghost" => {
   if (matchType === "hitomi_id") return "default";
-  return matchType === "title" ? "secondary" : "outline";
+  if (matchType === "title") return "secondary";
+  return matchType === "title_normalized" ? "outline" : "ghost";
 };
 
 export type DuplicateSortBy = "reclaimable" | "count" | "title";

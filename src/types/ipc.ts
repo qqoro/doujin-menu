@@ -176,11 +176,14 @@ export interface DuplicateBookInfo extends Book {
   file_mtime: number | null;
 }
 
-// 중복 그룹 (hitomi_id / 제목 완전 일치 / 정규화 제목 일치)
+// 중복 그룹 (hitomi_id / 제목 완전 일치 / 정규화 제목 일치 / 표지 해시 유사)
 export interface DuplicateGroup {
   key: string;
-  /** title_normalized는 표기 차이를 걷어낸 뒤에야 묶인 그룹이라 정확도가 한 단계 낮다 */
-  matchType: "hitomi_id" | "title" | "title_normalized";
+  /**
+   * 아래로 갈수록 근거가 약하다. title_normalized는 표기 차이를 걷어낸 뒤에야
+   * 묶인 그룹이고, cover_hash는 표지만 비슷할 뿐 다른 작품일 수 있다.
+   */
+  matchType: "hitomi_id" | "title" | "title_normalized" | "cover_hash";
   books: DuplicateBookInfo[];
 }
 
@@ -389,6 +392,10 @@ export interface IpcChannels {
   "delete-duplicate-books": {
     request: { bookIds: number[]; permanent: boolean };
     response: DeleteDuplicatesResult;
+  };
+  "backfill-cover-hashes": {
+    request: void;
+    response: { success: boolean; hashedCount?: number; error?: string };
   };
 
   "get-library-size": {
@@ -980,6 +987,12 @@ export interface InfoGenerationProgress {
   message: string;
 }
 
+// 표지 해시 백필 진행률
+export interface CoverHashProgress {
+  total: number;
+  current: number;
+}
+
 // 업데이트 상태 브로드캐스트 페이로드
 export interface UpdateStatusEvent {
   status:
@@ -1007,6 +1020,7 @@ export interface IpcListenChannels {
   "library-scan-completed": void;
   "library-scan-progress": LibraryScanProgress;
   "info-generation-progress": InfoGenerationProgress;
+  "cover-hash-progress": CoverHashProgress;
   "window-maximized": boolean;
   "download-progress": DownloadProgressEvent;
   "update-status": UpdateStatusEvent;

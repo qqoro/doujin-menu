@@ -4,6 +4,10 @@ import path from "path";
 import type { DuplicateBookInfo, DuplicateGroup } from "../../types/ipc.js";
 import db from "../db/index.js";
 import { console } from "../main.js";
+import {
+  groupByHamming,
+  type CoverHashItem,
+} from "../services/duplicateDetection/coverHash.js";
 import { normalizeTitleKey } from "../services/duplicateDetection/titleKey.js";
 import { handleDeleteBook, mapBooksToResponse } from "./bookHandler.js";
 
@@ -188,7 +192,40 @@ export const handleGetDuplicateGroups = async () => {
       }
 
       for (const [key, ids] of normalizedGroups) {
+        seenSignatures.add(groupSignature(ids));
         idGroups.push({ key, matchType: "title_normalized", ids });
+      }
+    }
+
+    // 4) 표지 해시 기준 그룹 — 제목이 전혀 달라도 같은 표지면 후보로 올린다.
+    //
+    // 해밍 거리는 SQL로 못 재니 두 컬럼만 읽어 메모리에서 묶는다. 3단계와
+    // 마찬가지로 살아남은 id의 행만 뒤에서 채운다.
+    const coverHashRows: CoverHashItem[] = await db("Book")
+      .select("id", "cover_hash as hash")
+      .whereNotNull("cover_hash")
+      .orderBy("id");
+
+    const coverGroups = groupByHamming(coverHashRows).filter(
+      (ids) => !seenSignatures.has(groupSignature(ids)),
+    );
+
+    if (coverGroups.length > 0) {
+      const missingCoverIds = coverGroups
+        .flat()
+        .filter((id) => !rowsById.has(id));
+
+      if (missingCoverIds.length > 0) {
+        const extraRows: BookRow[] = await db("Book")
+          .select("*")
+          .whereIn("id", missingCoverIds);
+        for (const row of extraRows) rowsById.set(row.id, row);
+      }
+
+      for (const ids of coverGroups) {
+        // 키는 사람이 읽을 것이 아니라 그룹 식별용이다. 대표 사본의 해시를 쓴다
+        const key = String(rowsById.get(ids[0])?.cover_hash ?? ids[0]);
+        idGroups.push({ key, matchType: "cover_hash", ids });
       }
     }
 

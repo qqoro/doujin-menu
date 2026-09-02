@@ -365,6 +365,94 @@ describe("handleGetDuplicateGroups", () => {
     expect(group.books.every((b) => b.file_size === null)).toBe(true);
   });
 
+  it("표지 해시가 가까우면 cover_hash 그룹으로 묶는다", async () => {
+    await seedBook(db, {
+      title: "표지 확인 A",
+      path: "/lib/ch-a",
+      cover_hash: "0f0f0f0f0f0f0f0f",
+    });
+    await seedBook(db, {
+      title: "전혀 다른 제목 B",
+      path: "/lib/ch-b",
+      cover_hash: "0f0f0f0f0f0f0f0e",
+    });
+
+    const result = await handleGetDuplicateGroups();
+
+    expect(result.success).toBe(true);
+    expect(result.groups).toHaveLength(1);
+    expect(result.groups![0].matchType).toBe("cover_hash");
+    expect(result.groups![0].books).toHaveLength(2);
+  });
+
+  it("표지 해시가 멀면 묶지 않는다", async () => {
+    await seedBook(db, {
+      title: "표지 확인 C",
+      path: "/lib/ch-c",
+      cover_hash: "0f0f0f0f0f0f0f0f",
+    });
+    await seedBook(db, {
+      title: "표지 확인 D",
+      path: "/lib/ch-d",
+      cover_hash: "f0f0f0f0f0f0f0f0",
+    });
+
+    const result = await handleGetDuplicateGroups();
+
+    expect(result.success).toBe(true);
+    expect(result.groups).toEqual([]);
+  });
+
+  it("cover_hash가 없는 책은 그룹핑에서 뺀다", async () => {
+    await seedBook(db, { title: "해시 없음 A", path: "/lib/nh-a" });
+    await seedBook(db, { title: "해시 없음 B", path: "/lib/nh-b" });
+
+    const result = await handleGetDuplicateGroups();
+
+    expect(result.success).toBe(true);
+    expect(result.groups).toEqual([]);
+  });
+
+  it("이미 다른 근거로 나온 그룹과 구성이 같으면 표지 그룹을 또 내지 않는다", async () => {
+    await seedBook(db, {
+      title: "같은 제목",
+      path: "/lib/dup-1",
+      cover_hash: "0f0f0f0f0f0f0f0f",
+    });
+    await seedBook(db, {
+      title: "같은 제목",
+      path: "/lib/dup-2",
+      cover_hash: "0f0f0f0f0f0f0f0f",
+    });
+
+    const result = await handleGetDuplicateGroups();
+
+    expect(result.groups).toHaveLength(1);
+    expect(result.groups![0].matchType).toBe("title");
+  });
+
+  it("표지 그룹의 오프라인 사본도 boolean 변환과 용량 생략이 유지된다", async () => {
+    await seedBook(db, {
+      title: "오프라인 표지 A",
+      path: "C:\\없는경로\\ch-a",
+      is_offline: true,
+      cover_hash: "3c3c3c3c3c3c3c3c",
+    });
+    await seedBook(db, {
+      title: "오프라인 표지 B",
+      path: "C:\\없는경로\\ch-b",
+      is_offline: true,
+      cover_hash: "3c3c3c3c3c3c3c3d",
+    });
+
+    const result = await handleGetDuplicateGroups();
+    const group = result.groups!.find((g) => g.matchType === "cover_hash")!;
+
+    expect(group.books).toHaveLength(2);
+    expect(group.books.every((b) => b.is_offline === true)).toBe(true);
+    expect(group.books.every((b) => b.file_size === null)).toBe(true);
+  });
+
   it("작가·태그가 함께 실린다 (제목만 같고 작가가 다르면 오탐 판별 근거)", async () => {
     const bookA = await seedBook(db, {
       title: "관계 테스트",

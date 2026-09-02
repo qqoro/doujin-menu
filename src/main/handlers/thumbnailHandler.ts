@@ -180,7 +180,7 @@ export async function generateThumbnailForBook(bookId: number) {
 
     // 워커 스레드 풀에서 워커를 가져와 썸네일 생성 작업 위임
     const worker = await getWorker();
-    await new Promise<void>((resolve, reject) => {
+    const hash = await new Promise<string | undefined>((resolve, reject) => {
       // 6. 워커로부터 작업 완료/실패 메시지를 수신하는 일회성 핸들러
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const messageHandler = (msg: any) => {
@@ -190,7 +190,7 @@ export async function generateThumbnailForBook(bookId: number) {
         releaseWorker(worker);
 
         if (msg.status === "success") {
-          resolve();
+          resolve(msg.hash);
         } else {
           console.error(
             `[Main] Worker failed for bookId: ${msg.bookId}, error: ${msg.error}`,
@@ -218,7 +218,7 @@ export async function generateThumbnailForBook(bookId: number) {
       });
     });
 
-    return { bookId, thumbnailPath }; // 썸네일 경로 반환
+    return { bookId, thumbnailPath, hash }; // 썸네일 경로와 표지 해시 반환
   } catch (error) {
     // 9. 전체 썸네일 생성 과정에서 발생한 예외를 처리
     console.error(
@@ -234,7 +234,7 @@ export const handleGenerateThumbnail = async (bookId: number) => {
   if (result) {
     await db("Book")
       .where("id", result.bookId)
-      .update({ cover_path: result.thumbnailPath });
+      .update({ cover_path: result.thumbnailPath, cover_hash: result.hash });
   }
 };
 
@@ -244,7 +244,11 @@ export const handleRegenerateAllThumbnails = async () => {
     const books = await db("Book").select("id");
 
     const queue = new PQueue({ concurrency: os.cpus().length });
-    const updatedThumbnails: { bookId: number; thumbnailPath: string }[] = [];
+    const updatedThumbnails: {
+      bookId: number;
+      thumbnailPath: string;
+      hash?: string;
+    }[] = [];
 
     for (const book of books) {
       queue.add(async () => {
@@ -259,10 +263,10 @@ export const handleRegenerateAllThumbnails = async () => {
 
     // 모든 썸네일 생성이 완료된 후, 단일 트랜잭션으로 DB 업데이트
     await db.transaction(async (trx) => {
-      for (const { bookId, thumbnailPath } of updatedThumbnails) {
+      for (const { bookId, thumbnailPath, hash } of updatedThumbnails) {
         await trx("Book")
           .where("id", bookId)
-          .update({ cover_path: thumbnailPath });
+          .update({ cover_path: thumbnailPath, cover_hash: hash });
       }
     });
 
@@ -272,6 +276,107 @@ export const handleRegenerateAllThumbnails = async () => {
     return { success: true, count: books.length };
   } catch (error) {
     console.error("[Main] Failed during thumbnail regeneration:", error);
+    return { success: false, error: (error as Error).message };
+  }
+};
+
+/**
+ * 진행 중인 백필. 창이 여럿이거나 페이지를 빠르게 드나들면 요청이 겹치는데,
+ * 그때마다 새로 돌리면 같은 책을 여러 번 해시한다. 이미 돌고 있으면 그
+ * 작업에 합류시킨다.
+ */
+let backfillInFlight: Promise<number> | null = null;
+
+/** 워커에게 해시만 요청한다. 실패해도 백필 전체를 멈추지 않는다 */
+const hashWithWorker = async (
+  bookId: number,
+  imagePath: string,
+): Promise<string | null> => {
+  const worker = await getWorker();
+  return new Promise<string | null>((resolve) => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const messageHandler = (msg: any) => {
+      pendingRejects.delete(worker);
+      worker.off("message", messageHandler);
+      releaseWorker(worker);
+      resolve(msg.status === "success" ? (msg.hash ?? null) : null);
+    };
+
+    // 워커가 크래시하면 message가 오지 않는다. 이 콜백이 없으면 영원히 미결이다
+    pendingRejects.set(worker, () => {
+      worker.off("message", messageHandler);
+      resolve(null);
+    });
+
+    worker.on("message", messageHandler);
+    worker.postMessage({
+      mode: "hash",
+      sourcePath: imagePath,
+      thumbnailPath: "",
+      bookId,
+      tempPath: app.getPath("temp"),
+      thumbnailDirPath: thumbnailDir,
+    });
+  });
+};
+
+const runCoverHashBackfill = async (): Promise<number> => {
+  const rows: { id: number }[] = await db("Book")
+    .select("id")
+    .whereNull("cover_hash")
+    .orderBy("id");
+
+  // 썸네일 파일이 있는 책만 대상이다. 없으면 해시를 만들 소스가 없다.
+  // 오프라인 책도 포함된다 — 썸네일은 userData에 있어 원본이 빠져도 읽힌다
+  const pending: { id: number; thumbnailPath: string }[] = [];
+  for (const row of rows) {
+    const thumbnailPath = path.join(thumbnailDir, `${row.id}.webp`);
+    const exists = await fs
+      .stat(thumbnailPath)
+      .then(() => true)
+      .catch(() => false);
+    if (exists) pending.push({ id: row.id, thumbnailPath });
+  }
+
+  if (pending.length === 0) return 0;
+
+  const queue = new PQueue({ concurrency: os.cpus().length });
+  const hashed: { id: number; hash: string }[] = [];
+  let done = 0;
+
+  for (const item of pending) {
+    queue.add(async () => {
+      const hash = await hashWithWorker(item.id, item.thumbnailPath);
+      if (hash) hashed.push({ id: item.id, hash });
+      done++;
+      broadcast("cover-hash-progress", {
+        total: pending.length,
+        current: done,
+      });
+    });
+  }
+  await queue.onIdle();
+
+  await db.transaction(async (trx) => {
+    for (const { id, hash } of hashed) {
+      await trx("Book").where("id", id).update({ cover_hash: hash });
+    }
+  });
+
+  return hashed.length;
+};
+
+export const handleBackfillCoverHashes = async () => {
+  if (!backfillInFlight) {
+    backfillInFlight = runCoverHashBackfill().finally(() => {
+      backfillInFlight = null;
+    });
+  }
+
+  try {
+    return { success: true, hashedCount: await backfillInFlight };
+  } catch (error) {
+    console.error("[Main] 표지 해시 백필 실패:", error);
     return { success: false, error: (error as Error).message };
   }
 };
@@ -288,4 +393,5 @@ export function registerThumbnailHandlers() {
   ipcMain.handle("regenerate-all-thumbnails", (_event) =>
     handleRegenerateAllThumbnails(),
   );
+  ipcMain.handle("backfill-cover-hashes", () => handleBackfillCoverHashes());
 }
