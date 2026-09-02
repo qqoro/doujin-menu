@@ -4,10 +4,15 @@ import path from "path";
 import type { DuplicateBookInfo, DuplicateGroup } from "../../types/ipc.js";
 import db from "../db/index.js";
 import { console } from "../main.js";
+import { normalizeTitleKey } from "../services/duplicateDetection/titleKey.js";
 import { handleDeleteBook, mapBooksToResponse } from "./bookHandler.js";
 
 // 경로 확장자로 압축파일 여부 판별 (Book.type은 장르 메타데이터이므로 사용 불가)
 const isArchivePath = (p: string) => /\.(zip|cbz)$/i.test(p);
+
+/** 구성이 똑같은 그룹을 두 번 보여주지 않으려고 쓰는 비교용 서명 */
+const groupSignature = (ids: number[]) =>
+  [...ids].sort((a, b) => a - b).join(",");
 
 interface BookRow {
   id: number;
@@ -86,6 +91,8 @@ export const handleGetDuplicateGroups = async () => {
     const rowsById = new Map<number, BookRow>();
     // hitomi_id 그룹에 포함된 book id 집합 (title 그룹 교차 중복 제거용)
     const hitomiGroupedIds = new Set<number>();
+    // 이미 만든 그룹의 서명. 정규화 그룹이 같은 구성을 되풀이하는 걸 막는다
+    const seenSignatures = new Set<string>();
 
     // 1) hitomi_id 기준 중복 그룹 — 서브쿼리 1회로 중복 키와 행을 함께 가져옴
     const hitomiRows: BookRow[] = await db("Book")
@@ -110,11 +117,9 @@ export const handleGetDuplicateGroups = async () => {
         hitomiGroupedIds.add(row.id);
       }
       for (const [key, books] of byHitomiId) {
-        idGroups.push({
-          key,
-          matchType: "hitomi_id",
-          ids: books.map((b) => b.id),
-        });
+        const ids = books.map((b) => b.id);
+        seenSignatures.add(groupSignature(ids));
+        idGroups.push({ key, matchType: "hitomi_id", ids });
       }
     }
 
@@ -141,7 +146,49 @@ export const handleGetDuplicateGroups = async () => {
         // 모든 사본이 이미 hitomi_id 그룹에 포함되면 같은 묶음이므로 title 그룹 제외 (교차 중복 제거)
         if (books.every((b) => hitomiGroupedIds.has(b.id))) continue;
         for (const row of books) rowsById.set(row.id, row);
-        idGroups.push({ key, matchType: "title", ids: books.map((b) => b.id) });
+        const ids = books.map((b) => b.id);
+        seenSignatures.add(groupSignature(ids));
+        idGroups.push({ key, matchType: "title", ids });
+      }
+    }
+
+    // 3) 정규화 제목 기준 그룹 — 표기만 다른 사본을 잡는다.
+    //
+    // 정규화는 JS에서 하므로 SQL로 중복만 걸러올 수 없다. 대신 두 컬럼만 훑고
+    // 중복으로 판명난 id의 행만 뒤에서 채운다. 전량을 select * 하면 5만 권
+    // 규모에서 그대로 비용이 된다.
+    const titleKeyRows: { id: number; title: string }[] = await db("Book")
+      .select("id", "title")
+      .where("title", "!=", "")
+      .orderBy("id");
+
+    const byNormalizedTitle = new Map<string, number[]>();
+    for (const row of titleKeyRows) {
+      const key = normalizeTitleKey(row.title);
+      // 빈 키는 비교할 알맹이가 없다는 뜻이라 묶지 않는다
+      if (!key) continue;
+      if (!byNormalizedTitle.has(key)) byNormalizedTitle.set(key, []);
+      byNormalizedTitle.get(key)!.push(row.id);
+    }
+
+    const normalizedGroups = [...byNormalizedTitle.entries()].filter(
+      ([, ids]) => ids.length > 1 && !seenSignatures.has(groupSignature(ids)),
+    );
+
+    if (normalizedGroups.length > 0) {
+      const missingIds = normalizedGroups
+        .flatMap(([, ids]) => ids)
+        .filter((id) => !rowsById.has(id));
+
+      if (missingIds.length > 0) {
+        const extraRows: BookRow[] = await db("Book")
+          .select("*")
+          .whereIn("id", missingIds);
+        for (const row of extraRows) rowsById.set(row.id, row);
+      }
+
+      for (const [key, ids] of normalizedGroups) {
+        idGroups.push({ key, matchType: "title_normalized", ids });
       }
     }
 

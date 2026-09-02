@@ -176,10 +176,11 @@ export interface DuplicateBookInfo extends Book {
   file_mtime: number | null;
 }
 
-// 중복 그룹 (hitomi_id 또는 제목 일치)
+// 중복 그룹 (hitomi_id / 제목 완전 일치 / 정규화 제목 일치)
 export interface DuplicateGroup {
   key: string;
-  matchType: "hitomi_id" | "title";
+  /** title_normalized는 표기 차이를 걷어낸 뒤에야 묶인 그룹이라 정확도가 한 단계 낮다 */
+  matchType: "hitomi_id" | "title" | "title_normalized";
   books: DuplicateBookInfo[];
 }
 

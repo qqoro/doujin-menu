@@ -30,6 +30,8 @@ import {
   formatBytes,
   groupReclaimableSize,
   groupTitle,
+  matchTypeBadgeVariant,
+  matchTypeLabel,
   sortGroups,
   summarizeGroups,
   type DuplicateSortBy,
@@ -133,9 +135,6 @@ const openPreview = (book: DuplicateBookInfo) => {
   previewBook.value = book;
   isPreviewOpen.value = true;
 };
-
-const getMatchTypeLabel = (matchType: DuplicateGroup["matchType"]) =>
-  matchType === "hitomi_id" ? "ID 일치" : "제목 일치";
 
 const toggleSelect = (bookId: number) => {
   const next = new Set(selectedIds.value);
@@ -280,6 +279,12 @@ const confirmPermanent = () => performDelete(true);
               >
                 제목 일치
               </DropdownMenuCheckboxItem>
+              <DropdownMenuCheckboxItem
+                :model-value="matchTypeFilter === 'title_normalized'"
+                @click="matchTypeFilter = 'title_normalized'"
+              >
+                제목 유사
+              </DropdownMenuCheckboxItem>
             </DropdownMenuContent>
           </DropdownMenu>
         </template>
@@ -367,12 +372,8 @@ const confirmPermanent = () => performDelete(true);
                 "
                 class="h-4 w-4 flex-shrink-0"
               />
-              <Badge
-                :variant="
-                  group.matchType === 'hitomi_id' ? 'default' : 'secondary'
-                "
-              >
-                {{ getMatchTypeLabel(group.matchType) }}
+              <Badge :variant="matchTypeBadgeVariant(group.matchType)">
+                {{ matchTypeLabel(group.matchType) }}
               </Badge>
               <span class="truncate text-sm font-semibold">
                 {{ groupTitle(group) }}

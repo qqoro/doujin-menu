@@ -236,6 +236,135 @@ describe("handleGetDuplicateGroups", () => {
     expect(result.groups).toEqual([]);
   });
 
+  it("표기만 다른 제목은 title_normalized 그룹으로 묶는다", async () => {
+    // 무수정판 꼬리표만 붙은 같은 작품 — 완전 일치로는 안 잡힌다
+    await seedBook(db, { title: "배수진", path: "/lib/n1" });
+    await seedBook(db, { title: "배수진 (decensored)", path: "/lib/n2" });
+
+    const result = await handleGetDuplicateGroups();
+
+    expect(result.success).toBe(true);
+    expect(result.groups).toHaveLength(1);
+    expect(result.groups![0].matchType).toBe("title_normalized");
+    expect(result.groups![0].books).toHaveLength(2);
+  });
+
+  it("권차가 다른 사본은 정규화해도 묶지 않는다", async () => {
+    await seedBook(db, { title: "임신 이야기 (2)", path: "/lib/v2" });
+    await seedBook(db, { title: "임신 이야기 (3)", path: "/lib/v3" });
+
+    const result = await handleGetDuplicateGroups();
+
+    expect(result.success).toBe(true);
+    expect(result.groups).toEqual([]);
+  });
+
+  it("완전 일치로 이미 잡힌 묶음을 title_normalized로 또 내지 않는다", async () => {
+    await seedBook(db, { title: "같은 제목", path: "/lib/s1" });
+    await seedBook(db, { title: "같은 제목", path: "/lib/s2" });
+
+    const result = await handleGetDuplicateGroups();
+
+    expect(result.success).toBe(true);
+    expect(result.groups).toHaveLength(1);
+    expect(result.groups![0].matchType).toBe("title");
+  });
+
+  it("완전 일치 그룹에 표기가 다른 사본이 더 붙으면 정규화 그룹도 함께 낸다", async () => {
+    // 구성이 다른 그룹이므로 서명이 달라 둘 다 살아남는다
+    await seedBook(db, { title: "공통 작품", path: "/lib/m1" });
+    await seedBook(db, { title: "공통 작품", path: "/lib/m2" });
+    await seedBook(db, { title: "공통 작품 (decensored)", path: "/lib/m3" });
+
+    const result = await handleGetDuplicateGroups();
+
+    expect(result.success).toBe(true);
+    const normalized = result.groups!.find(
+      (group) => group.matchType === "title_normalized",
+    );
+    expect(result.groups!.some((group) => group.matchType === "title")).toBe(
+      true,
+    );
+    expect(normalized?.books).toHaveLength(3);
+  });
+
+  it("괄호를 걷으면 알맹이가 없는 제목끼리는 묶지 않는다", async () => {
+    // 이모지만 남는 제목이 꼬리표를 공유한다는 이유로 뭉치는 오탐 방지
+    await seedBook(db, { title: "🐺 (decensored)", path: "/lib/e1" });
+    await seedBook(db, { title: "🎃 (decensored)", path: "/lib/e2" });
+
+    const result = await handleGetDuplicateGroups();
+
+    expect(result.success).toBe(true);
+    expect(result.groups).toEqual([]);
+  });
+
+  it("정규화 그룹의 사본에도 작가·태그가 실린다", async () => {
+    // 정규화 그룹은 뒤늦게 행을 채우는 경로를 타므로 관계 조회가 빠지기 쉽다
+    const bookA = await seedBook(db, { title: "관계 확인", path: "/lib/nr-a" });
+    const bookB = await seedBook(db, {
+      title: "관계 확인 (decensored)",
+      path: "/lib/nr-b",
+    });
+    const artist = await seedArtist(db, "작가N");
+    const tag = await seedTag(db, "태그N");
+    await db("BookArtist").insert([
+      { book_id: bookA.id, artist_id: artist.id },
+      { book_id: bookB.id, artist_id: artist.id },
+    ]);
+    await db("BookTag").insert({ book_id: bookB.id, tag_id: tag.id });
+
+    const result = await handleGetDuplicateGroups();
+    const group = result.groups!.find(
+      (g) => g.matchType === "title_normalized",
+    )!;
+
+    expect(group.books).toHaveLength(2);
+    expect(group.books.every((b) => b.artists?.length === 1)).toBe(true);
+    expect(group.books.find((b) => b.path === "/lib/nr-b")!.tags).toEqual([
+      { name: "태그N" },
+    ]);
+  });
+
+  it("정규화 그룹이 hitomi_id 그룹보다 넓으면 둘 다 낸다", async () => {
+    await seedBook(db, { title: "작품", path: "/lib/w1", hitomi_id: "555" });
+    await seedBook(db, { title: "작품", path: "/lib/w2", hitomi_id: "555" });
+    await seedBook(db, { title: "작품 (decensored)", path: "/lib/w3" });
+
+    const result = await handleGetDuplicateGroups();
+
+    const hitomi = result.groups!.find((g) => g.matchType === "hitomi_id");
+    const normalized = result.groups!.find(
+      (g) => g.matchType === "title_normalized",
+    );
+    expect(hitomi?.books).toHaveLength(2);
+    expect(normalized?.books).toHaveLength(3);
+    // 완전 일치 그룹은 hitomi_id 그룹과 구성이 같아 빠진다
+    expect(result.groups!.some((g) => g.matchType === "title")).toBe(false);
+  });
+
+  it("정규화 그룹의 오프라인 사본도 boolean 변환과 용량 생략이 유지된다", async () => {
+    await seedBook(db, {
+      title: "오프라인 확인",
+      path: "C:\\없는경로\\a",
+      is_offline: true,
+    });
+    await seedBook(db, {
+      title: "오프라인 확인 (decensored)",
+      path: "C:\\없는경로\\b",
+      is_offline: true,
+    });
+
+    const result = await handleGetDuplicateGroups();
+    const group = result.groups!.find(
+      (g) => g.matchType === "title_normalized",
+    )!;
+
+    expect(group.books).toHaveLength(2);
+    expect(group.books.every((b) => b.is_offline === true)).toBe(true);
+    expect(group.books.every((b) => b.file_size === null)).toBe(true);
+  });
+
   it("작가·태그가 함께 실린다 (제목만 같고 작가가 다르면 오탐 판별 근거)", async () => {
     const bookA = await seedBook(db, {
       title: "관계 테스트",

@@ -5,6 +5,8 @@ import {
   formatBytes,
   groupReclaimableSize,
   groupTitle,
+  matchTypeBadgeVariant,
+  matchTypeLabel,
   sortGroups,
   summarizeGroups,
 } from "@/lib/duplicateCompare";
@@ -168,11 +170,29 @@ describe("filterGroups", () => {
       key: "b",
       matchType: "hitomi_id",
     }),
+    group([book({ id: 3, title: "새벽 무렵 (decensored)" })], {
+      key: "c",
+      matchType: "title_normalized",
+    }),
   ];
 
   it("매치 타입으로 거른다", () => {
     expect(filterGroups(groups, "", "hitomi_id").map((g) => g.key)).toEqual([
       "b",
+    ]);
+  });
+
+  it("정규화 그룹만 따로 거를 수 있다", () => {
+    expect(
+      filterGroups(groups, "", "title_normalized").map((g) => g.key),
+    ).toEqual(["c"]);
+  });
+
+  it("전체를 고르면 정규화 그룹도 함께 나온다", () => {
+    expect(filterGroups(groups, "", "all").map((g) => g.key)).toEqual([
+      "a",
+      "b",
+      "c",
     ]);
   });
 
@@ -207,5 +227,34 @@ describe("groupTitle", () => {
       matchType: "hitomi_id",
     });
     expect(groupTitle(g)).toBe("어떤 작품");
+  });
+
+  it("정규화 그룹은 key가 정규화 문자열이라 첫 사본 제목을 쓴다", () => {
+    const g = group([book({ id: 1, title: "배수진 (decensored)" })], {
+      key: "haisuinojin배수진",
+      matchType: "title_normalized",
+    });
+    expect(groupTitle(g)).toBe("배수진 (decensored)");
+  });
+});
+
+describe("matchTypeLabel / matchTypeBadgeVariant", () => {
+  it("매치 타입마다 라벨이 있다", () => {
+    expect(matchTypeLabel("hitomi_id")).toBe("ID 일치");
+    expect(matchTypeLabel("title")).toBe("제목 일치");
+    expect(matchTypeLabel("title_normalized")).toBe("제목 유사");
+  });
+
+  it("근거가 확실한 순으로 배지 색이 갈린다", () => {
+    expect(matchTypeBadgeVariant("hitomi_id")).toBe("default");
+    expect(matchTypeBadgeVariant("title")).toBe("secondary");
+    expect(matchTypeBadgeVariant("title_normalized")).toBe("outline");
+  });
+
+  it("세 타입의 배지 색이 서로 겹치지 않는다", () => {
+    const variants = (["hitomi_id", "title", "title_normalized"] as const).map(
+      matchTypeBadgeVariant,
+    );
+    expect(new Set(variants).size).toBe(3);
   });
 });

@@ -91,9 +91,32 @@ export const summarizeGroups = (groups: DuplicateGroup[]): DuplicateSummary => {
   };
 };
 
-/** 그룹 헤더에 쓰는 대표 제목. hitomi_id 그룹은 key가 숫자라 첫 사본 제목을 쓴다 */
+/**
+ * 그룹 헤더에 쓰는 대표 제목.
+ *
+ * hitomi_id 그룹은 key가 숫자고 title_normalized 그룹은 key가 정규화 문자열이라,
+ * 어느 쪽도 사람이 읽을 게 못 된다. 그래서 첫 사본의 제목을 쓴다.
+ */
 export const groupTitle = (group: DuplicateGroup): string =>
   group.books[0]?.title ?? group.key;
+
+const MATCH_TYPE_LABELS: Record<DuplicateGroup["matchType"], string> = {
+  hitomi_id: "ID 일치",
+  title: "제목 일치",
+  title_normalized: "제목 유사",
+};
+
+export const matchTypeLabel = (
+  matchType: DuplicateGroup["matchType"],
+): string => MATCH_TYPE_LABELS[matchType];
+
+/** 근거가 확실한 순으로 배지 색을 달리해 정확도 차이를 눈에 보이게 한다 */
+export const matchTypeBadgeVariant = (
+  matchType: DuplicateGroup["matchType"],
+): "default" | "secondary" | "outline" => {
+  if (matchType === "hitomi_id") return "default";
+  return matchType === "title" ? "secondary" : "outline";
+};
 
 export type DuplicateSortBy = "reclaimable" | "count" | "title";
 
