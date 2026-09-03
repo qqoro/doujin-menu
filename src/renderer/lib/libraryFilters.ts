@@ -10,10 +10,16 @@
  * 오해의 원인이 되지 않습니다.
  */
 
+/**
+ * 읽음 상태는 `current_page`를 기준으로 세 구간으로 나뉩니다.
+ * 한 권은 반드시 한 구간에만 속하며, 통계 화면의 분류와 같은 기준입니다.
+ */
+export type ReadStatus = "all" | "unread" | "reading" | "completed";
+
 export type LibraryFilterState = {
   searchQuery: string;
   libraryPath: string;
-  readStatus: "all" | "read" | "unread";
+  readStatus: ReadStatus;
   isFavorite: string;
   offlineStatus: "all" | "online" | "offline";
 };
@@ -35,9 +41,30 @@ export type ActiveFilter = {
 };
 
 const READ_STATUS_LABELS: Record<string, string> = {
-  read: "읽음",
   unread: "안 읽음",
+  reading: "읽는 중",
+  completed: "완독",
 };
+
+const READ_STATUS_VALUES: readonly ReadStatus[] = [
+  "all",
+  "unread",
+  "reading",
+  "completed",
+];
+
+/**
+ * 저장된 설정이나 URL 쿼리에서 읽어온 값을 유효한 읽음 상태로 되돌립니다.
+ *
+ * 구버전의 `read`(한 번이라도 연 책)는 대응하는 구간이 없어 `all`로 떨어뜨립니다.
+ * 이 정규화가 없으면 라디오 그룹 어디에도 걸리지 않는 값이 그대로 남아
+ * 드롭다운이 아무것도 선택되지 않은 상태로 보입니다.
+ */
+export function normalizeReadStatus(value: unknown): ReadStatus {
+  return READ_STATUS_VALUES.includes(value as ReadStatus)
+    ? (value as ReadStatus)
+    : "all";
+}
 
 const OFFLINE_STATUS_LABELS: Record<string, string> = {
   online: "온라인만",

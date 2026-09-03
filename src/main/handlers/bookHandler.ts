@@ -240,6 +240,18 @@ export async function mapBooksToResponse<T extends MappableBookRow>(
  * @param withArtists `sub.artists`(작가명 집계)를 정렬·커서 비교에 쓸 때만 true.
  *   작가 조인만 붙이므로 나머지 8개 조인과 집계 4개는 그대로 빠진다.
  */
+/**
+ * 완독 판정. 읽는 중·안 읽음은 이 조건의 부정 위에 세워지므로, 세 구간은
+ * 정의상 서로 겹치지 않고 전체를 덮는다.
+ *
+ * COALESCE로 NULL을 먼저 0으로 눌러두는 것이 핵심이다. NULL이 남으면 `NOT`의
+ * 결과가 참도 거짓도 아닌 NULL이 되어, page_count를 모르는 책이 세 구간
+ * 어디에도 잡히지 않고 사라진다. page_count가 0이거나 NULL이면 끝을 알 수 없어
+ * 완독이 될 수 없고, 그런 책은 읽은 만큼에 따라 안 읽음이나 읽는 중으로 간다.
+ */
+const COMPLETED_CONDITION =
+  "(COALESCE(sub.page_count, 0) > 0 AND COALESCE(sub.current_page, 0) >= sub.page_count)";
+
 function buildFilteredQuery(
   filter: FilterParams | null,
   { withArtists = false }: { withArtists?: boolean } = {},
@@ -455,10 +467,19 @@ function buildFilteredQuery(
     }
   }
 
-  if (readStatus === "read") {
-    mainQuery.whereNotNull("sub.last_read_at");
+  // 읽음 상태는 `last_read_at`이 아니라 `current_page`로 가른다. 책을 열기만 해도
+  // `last_read_at`은 채워지므로, 그 기준으로는 1페이지에서 멈춘 책까지 읽은 책이
+  // 되어버린다. 세 구간은 통계 화면의 분류와 같은 기준이며 겹치지도 빠지지도 않는다.
+  if (readStatus === "completed") {
+    mainQuery.whereRaw(COMPLETED_CONDITION);
+  } else if (readStatus === "reading") {
+    mainQuery
+      .whereRaw("COALESCE(sub.current_page, 0) > 1")
+      .whereRaw(`NOT ${COMPLETED_CONDITION}`);
   } else if (readStatus === "unread") {
-    mainQuery.whereNull("sub.last_read_at");
+    mainQuery
+      .whereRaw("COALESCE(sub.current_page, 0) <= 1")
+      .whereRaw(`NOT ${COMPLETED_CONDITION}`);
   }
 
   if (isFavorite) {

@@ -3,6 +3,7 @@ import {
   activeFilters,
   hasActiveFilters,
   libraryPathLabel,
+  normalizeReadStatus,
   LIBRARY_FILTER_DEFAULTS,
   type LibraryFilterState,
 } from "../../../src/renderer/lib/libraryFilters";
@@ -46,6 +47,12 @@ describe("activeFilters", () => {
     expect(activeFilters(state({ readStatus: "unread" }))).toEqual([
       { key: "readStatus", label: "안 읽음" },
     ]);
+    expect(activeFilters(state({ readStatus: "reading" }))).toEqual([
+      { key: "readStatus", label: "읽는 중" },
+    ]);
+    expect(activeFilters(state({ readStatus: "completed" }))).toEqual([
+      { key: "readStatus", label: "완독" },
+    ]);
   });
 
   it("즐겨찾기 필터", () => {
@@ -64,7 +71,7 @@ describe("activeFilters", () => {
     const result = activeFilters(
       state({
         searchQuery: "nurse",
-        readStatus: "read",
+        readStatus: "completed",
         isFavorite: "favorite",
       }),
     );
@@ -73,7 +80,26 @@ describe("activeFilters", () => {
       "readStatus",
       "isFavorite",
     ]);
-    expect(hasActiveFilters(state({ readStatus: "read" }))).toBe(true);
+    expect(hasActiveFilters(state({ readStatus: "completed" }))).toBe(true);
+  });
+});
+
+describe("normalizeReadStatus", () => {
+  it("유효한 값은 그대로 통과한다", () => {
+    expect(normalizeReadStatus("all")).toBe("all");
+    expect(normalizeReadStatus("unread")).toBe("unread");
+    expect(normalizeReadStatus("reading")).toBe("reading");
+    expect(normalizeReadStatus("completed")).toBe("completed");
+  });
+
+  // 구버전의 `read`는 대응하는 구간이 없다. 그대로 두면 라디오 그룹 어디에도
+  // 걸리지 않아 드롭다운이 빈 상태로 보인다.
+  it("구버전 read와 알 수 없는 값은 all로 떨어진다", () => {
+    expect(normalizeReadStatus("read")).toBe("all");
+    expect(normalizeReadStatus("")).toBe("all");
+    expect(normalizeReadStatus(undefined)).toBe("all");
+    expect(normalizeReadStatus(null)).toBe("all");
+    expect(normalizeReadStatus(["unread"])).toBe("all");
   });
 });
 

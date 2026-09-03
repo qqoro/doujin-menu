@@ -246,7 +246,7 @@ export const defaultActions: ActionDefinition[] = [
   },
   {
     id: "library:cycle-read-status",
-    description: "읽음 상태 순환 (모두→읽음→안읽음)",
+    description: "읽음 상태 순환 (모두→안읽음→읽는중→완독)",
     context: "library",
     defaultKeys: ["r"],
   },

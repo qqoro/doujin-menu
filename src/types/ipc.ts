@@ -5,7 +5,7 @@ import type { Config } from "../main/handlers/configHandler.js";
 export interface FilterParams {
   searchQuery?: string;
   libraryPath?: string;
-  readStatus?: "all" | "read" | "unread";
+  readStatus?: "all" | "unread" | "reading" | "completed";
   sortBy?: string; // title, added_at, file_mtime, last_read_at, artists, page_count, hitomi_id, random
   sortOrder?: "asc" | "desc";
   isFavorite?: boolean;

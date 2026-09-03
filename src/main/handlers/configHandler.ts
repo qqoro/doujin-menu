@@ -12,7 +12,7 @@ import { handleGenerateThumbnail } from "./thumbnailHandler.js";
 export interface LibraryViewSettings {
   sortBy: string;
   sortOrder: "asc" | "desc";
-  readStatus: "all" | "read" | "unread";
+  readStatus: "all" | "unread" | "reading" | "completed";
   viewMode: "grid" | "list";
   // 아래 항목은 앱을 껐다 켜도 마지막 검색·필터 상태를 그대로 되살리기 위한 것.
   // 구버전 설정 파일에는 없으므로 optional이며, 없으면 기본값으로 시작한다.

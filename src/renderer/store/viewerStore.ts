@@ -13,7 +13,7 @@ import {
 export interface FilterParams {
   searchQuery?: string;
   libraryPath?: string;
-  readStatus?: "all" | "read" | "unread";
+  readStatus?: "all" | "unread" | "reading" | "completed";
   sortBy?: string;
   sortOrder?: "asc" | "desc";
   isFavorite?: boolean;

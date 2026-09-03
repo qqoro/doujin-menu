@@ -17,8 +17,10 @@ import { useBookDelete } from "@/composables/useBookDelete";
 import {
   activeFilters,
   libraryPathLabel,
+  normalizeReadStatus,
   LIBRARY_FILTER_DEFAULTS,
   type LibraryFilterState,
+  type ReadStatus,
 } from "@/lib/libraryFilters";
 import { toggleSearchTerm } from "@/lib/searchQuery";
 import { nextFocusIndex, type FocusDirection } from "@/lib/gridNavigation";
@@ -90,9 +92,7 @@ const previewBook = ref<Book | null>(null);
 
 // Filter and Sort State
 const libraryPath = ref((route.query.libraryPath as string) || "all");
-const readStatus = ref<"all" | "read" | "unread">(
-  (route.query.readStatus as "all" | "read" | "unread") || "all",
-);
+const readStatus = ref<ReadStatus>(normalizeReadStatus(route.query.readStatus));
 const isFavorite = ref((route.query.isFavorite as string) || "all");
 const offlineStatus = ref<"all" | "online" | "offline">(
   (route.query.offlineStatus as "all" | "online" | "offline") || "all",
@@ -178,7 +178,7 @@ const loadSettings = () => {
     const settings = config.value.libraryViewSettings as {
       sortBy: string;
       sortOrder: "asc" | "desc";
-      readStatus: "all" | "read" | "unread";
+      readStatus: ReadStatus;
       viewMode: "grid" | "list";
       searchQuery?: string;
       libraryPath?: string;
@@ -195,7 +195,7 @@ const loadSettings = () => {
       sortOrder.value = settings.sortOrder;
     }
     if (!query.readStatus) {
-      readStatus.value = settings.readStatus;
+      readStatus.value = normalizeReadStatus(settings.readStatus);
     }
     // 검색어와 나머지 필터도 복원한다. 구버전 설정에는 없는 값이라 기본값으로 대체
     if (!query.schWord) {
@@ -539,17 +539,19 @@ const toggleFavoriteFilter = () => {
   toast.info(isFavorite.value === "favorite" ? "즐겨찾기만 표시" : "전체 표시");
 };
 
-// 읽음 상태 순환 (모두 → 읽음 → 안읽음)
+// 읽음 상태 순환 (모두 → 안읽음 → 읽는중 → 완독)
 const cycleReadStatus = () => {
-  const cycle: Record<string, "all" | "read" | "unread"> = {
-    all: "read",
-    read: "unread",
-    unread: "all",
+  const cycle: Record<string, ReadStatus> = {
+    all: "unread",
+    unread: "reading",
+    reading: "completed",
+    completed: "all",
   };
   const labels: Record<string, string> = {
     all: "모두",
-    read: "읽음",
     unread: "안읽음",
+    reading: "읽는 중",
+    completed: "완독",
   };
   readStatus.value = cycle[readStatus.value] || "all";
   toast.info(`읽음 상태: ${labels[readStatus.value]}`);
@@ -725,7 +727,7 @@ const {
                 <li><kbd>D</kbd>: 정렬 기준 순환</li>
                 <li><kbd>S</kbd>: 정렬 순서 전환 (오름차순/내림차순)</li>
                 <li><kbd>F</kbd>: 즐겨찾기 필터 토글</li>
-                <li><kbd>R</kbd>: 읽음 상태 순환 (모두→읽음→안읽음)</li>
+                <li><kbd>R</kbd>: 읽음 상태 순환 (모두→안읽음→읽는중→완독)</li>
                 <li><kbd>P</kbd>: 프리셋 순환</li>
                 <li><kbd>[</kbd> / <kbd>]</kbd>: 이전/다음 라이브러리 폴더</li>
                 <li><kbd>Ctrl</kbd>+<kbd>Wheel</kbd>: 썸네일 밀도 조절</li>
@@ -884,9 +886,14 @@ const {
               <DropdownMenuLabel>읽음 상태</DropdownMenuLabel>
               <DropdownMenuRadioGroup v-model="readStatus">
                 <DropdownMenuRadioItem value="all">모두</DropdownMenuRadioItem>
-                <DropdownMenuRadioItem value="read">읽음</DropdownMenuRadioItem>
                 <DropdownMenuRadioItem value="unread"
                   >안 읽음</DropdownMenuRadioItem
+                >
+                <DropdownMenuRadioItem value="reading"
+                  >읽는 중</DropdownMenuRadioItem
+                >
+                <DropdownMenuRadioItem value="completed"
+                  >완독</DropdownMenuRadioItem
                 >
               </DropdownMenuRadioGroup>
               <DropdownMenuSeparator />

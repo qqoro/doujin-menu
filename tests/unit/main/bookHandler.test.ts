@@ -437,21 +437,76 @@ describe("handleGetBooks - 통합 테스트", () => {
       expect(ids).toHaveLength(2);
     });
 
-    it("readStatus=read → 읽은 책만", async () => {
-      await seedBook(db, { path: "/a", last_read_at: new Date("2024-01-01") });
-      await seedBook(db, { path: "/b", last_read_at: null });
+    it("readStatus=completed → 마지막 페이지까지 본 책만", async () => {
+      await seedBook(db, { path: "/a", current_page: 20, page_count: 20 });
+      await seedBook(db, { path: "/b", current_page: 25, page_count: 20 });
+      await seedBook(db, { path: "/c", current_page: 19, page_count: 20 });
 
-      const ids = await getResultIds({ readStatus: "read" });
-      expect(ids).toHaveLength(1);
+      const ids = await getResultIds({ readStatus: "completed" });
+      expect(ids).toHaveLength(2);
     });
 
-    it("readStatus=unread → 안 읽은 책만", async () => {
-      await seedBook(db, { path: "/a", last_read_at: new Date("2024-01-01") });
-      await seedBook(db, { path: "/b", last_read_at: null });
-      await seedBook(db, { path: "/c", last_read_at: null });
+    it("readStatus=reading → 2페이지 이상 봤지만 안 끝낸 책만", async () => {
+      await seedBook(db, { path: "/a", current_page: 2, page_count: 20 });
+      await seedBook(db, { path: "/b", current_page: 19, page_count: 20 });
+      await seedBook(db, { path: "/c", current_page: 20, page_count: 20 });
+      await seedBook(db, { path: "/d", current_page: 1, page_count: 20 });
+
+      const ids = await getResultIds({ readStatus: "reading" });
+      expect(ids).toHaveLength(2);
+    });
+
+    it("readStatus=unread → 1페이지에서 멈춘 책도 안 읽음으로 본다", async () => {
+      // 책을 열기만 해도 last_read_at은 채워지므로 그것만으로는 읽었다고 볼 수 없다
+      await seedBook(db, {
+        path: "/a",
+        current_page: 1,
+        page_count: 20,
+        last_read_at: new Date("2024-01-01"),
+      });
+      await seedBook(db, { path: "/b", current_page: 0, page_count: 20 });
+      await seedBook(db, { path: "/c", current_page: null, page_count: 20 });
+      await seedBook(db, { path: "/d", current_page: 5, page_count: 20 });
 
       const ids = await getResultIds({ readStatus: "unread" });
-      expect(ids).toHaveLength(2);
+      expect(ids).toHaveLength(3);
+    });
+
+    it("1페이지짜리 책은 완독으로만 잡히고 안 읽음에는 빠진다", async () => {
+      await seedBook(db, { path: "/a", current_page: 1, page_count: 1 });
+
+      expect(await getResultIds({ readStatus: "completed" })).toHaveLength(1);
+      expect(await getResultIds({ readStatus: "unread" })).toHaveLength(0);
+      expect(await getResultIds({ readStatus: "reading" })).toHaveLength(0);
+    });
+
+    it("세 구간은 서로 겹치지 않고 전체를 덮는다", async () => {
+      const rows = [
+        { current_page: null, page_count: 20 },
+        { current_page: 0, page_count: 20 },
+        { current_page: 1, page_count: 20 },
+        { current_page: 2, page_count: 20 },
+        { current_page: 19, page_count: 20 },
+        { current_page: 20, page_count: 20 },
+        { current_page: 25, page_count: 20 },
+        { current_page: 1, page_count: 1 },
+        // 페이지 수를 모르는 책도 반드시 어느 한 구간에는 잡혀야 한다
+        { current_page: null, page_count: null },
+        { current_page: 5, page_count: null },
+        { current_page: 0, page_count: 0 },
+        { current_page: 5, page_count: 0 },
+      ];
+      for (const [index, row] of rows.entries()) {
+        await seedBook(db, { path: `/book-${index}`, ...row });
+      }
+
+      const unread = await getResultIds({ readStatus: "unread" });
+      const reading = await getResultIds({ readStatus: "reading" });
+      const completed = await getResultIds({ readStatus: "completed" });
+      const union = [...unread, ...reading, ...completed];
+
+      expect(new Set(union).size).toBe(union.length);
+      expect(union).toHaveLength(rows.length);
     });
 
     it("isFavorite=true → 즐겨찾기만", async () => {
@@ -823,24 +878,27 @@ describe("handleGetBooks - 통합 테스트", () => {
         path: "/a",
         title: "테스트",
         is_favorite: true,
-        last_read_at: new Date("2024-01-01"),
+        current_page: 20,
+        page_count: 20,
       });
       await seedBook(db, {
         path: "/b",
         title: "테스트",
         is_favorite: true,
-        last_read_at: null,
+        current_page: 1,
+        page_count: 20,
       });
       await seedBook(db, {
         path: "/c",
         title: "테스트",
         is_favorite: false,
-        last_read_at: new Date("2024-01-01"),
+        current_page: 20,
+        page_count: 20,
       });
 
       const ids = await getResultIds({
         searchQuery: "테스트",
-        readStatus: "read",
+        readStatus: "completed",
         isFavorite: true,
       });
       expect(ids).toEqual([book1.id]);
