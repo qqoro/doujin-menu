@@ -18,9 +18,13 @@ import {
   activeFilters,
   libraryPathLabel,
   normalizeReadStatus,
+  parseFilterChipKey,
+  parseLibraryPaths,
+  parseReadStatuses,
+  toggleFilterValue,
   LIBRARY_FILTER_DEFAULTS,
+  READ_STATUS_OPTIONS,
   type LibraryFilterState,
-  type ReadStatus,
 } from "@/lib/libraryFilters";
 import { toggleSearchTerm } from "@/lib/searchQuery";
 import { nextFocusIndex, type FocusDirection } from "@/lib/gridNavigation";
@@ -28,6 +32,7 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuLabel,
+  DropdownMenuCheckboxItem,
   DropdownMenuRadioGroup,
   DropdownMenuRadioItem,
   DropdownMenuSeparator,
@@ -53,6 +58,7 @@ import {
   ref,
   toRaw,
   watch,
+  type Ref,
 } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import { toast } from "vue-sonner";
@@ -92,7 +98,7 @@ const previewBook = ref<Book | null>(null);
 
 // Filter and Sort State
 const libraryPath = ref((route.query.libraryPath as string) || "all");
-const readStatus = ref<ReadStatus>(normalizeReadStatus(route.query.readStatus));
+const readStatus = ref(normalizeReadStatus(route.query.readStatus));
 const isFavorite = ref((route.query.isFavorite as string) || "all");
 const offlineStatus = ref<"all" | "online" | "offline">(
   (route.query.offlineStatus as "all" | "online" | "offline") || "all",
@@ -125,6 +131,17 @@ const { schWord: searchQuery } = useQueryAndParams({
   resetOnEmptyQuery: false,
 });
 
+const selectedLibraryPaths = computed(() =>
+  parseLibraryPaths(libraryPath.value),
+);
+const selectedReadStatuses = computed(() =>
+  parseReadStatuses(readStatus.value),
+);
+
+// 항목 하나를 누를 때마다 메뉴가 닫히면 조건을 이어서 손볼 수 없다.
+// 라디오 항목도 값 변경은 select 이벤트와 무관하게 일어나므로 안전하다
+const keepMenuOpen = (event: Event) => event.preventDefault();
+
 // 지금 걸려 있는 검색·필터. 왜 눈에 보여야 하는지는 lib/libraryFilters.ts 참고
 const appliedFilters = computed(() =>
   activeFilters({
@@ -145,16 +162,28 @@ const filterResetters: Record<keyof LibraryFilterState, () => void> = {
     (offlineStatus.value = LIBRARY_FILTER_DEFAULTS.offlineStatus),
 };
 
-// 칩 하나만 해제
-const clearFilter = (key: keyof LibraryFilterState) => filterResetters[key]();
+/** 값을 여러 개 고를 수 있는 필터 */
+const multiValueFilters: Partial<
+  Record<keyof LibraryFilterState, Ref<string>>
+> = {
+  libraryPath,
+  readStatus,
+};
 
 // 걸려 있는 조건 전부 해제
 const clearAllFilters = () =>
   Object.values(filterResetters).forEach((resetOne) => resetOne());
 
-// 칩 컴포넌트는 키를 문자열로 넘긴다. 라이브러리 필터 키로 좁혀서 받는다
-const clearFilterByKey = (key: string) =>
-  clearFilter(key as keyof LibraryFilterState);
+// 칩 하나만 해제. 여러 값을 고를 수 있는 필터는 누른 값만 빠진다
+const clearFilterByKey = (key: string) => {
+  const { field, value } = parseFilterChipKey(key);
+  const target = multiValueFilters[field];
+  if (target && value !== undefined) {
+    target.value = toggleFilterValue(target.value, value);
+    return;
+  }
+  filterResetters[field]();
+};
 
 // 검색어 debounce 적용 (API 호출 최적화)
 const debouncedSearchQuery = debouncedRef(searchQuery, 300);
@@ -178,7 +207,7 @@ const loadSettings = () => {
     const settings = config.value.libraryViewSettings as {
       sortBy: string;
       sortOrder: "asc" | "desc";
-      readStatus: ReadStatus;
+      readStatus: string;
       viewMode: "grid" | "list";
       searchQuery?: string;
       libraryPath?: string;
@@ -318,8 +347,8 @@ const queryKey = computed(
       "books",
       {
         searchQuery: debouncedSearchQuery.value,
-        libraryPath: libraryPath.value,
-        readStatus: readStatus.value,
+        libraryPath: selectedLibraryPaths.value,
+        readStatus: selectedReadStatuses.value,
         offlineStatus: offlineStatus.value,
         sortBy: sortBy.value,
         sortOrder: sortOrder.value,
@@ -541,20 +570,14 @@ const toggleFavoriteFilter = () => {
 
 // 읽음 상태 순환 (모두 → 안읽음 → 읽는중 → 완독)
 const cycleReadStatus = () => {
-  const cycle: Record<string, ReadStatus> = {
-    all: "unread",
-    unread: "reading",
-    reading: "completed",
-    completed: "all",
-  };
-  const labels: Record<string, string> = {
-    all: "모두",
-    unread: "안읽음",
-    reading: "읽는 중",
-    completed: "완독",
-  };
-  readStatus.value = cycle[readStatus.value] || "all";
-  toast.info(`읽음 상태: ${labels[readStatus.value]}`);
+  const values = READ_STATUS_OPTIONS.map((option) => option.value);
+  const current = selectedReadStatuses.value[0];
+  const next = values[current ? values.indexOf(current) + 1 : 0];
+
+  readStatus.value = next ?? LIBRARY_FILTER_DEFAULTS.readStatus;
+  toast.info(
+    `읽음 상태: ${READ_STATUS_OPTIONS.find((o) => o.value === next)?.label ?? "모두"}`,
+  );
 };
 
 // 프리셋 순환
@@ -575,19 +598,17 @@ const cycleLibrary = (direction: 1 | -1) => {
   const dirs = libraryDirectories.value;
   if (dirs.length === 0) return;
 
-  // 현재 선택된 라이브러리의 인덱스 찾기
-  const currentIndex =
-    libraryPath.value === "all" ? -1 : dirs.indexOf(libraryPath.value);
+  // 여러 개를 골라둔 상태에서는 첫 번째를 기준으로 삼고, 순환 결과는 하나만 남긴다
+  const currentIndex = dirs.indexOf(selectedLibraryPaths.value[0]);
   // 순환: all(-1) → 0 → 1 → ... → N-1 → all(-1)
   const totalOptions = dirs.length + 1; // all + 각 폴더
   const currentSlot = currentIndex === -1 ? 0 : currentIndex + 1;
   const nextSlot = (currentSlot + direction + totalOptions) % totalOptions;
 
-  libraryPath.value = nextSlot === 0 ? "all" : dirs[nextSlot - 1];
+  libraryPath.value =
+    nextSlot === 0 ? LIBRARY_FILTER_DEFAULTS.libraryPath : dirs[nextSlot - 1];
   toast.info(
-    libraryPath.value === "all"
-      ? "모든 라이브러리"
-      : libraryPathLabel(libraryPath.value),
+    nextSlot === 0 ? "모든 라이브러리" : libraryPathLabel(libraryPath.value),
   );
 };
 
@@ -869,51 +890,71 @@ const {
             <DropdownMenuContent class="w-64">
               <!-- 폴더도 책을 감추는 조건이라 다른 필터와 같은 자리에 둔다 -->
               <DropdownMenuLabel>라이브러리 폴더</DropdownMenuLabel>
-              <DropdownMenuRadioGroup v-model="libraryPath">
-                <DropdownMenuRadioItem value="all">
-                  모든 라이브러리
-                </DropdownMenuRadioItem>
-                <DropdownMenuRadioItem
-                  v-for="dir in libraryDirectories"
-                  :key="dir"
-                  :value="dir"
-                  class="truncate"
-                >
-                  <span class="truncate" :title="dir">{{ dir }}</span>
-                </DropdownMenuRadioItem>
-              </DropdownMenuRadioGroup>
+              <DropdownMenuCheckboxItem
+                :model-value="selectedLibraryPaths.length === 0"
+                @select="keepMenuOpen"
+                @update:model-value="
+                  libraryPath = LIBRARY_FILTER_DEFAULTS.libraryPath
+                "
+              >
+                모든 라이브러리
+              </DropdownMenuCheckboxItem>
+              <DropdownMenuCheckboxItem
+                v-for="dir in libraryDirectories"
+                :key="dir"
+                :model-value="selectedLibraryPaths.includes(dir)"
+                class="truncate"
+                @select="keepMenuOpen"
+                @update:model-value="
+                  libraryPath = toggleFilterValue(libraryPath, dir)
+                "
+              >
+                <span class="truncate" :title="dir">{{ dir }}</span>
+              </DropdownMenuCheckboxItem>
               <DropdownMenuSeparator />
               <DropdownMenuLabel>읽음 상태</DropdownMenuLabel>
-              <DropdownMenuRadioGroup v-model="readStatus">
-                <DropdownMenuRadioItem value="all">모두</DropdownMenuRadioItem>
-                <DropdownMenuRadioItem value="unread"
-                  >안 읽음</DropdownMenuRadioItem
-                >
-                <DropdownMenuRadioItem value="reading"
-                  >읽는 중</DropdownMenuRadioItem
-                >
-                <DropdownMenuRadioItem value="completed"
-                  >완독</DropdownMenuRadioItem
-                >
-              </DropdownMenuRadioGroup>
+              <DropdownMenuCheckboxItem
+                :model-value="selectedReadStatuses.length === 0"
+                @select="keepMenuOpen"
+                @update:model-value="
+                  readStatus = LIBRARY_FILTER_DEFAULTS.readStatus
+                "
+              >
+                모두
+              </DropdownMenuCheckboxItem>
+              <DropdownMenuCheckboxItem
+                v-for="option in READ_STATUS_OPTIONS"
+                :key="option.value"
+                :model-value="selectedReadStatuses.includes(option.value)"
+                @select="keepMenuOpen"
+                @update:model-value="
+                  readStatus = toggleFilterValue(readStatus, option.value)
+                "
+              >
+                {{ option.label }}
+              </DropdownMenuCheckboxItem>
               <DropdownMenuSeparator />
               <DropdownMenuLabel>즐겨찾기</DropdownMenuLabel>
               <DropdownMenuRadioGroup v-model="isFavorite">
-                <DropdownMenuRadioItem value="all">모두</DropdownMenuRadioItem>
-                <DropdownMenuRadioItem value="favorite"
-                  >즐겨찾기만</DropdownMenuRadioItem
-                >
+                <DropdownMenuRadioItem value="all" @select="keepMenuOpen">
+                  모두
+                </DropdownMenuRadioItem>
+                <DropdownMenuRadioItem value="favorite" @select="keepMenuOpen">
+                  즐겨찾기만
+                </DropdownMenuRadioItem>
               </DropdownMenuRadioGroup>
               <DropdownMenuSeparator />
               <DropdownMenuLabel>오프라인 상태</DropdownMenuLabel>
               <DropdownMenuRadioGroup v-model="offlineStatus">
-                <DropdownMenuRadioItem value="all">모두</DropdownMenuRadioItem>
-                <DropdownMenuRadioItem value="online"
-                  >온라인만</DropdownMenuRadioItem
-                >
-                <DropdownMenuRadioItem value="offline"
-                  >오프라인만</DropdownMenuRadioItem
-                >
+                <DropdownMenuRadioItem value="all" @select="keepMenuOpen">
+                  모두
+                </DropdownMenuRadioItem>
+                <DropdownMenuRadioItem value="online" @select="keepMenuOpen">
+                  온라인만
+                </DropdownMenuRadioItem>
+                <DropdownMenuRadioItem value="offline" @select="keepMenuOpen">
+                  오프라인만
+                </DropdownMenuRadioItem>
               </DropdownMenuRadioGroup>
             </DropdownMenuContent>
           </DropdownMenu>

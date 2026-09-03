@@ -3,6 +3,7 @@ import { watchDebounced } from "@vueuse/core";
 import { defineStore } from "pinia";
 import { computed, nextTick, ref, toRaw, watch } from "vue";
 import { useRouter } from "vue-router";
+import type { FilterParams } from "../../types/ipc";
 import {
   nextSortBy,
   toggledSortOrder,
@@ -10,15 +11,7 @@ import {
   SORT_LABELS,
 } from "./sortCycle";
 
-export interface FilterParams {
-  searchQuery?: string;
-  libraryPath?: string;
-  readStatus?: "all" | "unread" | "reading" | "completed";
-  sortBy?: string;
-  sortOrder?: "asc" | "desc";
-  isFavorite?: boolean;
-  offlineStatus?: "all" | "online" | "offline";
-}
+export type { FilterParams };
 
 export const useViewerStore = defineStore("viewer", () => {
   const router = useRouter();

@@ -3,7 +3,7 @@ import fs from "fs/promises";
 import type { Knex } from "knex";
 import path from "path";
 import * as yauzl from "yauzl";
-import type { Book, FilterParams } from "../../types/ipc.js";
+import type { Book, FilterParams, ReadStatus } from "../../types/ipc.js";
 import db from "../db/index.js";
 import { console } from "../main.js";
 import { broadcast } from "../utils/broadcast.js";
@@ -252,15 +252,28 @@ export async function mapBooksToResponse<T extends MappableBookRow>(
 const COMPLETED_CONDITION =
   "(COALESCE(sub.page_count, 0) > 0 AND COALESCE(sub.current_page, 0) >= sub.page_count)";
 
+/**
+ * 읽음 상태 구간별 조건.
+ *
+ * `last_read_at`이 아니라 `current_page`로 가른다. 책을 열기만 해도
+ * `last_read_at`은 채워지므로, 그 기준으로는 1페이지에서 멈춘 책까지 읽은 책이
+ * 되어버린다. 세 구간은 통계 화면의 분류와 같은 기준이며 겹치지도 빠지지도 않는다.
+ */
+const READ_STATUS_CONDITIONS: Record<ReadStatus, string> = {
+  completed: COMPLETED_CONDITION,
+  reading: `(COALESCE(sub.current_page, 0) > 1 AND NOT ${COMPLETED_CONDITION})`,
+  unread: `(COALESCE(sub.current_page, 0) <= 1 AND NOT ${COMPLETED_CONDITION})`,
+};
+
 function buildFilteredQuery(
   filter: FilterParams | null,
   { withArtists = false }: { withArtists?: boolean } = {},
 ) {
   const {
     searchQuery = "",
-    readStatus = "all",
+    readStatus = [],
     isFavorite = false,
-    libraryPath = "",
+    libraryPath = [],
     offlineStatus = "all",
   } = filter || {};
 
@@ -279,8 +292,13 @@ function buildFilteredQuery(
       )
     : db("Book as sub");
 
-  if (libraryPath && libraryPath !== "all") {
-    mainQuery.where("sub.path", "like", `${libraryPath}%`);
+  // 폴더를 여러 개 고르면 그중 하나에만 속해도 나온다
+  if (libraryPath.length > 0) {
+    mainQuery.where((builder) => {
+      for (const path of libraryPath) {
+        builder.orWhere("sub.path", "like", `${path}%`);
+      }
+    });
   }
 
   if (searchQuery) {
@@ -467,19 +485,12 @@ function buildFilteredQuery(
     }
   }
 
-  // 읽음 상태는 `last_read_at`이 아니라 `current_page`로 가른다. 책을 열기만 해도
-  // `last_read_at`은 채워지므로, 그 기준으로는 1페이지에서 멈춘 책까지 읽은 책이
-  // 되어버린다. 세 구간은 통계 화면의 분류와 같은 기준이며 겹치지도 빠지지도 않는다.
-  if (readStatus === "completed") {
-    mainQuery.whereRaw(COMPLETED_CONDITION);
-  } else if (readStatus === "reading") {
-    mainQuery
-      .whereRaw("COALESCE(sub.current_page, 0) > 1")
-      .whereRaw(`NOT ${COMPLETED_CONDITION}`);
-  } else if (readStatus === "unread") {
-    mainQuery
-      .whereRaw("COALESCE(sub.current_page, 0) <= 1")
-      .whereRaw(`NOT ${COMPLETED_CONDITION}`);
+  // 여러 구간을 고르면 합집합이 된다. 세 개를 다 고르면 조건이 없는 것과 같다
+  const readStatusConditions = readStatus
+    .map((status) => READ_STATUS_CONDITIONS[status])
+    .filter(Boolean);
+  if (readStatusConditions.length > 0) {
+    mainQuery.whereRaw(`(${readStatusConditions.join(" OR ")})`);
   }
 
   if (isFavorite) {

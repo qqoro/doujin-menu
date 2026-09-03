@@ -442,7 +442,7 @@ describe("handleGetBooks - 통합 테스트", () => {
       await seedBook(db, { path: "/b", current_page: 25, page_count: 20 });
       await seedBook(db, { path: "/c", current_page: 19, page_count: 20 });
 
-      const ids = await getResultIds({ readStatus: "completed" });
+      const ids = await getResultIds({ readStatus: ["completed"] });
       expect(ids).toHaveLength(2);
     });
 
@@ -452,7 +452,7 @@ describe("handleGetBooks - 통합 테스트", () => {
       await seedBook(db, { path: "/c", current_page: 20, page_count: 20 });
       await seedBook(db, { path: "/d", current_page: 1, page_count: 20 });
 
-      const ids = await getResultIds({ readStatus: "reading" });
+      const ids = await getResultIds({ readStatus: ["reading"] });
       expect(ids).toHaveLength(2);
     });
 
@@ -468,16 +468,16 @@ describe("handleGetBooks - 통합 테스트", () => {
       await seedBook(db, { path: "/c", current_page: null, page_count: 20 });
       await seedBook(db, { path: "/d", current_page: 5, page_count: 20 });
 
-      const ids = await getResultIds({ readStatus: "unread" });
+      const ids = await getResultIds({ readStatus: ["unread"] });
       expect(ids).toHaveLength(3);
     });
 
     it("1페이지짜리 책은 완독으로만 잡히고 안 읽음에는 빠진다", async () => {
       await seedBook(db, { path: "/a", current_page: 1, page_count: 1 });
 
-      expect(await getResultIds({ readStatus: "completed" })).toHaveLength(1);
-      expect(await getResultIds({ readStatus: "unread" })).toHaveLength(0);
-      expect(await getResultIds({ readStatus: "reading" })).toHaveLength(0);
+      expect(await getResultIds({ readStatus: ["completed"] })).toHaveLength(1);
+      expect(await getResultIds({ readStatus: ["unread"] })).toHaveLength(0);
+      expect(await getResultIds({ readStatus: ["reading"] })).toHaveLength(0);
     });
 
     it("세 구간은 서로 겹치지 않고 전체를 덮는다", async () => {
@@ -500,9 +500,9 @@ describe("handleGetBooks - 통합 테스트", () => {
         await seedBook(db, { path: `/book-${index}`, ...row });
       }
 
-      const unread = await getResultIds({ readStatus: "unread" });
-      const reading = await getResultIds({ readStatus: "reading" });
-      const completed = await getResultIds({ readStatus: "completed" });
+      const unread = await getResultIds({ readStatus: ["unread"] });
+      const reading = await getResultIds({ readStatus: ["reading"] });
+      const completed = await getResultIds({ readStatus: ["completed"] });
       const union = [...unread, ...reading, ...completed];
 
       expect(new Set(union).size).toBe(union.length);
@@ -521,15 +521,62 @@ describe("handleGetBooks - 통합 테스트", () => {
       await seedBook(db, { path: "/library/a/book1" });
       await seedBook(db, { path: "/library/b/book2" });
 
-      const ids = await getResultIds({ libraryPath: "/library/a" });
+      const ids = await getResultIds({ libraryPath: ["/library/a"] });
       expect(ids).toHaveLength(1);
     });
 
-    it("libraryPath=all → 전체 조회", async () => {
+    it("libraryPath 빈 배열 → 전체 조회", async () => {
       await seedBook(db, { path: "/library/a/book1" });
       await seedBook(db, { path: "/library/b/book2" });
 
-      const ids = await getResultIds({ libraryPath: "all" });
+      const ids = await getResultIds({ libraryPath: [] });
+      expect(ids).toHaveLength(2);
+    });
+
+    it("libraryPath 여러 개 → 고른 폴더들의 책만", async () => {
+      await seedBook(db, { path: "/library/a/book1" });
+      await seedBook(db, { path: "/library/b/book2" });
+      await seedBook(db, { path: "/library/c/book3" });
+
+      const ids = await getResultIds({
+        libraryPath: ["/library/a", "/library/c"],
+      });
+      expect(ids).toHaveLength(2);
+    });
+
+    it("readStatus 여러 개 → 고른 구간의 합집합", async () => {
+      const unread = await seedBook(db, {
+        path: "/a",
+        current_page: 1,
+        page_count: 20,
+      });
+      const reading = await seedBook(db, {
+        path: "/b",
+        current_page: 10,
+        page_count: 20,
+      });
+      await seedBook(db, { path: "/c", current_page: 20, page_count: 20 });
+
+      const ids = await getResultIds({ readStatus: ["unread", "reading"] });
+      expect(ids).toEqual([unread.id, reading.id].sort());
+    });
+
+    it("readStatus 세 구간 전부 → 전체 조회와 같다", async () => {
+      await seedBook(db, { path: "/a", current_page: 1, page_count: 20 });
+      await seedBook(db, { path: "/b", current_page: 10, page_count: 20 });
+      await seedBook(db, { path: "/c", current_page: 20, page_count: 20 });
+
+      const ids = await getResultIds({
+        readStatus: ["unread", "reading", "completed"],
+      });
+      expect(ids).toHaveLength(3);
+    });
+
+    it("readStatus 빈 배열 → 전체 조회", async () => {
+      await seedBook(db, { path: "/a", current_page: 1, page_count: 20 });
+      await seedBook(db, { path: "/b", current_page: 20, page_count: 20 });
+
+      const ids = await getResultIds({ readStatus: [] });
       expect(ids).toHaveLength(2);
     });
 
@@ -898,7 +945,7 @@ describe("handleGetBooks - 통합 테스트", () => {
 
       const ids = await getResultIds({
         searchQuery: "테스트",
-        readStatus: "completed",
+        readStatus: ["completed"],
         isFavorite: true,
       });
       expect(ids).toEqual([book1.id]);
@@ -1353,7 +1400,7 @@ describe("handleGetBooks - 통합 테스트", () => {
     it("존재하지 않는 libraryPath → 빈 결과", async () => {
       await seedBook(db, { path: "/library/a/book1" });
 
-      const ids = await getResultIds({ libraryPath: "/nonexistent" });
+      const ids = await getResultIds({ libraryPath: ["/nonexistent"] });
       expect(ids).toHaveLength(0);
     });
 

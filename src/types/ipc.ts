@@ -2,10 +2,15 @@
 import type { Gallery } from "node-hitomi";
 import type { Config } from "../main/handlers/configHandler.js";
 
+/** 읽음 상태 구간. 한 권은 반드시 한 구간에만 속한다 */
+export type ReadStatus = "unread" | "reading" | "completed";
+
 export interface FilterParams {
   searchQuery?: string;
-  libraryPath?: string;
-  readStatus?: "all" | "unread" | "reading" | "completed";
+  /** 고른 라이브러리 폴더들. 비었으면 전체 */
+  libraryPath?: string[];
+  /** 고른 읽음 상태 구간들. 비었으면 전체 */
+  readStatus?: ReadStatus[];
   sortBy?: string; // title, added_at, file_mtime, last_read_at, artists, page_count, hitomi_id, random
   sortOrder?: "asc" | "desc";
   isFavorite?: boolean;
