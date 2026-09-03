@@ -56,6 +56,18 @@ export async function toggleBookFavorite(bookId: number, isFavorite: boolean) {
   }
 }
 
+export async function setBookRating(bookId: number, rating: number) {
+  const result = await ipcRenderer.invoke("set-book-rating", {
+    bookId,
+    rating,
+  });
+  if (result.success) {
+    return result.rating;
+  } else {
+    throw new Error((result.error as string) || "Failed to set book rating");
+  }
+}
+
 export async function openBookFolder(bookPath: string) {
   const result = await ipcRenderer.invoke("open-book-folder", bookPath);
   if (result.success) {

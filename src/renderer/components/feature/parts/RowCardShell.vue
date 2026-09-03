@@ -25,6 +25,8 @@ const props = withDefaults(
     zoomable?: boolean;
     /** 삭제 예정처럼 곧 사라질 항목임을 표지·본문을 흐려서 알린다 */
     dimmed?: boolean;
+    /** 키보드로 선택된 카드 */
+    isFocused?: boolean;
   }>(),
   {
     isOffline: false,
@@ -32,6 +34,7 @@ const props = withDefaults(
     aspect: BOOK_ASPECT,
     zoomable: false,
     dimmed: false,
+    isFocused: false,
   },
 );
 
@@ -88,7 +91,9 @@ const scaleStyle = computed(() => listCardScaleStyle(uiStore.thumbnailZoom));
     안 먹는다. 후손 선택자라 특이도가 이겨 버튼 쪽 유틸을 덮는다.
   -->
   <div
+    data-book-card
     class="hover:bg-muted/50 relative flex h-full cursor-pointer gap-3.5 overflow-hidden rounded-lg border p-3 transition-colors [&_[data-size=sm]]:text-[0.8em]"
+    :class="isFocused ? 'inset-ring-primary inset-ring-2' : ''"
     :style="scaleStyle"
     @click="emit('click', $event)"
   >

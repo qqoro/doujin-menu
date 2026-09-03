@@ -9,6 +9,7 @@ import type { CreditSource } from "@/lib/cardLayout";
 import { useQueryClient } from "@tanstack/vue-query";
 import { computed, ref, toRaw } from "vue";
 import { useRouter } from "vue-router";
+import { useOptimisticRating } from "./useOptimisticRating";
 import { toast } from "vue-sonner";
 import type { Book } from "../../types/ipc";
 
@@ -134,6 +135,15 @@ export function useBookCard(
     emit("toggle-favorite", props.book.id, props.book.is_favorite);
   };
 
+  /** 별점은 페이지를 거치지 않고 카드가 직접 저장한다 */
+  const { rating, setRating } = useOptimisticRating(
+    () => props.book,
+    async (bookId, value) => {
+      await api.setBookRating(bookId, value);
+      await queryClient.invalidateQueries({ queryKey: ["books"] });
+    },
+  );
+
   const openBookFolder = () => {
     emit("open-book-folder", props.book.path);
   };
@@ -209,6 +219,8 @@ export function useBookCard(
     hasExternalViewer,
     openWithExternalViewer,
     toggleFavorite,
+    rating,
+    setRating,
     openBookFolder,
     isRescanning,
     handleRescanMetadata,

@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { summarizeRatings } from "../../../src/main/services/ratingStats.js";
 
 // fs/promises 모킹
 const mockReaddir = vi.fn();
@@ -209,5 +210,61 @@ describe("statisticsHandler", () => {
 
       expect(size).toBe(100);
     });
+  });
+});
+
+describe("summarizeRatings", () => {
+  it("평가한 책이 없으면 평균은 0이다", () => {
+    expect(summarizeRatings([]).average).toBe(0);
+    expect(summarizeRatings([{ rating: 0, count: 10 }]).average).toBe(0);
+  });
+
+  it("분포는 항상 0~5 여섯 칸을 채운다", () => {
+    const stats = summarizeRatings([{ rating: 3, count: 2 }]);
+
+    expect(stats.distribution.map((d) => d.rating)).toEqual([0, 1, 2, 3, 4, 5]);
+    expect(stats.distribution.map((d) => d.count)).toEqual([0, 0, 0, 2, 0, 0]);
+  });
+
+  it("평균은 미평가를 빼고 계산한다", () => {
+    // 미평가 100권이 섞여도 4점 1권 + 2점 1권의 평균은 3이다
+    const stats = summarizeRatings([
+      { rating: 0, count: 100 },
+      { rating: 2, count: 1 },
+      { rating: 4, count: 1 },
+    ]);
+
+    expect(stats.average).toBe(3);
+    expect(stats.ratedCount).toBe(2);
+  });
+
+  it("평균은 소수 둘째 자리까지 반올림한다", () => {
+    const stats = summarizeRatings([
+      { rating: 1, count: 1 },
+      { rating: 2, count: 1 },
+      { rating: 4, count: 1 },
+    ]);
+
+    expect(stats.average).toBe(2.33);
+  });
+
+  it("count가 문자열로 와도 숫자로 센다", () => {
+    // SQLite count()는 드라이버에 따라 문자열로 올 수 있다
+    const stats = summarizeRatings([
+      { rating: 5, count: "3" as unknown as number },
+    ]);
+
+    expect(stats.ratedCount).toBe(3);
+    expect(stats.average).toBe(5);
+  });
+
+  it("범위 밖 점수는 버린다", () => {
+    const stats = summarizeRatings([
+      { rating: 9, count: 5 },
+      { rating: 3, count: 1 },
+    ]);
+
+    expect(stats.ratedCount).toBe(1);
+    expect(stats.average).toBe(3);
   });
 });

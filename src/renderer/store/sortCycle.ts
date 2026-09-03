@@ -7,6 +7,7 @@ export const SORT_CYCLE: string[] = [
   "last_read_at",
   "page_count",
   "hitomi_id",
+  "rating",
 ];
 
 // 정렬 기준 → 한국어 라벨 (토스트/도움말 표시용)
@@ -18,6 +19,7 @@ export const SORT_LABELS: Record<string, string> = {
   last_read_at: "최근 읽음",
   page_count: "페이지 수",
   hitomi_id: "Hitomi ID",
+  rating: "별점",
 };
 
 /**

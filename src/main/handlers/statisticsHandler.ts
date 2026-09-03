@@ -3,6 +3,7 @@ import { readdir, stat } from "fs/promises";
 import { join } from "path";
 import db from "../db/index.js";
 import { console } from "../main.js";
+import { summarizeRatings } from "../services/ratingStats.js";
 import { store as configStore } from "./configHandler.js";
 
 async function getFolderSize(directoryPath: string): Promise<number> {
@@ -240,6 +241,15 @@ export const handleGetStatistics = async () => {
       .orderBy("view_count", "desc")
       .limit(100);
 
+    // 별점 분포
+    const ratingRows = await db("Book")
+      .select("rating")
+      .count("* as count")
+      .groupBy("rating");
+    const ratingStats = summarizeRatings(
+      ratingRows as { rating: number; count: number }[],
+    );
+
     // 타입별 분포
     const typeDistribution = await db("Book")
       .select("type")
@@ -269,6 +279,7 @@ export const handleGetStatistics = async () => {
       topArtistsByViews,
       topTagsByViews,
       typeDistribution,
+      ratingStats,
     };
   } catch (error) {
     console.error("Failed to get statistics:", error);

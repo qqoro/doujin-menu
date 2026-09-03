@@ -19,7 +19,8 @@ describe("nextSortBy", () => {
   });
 
   it("wraps around from the last criterion to the first", () => {
-    expect(nextSortBy("hitomi_id", SORT_CYCLE)).toBe("added_at");
+    const last = SORT_CYCLE[SORT_CYCLE.length - 1];
+    expect(nextSortBy(last, SORT_CYCLE)).toBe(SORT_CYCLE[0]);
   });
 
   it("falls back to the first criterion when current is unknown", () => {

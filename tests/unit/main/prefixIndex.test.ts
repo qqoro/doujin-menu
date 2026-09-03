@@ -27,6 +27,7 @@ const createMockBook = (
   last_read_at: null,
   current_page: null,
   is_favorite: false,
+  rating: 0,
   hitomi_id: null,
   artists: artists.map((name, i) => ({ id: 1000 + i, name })),
   tags: [],

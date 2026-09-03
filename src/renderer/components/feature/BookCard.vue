@@ -19,6 +19,8 @@ const props = defineProps<{
   book: Book;
   queryKey: readonly unknown[];
   hideTags?: boolean;
+  /** 키보드로 선택된 카드 */
+  isFocused?: boolean;
   externalImageViewerPath?: string;
   externalArchiveViewerPath?: string;
 }>();
@@ -52,6 +54,7 @@ const {
   coverUrl,
   credits,
   toggleFavorite,
+  rating,
   menuItems,
 } = useBookCard(props, emit);
 
@@ -79,6 +82,8 @@ const handleCreditSelect = (credit: { prefix: CreditPrefix; name: string }) => {
         :alt="book.title"
         :is-offline="isOffline"
         :is-favorite="!!book.is_favorite"
+        :is-focused="isFocused"
+        :rating="rating"
         @click="handleCardClick"
       >
         <template #overlay>

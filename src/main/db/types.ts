@@ -9,6 +9,7 @@ export interface Book {
   last_read_at: string | null;
   current_page: number | null;
   is_favorite: boolean;
+  rating: number; // 0(미평가)~5
   is_offline?: boolean; // 라이브러리 폴더 접근 불가(외장하드 분리 등) 시 true
   hitomi_id?: string | null;
   // 증분 스캔 캐시 키 (ZIP/CBZ 파일만). 값이 같으면 재스캔을 건너뛴다.

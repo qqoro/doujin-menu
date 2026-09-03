@@ -505,6 +505,7 @@ export const SORTABLE_COLUMNS = [
   "artists",
   "page_count",
   "hitomi_id",
+  "rating",
   "random",
 ] as const;
 
@@ -1266,6 +1267,29 @@ export const handleToggleBookFavorite = async ({
   }
 };
 
+/** 별점은 0(미평가)~5 정수만 저장한다. 그 밖의 값은 렌더러 버그로 보고 잘라낸다 */
+export const clampRating = (value: unknown): number => {
+  if (typeof value !== "number" || !Number.isFinite(value)) return 0;
+  return Math.min(5, Math.max(0, Math.round(value)));
+};
+
+export const handleSetBookRating = async ({
+  bookId,
+  rating,
+}: {
+  bookId: number;
+  rating: number;
+}) => {
+  try {
+    const next = clampRating(rating);
+    await db("Book").where("id", bookId).update({ rating: next });
+    return { success: true, rating: next };
+  } catch (error) {
+    console.error(`Failed to set rating for book ${bookId}:`, error);
+    return { success: false, error };
+  }
+};
+
 export const handleOpenBookFolder = async (bookPath: string) => {
   try {
     // shell.showItemInFolder는 파일 관리자에서 해당 항목을 보여줍니다.
@@ -1595,6 +1619,9 @@ export function registerBookHandlers() {
   );
   ipcMain.handle("toggle-book-favorite", (_event, params) =>
     handleToggleBookFavorite(params),
+  );
+  ipcMain.handle("set-book-rating", (_event, params) =>
+    handleSetBookRating(params),
   );
   ipcMain.handle("open-book-folder", (_event, bookPath) =>
     handleOpenBookFolder(bookPath),

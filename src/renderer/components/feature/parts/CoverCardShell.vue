@@ -12,8 +12,12 @@ withDefaults(
     isOffline?: boolean;
     /** 즐겨찾기 하트 표시 */
     isFavorite?: boolean;
+    /** 키보드로 선택된 카드 */
+    isFocused?: boolean;
+    /** 별점(0~5). 0이면 그리지 않는다 */
+    rating?: number;
   }>(),
-  { isOffline: false, isFavorite: false },
+  { isOffline: false, isFavorite: false, isFocused: false, rating: 0 },
 );
 
 /** Ctrl/Cmd+클릭 판별을 위해 원본 마우스 이벤트를 그대로 올린다 */
@@ -23,6 +27,7 @@ const emit = defineEmits<{ click: [event: MouseEvent] }>();
 <template>
   <!-- 그리드 카드의 공통 골격. Book 타입에 의존하지 않고 표지 URL만 받는다 -->
   <div
+    data-book-card
     class="group relative cursor-pointer overflow-hidden rounded-lg border"
     @click="emit('click', $event)"
   >
@@ -36,21 +41,48 @@ const emit = defineEmits<{ click: [event: MouseEvent] }>();
       />
     </div>
 
-    <!-- 상태 배지. 호버 액션 오버레이(z-20)보다 위에 둔다 -->
-    <Badge
-      v-if="isOffline"
-      variant="secondary"
-      class="absolute top-2 left-2 z-40 gap-1"
+    <!--
+      왼쪽 위 배지. 호버 액션 오버레이(z-20)보다 위에 둔다.
+
+      한 자리를 여럿이 쓰므로 세로로 쌓는다. 각자 `absolute top-2 left-2`를
+      쓰면 오프라인 책에 별점을 매긴 순간 둘이 정확히 포개진다.
+      오른쪽 위는 즐겨찾기 하트(그리고 시리즈 카드의 권수 배지) 자리다.
+    -->
+    <div
+      v-if="isOffline || rating > 0"
+      class="absolute top-2 left-2 z-40 flex flex-col items-start gap-1"
     >
-      <Icon icon="solar:plug-circle-bold-duotone" class="h-3 w-3" />
-      오프라인
-    </Badge>
+      <Badge v-if="isOffline" variant="secondary" class="gap-1">
+        <Icon icon="solar:plug-circle-bold-duotone" class="h-3 w-3" />
+        오프라인
+      </Badge>
+      <!-- 별 다섯 개를 늘어놓으면 표지를 가린다. 숫자 하나로 줄인다 -->
+      <div
+        v-if="rating > 0"
+        class="flex items-center gap-0.5 rounded-full bg-black/70 px-1.5 py-0.5 text-[11px] leading-none font-semibold text-white tabular-nums"
+      >
+        <Icon icon="solar:star-bold" class="h-3 w-3 text-amber-400" />
+        {{ rating }}
+      </div>
+    </div>
     <div
       v-if="isFavorite"
       class="absolute top-2 right-2 z-40 rounded-full bg-red-500 p-1 text-white"
     >
       <Icon icon="solar:heart-bold" class="h-4 w-4" />
     </div>
+
+    <!--
+      키보드 선택 표시.
+
+      바깥으로 그리는 `ring`은 스크롤러의 overflow에 좌우가 잘리고, `inset-ring`은
+      inset 그림자라 표지 이미지 뒤에 깔려 안 보인다. 카드 안쪽에 테두리를 겹쳐
+      그리는 게 둘 다 피하는 유일한 방법이다.
+    -->
+    <div
+      v-if="isFocused"
+      class="border-primary pointer-events-none absolute inset-0 z-50 rounded-lg border-2"
+    ></div>
 
     <!-- 추가 배지 자리 (시리즈 카드의 권수 배지 등) -->
     <slot name="badges" />

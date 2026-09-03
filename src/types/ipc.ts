@@ -49,6 +49,7 @@ export interface Book {
   page_count?: number;
   current_page?: number;
   is_favorite: boolean;
+  rating?: number; // 0(미평가)~5
   is_offline?: boolean; // 라이브러리 폴더 접근 불가(외장하드 분리 등) 시 true
   last_read_at?: string;
   hitomi_id?: string;
@@ -157,6 +158,11 @@ export interface Statistics {
   topArtistsByViews: { name: string; view_count: number }[];
   topTagsByViews: { name: string; view_count: number }[];
   typeDistribution: { type: string; count: number }[];
+  ratingStats: {
+    average: number;
+    ratedCount: number;
+    distribution: { rating: number; count: number }[];
+  };
   mostViewedBooks: { id: number; title: string; view_count: number }[];
   longestBook?: { id: number; title: string; page_count: number };
   shortestBook?: { id: number; title: string; page_count: number };
@@ -321,6 +327,10 @@ export interface IpcChannels {
   "toggle-book-favorite": {
     request: { bookId: number; isFavorite: boolean };
     response: { success: boolean; is_favorite?: boolean; error?: unknown };
+  };
+  "set-book-rating": {
+    request: { bookId: number; rating: number };
+    response: { success: boolean; rating?: number; error?: unknown };
   };
   "open-book-folder": {
     request: string; // bookPath

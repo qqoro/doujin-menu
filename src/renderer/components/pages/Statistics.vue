@@ -6,6 +6,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Icon } from "@iconify/vue";
 import PageHeader from "../layout/PageHeader.vue";
+import StarRating from "../feature/parts/StarRating.vue";
 import { useQuery } from "@tanstack/vue-query";
 import { computed, onBeforeUnmount, onMounted, ref } from "vue";
 import { useRouter } from "vue-router"; // useRouter 임포트
@@ -38,6 +39,29 @@ const {
   queryKey: ["appUsageStats"],
   queryFn: getAppUsageStats,
 });
+
+/** 별점 분포를 5점부터 1점까지 내림차순으로. 미평가(0)는 따로 아래에 적는다 */
+const ratingBars = computed(() => {
+  const stats = statistics.value?.ratingStats;
+  if (!stats) return [];
+  return [5, 4, 3, 2, 1].map((rating) => {
+    const count =
+      stats.distribution.find((entry) => entry.rating === rating)?.count ?? 0;
+    return {
+      rating,
+      count,
+      // 비율은 평가한 책 기준. 미평가까지 넣으면 막대가 전부 바닥에 붙는다
+      percent: stats.ratedCount === 0 ? 0 : (count / stats.ratedCount) * 100,
+    };
+  });
+});
+
+const unratedCount = computed(
+  () =>
+    statistics.value?.ratingStats.distribution.find(
+      (entry) => entry.rating === 0,
+    )?.count ?? 0,
+);
 
 // 실시간 사용 시간 업데이트를 위한 상태
 const currentTime = ref(Date.now());
@@ -236,6 +260,73 @@ const goToViewer = (bookId: number) => {
                       ).toFixed(1)
                     }}%)
                   </span>
+                </span>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        <!-- 별점 -->
+        <Card>
+          <CardHeader>
+            <CardTitle class="flex items-center gap-2">
+              <Icon icon="solar:star-bold-duotone" class="h-6 w-6" />
+              별점
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div
+              v-if="statistics.ratingStats.ratedCount === 0"
+              class="text-muted-foreground py-6 text-center text-sm"
+            >
+              아직 별점을 매긴 책이 없습니다.
+            </div>
+            <div v-else class="space-y-3">
+              <div class="flex items-baseline justify-between">
+                <div class="flex items-center gap-2">
+                  <span class="text-2xl font-bold">
+                    {{ statistics.ratingStats.average.toFixed(2) }}
+                  </span>
+                  <StarRating
+                    :model-value="Math.round(statistics.ratingStats.average)"
+                    readonly
+                  />
+                </div>
+                <span class="text-muted-foreground text-xs">
+                  평가
+                  {{
+                    formatNumberWithCommas(statistics.ratingStats.ratedCount)
+                  }}권
+                </span>
+              </div>
+
+              <div
+                v-for="bar in ratingBars"
+                :key="bar.rating"
+                class="flex items-center gap-2 text-sm"
+              >
+                <span class="w-8 shrink-0 tabular-nums"
+                  >{{ bar.rating }}점</span
+                >
+                <div class="bg-muted h-2 flex-1 overflow-hidden rounded-full">
+                  <div
+                    class="h-full rounded-full bg-amber-400"
+                    :style="{ width: `${bar.percent}%` }"
+                  ></div>
+                </div>
+                <span class="w-24 shrink-0 text-right text-xs tabular-nums">
+                  {{ formatNumberWithCommas(bar.count) }}권
+                  <span class="text-gray-500"
+                    >({{ bar.percent.toFixed(1) }}%)</span
+                  >
+                </span>
+              </div>
+
+              <div class="bg-border my-2 h-px"></div>
+              <div class="flex items-center justify-between">
+                <span class="text-sm">미평가</span>
+                <span class="text-muted-foreground font-semibold">
+                  {{ formatNumberWithCommas(unratedCount) }}권
                 </span>
               </div>
             </div>

@@ -14,6 +14,7 @@ import {
   extractKoreanTitle,
   normalizeSortBy,
   normalizeSortOrder,
+  clampRating,
 } from "../../../src/main/handlers/bookHandler.js";
 
 // ========== 유닛 테스트: 순수 함수 ==========
@@ -39,6 +40,37 @@ describe("정렬 파라미터 정규화", () => {
     expect(normalizeSortOrder("ASC")).toBe("desc");
     expect(normalizeSortOrder(undefined)).toBe("desc");
     expect(normalizeSortOrder("desc, (SELECT 1)")).toBe("desc");
+  });
+
+  it("별점도 정렬 컬럼으로 통과한다", () => {
+    expect(normalizeSortBy("rating")).toBe("rating");
+  });
+});
+
+describe("clampRating", () => {
+  it("0~5는 그대로 통과한다", () => {
+    expect(clampRating(0)).toBe(0);
+    expect(clampRating(3)).toBe(3);
+    expect(clampRating(5)).toBe(5);
+  });
+
+  it("범위를 벗어나면 잘라낸다", () => {
+    expect(clampRating(-1)).toBe(0);
+    expect(clampRating(6)).toBe(5);
+    expect(clampRating(999)).toBe(5);
+  });
+
+  it("정수가 아니면 반올림한다", () => {
+    expect(clampRating(3.4)).toBe(3);
+    expect(clampRating(3.6)).toBe(4);
+  });
+
+  it("숫자가 아니면 미평가(0)로 떨어진다", () => {
+    expect(clampRating(undefined)).toBe(0);
+    expect(clampRating(null)).toBe(0);
+    expect(clampRating("5")).toBe(0);
+    expect(clampRating(NaN)).toBe(0);
+    expect(clampRating(Infinity)).toBe(0);
   });
 });
 
@@ -369,6 +401,7 @@ import {
   handleGetNextBook,
   handleGetPrevBook,
   handleCheckBooksExistByHitomiIds,
+  handleSetBookRating,
 } from "../../../src/main/handlers/bookHandler.js";
 import { store as configStore } from "../../../src/main/handlers/configHandler.js";
 
@@ -2265,5 +2298,100 @@ describe("handleCheckBooksExistByHitomiIds", () => {
 
     expect(result.success).toBe(true);
     expect(result.data).toEqual({ 999999: book.id });
+  });
+});
+
+describe("별점", () => {
+  let ratingDb: Knex;
+
+  beforeAll(async () => {
+    ratingDb = await createTestDb();
+    dbRef.current = ratingDb;
+  });
+
+  beforeEach(async () => {
+    dbRef.current = ratingDb;
+    await truncateAll(ratingDb);
+  });
+
+  afterAll(async () => {
+    await ratingDb.destroy();
+  });
+
+  it("새 책의 별점 기본값은 미평가(0)다", async () => {
+    const book = await seedBook(ratingDb, { path: "/a" });
+    const row = await ratingDb("Book").where("id", book.id).first();
+    expect(row.rating).toBe(0);
+  });
+
+  it("별점을 저장하고 저장된 값을 돌려준다", async () => {
+    const book = await seedBook(ratingDb, { path: "/a" });
+
+    const result = await handleSetBookRating({ bookId: book.id, rating: 4 });
+
+    expect(result).toEqual({ success: true, rating: 4 });
+    const row = await ratingDb("Book").where("id", book.id).first();
+    expect(row.rating).toBe(4);
+  });
+
+  it("범위를 벗어난 값은 잘라서 저장한다", async () => {
+    const book = await seedBook(ratingDb, { path: "/a" });
+
+    const result = await handleSetBookRating({ bookId: book.id, rating: 99 });
+
+    expect(result.rating).toBe(5);
+    const row = await ratingDb("Book").where("id", book.id).first();
+    expect(row.rating).toBe(5);
+  });
+
+  it("0을 주면 평가가 해제된다", async () => {
+    const book = await seedBook(ratingDb, { path: "/a", rating: 5 });
+
+    await handleSetBookRating({ bookId: book.id, rating: 0 });
+
+    const row = await ratingDb("Book").where("id", book.id).first();
+    expect(row.rating).toBe(0);
+  });
+
+  it("응답에 rating이 실려 온다", async () => {
+    await seedBook(ratingDb, { path: "/a", rating: 3 });
+
+    const result = await handleGetBooks({ pageSize: 1000 });
+
+    expect(result.data[0].rating).toBe(3);
+  });
+
+  it("sortBy=rating, sortOrder=desc → 높은 별점 순", async () => {
+    const low = await seedBook(ratingDb, { path: "/a", rating: 1 });
+    const high = await seedBook(ratingDb, { path: "/b", rating: 5 });
+    const mid = await seedBook(ratingDb, { path: "/c", rating: 3 });
+
+    const result = await handleGetBooks({
+      sortBy: "rating",
+      sortOrder: "desc",
+      pageSize: 1000,
+    });
+
+    expect(result.data.map((b: { id: number }) => b.id)).toEqual([
+      high.id,
+      mid.id,
+      low.id,
+    ]);
+  });
+
+  it("미평가(0)는 내림차순에서 맨 뒤로 간다", async () => {
+    const unrated = await seedBook(ratingDb, { path: "/a" });
+    const rated = await seedBook(ratingDb, { path: "/b", rating: 2 });
+
+    const result = await handleGetBooks({
+      sortBy: "rating",
+      sortOrder: "desc",
+      pageSize: 1000,
+    });
+
+    expect(result.data.map((b: { id: number }) => b.id)).toEqual([
+      rated.id,
+      unrated.id,
+    ]);
   });
 });

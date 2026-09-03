@@ -10,10 +10,14 @@ import {
 } from "@/components/ui/dialog";
 import { Separator } from "@/components/ui/separator";
 import { Icon } from "@iconify/vue";
+import { useQueryClient } from "@tanstack/vue-query";
 import { computed } from "vue";
 import { useRouter } from "vue-router";
 import { toast } from "vue-sonner";
+import * as api from "@/api";
 import type { Book } from "../../../types/ipc";
+import StarRating from "./parts/StarRating.vue";
+import { useOptimisticRating } from "@/composables/useOptimisticRating";
 
 const props = defineProps<{
   modelValue: boolean;
@@ -28,6 +32,18 @@ const open = computed({
   get: () => props.modelValue,
   set: (value) => emit("update:modelValue", value),
 });
+
+const queryClient = useQueryClient();
+
+// 모달 하나를 모든 책이 돌려 쓴다. 감시 대상이 왜 별점 값이 아닌 책 자체여야
+// 하는지는 useOptimisticRating 참고
+const { rating, setRating } = useOptimisticRating(
+  () => props.book,
+  async (bookId, value) => {
+    await api.setBookRating(bookId, value);
+    await queryClient.invalidateQueries({ queryKey: ["books"] });
+  },
+);
 
 const displayPath = computed(() => {
   if (!props.book?.path) return "";
@@ -249,6 +265,13 @@ const searchInDownloader = (text: string, prefix: string) => {
                   />
                   <span v-else>-</span>
                 </span>
+              </div>
+              <div class="flex items-center justify-between text-sm">
+                <span class="text-muted-foreground">별점</span>
+                <StarRating
+                  :model-value="rating"
+                  @update:model-value="setRating"
+                />
               </div>
             </div>
           </div>

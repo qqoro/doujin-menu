@@ -14,11 +14,14 @@ import BookCardMenuButton from "./parts/BookCardMenuButton.vue";
 import CreditsLine from "./parts/CreditsLine.vue";
 import MetaLine from "./parts/MetaLine.vue";
 import RowCardShell from "./parts/RowCardShell.vue";
+import StarRating from "./parts/StarRating.vue";
 
 const props = defineProps<{
   book: Book;
   queryKey: readonly unknown[];
   hideTags?: boolean;
+  /** 키보드로 선택된 카드 */
+  isFocused?: boolean;
   externalImageViewerPath?: string;
   externalArchiveViewerPath?: string;
 }>();
@@ -50,6 +53,8 @@ const {
   handleCardClick,
   coverUrl,
   credits,
+  rating,
+  setRating,
   requestDelete,
   menuItems,
 } = useBookCard(props, emit);
@@ -80,6 +85,7 @@ const handleCreditSelect = (credit: { prefix: CreditPrefix; name: string }) => {
         :alt="book.title"
         :is-offline="isOffline"
         :is-favorite="!!book.is_favorite"
+        :is-focused="isFocused"
         @click="handleCardClick"
       >
         <template #content>
@@ -88,6 +94,12 @@ const handleCreditSelect = (credit: { prefix: CreditPrefix; name: string }) => {
           </h3>
 
           <MetaLine class="text-muted-foreground" :parts="metaParts" />
+
+          <StarRating
+            :model-value="rating"
+            star-class="h-4 w-4"
+            @update:model-value="setRating"
+          />
 
           <CreditsLine
             class="text-muted-foreground text-[0.78125em]"
