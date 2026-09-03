@@ -268,6 +268,49 @@ export const defaultActions: ActionDefinition[] = [
     context: "library",
     defaultKeys: ["]"],
   },
+  {
+    id: "library:focus-left",
+    description: "왼쪽 책 선택",
+    context: "library",
+    defaultKeys: ["ArrowLeft"],
+  },
+  {
+    id: "library:focus-right",
+    description: "오른쪽 책 선택",
+    context: "library",
+    defaultKeys: ["ArrowRight"],
+  },
+  {
+    id: "library:focus-up",
+    description: "위쪽 책 선택",
+    context: "library",
+    defaultKeys: ["ArrowUp"],
+  },
+  {
+    id: "library:focus-down",
+    description: "아래쪽 책 선택",
+    context: "library",
+    defaultKeys: ["ArrowDown"],
+  },
+  {
+    id: "library:open-focused",
+    description: "선택한 책 열기",
+    context: "library",
+    defaultKeys: ["Enter"],
+  },
+  {
+    id: "library:open-focused-new-window",
+    description: "선택한 책 새 창으로 열기",
+    context: "library",
+    defaultKeys: ["Ctrl+Enter"],
+  },
+  {
+    // 선택한 책이 없으면 처리하지 않고 넘겨, 레이아웃의 창 최소화가 그대로 걸린다
+    id: "library:clear-focus",
+    description: "선택 해제",
+    context: "library",
+    defaultKeys: ["Escape"],
+  },
 
   // === 레이아웃 ===
   {

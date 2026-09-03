@@ -21,6 +21,7 @@ import {
   type LibraryFilterState,
 } from "@/lib/libraryFilters";
 import { toggleSearchTerm } from "@/lib/searchQuery";
+import { nextFocusIndex, type FocusDirection } from "@/lib/gridNavigation";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -59,6 +60,7 @@ import {
   getPresets,
   ipcRenderer,
   openBookFolder,
+  openNewWindow,
   toggleBookFavorite,
 } from "../../api";
 import AppliedFilterChips from "../common/AppliedFilterChips.vue";
@@ -233,10 +235,18 @@ watch(
   { immediate: true },
 );
 
+/**
+ * 화면에 떠 있는지. keep-alive라 다른 페이지로 가도 이 컴포넌트는 살아 있고
+ * 단축키 리스너도 그대로 남는다. 방향키를 그때도 잡으면 설정·통계 화면의
+ * 스크롤이 막히므로 단축키 전체를 이 값으로 묶는다.
+ */
+const isPageActive = ref(true);
+
 // 다른 페이지로 이동할 때 설정 저장 방지
 onDeactivated(() => {
   // 다른 페이지로 이동 시 설정 저장 방지
   isSettingsInitialized.value = false;
+  isPageActive.value = false;
 });
 
 // keep-alive로 돌아왔을 때는 설정을 다시 읽지 않는다.
@@ -247,6 +257,7 @@ onDeactivated(() => {
 // 되돌아간다. 예전에는 쿼리 없는 주소로 돌아올 때마다 상태가 초기화됐기 때문에
 // 여기서 다시 불러오는 게 필요했지만, 이제는 초기화하지 않으므로 불필요하다.
 onActivated(() => {
+  isPageActive.value = true;
   if (isConfigLoaded.value) {
     isSettingsInitialized.value = true;
   }
@@ -365,6 +376,96 @@ const {
   chunkKey: (chunkIndex) => ["books", queryKey.value[1], chunkIndex],
   // 필터가 바뀌면 새 키의 청크를 받아 다시 그려야 하므로 스켈레톤 상태로 돌린다
   resetKey: () => queryKey.value[1],
+});
+
+// ===== 키보드 카드 선택 =====
+
+/**
+ * 선택된 카드의 전체 목록 기준 인덱스. -1이면 선택 없음.
+ *
+ * 뷰 모드와 무관한 절대 순번이라 그리드↔리스트를 오가도 같은 책을 가리킨다.
+ * 열 수만 그때그때 다시 읽으면 된다.
+ */
+const focusedIndex = ref(-1);
+
+const activeCols = computed(() =>
+  viewMode.value === "grid" ? gridCols.value : listCols.value,
+);
+
+const activeVirtualizer = computed(() =>
+  viewMode.value === "grid" ? gridVirtualizer.value : listVirtualizer.value,
+);
+
+const focusedBook = computed(() =>
+  focusedIndex.value < 0 ? undefined : itemAt(focusedIndex.value),
+);
+
+const scrollFocusedIntoView = () => {
+  if (focusedIndex.value < 0) return;
+  const lanes = Math.max(1, activeCols.value);
+  activeVirtualizer.value?.scrollToIndex(
+    Math.floor(focusedIndex.value / lanes),
+    { align: "auto" },
+  );
+};
+
+const moveFocus = (direction: FocusDirection) => {
+  if (totalCount.value === 0) return;
+
+  if (focusedIndex.value < 0) {
+    // 첫 방향키는 화면에 보이는 맨 윗줄을 잡는다. 0번으로 보내면 스크롤이 튄다
+    const rows = activeVirtualizer.value?.getVirtualItems() ?? [];
+    const firstVisible =
+      rows.length > 0 ? rows[0].index * Math.max(1, activeCols.value) : 0;
+    focusedIndex.value = Math.min(firstVisible, totalCount.value - 1);
+  } else {
+    focusedIndex.value = nextFocusIndex(
+      focusedIndex.value,
+      direction,
+      activeCols.value,
+      totalCount.value,
+    );
+  }
+  scrollFocusedIntoView();
+};
+
+/** 아직 청크가 안 온 자리면 열지 않고 키를 흘려보낸다 */
+const openFocused = (newWindow = false) => {
+  const book = focusedBook.value;
+  if (!book) return false;
+
+  if (book.is_offline) {
+    toast.warning("라이브러리 폴더에 접근할 수 없습니다.", {
+      description: "해당 폴더에 접근할 수 있는지 확인한 후 다시 스캔해 주세요.",
+    });
+    return;
+  }
+
+  const filter = JSON.stringify(toRaw(queryKey.value[1]));
+  if (newWindow) {
+    openNewWindow(
+      `/viewer/${book.id}?${new URLSearchParams({ filter }).toString()}`,
+    );
+  } else {
+    router.push({ name: "Viewer", params: { id: book.id }, query: { filter } });
+  }
+};
+
+/** 해제할 선택이 없으면 false를 돌려 레이아웃의 창 최소화로 넘긴다 */
+const clearFocus = () => {
+  if (focusedIndex.value < 0) return false;
+  focusedIndex.value = -1;
+};
+
+/** 카드 밖(여백·목록 아래 빈 공간)을 누르면 선택을 푼다 */
+const handleScrollerClick = (event: MouseEvent) => {
+  if ((event.target as HTMLElement).closest("[data-book-card]")) return;
+  focusedIndex.value = -1;
+};
+
+// 검색·정렬이 바뀌면 순서가 달라져 같은 인덱스가 다른 책을 가리킨다
+watch(queryKey, () => {
+  focusedIndex.value = -1;
 });
 
 // 프리픽스 무효화라 마운트된 청크만 즉시 다시 받고 나머지는 stale 표시만 된다.
@@ -551,23 +652,35 @@ const handleShowPreview = (book: Book) => {
 };
 
 // 라이브러리 단축키 등록
-useKeybindings("library", {
-  "library:search-focus": () => {
-    searchInputRef.value?.focus();
+useKeybindings(
+  "library",
+  {
+    "library:search-focus": () => {
+      searchInputRef.value?.focus();
+      focusedIndex.value = -1;
+    },
+    "library:focus-left": () => moveFocus("left"),
+    "library:focus-right": () => moveFocus("right"),
+    "library:focus-up": () => moveFocus("up"),
+    "library:focus-down": () => moveFocus("down"),
+    "library:open-focused": () => openFocused(),
+    "library:open-focused-new-window": () => openFocused(true),
+    "library:clear-focus": clearFocus,
+    "library:cycle-sort": cycleSortBy,
+    "library:sort-order-toggle": () => {
+      toggleSortOrder();
+    },
+    "library:quit-app": () => {
+      ipcRenderer.send("close-window");
+    },
+    "library:toggle-favorite": toggleFavoriteFilter,
+    "library:cycle-read-status": cycleReadStatus,
+    "library:cycle-preset": cyclePreset,
+    "library:prev-library": () => cycleLibrary(-1),
+    "library:next-library": () => cycleLibrary(1),
   },
-  "library:cycle-sort": cycleSortBy,
-  "library:sort-order-toggle": () => {
-    toggleSortOrder();
-  },
-  "library:quit-app": () => {
-    ipcRenderer.send("close-window");
-  },
-  "library:toggle-favorite": toggleFavoriteFilter,
-  "library:cycle-read-status": cycleReadStatus,
-  "library:cycle-preset": cyclePreset,
-  "library:prev-library": () => cycleLibrary(-1),
-  "library:next-library": () => cycleLibrary(1),
-});
+  { enabled: () => isPageActive.value },
+);
 
 // 삭제 다이얼로그는 페이지가 하나만 들고 있는다. 카드가 각자 들고 있으면
 // 다이얼로그를 연 채 스크롤해 카드가 언마운트될 때 같이 사라진다.
@@ -616,6 +729,15 @@ const {
                 <li><kbd>P</kbd>: 프리셋 순환</li>
                 <li><kbd>[</kbd> / <kbd>]</kbd>: 이전/다음 라이브러리 폴더</li>
                 <li><kbd>Ctrl</kbd>+<kbd>Wheel</kbd>: 썸네일 밀도 조절</li>
+                <li>
+                  <kbd>←</kbd> <kbd>→</kbd> <kbd>↑</kbd> <kbd>↓</kbd>: 책 선택
+                  이동
+                </li>
+                <li><kbd>Enter</kbd>: 선택한 책 열기</li>
+                <li>
+                  <kbd>Ctrl</kbd>+<kbd>Enter</kbd>: 선택한 책 새 창으로 열기
+                </li>
+                <li><kbd>Esc</kbd>: 선택 해제 (선택이 없으면 창 최소화)</li>
               </ul>
               <h3 class="text-foreground text-base font-semibold">검색 팁</h3>
               <ul class="list-inside list-disc">
@@ -851,6 +973,7 @@ const {
         class="library-scroller relative min-h-0 flex-grow overflow-y-auto"
         @wheel="handleZoomWheel"
         @scroll="updateVisibleRange"
+        @click="handleScrollerClick"
       >
         <div
           v-if="isLoading"
@@ -892,6 +1015,9 @@ const {
                     v-if="itemAt(row.index * gridCols + col - 1)"
                     :book="itemAt(row.index * gridCols + col - 1)!"
                     :query-key="queryKey"
+                    :is-focused="
+                      row.index * gridCols + col - 1 === focusedIndex
+                    "
                     :hide-tags="hideLibraryTags"
                     :external-image-viewer-path="
                       config?.externalImageViewerPath
@@ -938,6 +1064,7 @@ const {
                   v-if="itemAt(row.index * listCols + col - 1)"
                   :book="itemAt(row.index * listCols + col - 1)!"
                   :query-key="queryKey"
+                  :is-focused="row.index * listCols + col - 1 === focusedIndex"
                   :hide-tags="hideLibraryTags"
                   :external-image-viewer-path="config?.externalImageViewerPath"
                   :external-archive-viewer-path="

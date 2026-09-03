@@ -44,7 +44,8 @@ describe("keybindingStore", () => {
 
     it("다른 컨텍스트의 키는 매칭 안 됨", () => {
       const store = useKeybindingStore();
-      const action = store.findActionByKey("library", "ArrowRight");
+      // Home은 뷰어의 "첫 페이지"에만 걸려 있다
+      const action = store.findActionByKey("library", "Home");
       expect(action).toBeNull();
     });
   });
