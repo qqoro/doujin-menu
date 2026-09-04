@@ -1,3 +1,4 @@
+import { toCloneable } from "@/lib/ipcSafe";
 import type {
   DeleteDuplicatesResult,
   FilterParams,
@@ -7,11 +8,47 @@ import type {
   UpdateCheckResult,
 } from "../types/ipc";
 
-// 타입이 지정된 IPC Renderer
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-ignore electron 전용 API
-export const ipcRenderer = window.require("electron")
+const rawIpcRenderer = window.require("electron")
   .ipcRenderer as TypedIpcRenderer;
+
+/**
+ * 타입이 지정된 IPC Renderer.
+ *
+ * invoke/send 인자는 반드시 toCloneable을 거칩니다. 구조화 복제기가 Vue의 Proxy를 만나면
+ * "An object could not be cloned."로 죽는데, 호출부가 ref/reactive 값을 넘기는 건 언제든 일어납니다.
+ * 여기서 한 번 막아야 채널마다 되풀이되지 않습니다. 렌더러는 window.require로 직접 꺼내지 말고
+ * 항상 이걸 쓰세요.
+ */
+// 채널별 타입은 TypedIpcRenderer가 이미 잡고 있습니다. 여기서는 인자를 개수만 보고
+// 그대로 흘려보내면 되므로 느슨한 시그니처로 한 번 받습니다.
+const looseIpcRenderer = rawIpcRenderer as unknown as {
+  invoke(channel: string, ...args: unknown[]): Promise<unknown>;
+  send(channel: string, ...args: unknown[]): void;
+};
+
+export const ipcRenderer: TypedIpcRenderer = {
+  invoke: ((channel: string, ...args: unknown[]) =>
+    looseIpcRenderer.invoke(
+      channel,
+      ...args.map(toCloneable),
+    )) as TypedIpcRenderer["invoke"],
+  send: ((channel: string, ...args: unknown[]) =>
+    looseIpcRenderer.send(
+      channel,
+      ...args.map(toCloneable),
+    )) as TypedIpcRenderer["send"],
+  on(channel, listener) {
+    rawIpcRenderer.on(channel, listener);
+  },
+  off(channel, listener) {
+    rawIpcRenderer.off(channel, listener);
+  },
+  removeAllListeners(channel) {
+    rawIpcRenderer.removeAllListeners(channel);
+  },
+};
 
 export async function getBook(bookId: number) {
   return ipcRenderer.invoke("get-book", bookId);
