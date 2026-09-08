@@ -63,6 +63,12 @@ export const defaultActions: ActionDefinition[] = [
     defaultKeys: ["a"],
   },
   {
+    id: "viewer:toggle-next-book-mode",
+    description: "재생 순서 전환 (순차/랜덤)",
+    context: "viewer",
+    defaultKeys: ["m"],
+  },
+  {
     id: "viewer:zoom-in",
     description: "확대",
     context: "viewer",
@@ -205,6 +211,12 @@ export const defaultActions: ActionDefinition[] = [
     description: "더블 페이지 보기",
     context: "viewer",
     defaultKeys: ["2"],
+  },
+  {
+    id: "viewer:toggle-cover-alone",
+    description: "펼침 짝 전환 (표지 따로 보기)",
+    context: "viewer",
+    defaultKeys: ["3"],
   },
   {
     id: "viewer:toggle-reading-direction",

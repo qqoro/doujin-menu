@@ -548,6 +548,9 @@ useKeybindings(
     "viewer:double-page": () => {
       store.setDoublePage(true);
     },
+    "viewer:toggle-cover-alone": () => {
+      store.toggleShowCoverAlone();
+    },
     "viewer:toggle-reading-direction": () => {
       store.toggleReadingDirection();
     },
@@ -559,6 +562,9 @@ useKeybindings(
     },
     "viewer:toggle-auto-next": () => {
       store.toggleAutoNextBook();
+    },
+    "viewer:toggle-next-book-mode": () => {
+      store.toggleNextBookMode();
     },
     "viewer:zoom-in": () => {
       store.zoomIn();

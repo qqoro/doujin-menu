@@ -412,6 +412,10 @@ export const useViewerStore = defineStore("viewer", () => {
     });
   }
 
+  function toggleNextBookMode() {
+    setNextBookMode(autoNextBookMode.value === "next" ? "random" : "next");
+  }
+
   // 정렬 기준을 순환(added_at → title → ... → hitomi_id → added_at).
   // filterParams를 갱신하면 이후 loadNextBook/loadPrevBook이 새 기준을 따른다.
   function cycleSortBy() {
@@ -477,11 +481,19 @@ export const useViewerStore = defineStore("viewer", () => {
 
   function setShowCoverAlone(value: boolean) {
     viewerShowCoverAlone.value = value;
-    const status = value ? "켜짐" : "꺼짐";
-    showToastMessage(`표지 따로 보기: ${status}`);
+    showToastMessage(`표지 따로 보기: ${value ? "켜짐" : "꺼짐"}`);
     ipcRenderer.invoke("set-config", { key: "viewerShowCoverAlone", value });
     // Adjust current page to be the start of a spread
     goToPage(currentPage.value);
+  }
+
+  // 펼침 짝을 한 칸 밀거나 되돌린다. 더블 페이지에서만 의미가 있다
+  function toggleShowCoverAlone() {
+    if (!viewerDoublePageView.value || readingMode.value === "webtoon") {
+      showToastMessage("더블 페이지 모드에서만 바꿀 수 있습니다.");
+      return;
+    }
+    setShowCoverAlone(!viewerShowCoverAlone.value);
   }
 
   function setViewerAutoFitZoom(value: boolean) {
@@ -800,6 +812,7 @@ export const useViewerStore = defineStore("viewer", () => {
     stopAutoPlay,
     toggleAutoNextBook,
     setNextBookMode,
+    toggleNextBookMode,
     cycleSortBy,
     toggleSortOrder,
     toggleReadingDirection,
@@ -821,6 +834,7 @@ export const useViewerStore = defineStore("viewer", () => {
     rightPageUrl,
     setDoublePage,
     setShowCoverAlone,
+    toggleShowCoverAlone,
     setViewerAutoFitZoom,
     setViewerRestoreLastSession,
     toggleHidePageNumber,
