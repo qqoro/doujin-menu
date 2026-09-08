@@ -775,6 +775,14 @@ const {
                 <li><code>tag:태그명</code>: 특정 태그로 검색합니다.</li>
                 <li><code>artist:작가명</code>: 특정 작가로 검색합니다.</li>
                 <li><code>series:시리즈명</code>: 특정 시리즈로 검색합니다.</li>
+                <li><code>id:123456</code>: 히토미 ID로 검색합니다.</li>
+                <li>
+                  <code>id:&gt;3000000</code>, <code>id:3000000-3200000</code>:
+                  히토미 ID 범위로 검색합니다. <code>&gt;</code>
+                  <code>&gt;=</code> <code>&lt;</code> <code>&lt;=</code>와 구간
+                  표기를 쓸 수 있으며, 랜덤 정렬에서 오래된 작품을 걸러낼 때
+                  유용합니다.
+                </li>
                 <li>여러 검색어를 공백으로 구분하여 조합할 수 있습니다.</li>
                 <li>
                   <Icon

@@ -79,6 +79,7 @@ describe("parseSearchQuery", () => {
     const result = parseSearchQuery("");
     expect(result.titleTerms).toEqual([]);
     expect(result.idTerms).toEqual([]);
+    expect(result.idRanges).toEqual([]);
     expect(result.artistTerms).toEqual([]);
     expect(result.tagTerms).toEqual([]);
     expect(result.seriesTerms).toEqual([]);
@@ -130,6 +131,59 @@ describe("parseSearchQuery", () => {
     it("id:12345", () => {
       const result = parseSearchQuery("id:12345");
       expect(result.idTerms).toEqual(["12345"]);
+      expect(result.idRanges).toEqual([]);
+    });
+  });
+
+  describe("히토미 ID 범위", () => {
+    it("id:>3000000 → 초과는 경계를 한 칸 민 최소값", () => {
+      const result = parseSearchQuery("id:>3000000");
+      expect(result.idRanges).toEqual([{ min: 3000001 }]);
+      expect(result.idTerms).toEqual([]);
+    });
+
+    it("id:>=3000000 → 이상은 경계 그대로", () => {
+      expect(parseSearchQuery("id:>=3000000").idRanges).toEqual([
+        { min: 3000000 },
+      ]);
+    });
+
+    it("id:<3000000 / id:<=3000000", () => {
+      expect(parseSearchQuery("id:<3000000").idRanges).toEqual([
+        { max: 2999999 },
+      ]);
+      expect(parseSearchQuery("id:<=3000000").idRanges).toEqual([
+        { max: 3000000 },
+      ]);
+    });
+
+    it("id:3000000-3200000 → 양끝 포함 구간", () => {
+      expect(parseSearchQuery("id:3000000-3200000").idRanges).toEqual([
+        { min: 3000000, max: 3200000 },
+      ]);
+    });
+
+    it("id:3200000~3000000 → 거꾸로 적어도 뒤집어 받는다", () => {
+      expect(parseSearchQuery("id:3200000~3000000").idRanges).toEqual([
+        { min: 3000000, max: 3200000 },
+      ]);
+    });
+
+    it("범위 여러 개는 함께 좁힌다", () => {
+      const result = parseSearchQuery("id:>=3000000 id:<=3200000");
+      expect(result.idRanges).toEqual([{ min: 3000000 }, { max: 3200000 }]);
+    });
+
+    it("-id:<3000000 → exclude.idRanges에 분류", () => {
+      const result = parseSearchQuery("-id:<3000000");
+      expect(result.idRanges).toEqual([]);
+      expect(result.exclude.idRanges).toEqual([{ max: 2999999 }]);
+    });
+
+    it("범위가 아닌 값은 기존대로 정확히 일치", () => {
+      const result = parseSearchQuery("id:12345-");
+      expect(result.idRanges).toEqual([]);
+      expect(result.idTerms).toEqual(["12345-"]);
     });
   });
 

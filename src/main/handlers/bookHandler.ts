@@ -10,9 +10,16 @@ import { broadcast } from "../utils/broadcast.js";
 import { naturalSort } from "../utils/index.js";
 import { store as configStore } from "./configHandler.js";
 
+/** `id:>3000000` 같은 히토미 ID 범위 조건. 양끝은 포함이다 */
+export interface IdRange {
+  min?: number;
+  max?: number;
+}
+
 export interface ExcludeTerms {
   titleTerms: string[];
   idTerms: string[];
+  idRanges: IdRange[];
   artistTerms: string[];
   tagTerms: string[];
   seriesTerms: string[];
@@ -35,11 +42,39 @@ const PREFIXED_TERM_REGEX =
  */
 const isNumericTerm = (term: string): boolean => /^\d+$/.test(term);
 
+/** `>3000000` `<=3200000` `3000000-3200000` `3000000~3200000` */
+const ID_RANGE_REGEX = /^(?:(>=?|<=?)(\d+)|(\d+)\s*[-~]\s*(\d+))$/;
+
+/**
+ * `id:` 뒤가 범위 표현이면 범위로, 아니면 null(= 기존대로 정확히 일치).
+ * 시작이 끝보다 크게 적힌 경우는 뒤집어 받는다.
+ */
+const parseIdRange = (value: string): IdRange | null => {
+  const match = ID_RANGE_REGEX.exec(value.replace(/\s+/g, ""));
+  if (!match) return null;
+
+  const [, operator, operand, from, to] = match;
+
+  // ID는 정수라 초과·미만은 경계를 한 칸 밀어 포함 범위로 바꿔 둔다
+  if (operator) {
+    const bound = Number(operand);
+    if (operator === ">") return { min: bound + 1 };
+    if (operator === ">=") return { min: bound };
+    if (operator === "<") return { max: bound - 1 };
+    return { max: bound };
+  }
+
+  const start = Number(from);
+  const end = Number(to);
+  return start <= end ? { min: start, max: end } : { min: end, max: start };
+};
+
 // 검색어 문자열을 프리픽스별로 분류하여 반환
 export function parseSearchQuery(searchQuery: string): ParsedSearchTerms {
   const result: ParsedSearchTerms = {
     titleTerms: [],
     idTerms: [],
+    idRanges: [],
     artistTerms: [],
     tagTerms: [],
     seriesTerms: [],
@@ -50,6 +85,7 @@ export function parseSearchQuery(searchQuery: string): ParsedSearchTerms {
     exclude: {
       titleTerms: [],
       idTerms: [],
+      idRanges: [],
       artistTerms: [],
       tagTerms: [],
       seriesTerms: [],
@@ -80,9 +116,15 @@ export function parseSearchQuery(searchQuery: string): ParsedSearchTerms {
 
     const target = isNegated ? result.exclude : result;
     switch (prefix) {
-      case "id":
-        target.idTerms.push(value);
+      case "id": {
+        const range = parseIdRange(value);
+        if (range) {
+          target.idRanges.push(range);
+        } else {
+          target.idTerms.push(value);
+        }
         break;
+      }
       case "artist":
         target.artistTerms.push(value);
         break;
@@ -305,6 +347,7 @@ function buildFilteredQuery(
     const {
       titleTerms,
       idTerms,
+      idRanges,
       artistTerms,
       tagTerms,
       seriesTerms,
@@ -317,6 +360,16 @@ function buildFilteredQuery(
 
     if (idTerms.length > 0) {
       mainQuery.whereIn("sub.hitomi_id", idTerms);
+    }
+    // hitomi_id는 문자열 컬럼이라 정렬과 마찬가지로 숫자로 바꿔 비교한다.
+    // ID가 없는 책은 CAST 결과가 NULL이라 자연히 빠진다
+    for (const range of idRanges) {
+      if (range.min !== undefined) {
+        mainQuery.whereRaw("CAST(sub.hitomi_id AS INTEGER) >= ?", [range.min]);
+      }
+      if (range.max !== undefined) {
+        mainQuery.whereRaw("CAST(sub.hitomi_id AS INTEGER) <= ?", [range.max]);
+      }
     }
     if (artistTerms.length > 0) {
       for (const artist of artistTerms) {
@@ -404,6 +457,23 @@ function buildFilteredQuery(
     // 제외 조건 적용
     if (exclude.idTerms.length > 0) {
       mainQuery.whereNotIn("sub.hitomi_id", exclude.idTerms);
+    }
+    // 범위를 빼는 조건이 ID 없는 책까지 지우면 안 되므로 NULL을 따로 살린다
+    for (const range of exclude.idRanges) {
+      const conditions: string[] = [];
+      const bindings: number[] = [];
+      if (range.min !== undefined) {
+        conditions.push("CAST(sub.hitomi_id AS INTEGER) >= ?");
+        bindings.push(range.min);
+      }
+      if (range.max !== undefined) {
+        conditions.push("CAST(sub.hitomi_id AS INTEGER) <= ?");
+        bindings.push(range.max);
+      }
+      mainQuery.whereRaw(
+        `(NOT (${conditions.join(" AND ")}) OR sub.hitomi_id IS NULL)`,
+        bindings,
+      );
     }
     if (exclude.artistTerms.length > 0) {
       for (const artist of exclude.artistTerms) {
