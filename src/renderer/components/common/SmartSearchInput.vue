@@ -8,9 +8,16 @@ import {
 import { useLookupData } from "@/composables/useLookupData";
 import { Icon } from "@iconify/vue";
 import { watchDebounced } from "@vueuse/core";
-import type { PropType } from "vue";
-import { computed, nextTick, ref, useTemplateRef, watch } from "vue";
+import type { HTMLAttributes, PropType, StyleValue } from "vue";
+import { computed, nextTick, ref, useAttrs, useTemplateRef, watch } from "vue";
 import { toast } from "vue-sonner";
+
+/**
+ * 루트가 Popover라 DOM 요소가 없다. 그대로 두면 바깥에서 준 속성이 붙을 곳이
+ * 없어 전부 사라진다 — 폭 클래스가 날아가면 그리드 안에서 입력칸이 한 칸으로
+ * 쪼그라들어 글자가 안 보인다. class/style은 감싸는 div, 나머지는 input으로.
+ */
+defineOptions({ inheritAttrs: false });
 
 const props = defineProps({
   modelValue: { type: String, default: "" },
@@ -31,6 +38,19 @@ const props = defineProps({
 });
 
 const emit = defineEmits(["update:modelValue"]);
+
+const attrs = useAttrs();
+
+const wrapperAttrs = computed(() => ({
+  class: attrs.class as HTMLAttributes["class"],
+  style: attrs.style as StyleValue,
+}));
+
+const inputAttrs = computed(() =>
+  Object.fromEntries(
+    Object.entries(attrs).filter(([key]) => key !== "class" && key !== "style"),
+  ),
+);
 
 // 조건자가 없으면 모두 통과시킵니다
 const passesFilter = (suggestion: string) =>
@@ -369,9 +389,10 @@ defineExpose({ focus });
   <!-- 후보 목록을 body로 포탈합니다. absolute로 두면 스크롤 컨테이너 안에서 잘립니다 -->
   <Popover :open="isSuggestionOpen">
     <PopoverAnchor as-child>
-      <div class="relative w-full">
+      <div class="relative w-full" v-bind="wrapperAttrs">
         <Input
           ref="input"
+          v-bind="inputAttrs"
           :model-value="props.modelValue"
           :placeholder="placeholder"
           :class="[
