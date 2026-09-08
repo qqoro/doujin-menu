@@ -38,7 +38,11 @@ const mouseBindings = [
     <DialogTrigger as-child>
       <slot />
     </DialogTrigger>
-    <DialogContent class="max-w-2xl">
+    <!--
+      내용이 화면보다 길어지므로 창 높이를 묶고 본문만 스크롤시킨다.
+      기본 grid로는 칸이 내용 높이만큼 버텨 스크롤이 안 생기므로 flex로 바꾼다
+    -->
+    <DialogContent class="flex max-h-[85vh] max-w-2xl flex-col overflow-hidden">
       <DialogHeader>
         <DialogTitle class="flex items-center gap-2">
           <Icon icon="solar:help-bold-duotone" class="h-6 w-6" />
@@ -49,7 +53,7 @@ const mouseBindings = [
         </DialogDescription>
       </DialogHeader>
 
-      <div class="grid gap-6 py-4">
+      <div class="grid min-h-0 flex-1 gap-6 overflow-y-auto py-4 pr-1">
         <div>
           <h3 class="mb-2 font-semibold">기본 조작</h3>
           <ul class="text-muted-foreground list-inside list-disc text-sm">
