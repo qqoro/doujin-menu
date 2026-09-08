@@ -50,6 +50,8 @@ import {
 import {
   chunksForRange,
   computeListCols,
+  LIST_GAP,
+  MIN_LIST_CARD_WIDTH,
   shouldShowSkeleton,
 } from "@/lib/virtualList";
 import { listRowEstimate } from "@/lib/cardLayout";
@@ -748,14 +750,6 @@ const gridMetrics = computed(() =>
     MIN_CARD_WIDTH,
   ),
 );
-
-const LIST_GAP = 8; // 리스트 카드 사이 간격 (gap-2, pb-2와 맞춘다)
-
-/**
- * 리스트 카드 하나의 최소 폭 (줌 1.0 기준). 이보다 좁아지면 2열로 아낀 세로
- * 공간을 태그 줄바꿈으로 도로 뱉는다.
- */
-const MIN_LIST_CARD_WIDTH = 560;
 
 const listCols = computed(() =>
   computeListCols(

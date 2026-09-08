@@ -56,6 +56,15 @@ export const usableGridWidth = (
 };
 
 /**
+ * 리스트 카드 하나의 최소 폭 (줌 1.0 기준). 이보다 좁아지면 2열로 아낀 세로
+ * 공간을 태그 줄바꿈으로 도로 뱉는다.
+ */
+export const MIN_LIST_CARD_WIDTH = 560;
+
+/** 리스트 카드 사이 간격 (gap-2, pb-2와 맞춘다) */
+export const LIST_GAP = 8;
+
+/**
  * 리스트 뷰의 열 수. `computeCols`와 줌 처리가 반대다.
  *
  * 리스트는 CSS `zoom`을 못 쓰고(동적 측정이 1/z만큼 어긋난다 — `cardLayout.ts`

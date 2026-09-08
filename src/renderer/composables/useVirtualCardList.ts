@@ -21,6 +21,8 @@ import {
   chunksForRange,
   computeCols,
   computeListCols,
+  LIST_GAP,
+  MIN_LIST_CARD_WIDTH,
   shouldShowSkeleton,
   usableGridWidth,
 } from "@/lib/virtualList";
@@ -60,8 +62,6 @@ export function useVirtualCardList<T>(options: VirtualCardListOptions<T>) {
   const GRID_PADDING = 0; // 스크롤러에 좌우 패딩 없음
   const GRID_GAP = 12; // gap-3
   const MIN_CARD_WIDTH = 184; // minmax(184px, 1fr)
-  const LIST_GAP = 8; // 리스트 카드 사이 간격 (pb-2와 맞춘다)
-  const MIN_LIST_CARD_WIDTH = 560;
 
   const gridCols = computed(() =>
     computeCols(
