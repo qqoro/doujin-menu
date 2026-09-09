@@ -319,11 +319,11 @@ export const useViewerStore = defineStore("viewer", () => {
 
     const newPage = currentPage.value + increment;
 
+    // 마지막 장을 넘어가면 곧바로 다음 책이나 토스트로 간다.
+    // 더블 페이지에서 goToPage(totalPages)로 한 번 더 보정하면 펼침 시작 페이지로
+    // 다시 정렬돼 제자리로 돌아오고, 아래 분기에 영영 닿지 못한다
     if (newPage <= totalPages.value) {
       goToPage(newPage);
-    } else if (currentPage.value < totalPages.value) {
-      // 마지막 페이지를 넘어가지 않도록 처리
-      goToPage(totalPages.value);
     } else if (isAutoNextBook.value) {
       loadNextBook();
     } else {
