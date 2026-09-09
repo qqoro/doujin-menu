@@ -1271,7 +1271,6 @@ useKeybindings(
                           :model-value="autoNextBookMode"
                           variant="outline"
                           class="col-span-2"
-                          :disabled="!isAutoNextBook"
                           @update:model-value="
                             (mode) => {
                               if (mode)
