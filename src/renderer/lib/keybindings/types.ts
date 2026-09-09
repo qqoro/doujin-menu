@@ -1,10 +1,6 @@
 // 단축키가 적용되는 컨텍스트 (페이지/범위)
 export type KeybindingContext =
-  | "viewer"
-  | "library"
-  | "layout"
-  | "downloader"
-  | "global";
+  "viewer" | "library" | "layout" | "downloader" | "global";
 
 // 기본 액션 정의 (defaults.ts에서 사용)
 export interface ActionDefinition {

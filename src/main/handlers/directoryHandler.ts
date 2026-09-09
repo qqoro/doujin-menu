@@ -60,9 +60,7 @@ export function cleanValue(value: string | null | undefined): string | null {
 // 캐시가 없거나 아직 구축되지 않은(null) 경우엔 항상 false(처리 필요)를 반환한다.
 export function isZipUnchanged(
   cached:
-    | { file_mtime: number | null; file_size: number | null }
-    | null
-    | undefined,
+    { file_mtime: number | null; file_size: number | null } | null | undefined,
   mtime: number,
   size: number,
 ): boolean {

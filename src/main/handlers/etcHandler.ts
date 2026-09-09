@@ -111,7 +111,7 @@ async function handleGenerateMissingInfoFiles(
     processedCount++;
     const folderName = path.basename(subfolderPath);
     const infoFilePath = path.join(subfolderPath, "info.txt");
-    let statusMessage = "";
+    let statusMessage: string;
 
     try {
       await fs.access(infoFilePath);

@@ -1,1 +1,1 @@
-pnpm dlx tsx ./.husky/hooks/tag-validator.ts
+pnpm dlx --allow-build=esbuild tsx ./.husky/hooks/tag-validator.ts

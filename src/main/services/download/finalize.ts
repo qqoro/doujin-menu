@@ -1,4 +1,4 @@
-import archiver from "archiver";
+import { ZipArchive } from "archiver";
 import { createWriteStream } from "fs";
 import fs from "fs/promises";
 import { store as configStore } from "../../handlers/configHandler.js";
@@ -15,7 +15,7 @@ export const finalizeDownload = async (downloadDir: string): Promise<void> => {
   if (compressDownload) {
     const archiveFilePath = `${downloadDir}.${compressFormat}`;
     const output = createWriteStream(archiveFilePath);
-    const archive = archiver("zip", {
+    const archive = new ZipArchive({
       zlib: { level: 0 }, // 압축률 0 (무압축, 속도 우선)
     });
 

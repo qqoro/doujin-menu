@@ -1,0 +1,12 @@
+minimumReleaseAgeExclude:
+  - '@lucide/vue@1.43.0'
+  - electron@44.3.0
+
+allowBuilds:
+  '@parcel/watcher': true
+  '@tailwindcss/oxide': true
+  electron-winstaller: true
+  sharp: true
+  better-sqlite3: false
+  esbuild: false
+  vue-demi: false

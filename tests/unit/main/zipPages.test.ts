@@ -1,4 +1,4 @@
-import archiver from "archiver";
+import { ZipArchive } from "archiver";
 import { createWriteStream } from "fs";
 import fs from "fs/promises";
 import os from "os";
@@ -21,7 +21,7 @@ async function makeZip(
 
   await new Promise<void>((resolve, reject) => {
     const output = createWriteStream(zipPath);
-    const archive = archiver("zip", { zlib: { level: 0 } });
+    const archive = new ZipArchive({ zlib: { level: 0 } });
     output.on("close", () => resolve());
     output.on("error", reject);
     archive.on("error", reject);

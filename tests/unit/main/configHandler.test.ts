@@ -18,7 +18,10 @@ const mockStoreInstance = {
 };
 
 vi.mock("electron-store", () => ({
-  default: vi.fn(() => mockStoreInstance),
+  // new Store(...)로 생성되므로 화살표 함수를 쓰면 생성자가 아니라며 실패한다
+  default: vi.fn(function () {
+    return mockStoreInstance;
+  }),
 }));
 
 // electron 모듈 모킹 (dialog, app 등)

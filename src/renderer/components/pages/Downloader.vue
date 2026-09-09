@@ -482,11 +482,7 @@ const loadDownloaderConfig = async () => {
   }
   if (config.downloaderPopularity !== undefined) {
     downloaderPopularity.value = config.downloaderPopularity as
-      | ""
-      | "day"
-      | "week"
-      | "month"
-      | "year";
+      "" | "day" | "week" | "month" | "year";
   }
 
   const next = (config.downloaderBlacklistTags as string[]) || [];
@@ -1034,11 +1030,7 @@ const handlePopularityChange = async (value: AcceptableValue) => {
   if (value === undefined || value === null) return;
   // 센티넬을 저장·조회용 빈 문자열로 되돌립니다
   const next = (value === POPULARITY_ALL ? "" : value) as
-    | ""
-    | "day"
-    | "week"
-    | "month"
-    | "year";
+    "" | "day" | "week" | "month" | "year";
   downloaderPopularity.value = next;
   await ipcRenderer.invoke("set-config", {
     key: "downloaderPopularity",

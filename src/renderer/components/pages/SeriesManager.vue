@@ -363,10 +363,7 @@ const confirmDelete = () => {
 // 정렬 기준 설정
 const setSortBy = (column: string) => {
   sortBy.value = column as
-    | "name"
-    | "book_count"
-    | "confidence_score"
-    | "created_at";
+    "name" | "book_count" | "confidence_score" | "created_at";
 };
 </script>
 

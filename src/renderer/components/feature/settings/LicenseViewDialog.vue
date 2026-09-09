@@ -88,8 +88,7 @@ const closeDialog = () => {
                 class="bg-muted rounded-md p-4 text-xs whitespace-pre-wrap"
                 >{{
                   license.licenseText || "라이선스 텍스트를 찾을 수 없습니다."
-                }}</pre
-              >
+                }}</pre>
               <p
                 v-if="license?.repository"
                 class="text-muted-foreground mt-2 text-xs"

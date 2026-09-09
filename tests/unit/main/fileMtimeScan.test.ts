@@ -8,7 +8,7 @@ import {
   vi,
 } from "vitest";
 import type { Knex } from "knex";
-import archiver from "archiver";
+import { ZipArchive } from "archiver";
 import * as fsSync from "fs";
 import fs from "fs/promises";
 import os from "os";
@@ -68,7 +68,7 @@ let tempRoot: string;
 async function createZipWithImage(zipPath: string): Promise<void> {
   await new Promise<void>((resolvePromise, rejectPromise) => {
     const output = fsSync.createWriteStream(zipPath);
-    const archive = archiver("zip", { zlib: { level: 0 } });
+    const archive = new ZipArchive({ zlib: { level: 0 } });
     output.on("close", () => resolvePromise());
     archive.on("error", rejectPromise);
     archive.pipe(output);

@@ -32,12 +32,15 @@ vi.mock("electron", () => ({
 
 // electron-store mock 처리
 vi.mock("electron-store", () => ({
-  default: vi.fn(() => ({
-    get: vi.fn(),
-    set: vi.fn(),
-    delete: vi.fn(),
-    store: {},
-  })),
+  // new Store(...)로 생성되므로 화살표 함수를 쓰면 생성자가 아니라며 실패한다
+  default: vi.fn(function () {
+    return {
+      get: vi.fn(),
+      set: vi.fn(),
+      delete: vi.fn(),
+      store: {},
+    };
+  }),
 }));
 
 // electron-updater mock 처리
@@ -83,7 +86,7 @@ vi.mock("../../../src/main/main.js", () => ({
   },
 }));
 
-import archiver from "archiver";
+import { ZipArchive } from "archiver";
 import fs from "fs";
 import os from "os";
 import path from "path";
@@ -240,7 +243,7 @@ describe("extractInfoTxtAndImageCountFromZip", () => {
     );
     await new Promise<void>((resolve, reject) => {
       const output = fs.createWriteStream(zipPath);
-      const archive = archiver("zip", { zlib: { level: 0 } });
+      const archive = new ZipArchive({ zlib: { level: 0 } });
       output.on("close", () => resolve());
       output.on("error", reject);
       archive.on("error", reject);

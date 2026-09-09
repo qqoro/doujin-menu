@@ -157,11 +157,7 @@ const fetchGalleryIds = async (
     title: title.length > 0 ? title.join(" ") : undefined,
     tags: tags.length > 0 ? tags : undefined,
     popularityOrderBy: (popularityOrderBy || undefined) as
-      | "day"
-      | "week"
-      | "month"
-      | "year"
-      | undefined,
+      "day" | "week" | "month" | "year" | undefined,
     range: needsRange ? {} : undefined,
   });
 };

@@ -40,8 +40,7 @@ export const normalizeTagName = (raw: string): string =>
   raw.trim().toLowerCase().replace(/\s+/g, "_");
 
 export type ParseResult =
-  | { ok: true; entry: string }
-  | { ok: false; error: string };
+  { ok: true; entry: string } | { ok: false; error: string };
 
 /**
  * 타입과 이름을 검증해 "type:name" 항목을 만듭니다.

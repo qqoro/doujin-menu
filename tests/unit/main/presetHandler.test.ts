@@ -49,12 +49,15 @@ vi.mock("electron", () => ({
 
 // electron-store mock 처리
 vi.mock("electron-store", () => ({
-  default: vi.fn(() => ({
-    get: vi.fn(),
-    set: vi.fn(),
-    delete: vi.fn(),
-    store: {},
-  })),
+  // new Store(...)로 생성되므로 화살표 함수를 쓰면 생성자가 아니라며 실패한다
+  default: vi.fn(function () {
+    return {
+      get: vi.fn(),
+      set: vi.fn(),
+      delete: vi.fn(),
+      store: {},
+    };
+  }),
 }));
 
 // electron-window-state mock 처리

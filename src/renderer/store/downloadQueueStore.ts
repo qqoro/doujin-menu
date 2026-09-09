@@ -62,7 +62,7 @@ export const useDownloadQueueStore = defineStore("downloadQueue", () => {
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
       console.error("큐 추가 실패:", err);
-      throw new Error(message);
+      throw new Error(message, { cause: err });
     }
   };
 
@@ -74,7 +74,7 @@ export const useDownloadQueueStore = defineStore("downloadQueue", () => {
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
       console.error("큐 제거 실패:", err);
-      throw new Error(message);
+      throw new Error(message, { cause: err });
     }
   };
 
@@ -89,7 +89,7 @@ export const useDownloadQueueStore = defineStore("downloadQueue", () => {
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
       console.error("다운로드 일시정지 실패:", err);
-      throw new Error(message);
+      throw new Error(message, { cause: err });
     }
   };
 
@@ -104,7 +104,7 @@ export const useDownloadQueueStore = defineStore("downloadQueue", () => {
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
       console.error("다운로드 재개 실패:", err);
-      throw new Error(message);
+      throw new Error(message, { cause: err });
     }
   };
 
@@ -122,7 +122,7 @@ export const useDownloadQueueStore = defineStore("downloadQueue", () => {
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
       console.error("다운로드 재시도 실패:", err);
-      throw new Error(message);
+      throw new Error(message, { cause: err });
     }
   };
 
@@ -134,7 +134,7 @@ export const useDownloadQueueStore = defineStore("downloadQueue", () => {
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
       console.error("완료된 다운로드 제거 실패:", err);
-      throw new Error(message);
+      throw new Error(message, { cause: err });
     }
   };
 

@@ -604,8 +604,7 @@ export const useViewerStore = defineStore("viewer", () => {
     }
     if (config.viewerAutoNextBookMode !== undefined) {
       autoNextBookMode.value = config.viewerAutoNextBookMode as
-        | "next"
-        | "random";
+        "next" | "random";
     }
     if (config.viewerAutoPlayStopPage !== undefined) {
       autoPlayStopPage.value = config.viewerAutoPlayStopPage as number | null;

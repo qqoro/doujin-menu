@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi, type Mock } from "vitest";
 
 // DB 모듈 mock 처리 (Electron app 객체 없이 테스트하기 위함)
 vi.mock("../../../src/main/db/index.ts", () => ({
@@ -32,12 +32,15 @@ vi.mock("electron", () => ({
 
 // electron-store mock 처리
 vi.mock("electron-store", () => ({
-  default: vi.fn(() => ({
-    get: vi.fn(),
-    set: vi.fn(),
-    delete: vi.fn(),
-    store: {},
-  })),
+  // new Store(...)로 생성되므로 화살표 함수를 쓰면 생성자가 아니라며 실패한다
+  default: vi.fn(function () {
+    return {
+      get: vi.fn(),
+      set: vi.fn(),
+      delete: vi.fn(),
+      store: {},
+    };
+  }),
 }));
 
 // electron-updater mock 처리
@@ -81,9 +84,23 @@ vi.mock("fs/promises", () => ({
 import { lstat, readdir } from "fs/promises";
 import { formatBytes } from "../../../src/main/handlers/etcHandler";
 
+interface MockedStats {
+  isDirectory(): boolean;
+  size: number;
+}
+
+interface MockedDirent {
+  name: string;
+  isDirectory(): boolean;
+}
+
 // mock 함수 타입 캐스팅
-const mockLstat = lstat as unknown as ReturnType<typeof vi.fn>;
-const mockReaddir = readdir as unknown as ReturnType<typeof vi.fn>;
+const mockLstat = lstat as unknown as Mock<
+  (path: string) => Promise<MockedStats | null>
+>;
+const mockReaddir = readdir as unknown as Mock<
+  (path: string) => Promise<MockedDirent[]>
+>;
 
 // getDirSize는 복잡한 fs 의존성 때문에 별도 mock 함수로 테스트
 async function getDirSize(dirPath: string): Promise<number> {
@@ -101,6 +118,7 @@ async function getDirSize(dirPath: string): Promise<number> {
     for (const file of files) {
       const filePath = `${dirPath}/${file.name}`;
       const fileStats = await mockLstat(filePath);
+      if (!fileStats) continue;
 
       if (fileStats.isDirectory()) {
         totalSize += await getDirSize(filePath);
