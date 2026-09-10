@@ -1,15 +1,22 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-// getGalleryIds에 실제로 전달된 옵션을 검사하기 위한 스파이
-const mockGetGalleryIds = vi.fn();
+// galleries.list에 실제로 전달된 옵션을 검사하기 위한 스파이
+const mockGalleryList = vi.fn();
 
-// node-hitomi 부분 모킹: getParsedTags는 진짜, getGalleryIds만 대체
-vi.mock("node-hitomi", async (importOriginal) => {
-  const actual = (await importOriginal()) as Record<string, unknown>;
-  const real = (actual.default ?? actual) as Record<string, unknown>;
-  const mocked = { ...real, getGalleryIds: mockGetGalleryIds };
-  return { ...mocked, default: mocked };
+// 클라이언트 부분 모킹: 태그 파싱은 진짜를 쓰고 검색만 대체한다.
+// tags.parse와 tags.create는 네트워크를 타지 않는다.
+vi.mock("../../../src/main/services/hitomi/client.js", async () => {
+  const { hitomi } = await import("node-hitomi");
+  return {
+    hitomi: {
+      galleries: { list: (...args: unknown[]) => mockGalleryList(...args) },
+      tags: hitomi.tags,
+    },
+  };
 });
+
+/** galleries.list는 ID가 아니라 참조 객체를 돌려준다 */
+const toReferences = (ids: number[]) => ids.map((id) => ({ id }));
 
 // console은 main.ts에서 export된다 (기존 테스트 패턴).
 // vi.mock 팩토리는 hoist되지만 실제 호출은 import 시점이라 위 const를 참조해도 안전하다.
@@ -43,11 +50,11 @@ vi.mock("../../../src/main/db/index.js", () => ({ default: vi.fn() }));
 const { __clearIdCache, handleSearchGalleries } =
   await import("../../../src/main/handlers/downloaderHandler.js");
 
-describe("handleSearchGalleries — range 선행 버그", () => {
+describe("handleSearchGalleries — 음성 태그", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     __clearIdCache();
-    mockGetGalleryIds.mockResolvedValue([101, 102, 103]);
+    mockGalleryList.mockResolvedValue(toReferences([101, 102, 103]));
     // 블랙리스트 기본값은 빈 배열
     mockConfigGet.mockImplementation((key: string, fallback: unknown) =>
       key === "downloaderBlacklistTags" ? [] : fallback,
@@ -62,31 +69,22 @@ describe("handleSearchGalleries — range 선행 버그", () => {
     expect(result.success).toBe(true);
   });
 
-  it("음성 태그가 선두일 때 getGalleryIds에 range를 넘긴다", async () => {
-    await handleSearchGalleries({
-      searchQuery: "-male:yaoi",
-    });
-
-    const options = mockGetGalleryIds.mock.calls[0][0];
-    expect(options.range).toBeDefined();
-  });
-
-  it("양성 태그가 있으면 range 없이 호출한다 (인덱스 중복 다운로드 방지)", async () => {
+  it("양성·음성 태그를 그대로 넘긴다", async () => {
     await handleSearchGalleries({
       searchQuery: "language:korean -male:yaoi",
     });
 
-    const options = mockGetGalleryIds.mock.calls[0][0];
-    expect(options.range).toBeUndefined();
+    const options = mockGalleryList.mock.calls[0][0];
+    expect(options.tags).toHaveLength(2);
+    expect(options.tags[0].isNegative).toBe(false);
+    expect(options.tags[1].isNegative).toBe(true);
   });
 
-  it("양성 태그를 배열 선두로 정렬한다", async () => {
-    await handleSearchGalleries({
-      searchQuery: "-male:yaoi language:korean",
-    });
+  it("태그가 없으면 tags를 넘기지 않는다", async () => {
+    await handleSearchGalleries({ searchQuery: "" });
 
-    const options = mockGetGalleryIds.mock.calls[0][0];
-    expect(options.tags[0].isNegative).toBeFalsy();
+    const options = mockGalleryList.mock.calls[0][0];
+    expect(options.tags).toBeUndefined();
   });
 });
 
@@ -94,7 +92,7 @@ describe("블랙리스트 주입", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     __clearIdCache();
-    mockGetGalleryIds.mockResolvedValue([101, 102, 103]);
+    mockGalleryList.mockResolvedValue(toReferences([101, 102, 103]));
   });
 
   const withBlacklist = (list: string[]) => {
@@ -110,7 +108,7 @@ describe("블랙리스트 주입", () => {
       searchQuery: "language:korean",
     });
 
-    const { tags } = mockGetGalleryIds.mock.calls[0][0];
+    const { tags } = mockGalleryList.mock.calls[0][0];
     expect(tags).toContainEqual(
       expect.objectContaining({ type: "male", name: "yaoi", isNegative: true }),
     );
@@ -123,7 +121,7 @@ describe("블랙리스트 주입", () => {
       searchQuery: "language:korean -male:yaoi",
     });
 
-    const { tags } = mockGetGalleryIds.mock.calls[0][0];
+    const { tags } = mockGalleryList.mock.calls[0][0];
     const yaoi = tags.filter(
       (t: { type: string; name: string }) =>
         t.type === "male" && t.name === "yaoi",
@@ -140,7 +138,7 @@ describe("블랙리스트 주입", () => {
       searchQuery: "female:big_breasts",
     });
 
-    const { tags } = mockGetGalleryIds.mock.calls[0][0];
+    const { tags } = mockGalleryList.mock.calls[0][0];
     const big = tags.filter(
       (t: { type: string; name: string }) =>
         t.type === "female" && t.name === "big breasts",
@@ -157,7 +155,7 @@ describe("블랙리스트 주입", () => {
       searchQuery: "language:korean",
     });
 
-    const { tags } = mockGetGalleryIds.mock.calls[0][0];
+    const { tags } = mockGalleryList.mock.calls[0][0];
     expect(tags).toContainEqual(
       expect.objectContaining({ type: "male", name: "yaoi", isNegative: true }),
     );
@@ -190,7 +188,7 @@ describe("블랙리스트 주입", () => {
     });
 
     expect(result.data).toEqual([12345]);
-    expect(mockGetGalleryIds).not.toHaveBeenCalled();
+    expect(mockGalleryList).not.toHaveBeenCalled();
   });
 
   it("프리픽스 없는 숫자도 id: 검색과 똑같이 블랙리스트를 타지 않는다", async () => {
@@ -201,16 +199,16 @@ describe("블랙리스트 주입", () => {
     });
 
     expect(result.data).toEqual([12345]);
-    expect(mockGetGalleryIds).not.toHaveBeenCalled();
+    expect(mockGalleryList).not.toHaveBeenCalled();
   });
 
   it("숫자가 섞인 낱말은 ID로 보지 않는다", async () => {
-    mockGetGalleryIds.mockResolvedValue([1, 2]);
+    mockGalleryList.mockResolvedValue(toReferences([1, 2]));
 
     const result = await handleSearchGalleries({ searchQuery: "12345화" });
 
     expect(result.data).toEqual([1, 2]);
-    expect(mockGetGalleryIds).toHaveBeenCalled();
+    expect(mockGalleryList).toHaveBeenCalled();
   });
 });
 
@@ -219,7 +217,7 @@ describe("ID 캐시", () => {
     vi.clearAllMocks();
     vi.useRealTimers();
     __clearIdCache();
-    mockGetGalleryIds.mockResolvedValue([101, 102, 103]);
+    mockGalleryList.mockResolvedValue(toReferences([101, 102, 103]));
     mockConfigGet.mockImplementation((key: string, fallback: unknown) =>
       key === "downloaderBlacklistTags" ? [] : fallback,
     );
@@ -231,7 +229,7 @@ describe("ID 캐시", () => {
     await handleSearchGalleries(args);
     await handleSearchGalleries(args);
 
-    expect(mockGetGalleryIds).toHaveBeenCalledTimes(1);
+    expect(mockGalleryList).toHaveBeenCalledTimes(1);
   });
 
   it("대소문자가 다른 검색어는 캐시 키가 갈린다", async () => {
@@ -258,7 +256,7 @@ describe("ID 캐시", () => {
     vi.setSystemTime(new Date("2026-08-10T00:06:00Z")); // TTL 5분 초과
     const second = await handleSearchGalleries(args);
 
-    expect(mockGetGalleryIds).toHaveBeenCalledTimes(2);
+    expect(mockGalleryList).toHaveBeenCalledTimes(2);
     expect(second.generation).toBeGreaterThan(first.generation!);
 
     vi.useRealTimers();
@@ -277,32 +275,34 @@ describe("ID 캐시", () => {
     );
     await handleSearchGalleries(args);
 
-    expect(mockGetGalleryIds).toHaveBeenCalledTimes(2);
+    expect(mockGalleryList).toHaveBeenCalledTimes(2);
   });
 
   it("언어 '전체'의 실측 규모(약 120만 건)도 캐시된다", async () => {
     // 실측(2026-08-11): 언어 "전체 언어" + 빈 검색어 = 1,191,155건.
     // 상한이 50만이던 시절에는 하필 이 케이스만 캐시에서 빠져서,
     // 인덱스를 다시 받는 비용이 가장 큰 검색이 매번 전량 재요청을 했다.
-    const measured = Array.from({ length: 1_191_155 }, (_, i) => i + 1);
-    mockGetGalleryIds.mockResolvedValue(measured);
+    const measured = Array.from({ length: 1_191_155 }, (_, i) => ({
+      id: i + 1,
+    }));
+    mockGalleryList.mockResolvedValue(measured);
 
     const args = { searchQuery: "" };
     await handleSearchGalleries(args);
     await handleSearchGalleries(args);
 
-    expect(mockGetGalleryIds).toHaveBeenCalledTimes(1);
+    expect(mockGalleryList).toHaveBeenCalledTimes(1);
   });
 
   it("결과가 상한을 넘으면 캐시하지 않는다", async () => {
-    const huge = Array.from({ length: 2_000_001 }, (_, i) => i + 1);
-    mockGetGalleryIds.mockResolvedValue(huge);
+    const huge = Array.from({ length: 2_000_001 }, (_, i) => ({ id: i + 1 }));
+    mockGalleryList.mockResolvedValue(huge);
 
     const args = { searchQuery: "language:korean" };
     await handleSearchGalleries(args);
     await handleSearchGalleries(args);
 
-    expect(mockGetGalleryIds).toHaveBeenCalledTimes(2);
+    expect(mockGalleryList).toHaveBeenCalledTimes(2);
   });
 });
 
@@ -316,8 +316,8 @@ describe("구간 기반 API", () => {
   });
 
   it("총 건수를 반환한다", async () => {
-    mockGetGalleryIds.mockResolvedValue(
-      Array.from({ length: 1234 }, (_, i) => i + 1),
+    mockGalleryList.mockResolvedValue(
+      Array.from({ length: 1234 }, (_, i) => ({ id: i + 1 })),
     );
 
     const result = await handleSearchGalleries({
@@ -328,8 +328,8 @@ describe("구간 기반 API", () => {
   });
 
   it("요청한 구간만 잘라 반환한다", async () => {
-    mockGetGalleryIds.mockResolvedValue(
-      Array.from({ length: 100 }, (_, i) => i + 1),
+    mockGalleryList.mockResolvedValue(
+      Array.from({ length: 100 }, (_, i) => ({ id: i + 1 })),
     );
 
     const result = await handleSearchGalleries({
@@ -342,7 +342,7 @@ describe("구간 기반 API", () => {
   });
 
   it("구간이 끝을 넘어가면 남은 만큼만 반환한다", async () => {
-    mockGetGalleryIds.mockResolvedValue([1, 2, 3]);
+    mockGalleryList.mockResolvedValue(toReferences([1, 2, 3]));
 
     const result = await handleSearchGalleries({
       searchQuery: "language:korean",
@@ -367,22 +367,30 @@ describe("인기 필터", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     __clearIdCache();
-    mockGetGalleryIds.mockResolvedValue([101, 102]);
+    mockGalleryList.mockResolvedValue(toReferences([101, 102]));
     mockConfigGet.mockImplementation((key: string, fallback: unknown) =>
       key === "downloaderBlacklistTags" ? [] : fallback,
     );
   });
 
-  it("popularityOrderBy를 넘기면 range를 함께 넘긴다", async () => {
-    // range가 없으면 node-hitomi가 t.range.start를 읽다가 TypeError를 던진다
+  it("popularityOrderBy를 orderBy로 옮긴다", async () => {
     await handleSearchGalleries({
       searchQuery: "language:korean",
       popularityOrderBy: "week",
     });
 
-    const options = mockGetGalleryIds.mock.calls[0][0];
-    expect(options.popularityOrderBy).toBe("week");
-    expect(options.range).toBeDefined();
+    const options = mockGalleryList.mock.calls[0][0];
+    expect(options.orderBy).toBe("week");
+  });
+
+  it("day는 라이브러리의 today로 옮긴다", async () => {
+    await handleSearchGalleries({
+      searchQuery: "language:korean",
+      popularityOrderBy: "day",
+    });
+
+    const options = mockGalleryList.mock.calls[0][0];
+    expect(options.orderBy).toBe("today");
   });
 
   it("인기 필터가 다르면 캐시 키가 갈린다", async () => {
@@ -392,16 +400,16 @@ describe("인기 필터", () => {
       popularityOrderBy: "week",
     });
 
-    expect(mockGetGalleryIds).toHaveBeenCalledTimes(2);
+    expect(mockGalleryList).toHaveBeenCalledTimes(2);
   });
 
-  it("빈 문자열이면 popularityOrderBy를 넘기지 않는다", async () => {
+  it("빈 문자열이면 orderBy를 넘기지 않는다", async () => {
     await handleSearchGalleries({
       searchQuery: "language:korean",
       popularityOrderBy: "",
     });
 
-    const options = mockGetGalleryIds.mock.calls[0][0];
-    expect(options.popularityOrderBy).toBeUndefined();
+    const options = mockGalleryList.mock.calls[0][0];
+    expect(options.orderBy).toBeUndefined();
   });
 });

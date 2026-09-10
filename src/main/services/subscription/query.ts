@@ -3,8 +3,8 @@
  *
  * 다운로더 검색어 문법을 그대로 쓰되, 구독은 태그만 본다. 제목 단어는 무시한다.
  */
-import hitomi from "node-hitomi";
 import type { Tag } from "node-hitomi";
+import { parseTags } from "../hitomi/tags.js";
 
 export interface ParsedSubscription {
   positive: Tag[];
@@ -23,7 +23,7 @@ const toTerms = (query: string): string[] =>
  * downloaderHandler의 buildCacheKey와 같은 규칙이다 — 히토미 관점에서 동치인
  * 검색어(태그 순서·공백 차이)를 한 값으로 모은다.
  *
- * 소문자화하지 않는다. getParsedTags는 대문자를 거부하므로 artist:Foo는 실패하고
+ * 소문자화하지 않는다. 태그 이름 규칙이 대문자를 거부하므로 artist:Foo는 실패하고
  * artist:foo는 성공하는데, 키를 소문자화하면 둘이 같은 칸을 쓰게 된다.
  */
 export const normalizeQuery = (query: string): string =>
@@ -57,7 +57,7 @@ export const validateSubscriptionQuery = (query: string): ValidationResult => {
 
   for (const term of positiveTagTerms) {
     try {
-      hitomi.getParsedTags(term);
+      parseTags(term);
     } catch {
       return {
         ok: false,
@@ -72,9 +72,8 @@ export const validateSubscriptionQuery = (query: string): ValidationResult => {
 /**
  * 검색어와 차단 태그를 양성/음성 태그로 나눈다.
  *
- * 반드시 한 항목씩 파싱한다. getParsedTags는 한 호출 안에서 type:name 중복을
- * 만나면 예외를 던지는데 그 dedupe 키에 isNegative가 없어서, 전부 join해 넘기면
- * 손상된 항목 하나가 나머지까지 통째로 날린다.
+ * 반드시 한 항목씩 파싱한다. 알 수 없는 태그 종류나 규칙에 맞지 않는 이름은
+ * 예외가 되므로, 전부 join해 넘기면 손상된 항목 하나가 나머지까지 통째로 날린다.
  */
 export const parseSubscriptionQuery = (
   query: string,
@@ -89,7 +88,7 @@ export const parseSubscriptionQuery = (
     if (!term.includes(":")) continue;
 
     try {
-      const [tag] = hitomi.getParsedTags(term);
+      const [tag] = parseTags(term);
       if (!tag) continue;
 
       seen.add(`${tag.type}:${tag.name}`);
@@ -102,7 +101,7 @@ export const parseSubscriptionQuery = (
 
   for (const raw of blacklist) {
     try {
-      const [tag] = hitomi.getParsedTags(raw.startsWith("-") ? raw : `-${raw}`);
+      const [tag] = parseTags(raw.startsWith("-") ? raw : `-${raw}`);
       if (!tag) continue;
 
       // 유저가 명시적으로 검색한 태그가 차단 태그를 이긴다

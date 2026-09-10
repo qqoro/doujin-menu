@@ -5,14 +5,14 @@ import { useGalleryCard } from "@/composables/useGalleryCard";
 import type { CreditPrefix, MetaField } from "@/lib/cardLayout";
 import { buildMetaLine } from "@/lib/galleryCard";
 import { Icon } from "@iconify/vue";
-import type { Gallery } from "node-hitomi";
+import type { GalleryDto } from "@/../types/ipc";
 import { computed } from "vue";
 import CreditsLine from "../parts/CreditsLine.vue";
 import MetaLine from "../parts/MetaLine.vue";
 import GalleryStatusBadge from "./parts/GalleryStatusBadge.vue";
 
 interface Props {
-  gallery: Gallery & { thumbnailUrl: string };
+  gallery: GalleryDto;
   downloadStatus?: { status: string; progress?: number; error?: string };
   selected?: boolean;
   /** 라이브러리 보유 여부. 상위에서 한 번에 조회해 내려준다 */
@@ -29,10 +29,10 @@ const props = withDefaults(defineProps<Props>(), {
 });
 
 const emit = defineEmits<{
-  "select-gallery": [gallery: Gallery];
-  "preview-gallery": [gallery: Gallery];
+  "select-gallery": [gallery: GalleryDto];
+  "preview-gallery": [gallery: GalleryDto];
   // 삭제 다이얼로그는 페이지가 들고 있다 (useGalleryDelete 참고)
-  "request-delete": [gallery: Gallery];
+  "request-delete": [gallery: GalleryDto];
 }>();
 
 // 템플릿에 배열 리터럴을 직접 쓰면 vue-tsc가 `string[]`로 추론해 걸린다

@@ -137,8 +137,8 @@ importers:
         specifier: ^3.3.0
         version: 3.3.0(better-sqlite3@13.0.3)(supports-color@10.2.2)
       node-hitomi:
-        specifier: ^8.1.2
-        version: 8.1.2
+        specifier: ^9.2.0
+        version: 9.2.0(@types/node@26.5.0)
       p-queue:
         specifier: ^9.3.3
         version: 9.3.3
@@ -5131,10 +5131,14 @@ packages:
     engines: {node: ^20.17.0 || >=22.9.0}
     hasBin: true
 
-  node-hitomi@8.1.2:
-    resolution: {integrity: sha512-1cS3O+nCzrOd8a7ZUgm/DVJQioBnO8vOyKzI36f0cItyL/CpW1+amMQl34fISeEq6ZIgmwDdNX/PvS9A2VIqyg==}
-    engines: {node: '>=10.4.0'}
-    deprecated: This version is no longer supported. Please upgrade to @latest!
+  node-hitomi@9.2.0:
+    resolution: {integrity: sha512-PYVGr1lGmdVC5/tT2ETuYb5HpM1hBZQmeQfwcgnCPcuWnA4k+uwynwtyDTiHfuKL7m0VtHWkV02VT78JIqPT9g==}
+    engines: {node: '>=10.20'}
+    peerDependencies:
+      '@types/node': '>=10.20'
+    peerDependenciesMeta:
+      '@types/node':
+        optional: true
 
   node-html-parser@7.1.0:
     resolution: {integrity: sha512-iJo8b2uYGT40Y8BTyy5ufL6IVbN8rbm/1QK2xffXU/1a/v3AAa0d1YAoqBNYqaS4R/HajkWIpIfdE6KcyFh1AQ==}
@@ -12427,7 +12431,9 @@ snapshots:
       undici: 6.28.1
       which: 6.0.1
 
-  node-hitomi@8.1.2: {}
+  node-hitomi@9.2.0(@types/node@26.5.0):
+    optionalDependencies:
+      '@types/node': 26.5.0
 
   node-html-parser@7.1.0:
     dependencies:

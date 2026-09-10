@@ -111,10 +111,10 @@ export const resolveCardStatus = ({
 export interface MetaSource {
   id: number;
   type?: string;
-  files?: unknown[];
-  /** node-hitomi는 현지어 이름이 없는 언어에 null을 담는다 */
+  pageCount?: number;
+  /** 현지어 이름이 없는 언어는 local이 비어 있다 */
   languageName?: { local?: string | null; english?: string | null } | null;
-  publishedDate?: Date | string | number | null;
+  releaseDate?: Date | string | number | null;
 }
 
 /**
@@ -131,7 +131,7 @@ export const buildMetaLine = (
   for (const key of fields) {
     switch (key) {
       case "pages": {
-        const count = gallery.files?.length ?? 0;
+        const count = gallery.pageCount ?? 0;
         if (count > 0) parts.push({ key, text: `${count}p` });
         break;
       }
@@ -146,7 +146,7 @@ export const buildMetaLine = (
         break;
       }
       case "date": {
-        const text = formatPublishDate(gallery.publishedDate);
+        const text = formatPublishDate(gallery.releaseDate);
         if (text) parts.push({ key, text });
         break;
       }

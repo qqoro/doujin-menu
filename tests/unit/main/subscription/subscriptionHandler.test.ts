@@ -26,22 +26,13 @@ vi.mock("../../../../src/main/handlers/configHandler.js", () => ({
 }));
 
 const mockFetchTagIds = vi.fn();
-vi.mock("../../../../src/main/services/subscription/nozomi.js", () => ({
-  fetchTagIds: (...args: unknown[]) => mockFetchTagIds(...args),
-  parseNozomiIds: vi.fn(),
-}));
-
-// 직접 조회가 실패하면 폴러가 getGalleryIds로 폴백한다.
-// 막아두지 않으면 유닛 테스트가 실제 네트워크를 탄다. getParsedTags는 진짜를 쓴다
-vi.mock("node-hitomi", async (importOriginal) => {
-  const actual = (await importOriginal()) as Record<string, unknown>;
-  const real = (actual.default ?? actual) as Record<string, unknown>;
-  const mocked = {
-    ...real,
-    getGalleryIds: () => Promise.reject(new Error("네트워크 차단(테스트)")),
-  };
-  return { ...mocked, default: mocked };
-});
+vi.mock(
+  "../../../../src/main/services/hitomi/tags.js",
+  async (importOriginal) => ({
+    ...((await importOriginal()) as Record<string, unknown>),
+    fetchTagIds: (...args: unknown[]) => mockFetchTagIds(...args),
+  }),
+);
 
 vi.mock("../../../../src/main/utils/broadcast.js", () => ({
   broadcast: vi.fn(),

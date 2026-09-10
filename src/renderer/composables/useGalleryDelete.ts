@@ -1,7 +1,7 @@
 import * as api from "@/api";
 import { ipcRenderer } from "@/api";
 import { usePermanentDelete } from "@/composables/usePermanentDelete";
-import type { Gallery } from "node-hitomi";
+import type { GalleryDto } from "@/../types/ipc";
 import { ref } from "vue";
 import { toast } from "vue-sonner";
 
@@ -19,12 +19,12 @@ import { toast } from "vue-sonner";
  */
 export function useGalleryDelete(onDeleted?: (galleryId: number) => void) {
   const isOpen = ref(false);
-  const target = ref<Gallery | null>(null);
+  const target = ref<GalleryDto | null>(null);
 
   // 영구 삭제 체크 상태 (모든 삭제 다이얼로그 공유, localStorage 유지)
   const { permanentDelete } = usePermanentDelete();
 
-  const requestDelete = (gallery: Gallery) => {
+  const requestDelete = (gallery: GalleryDto) => {
     target.value = gallery;
     isOpen.value = true;
   };

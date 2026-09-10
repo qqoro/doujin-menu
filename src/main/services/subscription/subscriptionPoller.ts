@@ -5,13 +5,12 @@
  * 구독 검색을 다시 돌리면 나오는 정보라 저장할 이유가 없다.
  */
 import type { WebContents } from "electron";
-import hitomi from "node-hitomi";
 import type { Tag } from "node-hitomi";
 import db from "../../db/index.js";
 import { store as configStore } from "../../handlers/configHandler.js";
+import { fetchTagIds } from "../hitomi/tags.js";
 import { broadcast, sendTo } from "../../utils/broadcast.js";
 import { buildFeed, countNew, intersect, maxId } from "./feed.js";
-import { fetchTagIds } from "./nozomi.js";
 import { parseSubscriptionQuery } from "./query.js";
 
 /** 확인 주기. 고정값이다 (설정에서는 켜고 끄기만 한다) */
@@ -78,7 +77,6 @@ const tagKey = (tag: Tag): string => `${tag.type}:${tag.name}`;
  * 태그 하나의 ID 배열을 사이클 캐시에서 가져온다.
  *
  * 여러 구독이 language:korean 같은 태그를 공유하므로, 사이클 안에서는 한 번만 받는다.
- * 직접 조회가 실패하면 라이브러리로 폴백한다 — 느려질 뿐 결과는 같다.
  */
 const resolveTag = async (
   tag: Tag,
@@ -88,17 +86,7 @@ const resolveTag = async (
   const cached = cache.get(key);
   if (cached) return cached;
 
-  let ids: number[];
-  try {
-    ids = await fetchTagIds(tag);
-  } catch (error) {
-    console.warn(
-      `[Subscription] nozomi 직접 조회 실패, getGalleryIds로 폴백합니다: ${key}`,
-      error,
-    );
-    ids = await hitomi.getGalleryIds({ tags: [{ ...tag, isNegative: false }] });
-  }
-
+  const ids = await fetchTagIds(tag);
   cache.set(key, ids);
   return ids;
 };

@@ -70,13 +70,14 @@ describe("parseSubscriptionQuery", () => {
   it("양성 태그를 positive로 모은다", () => {
     const parsed = parseSubscriptionQuery("artist:foo language:korean", []);
 
-    expect(parsed.positive).toEqual([
+    // Tag는 클래스라 url 같은 필드가 더 붙어 있다. 종류·이름·부호만 본다
+    expect(parsed.positive).toMatchObject([
       { type: "artist", name: "foo", isNegative: false },
       { type: "language", name: "korean", isNegative: false },
     ]);
   });
 
-  it("이름의 밑줄을 공백으로 바꾼다 (getParsedTags 규칙)", () => {
+  it("이름의 밑줄을 공백으로 바꾼다", () => {
     const parsed = parseSubscriptionQuery("artist:uzura_dobin", []);
 
     expect(parsed.positive[0].name).toBe("uzura dobin");

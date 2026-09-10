@@ -3,7 +3,8 @@ import path from "path";
 
 /**
  * 폴더명 패턴이 실제로 읽는 필드만 추린 모양입니다.
- * node-hitomi의 Gallery가 그대로 만족하고, 갤러리가 아닌 것도 담을 수 있습니다.
+ * 히토미 갤러리는 toDownloadNameSource로 옮겨 담고, 갤러리가 아닌 것도
+ * 이 모양만 맞추면 됩니다.
  */
 export interface DownloadNameSource {
   id: number | string;

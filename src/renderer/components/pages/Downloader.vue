@@ -63,7 +63,7 @@ import { Icon } from "@iconify/vue";
 import { useQueries, useQuery, useQueryClient } from "@tanstack/vue-query";
 import { useVirtualizer } from "@tanstack/vue-virtual";
 import { useThrottleFn } from "@vueuse/core";
-import type { Gallery } from "node-hitomi";
+import type { GalleryDto } from "@/../types/ipc";
 import { AcceptableValue } from "reka-ui";
 import {
   computed,
@@ -153,7 +153,7 @@ const blacklistTags = ref<string[]>([]);
 
 // 미리보기 다이얼로그 관련 상태
 const isPreviewDialogOpen = ref(false);
-const selectedGallery = ref<Gallery>();
+const selectedGallery = ref<GalleryDto>();
 
 /** 현재 보고 있는 PAGE 단위 구간 (0-based). offset·shownCount는 여기서 유도된다 */
 const currentPage = ref(0);
@@ -325,7 +325,7 @@ const chunkQueries = useQueries({
           ),
         )) as {
           success: boolean;
-          data: Gallery & { thumbnailUrl: string };
+          data: GalleryDto;
         }[];
 
         const galleries = detailResults
@@ -354,7 +354,7 @@ const chunkQueries = useQueries({
  * 들고 있는 게 결과 전체가 아니라 드문드문한 몇 개 청크뿐이라 Map을 쓴다.
  */
 const galleryByIndex = computed(() => {
-  const map = new Map<number, Gallery & { thumbnailUrl: string }>();
+  const map = new Map<number, GalleryDto>();
   for (const query of chunkQueries.value) {
     const data = query.data;
     if (!data) continue;
@@ -438,7 +438,7 @@ const resolveBookId = (galleryId: number): number | null => {
   return bookExistsMap.value?.[galleryId] ?? null;
 };
 
-const handleSelectGallery = (gallery: Gallery) => {
+const handleSelectGallery = (gallery: GalleryDto) => {
   selectedGallery.value = gallery;
 };
 

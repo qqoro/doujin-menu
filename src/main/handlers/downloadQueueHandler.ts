@@ -1,7 +1,6 @@
 import type { BrowserWindow } from "electron";
 import { ipcMain } from "electron";
 import fs from "fs/promises";
-import hitomi from "node-hitomi";
 import path from "path";
 import type {
   DownloadQueueItem,
@@ -11,6 +10,8 @@ import type {
 import db from "../db/index.js";
 import { console } from "../main.js";
 import { broadcast } from "../utils/broadcast.js";
+import { hitomi } from "../services/hitomi/client.js";
+import { toDownloadNameSource } from "../services/hitomi/gallery.js";
 import { buildGalleryDownloadPath } from "../utils/index.js";
 import { store as configStore } from "./configHandler.js";
 import { handleDownloadGallery } from "./downloaderHandler.js";
@@ -149,7 +150,9 @@ export const handleRemoveFromDownloadQueue = async (queueId: number) => {
 
     if (shouldDeleteFiles && item.download_path) {
       try {
-        const gallery = await hitomi.getGallery(Number(item.source_key));
+        const gallery = await hitomi.galleries.retrieve(
+          Number(item.source_key),
+        );
 
         const downloadPattern = configStore.get(
           "downloadPattern",
@@ -161,14 +164,12 @@ export const handleRemoveFromDownloadQueue = async (queueId: number) => {
         ) as boolean;
 
         // 다운로드 쪽과 반드시 동일한 경로가 나와야 하므로 같은 함수를 씁니다.
-        const galleryDownloadPath = gallery
-          ? buildGalleryDownloadPath(
-              item.download_path,
-              gallery,
-              downloadPattern,
-              { capitalizeNames },
-            )
-          : null;
+        const galleryDownloadPath = buildGalleryDownloadPath(
+          item.download_path,
+          toDownloadNameSource(gallery),
+          downloadPattern,
+          { capitalizeNames },
+        );
 
         if (galleryDownloadPath) {
           // 폴더 삭제

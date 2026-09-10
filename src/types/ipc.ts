@@ -1,5 +1,4 @@
 // IPC 통신을 위한 타입 정의
-import type { Gallery } from "node-hitomi";
 import type { Config } from "../main/handlers/configHandler.js";
 
 /** 읽음 상태 구간. 한 권은 반드시 한 구간에만 속한다 */
@@ -121,6 +120,31 @@ export interface DownloadQueueItem {
   started_at?: string;
   completed_at?: string;
   priority: number;
+}
+
+/**
+ * 히토미 갤러리를 렌더러로 넘기는 모양입니다.
+ *
+ * node-hitomi의 Gallery를 그대로 실어 보내지 않습니다. 그쪽은 클래스라
+ * 직렬화를 거치면 메서드가 사라져 타입만 남고, 태그도 이름 대신 Tag 객체로
+ * 옵니다. 렌더러가 실제로 쓰는 필드만 평면으로 추립니다.
+ */
+export interface GalleryDto {
+  id: number;
+  title: { display: string };
+  type: string;
+  /** 현지어 이름이 없는 언어는 local이 비어 있고, 언어 자체가 없으면 null입니다 */
+  languageName: { english: string; local: string } | null;
+  artists: string[];
+  groups: string[];
+  series: string[];
+  characters: string[];
+  tags: { type: string; name: string }[];
+  /** 페이지 수. 파일 목록 전체는 렌더러가 쓰지 않아 싣지 않습니다 */
+  pageCount: number;
+  /** 발행일이 있으면 발행일, 없으면 히토미에 올라온 날짜 */
+  releaseDate: Date;
+  thumbnailUrl: string;
 }
 
 /** 구독 = 다운로더 검색어 문자열 하나 */
@@ -576,7 +600,7 @@ export interface IpcChannels {
     request: number; // galleryId
     response: {
       success: boolean;
-      data?: Gallery & { thumbnailUrl: string };
+      data?: GalleryDto;
       error?: string;
     };
   };

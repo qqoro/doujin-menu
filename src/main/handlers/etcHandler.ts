@@ -4,9 +4,10 @@ import fg from "fast-glob";
 import { spawn } from "child_process";
 import { existsSync } from "fs";
 import fs from "fs/promises";
-import hitomi from "node-hitomi";
 import path from "path";
 import db from "../db/index.js";
+import { hitomi } from "../services/hitomi/client.js";
+import { buildInfoContent } from "../services/hitomi/gallery.js";
 import { sendTo } from "../utils/broadcast.js";
 import { openExternalIfAllowed } from "../utils/externalLink.js";
 import { sortImageFiles } from "../utils/imageFiles.js";
@@ -123,35 +124,11 @@ async function handleGenerateMissingInfoFiles(
       if (match?.[1]) {
         const galleryId = parseInt(match[1], 10);
         try {
-          const gallery = await hitomi.getGallery(galleryId);
-          if (gallery) {
-            const infoContent = [
-              `갤러리 넘버: ${gallery.id}`,
-              `제목: ${gallery.title.display}`,
-              `작가: ${gallery.artists?.join(", ") || "N/A"}`,
-              `그룹: ${gallery.groups?.join(", ") || "N/A"}`,
-              `타입: ${gallery.type || "N/A"}`,
-              `시리즈: ${gallery.series?.join(", ") || "N/A"}`,
-              `캐릭터: ${gallery.characters?.join(", ") || "N/A"}`,
-              `태그: ${
-                gallery.tags
-                  ?.map((t) =>
-                    t.type === "male" || t.type === "female"
-                      ? `${t.type}:${t.name}`
-                      : t.name,
-                  )
-                  .join(", ") || "N/A"
-              }`,
-              `언어: ${gallery.languageName?.english || "N/A"}`,
-            ].join("\n\n");
+          const gallery = await hitomi.galleries.retrieve(galleryId);
 
-            await fs.writeFile(infoFilePath, infoContent);
-            statusMessage = `생성 완료: ${folderName}`;
-            createdCount++;
-          } else {
-            statusMessage = `오류 (갤러리 없음): ${folderName}`;
-            errorCount++;
-          }
+          await fs.writeFile(infoFilePath, buildInfoContent(gallery));
+          statusMessage = `생성 완료: ${folderName}`;
+          createdCount++;
         } catch (error) {
           console.error(
             `Error fetching gallery info for ID ${galleryId}`,

@@ -1,18 +1,19 @@
 import path from "path";
 import { describe, expect, it } from "vitest";
+import type { DownloadNameSource } from "../../../src/main/utils/index.js";
 import {
   buildGalleryDownloadPath,
   formatDownloadFolderName,
 } from "../../../src/main/utils/index.js";
-import type { Gallery } from "node-hitomi";
 
 // 기본 갤러리 템플릿
-const createGallery = (overrides: Partial<Gallery> = {}): Gallery =>
-  ({
-    id: 123,
-    title: { display: "Test Title" },
-    ...overrides,
-  }) as Gallery;
+const createGallery = (
+  overrides: Partial<DownloadNameSource> = {},
+): DownloadNameSource => ({
+  id: 123,
+  title: { display: "Test Title" },
+  ...overrides,
+});
 
 describe("formatDownloadFolderName", () => {
   describe("기본 변수 치환", () => {
@@ -47,7 +48,7 @@ describe("formatDownloadFolderName", () => {
 
     it("language 치환", () => {
       const gallery = createGallery({
-        languageName: { english: "Korean", local: null },
+        languageName: { english: "Korean" },
       });
       expect(formatDownloadFolderName(gallery, "%language% - %title%")).toBe(
         "Korean - Test Title",
@@ -266,7 +267,7 @@ describe("formatDownloadFolderName", () => {
 
     it("제목에는 적용하지 않음", () => {
       const gallery = createGallery({
-        title: { display: "test title" } as Gallery["title"],
+        title: { display: "test title" },
       });
       expect(
         formatDownloadFolderName(gallery, "%title%", { capitalizeNames: true }),
@@ -309,7 +310,7 @@ describe("buildGalleryDownloadPath", () => {
   it("전체 경로 예산 초과 시 마지막 세그먼트만 자르고 부모 경로는 보존", () => {
     const gallery = createGallery({
       groups: ["GroupA"],
-      title: { display: "A".repeat(300) } as Gallery["title"],
+      title: { display: "A".repeat(300) },
     });
     const result = buildGalleryDownloadPath(
       "C:\\dl",

@@ -99,9 +99,9 @@ describe("buildMetaLine", () => {
   const FULL = {
     id: 3184920,
     type: "manga",
-    files: new Array(32),
+    pageCount: 32,
     languageName: { local: "한국어", english: "Korean" },
-    publishedDate: new Date(2026, 7, 3, 10, 0, 0),
+    releaseDate: new Date(2026, 7, 3, 10, 0, 0),
   };
 
   it("요청한 필드만 요청한 순서로 낸다", () => {
@@ -122,7 +122,7 @@ describe("buildMetaLine", () => {
 
   // 값이 없는 항목까지 자리를 차지하면 "· · ·"만 남은 줄이 나옵니다
   it("값이 없는 항목은 통째로 뺀다", () => {
-    const sparse = { id: 1, files: [], languageName: undefined };
+    const sparse = { id: 1, pageCount: 0, languageName: undefined };
     expect(
       buildMetaLine(sparse, ["pages", "type", "language", "date", "id"]),
     ).toEqual([{ key: "id", text: "#1" }]);
@@ -136,7 +136,7 @@ describe("buildMetaLine", () => {
   });
 
   it("날짜가 유효하지 않으면 뺀다", () => {
-    const bad = { id: 1, publishedDate: "말도 안 되는 값" };
+    const bad = { id: 1, releaseDate: "말도 안 되는 값" };
     expect(buildMetaLine(bad, ["date"])).toEqual([]);
   });
 

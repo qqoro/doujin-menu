@@ -19,24 +19,15 @@ vi.mock("../../../../src/main/handlers/configHandler.js", () => ({
   store: { get: vi.fn(() => []) },
 }));
 
-// 태그 조회를 통째로 대체한다. 네트워크는 타지 않는다
+// 태그 조회만 대체한다. 파싱은 진짜를 쓰고 네트워크는 타지 않는다
 const mockFetchTagIds = vi.fn();
-vi.mock("../../../../src/main/services/subscription/nozomi.js", () => ({
-  fetchTagIds: (...args: unknown[]) => mockFetchTagIds(...args),
-  parseNozomiIds: vi.fn(),
-}));
-
-// 직접 조회가 실패하면 getGalleryIds로 폴백한다.
-// 막아두지 않으면 실패 격리 테스트가 실제 네트워크를 탄다. getParsedTags는 진짜를 쓴다
-vi.mock("node-hitomi", async (importOriginal) => {
-  const actual = (await importOriginal()) as Record<string, unknown>;
-  const real = (actual.default ?? actual) as Record<string, unknown>;
-  const mocked = {
-    ...real,
-    getGalleryIds: () => Promise.reject(new Error("네트워크 차단(테스트)")),
-  };
-  return { ...mocked, default: mocked };
-});
+vi.mock(
+  "../../../../src/main/services/hitomi/tags.js",
+  async (importOriginal) => ({
+    ...((await importOriginal()) as Record<string, unknown>),
+    fetchTagIds: (...args: unknown[]) => mockFetchTagIds(...args),
+  }),
+);
 
 const mockBroadcast = vi.fn();
 const mockSendTo = vi.fn();

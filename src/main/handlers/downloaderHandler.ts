@@ -1,6 +1,6 @@
 import { app, ipcMain } from "electron";
 import fs from "fs/promises";
-import hitomi from "node-hitomi";
+import { SortType } from "node-hitomi";
 import path from "path";
 import { pathToFileURL } from "url";
 import { console } from "../main.js";
@@ -10,6 +10,14 @@ import { store as configStore } from "./configHandler.js";
 import { finalizeDownload } from "../services/download/finalize.js";
 import { downloadImages } from "../services/download/imageDownloader.js";
 import { createQueueProgressReporter } from "../services/download/queueProgress.js";
+import { hitomi } from "../services/hitomi/client.js";
+import {
+  buildInfoContent,
+  resolveImageUrls,
+  toDownloadNameSource,
+  toGalleryDto,
+} from "../services/hitomi/gallery.js";
+import { parseTags } from "../services/hitomi/tags.js";
 import type { Tag } from "node-hitomi";
 
 /**
@@ -28,8 +36,9 @@ interface SearchGalleriesResult {
   error?: string;
 }
 
-// 검색 결과 ID 캐시. node-hitomi의 getGalleryIds는 호출할 때마다
-// index-all.nozomi 전체를 다시 받으므로, 검색어별로 ID 배열을 통째로 캐시한다.
+// 검색 결과 ID 캐시. 페이지를 넘길 때마다 같은 검색을 다시 하지 않도록
+// 검색어별로 ID 배열을 통째로 캐시한다. 태그 없는 검색은 전체 인덱스를
+// 받으므로 특히 아깝다.
 
 interface CachedIds {
   ids: Int32Array; // number[]는 항목당 8바이트, Int32Array는 4바이트
@@ -83,11 +92,10 @@ const buildCacheKey = (
 /**
  * 블랙리스트 문자열을 음성 태그로 변환합니다.
  *
- * 반드시 한 개씩 파싱합니다. getParsedTags는 한 호출 안에서 type:name 중복을
- * 만나면 예외를 던지는데, 그 dedupe 키에 isNegative가 없어서 male:yaoi와
- * -male:yaoi도 충돌합니다. 전부 join해서 한 번에 넘기면 손상된 항목 하나가
- * 블랙리스트 전체를 빈 배열로 만들고, 그러면 차단은 0건인데 UI는
- * "차단 태그 N개 적용 중"을 계속 띄우게 됩니다.
+ * 반드시 한 개씩 파싱합니다. 알 수 없는 태그 종류나 규칙에 맞지 않는 이름은
+ * 예외가 되는데, 전부 join해서 한 번에 넘기면 손상된 항목 하나가 블랙리스트
+ * 전체를 빈 배열로 만듭니다. 그러면 차단은 0건인데 UI는 "차단 태그 N개 적용 중"을
+ * 계속 띄우게 됩니다.
  *
  * seen에 이미 있는 태그는 건너뜁니다 — 유저가 명시적으로 검색한 태그가
  * 블랙리스트를 이깁니다.
@@ -97,7 +105,7 @@ const buildBlacklistTags = (blacklist: string[], seen: Set<string>): Tag[] => {
 
   for (const raw of blacklist) {
     try {
-      const [tag] = hitomi.getParsedTags(raw.startsWith("-") ? raw : `-${raw}`);
+      const [tag] = parseTags(raw.startsWith("-") ? raw : `-${raw}`);
       if (!tag) continue;
 
       const key = `${tag.type}:${tag.name}`;
@@ -116,20 +124,33 @@ const buildBlacklistTags = (blacklist: string[], seen: Set<string>): Tag[] => {
   return negatives;
 };
 
+/** IPC로 받는 인기 기간을 라이브러리의 정렬 종류로 옮깁니다 */
+const toSortType = (popularityOrderBy: string): SortType | undefined => {
+  switch (popularityOrderBy) {
+    case "day":
+      return SortType.PopularityDay;
+    case "week":
+      return SortType.PopularityWeek;
+    case "month":
+      return SortType.PopularityMonth;
+    case "year":
+      return SortType.PopularityYear;
+    default:
+      return undefined;
+  }
+};
+
 /**
  * 검색어를 제목/태그로 나누고 히토미에서 매칭 ID 전체를 가져옵니다.
  *
- * range 인자에 주의: node-hitomi는 popularityOrderBy가 있거나
- * tags[0].isNegative가 참이면 t.range.start를 읽습니다. range를 넘기지 않으면
- * undefined.start로 TypeError가 납니다. 다만 range를 주면
- * index-all.nozomi를 한 번 더 받으므로, 필요할 때만 넘기고 양성 태그를 배열
- * 앞으로 정렬해 그 경우를 줄입니다.
+ * ID 배열을 곧바로 Int32Array에 담습니다. 태그 없는 검색은 120만건이 걸리는데,
+ * 중간에 number[]를 한 벌 더 만들면 그만큼이 고스란히 임시 메모리가 됩니다.
  */
 const fetchGalleryIds = async (
   searchQuery: string,
   popularityOrderBy: string,
   blacklist: string[],
-): Promise<number[]> => {
+): Promise<Int32Array> => {
   const title: string[] = [];
   const tagTerms: string[] = [];
   searchQuery
@@ -141,25 +162,22 @@ const fetchGalleryIds = async (
       else title.push(text);
     });
 
-  const parsed =
-    tagTerms.length > 0 ? hitomi.getParsedTags(tagTerms.join(" ")) : [];
+  const parsed = tagTerms.length > 0 ? parseTags(tagTerms.join(" ")) : [];
   const seen = new Set(parsed.map((tag) => `${tag.type}:${tag.name}`));
-  const negatives = buildBlacklistTags(blacklist, seen);
+  const tags = [...parsed, ...buildBlacklistTags(blacklist, seen)];
 
-  // 양성 태그를 앞으로 (정렬은 안정적이라 같은 부호끼리는 원래 순서를 지킵니다)
-  const tags = [...parsed, ...negatives].sort(
-    (a, b) => Number(Boolean(a.isNegative)) - Number(Boolean(b.isNegative)),
-  );
-
-  const needsRange = Boolean(popularityOrderBy) || Boolean(tags[0]?.isNegative);
-
-  return hitomi.getGalleryIds({
+  const references = await hitomi.galleries.list({
     title: title.length > 0 ? title.join(" ") : undefined,
     tags: tags.length > 0 ? tags : undefined,
-    popularityOrderBy: (popularityOrderBy || undefined) as
-      "day" | "week" | "month" | "year" | undefined,
-    range: needsRange ? {} : undefined,
+    orderBy: toSortType(popularityOrderBy),
   });
+
+  const ids = new Int32Array(references.length);
+  for (let index = 0; index < references.length; index++) {
+    ids[index] = references[index].id;
+  }
+
+  return ids;
 };
 
 /** 캐시에서 ID 배열을 가져오거나, 없으면 히토미에서 받아 캐시합니다. */
@@ -177,7 +195,7 @@ const getCachedIds = async (
 
   const ids = await fetchGalleryIds(searchQuery, popularityOrderBy, blacklist);
   const entry: CachedIds = {
-    ids: Int32Array.from(ids),
+    ids,
     at: Date.now(),
     generation: ++generationCounter,
   };
@@ -258,21 +276,9 @@ export const handleSearchGalleries = async ({
 
 export const handleGetGalleryDetails = async (galleryId: number) => {
   try {
-    const gallery = await hitomi.getGallery(galleryId);
+    const gallery = await hitomi.galleries.retrieve(galleryId);
 
-    // 썸네일 URL 생성 로직 추가
-    const thumbnailUrl = hitomi.ImageUriResolver.getImageUri(
-      gallery.files[0],
-      "webp",
-      { isThumbnail: true },
-    );
-    return {
-      success: true,
-      data: {
-        ...gallery,
-        thumbnailUrl: `https://${thumbnailUrl}`,
-      },
-    };
+    return { success: true, data: await toGalleryDto(gallery) };
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     console.error(`Error getting gallery details for ID ${galleryId}:`, error);
@@ -282,16 +288,9 @@ export const handleGetGalleryDetails = async (galleryId: number) => {
 
 export const handleGetGalleryImageUrls = async (galleryId: number) => {
   try {
-    const gallery = await hitomi.getGallery(galleryId);
-    if (!gallery) {
-      throw new Error(`Gallery with ID ${galleryId} not found.`);
-    }
-    const previewUrls = gallery.files.map((file) => {
-      const fileExt = file.hasWebp ? "webp" : "avif";
-      const imageUrl = hitomi.ImageUriResolver.getImageUri(file, fileExt); // 원본 이미지 URL
-      return `https://${imageUrl}`;
-    });
-    return { success: true, data: previewUrls };
+    const gallery = await hitomi.galleries.retrieve(galleryId);
+
+    return { success: true, data: await resolveImageUrls(gallery) };
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     console.error(`Error getting image URLs for gallery ${galleryId}:`, error);
@@ -320,10 +319,7 @@ export const handleDownloadGallery = async (
       status: "starting",
     });
 
-    const gallery = await hitomi.getGallery(galleryId);
-    if (!gallery) {
-      throw new Error(`Gallery with ID ${galleryId} not thrown.`);
-    }
+    const gallery = await hitomi.galleries.retrieve(galleryId);
 
     const downloadPattern = configStore.get(
       "downloadPattern",
@@ -335,7 +331,7 @@ export const handleDownloadGallery = async (
     // 큐 삭제 쪽과 반드시 동일한 경로가 나와야 하므로 직접 계산하지 마세요.
     const galleryDownloadPath = buildGalleryDownloadPath(
       downloadPath,
-      gallery,
+      toDownloadNameSource(gallery),
       downloadPattern,
       { capitalizeNames },
     );
@@ -355,10 +351,7 @@ export const handleDownloadGallery = async (
     const reportQueueProgress = createQueueProgressReporter(queueId);
 
     const result = await downloadImages({
-      urls: gallery.files.map((file) => {
-        const fileExt = file.hasWebp ? "webp" : "avif";
-        return `https://${hitomi.ImageUriResolver.getImageUri(file, fileExt)}`;
-      }),
+      urls: await resolveImageUrls(gallery),
       targetDir: galleryDownloadPath,
       headers: {
         accept:
@@ -400,20 +393,8 @@ export const handleDownloadGallery = async (
     // info.txt 파일 생성 (설정에 따라)
     const createInfoTxtFile = configStore.get("createInfoTxtFile", true);
     if (createInfoTxtFile) {
-      const infoContent = [
-        `갤러리 넘버: ${gallery.id}`,
-        `\n제목: ${gallery.title.display}`,
-        `\n작가: ${gallery.artists?.join(", ") || "N/A"}`,
-        `\n그룹: ${gallery.groups?.join(", ") || "N/A"}`,
-        `\n타입: ${gallery.type || "N/A"}`,
-        `\n시리즈: ${gallery.series?.join(", ") || "N/A"}`,
-        `\n캐릭터: ${gallery.characters?.join(", ") || "N/A"}`,
-        `\n태그: ${gallery.tags?.map((t) => (t.type === "male" || t.type === "female" ? `${t.type}:${t.name}` : t.name)).join(", ") || "N/A"}`,
-        `\n언어: ${gallery.languageName?.english || "N/A"}`,
-      ].join("\n");
-
       const infoFilePath = path.join(galleryDownloadPath, "info.txt");
-      await fs.writeFile(infoFilePath, infoContent);
+      await fs.writeFile(infoFilePath, buildInfoContent(gallery));
     }
 
     await finalizeDownload(galleryDownloadPath);
@@ -490,11 +471,6 @@ export const handleDownloadTempThumbnail = async ({
  * 다운로더 관련 IPC 통신 핸들러를 등록합니다.
  */
 export async function registerDownloaderHandlers() {
-  await hitomi.ImageUriResolver.synchronize();
-  setInterval(async () => {
-    await hitomi.ImageUriResolver.synchronize();
-  }, 30000);
-
   // 작품 검색 핸들러
   ipcMain.handle("search-galleries", (_event, params) =>
     handleSearchGalleries(params),

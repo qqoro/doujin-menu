@@ -1,13 +1,13 @@
 import * as api from "@/api";
 import { resolveCardStatus } from "@/lib/galleryCard";
 import { useDownloadQueueStore } from "@/store/downloadQueueStore";
-import type { Gallery } from "node-hitomi";
+import type { GalleryDto } from "@/../types/ipc";
 import { computed, toRaw } from "vue";
 import { useRouter } from "vue-router";
 import { toast } from "vue-sonner";
 
 interface GalleryCardProps {
-  gallery: Gallery & { thumbnailUrl: string };
+  gallery: GalleryDto;
   downloadStatus: { status: string; progress?: number; error?: string };
   /**
    * 라이브러리에 이미 있는 책의 ID. 없으면 null.
@@ -22,7 +22,7 @@ interface GalleryCardProps {
 }
 
 interface GalleryCardEmits {
-  (event: "request-delete", gallery: Gallery): void;
+  (event: "request-delete", gallery: GalleryDto): void;
 }
 
 export function useGalleryCard(
