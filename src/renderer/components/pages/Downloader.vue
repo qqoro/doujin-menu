@@ -607,6 +607,8 @@ const syncQueueToStatuses = () => {
       mappedStatus = "progress";
     }
 
+    if (queueItem.gallery_id === null) return;
+
     downloadStatuses[queueItem.gallery_id] = {
       status: mappedStatus,
       progress: queueItem.progress,
@@ -1456,11 +1458,11 @@ useSearchPersistence(searchQuery, "downloader-search-query");
 
     <!-- 결과 -->
     <!-- scrollbar-gutter: 총 높이가 0→수백만으로 뛰며 스크롤바가 생기는 순간
-         clientWidth가 15px 줄어듭니다. 컬럼 경계 근처면
-         cols→rowH→총높이→스크롤바 순환이 발생합니다 -->
+       clientWidth가 15px 줄어듭니다. 컬럼 경계 근처면
+       cols→rowH→총높이→스크롤바 순환이 발생합니다 -->
     <div
       ref="scrollerRef"
-      class="downloader-scroller relative min-h-0 flex-1 overflow-y-auto rounded-lg border p-2 [scrollbar-gutter:stable]"
+      class="downloader-scroller relative min-h-0 flex-1 [scrollbar-gutter:stable] overflow-y-auto rounded-lg border p-2"
       @scroll="scheduleVisibleRangeUpdate"
     >
       <!-- 로딩: 스켈레톤 -->
@@ -1508,7 +1510,7 @@ useSearchPersistence(searchQuery, "downloader-search-query");
 
       <!-- 결과 목록 (가상 스크롤) -->
       <!-- .vspace는 zoom 바깥, 카드만 .zoomed-grid 안. 스페이서를 zoom
-           안으로 옮기면 렌더 높이가 총높이 × z가 되어 뒤쪽에 도달할 수 없습니다 -->
+         안으로 옮기면 렌더 높이가 총높이 × z가 되어 뒤쪽에 도달할 수 없습니다 -->
       <div
         v-else-if="shownCount > 0"
         class="vspace relative w-full"
@@ -1572,8 +1574,8 @@ useSearchPersistence(searchQuery, "downloader-search-query");
         </div>
 
         <!-- 리스트: 행 단위 가상화 + 동적 측정 (CSS zoom 없음).
-             측정 대상은 행 래퍼다. 2열이면 두 카드 중 높은 쪽이 행 높이가 되는데
-             래퍼 하나만 재면 저절로 맞는다 -->
+           측정 대상은 행 래퍼다. 2열이면 두 카드 중 높은 쪽이 행 높이가 되는데
+           래퍼 하나만 재면 저절로 맞는다 -->
         <div v-else class="absolute inset-x-0 top-0" @wheel="handleZoomWheel">
           <div
             v-for="virtualRow in listVirtualizer?.getVirtualItems() ?? []"

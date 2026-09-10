@@ -1,25 +1,16 @@
-import archiver from "archiver";
 import { app, ipcMain } from "electron";
-import { createWriteStream } from "fs";
 import fs from "fs/promises";
 import hitomi from "node-hitomi";
 import path from "path";
 import { pathToFileURL } from "url";
 import { console } from "../main.js";
-import { broadcast, sendTo } from "../utils/broadcast.js";
+import { sendTo } from "../utils/broadcast.js";
 import { buildGalleryDownloadPath } from "../utils/index.js";
 import { store as configStore } from "./configHandler.js";
-import { scanFile } from "./directoryHandler.js";
+import { finalizeDownload } from "../services/download/finalize.js";
+import { downloadImages } from "../services/download/imageDownloader.js";
+import { createQueueProgressReporter } from "../services/download/queueProgress.js";
 import type { Tag } from "node-hitomi";
-
-/** 파일 하나에 허용하는 최대 시도 횟수 */
-const MAX_FILE_ATTEMPTS = 10;
-
-const retryDelayMs = (attempt: number) =>
-  Math.min(1000 * 2 ** (attempt - 1), 30_000);
-
-/** 큐 갱신 브로드캐스트 최소 간격(ms) */
-const QUEUE_BROADCAST_INTERVAL = 200;
 
 /**
  * search-galleries IPC 응답. src/types/ipc.ts의 계약과 같은 모양을 유지합니다.
@@ -358,30 +349,6 @@ export const handleDownloadGallery = async (
 
     const totalFiles = gallery.files.length;
 
-    // 이어받기로 수백 개를 건너뛸 때 창마다 큐를 다시 조회하지 않도록 쓰로틀한다.
-    let lastQueueBroadcast = 0;
-    const reportProgress = async (index: number, force = false) => {
-      const progress = Math.round(((index + 1) / totalFiles) * 100);
-      sendTo(webContents, "download-progress", {
-        galleryId,
-        status: "progress",
-        progress,
-      });
-
-      if (!queueId) return;
-
-      const now = Date.now();
-      if (!force && now - lastQueueBroadcast < QUEUE_BROADCAST_INTERVAL) return;
-      lastQueueBroadcast = now;
-
-      const db = (await import("../db/index.js")).default;
-      await db("DownloadQueue")
-        .where("id", queueId)
-        .update({ progress, downloaded_files: index + 1 });
-      broadcast("download-queue-updated");
-    };
-
-    // 큐 ID가 있으면 total_files 업데이트
     if (queueId) {
       const db = (await import("../db/index.js")).default;
       await db("DownloadQueue").where("id", queueId).update({
@@ -389,100 +356,49 @@ export const handleDownloadGallery = async (
       });
     }
 
-    for (let i = 0; i < totalFiles; i++) {
-      // 취소 확인
-      if (shouldCancel && shouldCancel()) {
-        return {
-          success: false,
-          error: "다운로드가 일시정지되었습니다.",
-          paused: true,
-        };
-      }
+    const reportQueueProgress = createQueueProgressReporter(queueId);
 
-      const file = gallery.files[i];
-      const fileExt = file.hasWebp ? "webp" : "avif";
-      const imageUrl = hitomi.ImageUriResolver.getImageUri(file, fileExt);
-      const fullImageUrl = `https://${imageUrl}`;
-      const fileName = `${String(file.index + 1).padStart(6, "0")}.${fileExt}`;
-      const filePath = path.join(galleryDownloadPath, fileName);
+    const result = await downloadImages({
+      urls: gallery.files.map((file) => {
+        const fileExt = file.hasWebp ? "webp" : "avif";
+        return `https://${hitomi.ImageUriResolver.getImageUri(file, fileExt)}`;
+      }),
+      targetDir: galleryDownloadPath,
+      headers: {
+        accept:
+          "image/avif,image/webp,image/apng,image/svg+xml,image/*,*/*;q=0.8",
+        "accept-language": "ko-KR,ko;q=0.9,en-US;q=0.8,en;q=0.7",
+        priority: "i",
+        "sec-ch-ua": '"Chromium";v="136", "Whale";v="4", "Not.A/Brand";v="99"',
+        "sec-ch-ua-mobile": "?0",
+        "sec-ch-ua-platform": '"Windows"',
+        "sec-fetch-dest": "image",
+        "sec-fetch-mode": "no-cors",
+        "sec-fetch-site": "cross-site",
+        "sec-fetch-storage-access": "active",
+        "sec-gpc": "1",
+        Referer: `https://hitomi.la/reader/${gallery.id}.html`,
+        "Referrer-Policy": "no-referrer-when-downgrade",
+        "User-Agent":
+          "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_9_3) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/35.0.1916.47 Safari/537.36",
+      },
+      shouldCancel,
+      onProgress: async (downloaded, total) => {
+        sendTo(webContents, "download-progress", {
+          galleryId,
+          status: "progress",
+          progress: Math.round((downloaded / total) * 100),
+        });
+        await reportQueueProgress(downloaded, total);
+      },
+    });
 
-      // 파일이 이미 존재하면 건너뛰기 (이어받기)
-      try {
-        await fs.access(filePath);
-
-        await reportProgress(i, i === totalFiles - 1);
-        continue; // 다음 파일로
-      } catch {
-        // 파일이 없으면 다운로드 진행
-      }
-
-      let success = false;
-      let attempt = 0;
-
-      while (!success) {
-        // 재시도 루프 내에서도 취소 확인
-        if (shouldCancel && shouldCancel()) {
-          return {
-            success: false,
-            error: "다운로드가 일시정지되었습니다.",
-            paused: true,
-          };
-        }
-        attempt++;
-        try {
-          const res = await fetch(fullImageUrl, {
-            headers: {
-              accept:
-                "image/avif,image/webp,image/apng,image/svg+xml,image/*,*/*;q=0.8",
-              "accept-language": "ko-KR,ko;q=0.9,en-US;q=0.8,en;q=0.7",
-              priority: "i",
-              "sec-ch-ua":
-                '"Chromium";v="136", "Whale";v="4", "Not.A/Brand";v="99"',
-              "sec-ch-ua-mobile": "?0",
-              "sec-ch-ua-platform": '"Windows"',
-              "sec-fetch-dest": "image",
-              "sec-fetch-mode": "no-cors",
-              "sec-fetch-site": "cross-site",
-              "sec-fetch-storage-access": "active",
-              "sec-gpc": "1",
-              Referer: `https://hitomi.la/reader/${gallery.id}.html`,
-              "Referrer-Policy": "no-referrer-when-downgrade",
-              "User-Agent":
-                "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_9_3) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/35.0.1916.47 Safari/537.36",
-            },
-          });
-
-          if (res.ok) {
-            const arrayBuffer = await res.arrayBuffer();
-            await fs.writeFile(filePath, Buffer.from(arrayBuffer));
-            success = true;
-            break; // 다운로드 성공, 재시도 루프 탈출
-          }
-
-          console.warn(
-            `[Downloader] 파일 다운로드 실패. 재시도 (${attempt}/${MAX_FILE_ATTEMPTS}): ${fileName} - ${res.statusText}`,
-          );
-        } catch (error) {
-          console.warn(
-            `[Downloader] 파일 다운로드 중 오류 발생. 재시도 (${attempt}/${MAX_FILE_ATTEMPTS}): ${fileName}`,
-            error,
-          );
-        }
-
-        // 상한이 없으면 영구 404 파일 하나가 큐 전체를 영원히 붙잡는다.
-        // 갤러리를 실패로 떨궈 다음 항목이 진행되게 한다 (UI에서 재시도 가능).
-        if (attempt >= MAX_FILE_ATTEMPTS) {
-          throw new Error(
-            `${fileName} 다운로드를 ${MAX_FILE_ATTEMPTS}회 시도했지만 실패했습니다.`,
-          );
-        }
-
-        await new Promise<void>((resolve) =>
-          setTimeout(resolve, retryDelayMs(attempt)),
-        );
-      }
-
-      await reportProgress(i, i === totalFiles - 1);
+    if (result.cancelled) {
+      return {
+        success: false,
+        error: "다운로드가 일시정지되었습니다.",
+        paused: true,
+      };
     }
 
     // info.txt 파일 생성 (설정에 따라)
@@ -504,64 +420,12 @@ export const handleDownloadGallery = async (
       await fs.writeFile(infoFilePath, infoContent);
     }
 
-    // 압축 설정 확인 및 처리
-    const compressDownload = configStore.get("compressDownload", false);
-    const compressFormat = configStore.get("compressFormat", "cbz");
-
-    if (compressDownload) {
-      // 압축 파일 경로 생성
-      const archiveFilePath = `${galleryDownloadPath}.${compressFormat}`;
-
-      // 압축 스트림 생성
-      const output = createWriteStream(archiveFilePath);
-      const archive = archiver("zip", {
-        zlib: { level: 0 }, // 압축률 0 (무압축, 속도 우선)
-      });
-
-      // 에러 핸들링
-      archive.on("error", (err) => {
-        throw err;
-      });
-
-      // 스트림 연결
-      archive.pipe(output);
-
-      // 폴더 내 모든 파일 추가
-      archive.directory(galleryDownloadPath, false);
-
-      // 압축 완료
-      await archive.finalize();
-
-      // 압축 완료 대기
-      await new Promise<void>((resolve, reject) => {
-        output.on("close", () => resolve());
-        output.on("error", (err) => reject(err));
-      });
-
-      // 원본 폴더 삭제
-      await fs.rm(galleryDownloadPath, { recursive: true, force: true });
-    }
+    await finalizeDownload(galleryDownloadPath);
 
     sendTo(webContents, "download-progress", {
       galleryId,
       status: "completed",
     });
-
-    // 다운로드된 폴더/파일이 라이브러리 폴더에 포함되는지 확인
-    const libraryFolders = configStore.get("libraryFolders", []);
-
-    // 압축된 경우 압축 파일 경로로, 아닌 경우 폴더 경로로 스캔
-    const scanPath = compressDownload
-      ? `${galleryDownloadPath}.${compressFormat}`
-      : galleryDownloadPath;
-
-    const isDownloadedToLibrary = libraryFolders.some((folder) =>
-      scanPath.startsWith(folder),
-    );
-
-    if (isDownloadedToLibrary) {
-      await scanFile(scanPath);
-    }
 
     return { success: true };
   } catch (error) {

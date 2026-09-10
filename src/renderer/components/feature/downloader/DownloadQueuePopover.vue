@@ -208,7 +208,7 @@ const sortedQueue = computed(() => {
               class="bg-muted relative h-28 w-20 flex-shrink-0 overflow-hidden rounded-md"
             >
               <ProxiedImage
-                v-if="item.thumbnail_url"
+                v-if="item.thumbnail_url && item.gallery_id !== null"
                 :id="item.gallery_id"
                 :url="item.thumbnail_url"
                 :referer="`https://hitomi.la/reader/${item.gallery_id}.html`"

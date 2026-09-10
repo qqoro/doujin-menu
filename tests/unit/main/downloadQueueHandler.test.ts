@@ -61,6 +61,8 @@ let db: Knex;
 
 const addItem = (galleryId: number, overrides: Record<string, unknown> = {}) =>
   db("DownloadQueue").insert({
+    source: "hitomi",
+    source_key: String(galleryId),
     gallery_id: galleryId,
     gallery_title: `갤러리 ${galleryId}`,
     download_path: "C:\\down",
@@ -118,6 +120,19 @@ describe("handleAddToDownloadQueue", () => {
     expect(await db("DownloadQueue").count("* as c").first()).toMatchObject({
       c: 1,
     });
+  });
+
+  it("galleryId를 그대로 source_key로 적는다", async () => {
+    const result = await handleAddToDownloadQueue({
+      galleryId: 3241234,
+      galleryTitle: "[작가] 제목",
+      downloadPath: "C:\\down",
+    });
+
+    expect(result.success).toBe(true);
+    const row = await db("DownloadQueue").where("gallery_id", 3241234).first();
+    expect(row.source).toBe("hitomi");
+    expect(row.source_key).toBe("3241234");
   });
 });
 

@@ -106,7 +106,11 @@ export type DownloadQueueStatus =
 
 export interface DownloadQueueItem {
   id: number;
-  gallery_id: number;
+  /** 다운로드 소스. 현재는 히토미뿐입니다. */
+  source: string;
+  /** 소스별 원본 식별자. 히토미는 갤러리 ID를 문자열로 적습니다. */
+  source_key: string;
+  gallery_id: number | null;
   gallery_title: string;
   gallery_artist?: string;
   thumbnail_url?: string;
@@ -604,7 +608,9 @@ export interface IpcChannels {
   };
   "add-to-download-queue": {
     request: {
-      galleryId: number;
+      /** 생략하면 String(galleryId)를 씁니다. */
+      sourceKey?: string;
+      galleryId?: number;
       galleryTitle: string;
       galleryArtist?: string;
       thumbnailUrl?: string;

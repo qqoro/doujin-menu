@@ -6,6 +6,7 @@ import path from "path";
 import type {
   DownloadQueueItem,
   DownloadQueueStatus,
+  IpcChannels,
 } from "../../types/ipc.js";
 import db from "../db/index.js";
 import { console } from "../main.js";
@@ -70,17 +71,14 @@ export const handleGetDownloadQueue = async () => {
 /**
  * 다운로드 큐에 항목 추가
  */
-export const handleAddToDownloadQueue = async (params: {
-  galleryId: number;
-  galleryTitle: string;
-  galleryArtist?: string;
-  thumbnailUrl?: string;
-  downloadPath: string;
-}) => {
+export const handleAddToDownloadQueue = async (
+  params: IpcChannels["add-to-download-queue"]["request"],
+) => {
   try {
-    // 이미 큐에 있는지 확인
+    const sourceKey = params.sourceKey ?? String(params.galleryId);
+
     const existing = await db("DownloadQueue")
-      .where("gallery_id", params.galleryId)
+      .where("source_key", sourceKey)
       .first();
 
     if (existing) {
@@ -92,7 +90,8 @@ export const handleAddToDownloadQueue = async (params: {
 
     // 큐에 추가
     const [id] = await db("DownloadQueue").insert({
-      gallery_id: params.galleryId,
+      source_key: sourceKey,
+      gallery_id: params.galleryId ?? null,
       gallery_title: params.galleryTitle,
       gallery_artist: params.galleryArtist,
       thumbnail_url: params.thumbnailUrl,
@@ -150,26 +149,28 @@ export const handleRemoveFromDownloadQueue = async (queueId: number) => {
 
     if (shouldDeleteFiles && item.download_path) {
       try {
-        // 갤러리 정보 가져오기
-        const gallery = await hitomi.getGallery(item.gallery_id);
-        if (gallery) {
-          const downloadPattern = configStore.get(
-            "downloadPattern",
-            "[%artist%] %title% (%id%)",
-          ) as string;
-          const capitalizeNames = configStore.get(
-            "capitalizeNames",
-            false,
-          ) as boolean;
+        const gallery = await hitomi.getGallery(Number(item.source_key));
 
-          // 다운로드 쪽과 반드시 동일한 경로가 나와야 하므로 같은 함수를 씁니다.
-          const galleryDownloadPath = buildGalleryDownloadPath(
-            item.download_path,
-            gallery,
-            downloadPattern,
-            { capitalizeNames },
-          );
+        const downloadPattern = configStore.get(
+          "downloadPattern",
+          "[%artist%] %title% (%id%)",
+        ) as string;
+        const capitalizeNames = configStore.get(
+          "capitalizeNames",
+          false,
+        ) as boolean;
 
+        // 다운로드 쪽과 반드시 동일한 경로가 나와야 하므로 같은 함수를 씁니다.
+        const galleryDownloadPath = gallery
+          ? buildGalleryDownloadPath(
+              item.download_path,
+              gallery,
+              downloadPattern,
+              { capitalizeNames },
+            )
+          : null;
+
+        if (galleryDownloadPath) {
           // 폴더 삭제
           try {
             await fs.rm(galleryDownloadPath, { recursive: true, force: true });
@@ -423,11 +424,12 @@ async function processDownloadQueue() {
           throw new Error("메인 윈도우를 찾을 수 없습니다.");
         }
 
-        // 다운로드 실행 (기존 downloaderHandler 사용)
         const result = await handleDownloadGallery(
-          { sender: mainWindow.webContents } as Electron.IpcMainInvokeEvent,
           {
-            galleryId: nextItem.gallery_id,
+            sender: mainWindow.webContents,
+          } as Electron.IpcMainInvokeEvent,
+          {
+            galleryId: Number(nextItem.source_key),
             downloadPath: nextItem.download_path,
             queueId: nextItem.id, // 큐 ID 전달
             shouldCancel: () => shouldCancelCurrentDownload, // 취소 확인 함수

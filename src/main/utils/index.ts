@@ -1,6 +1,20 @@
 import filenamify from "filenamify";
-import type { Gallery } from "node-hitomi";
 import path from "path";
+
+/**
+ * 폴더명 패턴이 실제로 읽는 필드만 추린 모양입니다.
+ * node-hitomi의 Gallery가 그대로 만족하고, 갤러리가 아닌 것도 담을 수 있습니다.
+ */
+export interface DownloadNameSource {
+  id: number | string;
+  title: { display: string };
+  type?: string | null;
+  languageName?: { english?: string | null } | null;
+  artists?: string[];
+  groups?: string[];
+  series?: string[];
+  characters?: string[];
+}
 
 export function naturalSort(a: string, b: string): number {
   const re = /(\d+)|(\D+)/g;
@@ -69,13 +83,13 @@ function sanitizeSegment(segment: string): string {
 /**
  * 갤러리 정보와 패턴을 기반으로 다운로드 폴더의 상대 경로를 생성합니다.
  * 패턴에 `\` 또는 `/`를 쓰면 하위 폴더가 만들어집니다.
- * @param gallery - 히토미 갤러리 객체
+ * @param gallery - 폴더명에 쓸 작품 정보
  * @param pattern - 폴더명 패턴 (예: "%artist% - %title%", "%groups%\\[%artist%] %title%")
  * @param options - 폴더명 생성 옵션
  * @returns 생성된 상대 경로 (Windows 호환, 예: "GroupA\\[ArtistA] 제목")
  */
 export function formatDownloadFolderName(
-  gallery: Gallery,
+  gallery: DownloadNameSource,
   pattern: string,
   options: FolderNameOptions = {},
 ): string {
@@ -147,14 +161,14 @@ export function formatDownloadFolderName(
  * 경로를 계산하다 filenamify maxLength가 100/255로 어긋나, 생성된 폴더와
  * 삭제 대상 경로가 달라지는 버그가 있었습니다.
  * @param downloadPath - 다운로드 루트 경로 (절대 경로)
- * @param gallery - 히토미 갤러리 객체
+ * @param gallery - 폴더명에 쓸 작품 정보
  * @param pattern - 폴더명 패턴
  * @param options - 폴더명 생성 옵션
  * @returns 최종 절대 경로
  */
 export function buildGalleryDownloadPath(
   downloadPath: string,
-  gallery: Gallery,
+  gallery: DownloadNameSource,
   pattern: string,
   options: FolderNameOptions = {},
 ): string {

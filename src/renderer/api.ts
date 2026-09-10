@@ -1,6 +1,7 @@
 import type {
   DeleteDuplicatesResult,
   FilterParams,
+  IpcChannels,
   Preset,
   TypedIpcRenderer,
   UpdateCheckResult,
@@ -292,13 +293,9 @@ export async function getDownloadQueue() {
   }
 }
 
-export async function addToDownloadQueue(params: {
-  galleryId: number;
-  galleryTitle: string;
-  galleryArtist?: string;
-  thumbnailUrl?: string;
-  downloadPath: string;
-}) {
+export async function addToDownloadQueue(
+  params: IpcChannels["add-to-download-queue"]["request"],
+) {
   const result = await ipcRenderer.invoke("add-to-download-queue", params);
   if (result.success && result.data) {
     return result.data;
