@@ -1,4 +1,4 @@
-import { onActivated, onDeactivated, onUnmounted } from "vue";
+import { onActivated, onDeactivated, onUnmounted, watch, type Ref } from "vue";
 import { useRoute } from "vue-router";
 
 // 각 라우트별 스크롤 위치를 저장하는 전역 맵
@@ -7,10 +7,45 @@ const scrollPositions = new Map<string, number>();
 /** 인덱스 모드용 저장소. 픽셀 모드와 섞이지 않게 따로 둔다 */
 const indexPositions = new Map<string, IndexPosition>();
 
+/** 라우트별 키보드 선택 위치 */
+const focusedIndices = new Map<string, number>();
+
+/** 지금 떠 있는 화면의 선택 ref. 맵만 지우면 살아 있는 화면은 그대로다 */
+const activeFocusRefs = new Map<string, Ref<number>>();
+
 // 특정 라우트의 스크롤 위치를 초기화하는 함수
 export function clearScrollPosition(routeName: string) {
   scrollPositions.delete(routeName);
   indexPositions.delete(routeName);
+  focusedIndices.delete(routeName);
+
+  // 맨 위로 올려놓고 선택만 화면 밖에 남겨두면 방향키 한 번에 도로 내려간다
+  const active = activeFocusRefs.get(routeName);
+  if (active) active.value = -1;
+}
+
+/**
+ * 키보드 선택 위치 복원.
+ *
+ * 뷰어는 Layout 밖의 라우트라 목록 화면이 통째로 언마운트된다. 스크롤 위치는 이
+ * 모듈의 맵에 남아 되살아나지만 컴포넌트 안에 있던 선택 인덱스는 같이 사라져서,
+ * 돌아와 방향키를 누르면 보던 자리가 아니라 목록 앞쪽에서 다시 시작한다.
+ */
+export function useFocusRestoration(focusedIndex: Ref<number>) {
+  const route = useRoute();
+  const routeName = route.name as string;
+
+  const saved = focusedIndices.get(routeName);
+  if (saved !== undefined) focusedIndex.value = saved;
+
+  activeFocusRefs.set(routeName, focusedIndex);
+  watch(focusedIndex, (index) => focusedIndices.set(routeName, index));
+
+  onUnmounted(() => {
+    if (activeFocusRefs.get(routeName) === focusedIndex) {
+      activeFocusRefs.delete(routeName);
+    }
+  });
 }
 
 export interface IndexPosition {

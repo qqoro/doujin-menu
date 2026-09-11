@@ -40,6 +40,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { useKeybindings } from "@/composables/useKeybindings";
 import { useQueryAndParams } from "@/composables/useQueryAndParams";
+import { useFocusRestoration } from "@/composables/useScrollRestoration";
 import { useVirtualCardList } from "@/composables/useVirtualCardList";
 import { useLibraryScanStore } from "@/store/libraryScanStore";
 import { SORT_CYCLE, SORT_LABELS, nextSortBy } from "@/store/sortCycle";
@@ -417,6 +418,8 @@ const {
  */
 const focusedIndex = ref(-1);
 
+useFocusRestoration(focusedIndex);
+
 const activeCols = computed(() =>
   viewMode.value === "grid" ? gridCols.value : listCols.value,
 );
@@ -442,10 +445,11 @@ const moveFocus = (direction: FocusDirection) => {
   if (totalCount.value === 0) return;
 
   if (focusedIndex.value < 0) {
-    // 첫 방향키는 화면에 보이는 맨 윗줄을 잡는다. 0번으로 보내면 스크롤이 튄다
-    const rows = activeVirtualizer.value?.getVirtualItems() ?? [];
-    const firstVisible =
-      rows.length > 0 ? rows[0].index * Math.max(1, activeCols.value) : 0;
+    // 첫 방향키는 화면에 보이는 맨 윗줄을 잡는다. 0번으로 보내면 스크롤이 튄다.
+    // getVirtualItems()는 overscan으로 화면 위쪽 줄까지 그려두므로 여기서 쓰면
+    // 안 보이는 줄이 잡히고 목록이 그만큼 위로 딸려 올라간다
+    const startRow = activeVirtualizer.value?.range?.startIndex ?? 0;
+    const firstVisible = startRow * Math.max(1, activeCols.value);
     focusedIndex.value = Math.min(firstVisible, totalCount.value - 1);
   } else {
     focusedIndex.value = nextFocusIndex(
