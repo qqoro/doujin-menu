@@ -917,13 +917,25 @@ watch(listCols, (nextCols, prevCols) => {
 
 let resizeObserver: ResizeObserver | null = null;
 
+/**
+ * 폭 0은 측정이 아니라 "지금 화면에 없다"는 뜻이라 버린다.
+ *
+ * keep-alive로 떼어진 동안 스크롤러는 폭 0으로 읽힌다. 그 값을 받으면 열 수가
+ * 1로, 행 높이가 6px로 무너지고 virtualizer의 행 번호가 통째로 어긋난다.
+ * 돌아올 때 아래 watch가 그 어긋난 번호를 기준으로 다시 스크롤해서, 복원이
+ * 제자리에 옮겨놓은 위치를 한참 아래로 덮어쓴다.
+ */
 const observeScroller = (element: HTMLElement | null) => {
   resizeObserver?.disconnect();
   if (!element) return;
 
-  scrollerWidth.value = element.clientWidth;
+  const readWidth = () => {
+    if (element.clientWidth > 0) scrollerWidth.value = element.clientWidth;
+  };
+
+  readWidth();
   resizeObserver = new ResizeObserver(() => {
-    scrollerWidth.value = element.clientWidth;
+    readWidth();
     scheduleVisibleRangeUpdate();
   });
   resizeObserver.observe(element);
