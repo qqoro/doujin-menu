@@ -22,6 +22,7 @@ import {
   computeCols,
   computeListCols,
   LIST_GAP,
+  measuredRowHeight,
   MIN_LIST_CARD_WIDTH,
   shouldShowSkeleton,
   usableGridWidth,
@@ -199,6 +200,9 @@ export function useVirtualCardList<T>(options: VirtualCardListOptions<T>) {
       count: options.viewMode.value === "grid" ? rowCount.value : 0,
       getScrollElement: () => scrollerRef.value,
       estimateSize: () => gridRowEstimate.value,
+      // 높이 0을 캐시하면 스크롤이 맨 위에서 튄다 (`measuredRowHeight` 참고)
+      measureElement: (el, entry) =>
+        measuredRowHeight(el, entry, gridRowEstimate.value),
       overscan: 2,
     })),
   );
@@ -210,6 +214,12 @@ export function useVirtualCardList<T>(options: VirtualCardListOptions<T>) {
       // 리스트 썸네일이 줌을 따라가므로 추정 높이도 같이 움직여야 한다.
       // 고정값이면 최소 줌에서 스크롤바가 실제보다 세 배 길어진다
       estimateSize: () => listRowEstimate(uiStore.thumbnailZoom, aspect),
+      measureElement: (el, entry) =>
+        measuredRowHeight(
+          el,
+          entry,
+          listRowEstimate(uiStore.thumbnailZoom, aspect),
+        ),
       overscan: 3,
     })),
   );

@@ -112,3 +112,36 @@ export const shouldShowSkeleton = ({
   total: number;
   hasRendered: boolean;
 }): boolean => searchStarted && (isMetaLoading || (total > 0 && !hasRendered));
+
+/** `measuredRowHeight`가 읽는 부분만 추린 `ResizeObserverEntry` */
+interface RowResizeEntry {
+  borderBoxSize?: readonly { blockSize: number }[];
+}
+
+/** `measuredRowHeight`가 읽는 부분만 추린 행 엘리먼트 */
+interface MeasurableRow {
+  getBoundingClientRect(): { height: number };
+}
+
+/**
+ * 행 높이 실측값. 0이 나오면 측정이 아니라 추정을 돌려준다.
+ *
+ * Vue는 스페이서를 문서에 붙이기 전에 자식 행부터 마운트하고 그때 ref 콜백이
+ * 돈다. 문서에서 떨어진 노드의 높이는 0이라, 그대로 넘기면 0이 행 높이로
+ * 캐시된다. 뒤늦게 진짜 높이가 들어오면 가상 스크롤러는 "접힌 영역 위쪽이
+ * 커졌다"고 보고 커진 만큼 스크롤을 내린다. 그 시점엔 목록이 아직 화면보다
+ * 짧아 스크롤이 먹지 않으므로 보정이 보류로 쌓이고, 목록이 길어지는 순간
+ * 한꺼번에 재시도돼 맨 위가 아닌 곳으로 튄다.
+ */
+export const measuredRowHeight = (
+  element: MeasurableRow,
+  entry: RowResizeEntry | undefined,
+  estimate: number,
+): number => {
+  const box = entry?.borderBoxSize?.[0];
+  const measured = box
+    ? Math.round(box.blockSize)
+    : Math.round(element.getBoundingClientRect().height);
+
+  return measured > 0 ? measured : estimate;
+};

@@ -51,6 +51,7 @@ import {
   chunksForRange,
   computeListCols,
   LIST_GAP,
+  measuredRowHeight,
   MIN_LIST_CARD_WIDTH,
   shouldShowSkeleton,
 } from "@/lib/virtualList";
@@ -772,6 +773,9 @@ const gridVirtualizer = useVirtualizer(
     count: gridRowCount.value,
     getScrollElement: () => scrollerRef.value,
     estimateSize: () => gridMetrics.value.rowHActual,
+    // 높이 0을 캐시하면 스크롤이 맨 위에서 튑니다 (`measuredRowHeight` 참고)
+    measureElement: (el, entry) =>
+      measuredRowHeight(el, entry, gridMetrics.value.rowHActual),
     overscan: 2,
   })),
 );
@@ -786,6 +790,8 @@ const listVirtualizer = useVirtualizer(
     // 고정값으로 두면 최소 줌에서 총 높이가 세 배 넘게 크게 잡혀
     // 스크롤바가 거짓말을 합니다.
     estimateSize: () => listRowEstimate(uiStore.thumbnailZoom),
+    measureElement: (el, entry) =>
+      measuredRowHeight(el, entry, listRowEstimate(uiStore.thumbnailZoom)),
     overscan: 3,
   })),
 );

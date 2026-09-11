@@ -3,6 +3,7 @@ import {
   chunksForRange,
   computeCols,
   computeListCols,
+  measuredRowHeight,
   shouldShowSkeleton,
 } from "../../../src/renderer/lib/virtualList";
 
@@ -183,5 +184,45 @@ describe("shouldShowSkeleton", () => {
         hasRendered: false,
       }),
     ).toBe(false);
+  });
+});
+
+describe("measuredRowHeight", () => {
+  /** 리스트 행의 실측 높이 (줌 40%, 2열) */
+  const ROW_HEIGHT = 122;
+  /** 같은 조건의 추정 높이 */
+  const ESTIMATE = 119.6;
+
+  const rowOf = (height: number) => ({
+    getBoundingClientRect: () => ({ height }),
+  });
+
+  it("ResizeObserver가 준 blockSize를 우선 쓴다", () => {
+    expect(
+      measuredRowHeight(
+        rowOf(0),
+        { borderBoxSize: [{ blockSize: ROW_HEIGHT }] },
+        ESTIMATE,
+      ),
+    ).toBe(ROW_HEIGHT);
+  });
+
+  it("entry가 없으면 엘리먼트를 직접 잰다", () => {
+    expect(measuredRowHeight(rowOf(ROW_HEIGHT), undefined, ESTIMATE)).toBe(
+      ROW_HEIGHT,
+    );
+  });
+
+  /**
+   * 새로고침하면 목록이 맨 위가 아닌 곳에서 시작하던 회귀.
+   *
+   * 스페이서가 문서에 붙기 전에 마운트된 행은 높이가 0으로 잡히는데, 그 0을
+   * 캐시하면 진짜 높이가 들어올 때 가상 스크롤러가 그 차이만큼 스크롤을 내린다.
+   */
+  it("문서에서 떨어져 높이가 0이면 추정으로 되돌린다", () => {
+    expect(measuredRowHeight(rowOf(0), undefined, ESTIMATE)).toBe(ESTIMATE);
+    expect(
+      measuredRowHeight(rowOf(0), { borderBoxSize: [{ blockSize: 0 }] }, 300),
+    ).toBe(300);
   });
 });
