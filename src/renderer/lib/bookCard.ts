@@ -105,7 +105,7 @@ export interface BookMenuFlags {
   isRescanning: boolean;
 }
 
-export type BookMenuActions = Record<
+export type BookMenuActionKey =
   | "favorite"
   | "folder"
   | "newWindow"
@@ -113,80 +113,97 @@ export type BookMenuActions = Record<
   | "details"
   | "preview"
   | "rescan"
-  | "delete",
-  () => void
->;
+  | "delete";
+
+export type BookMenuActions = Record<BookMenuActionKey, () => void>;
 
 /**
  * 카드 메뉴 항목. 우클릭 메뉴와 드롭다운이 같은 배열을 그린다.
  * Reka UI는 항목 컴포넌트가 달라 마크업은 따로지만, 정의까지 나누면 한쪽만
  * 고쳐져 두 메뉴가 갈라진다.
+ *
+ * actions는 부분 전달이 가능하다 — 없는 항목은 그 화면이 쓰지 않는 것이므로
+ * 빠진다. 라이브러리는 전부를, 다른 화면은 필요한 것만 넘긴다.
  */
 export const buildBookMenuItems = (
   flags: BookMenuFlags,
-  actions: BookMenuActions,
+  actions: Partial<BookMenuActions>,
 ): BookMenuItem[] => {
-  const items: BookMenuItem[] = [
+  type Candidate = { action?: () => void; item: Omit<BookMenuItem, "action"> };
+
+  const candidates: Candidate[] = [
     {
-      key: "favorite",
-      icon: flags.isFavorite
-        ? "solar:heart-broken-line-duotone"
-        : "solar:heart-bold-duotone",
-      label: flags.isFavorite ? "즐겨찾기 해제" : "즐겨찾기 추가",
       action: actions.favorite,
+      item: {
+        key: "favorite",
+        icon: flags.isFavorite
+          ? "solar:heart-broken-line-duotone"
+          : "solar:heart-bold-duotone",
+        label: flags.isFavorite ? "즐겨찾기 해제" : "즐겨찾기 추가",
+      },
     },
     {
-      key: "folder",
-      icon: "solar:folder-open-bold-duotone",
-      label: "폴더 열기",
       action: actions.folder,
+      item: {
+        key: "folder",
+        icon: "solar:folder-open-bold-duotone",
+        label: "폴더 열기",
+      },
     },
     {
-      key: "new-window",
-      icon: "solar:square-top-down-bold-duotone",
-      label: "새 창으로 열기",
       action: actions.newWindow,
+      item: {
+        key: "new-window",
+        icon: "solar:square-top-down-bold-duotone",
+        label: "새 창으로 열기",
+      },
+    },
+    // 외부 뷰어 경로가 설정돼 있을 때만 노출한다
+    {
+      action: flags.hasExternalViewer ? actions.external : undefined,
+      item: {
+        key: "external",
+        icon: "solar:monitor-bold-duotone",
+        label: "외부 프로그램으로 열기",
+      },
+    },
+    {
+      action: actions.details,
+      item: {
+        key: "details",
+        icon: "solar:info-circle-bold-duotone",
+        label: "상세 정보",
+      },
+    },
+    {
+      action: actions.preview,
+      item: {
+        key: "preview",
+        icon: "solar:eye-bold-duotone",
+        label: "미리보기",
+      },
+    },
+    {
+      action: actions.rescan,
+      item: {
+        key: "rescan",
+        icon: "solar:refresh-bold-duotone",
+        label: "메타데이터 재스캔",
+        iconClass: flags.isRescanning ? "animate-spin" : undefined,
+      },
+    },
+    {
+      action: actions.delete,
+      item: {
+        key: "delete",
+        icon: "solar:trash-bin-trash-bold-duotone",
+        label: "삭제",
+        separatorBefore: true,
+      },
     },
   ];
 
-  // 외부 뷰어 경로가 설정돼 있을 때만 노출한다
-  if (flags.hasExternalViewer) {
-    items.push({
-      key: "external",
-      icon: "solar:monitor-bold-duotone",
-      label: "외부 프로그램으로 열기",
-      action: actions.external,
-    });
-  }
-
-  items.push(
-    {
-      key: "details",
-      icon: "solar:info-circle-bold-duotone",
-      label: "상세 정보",
-      action: actions.details,
-    },
-    {
-      key: "preview",
-      icon: "solar:eye-bold-duotone",
-      label: "미리보기",
-      action: actions.preview,
-    },
-    {
-      key: "rescan",
-      icon: "solar:refresh-bold-duotone",
-      label: "메타데이터 재스캔",
-      iconClass: flags.isRescanning ? "animate-spin" : undefined,
-      action: actions.rescan,
-    },
-    {
-      key: "delete",
-      icon: "solar:trash-bin-trash-bold-duotone",
-      label: "삭제",
-      separatorBefore: true,
-      action: actions.delete,
-    },
-  );
-
-  return items;
+  return candidates
+    .filter((candidate): candidate is Required<Candidate> => !!candidate.action)
+    .map(({ action, item }) => ({ ...item, action }));
 };

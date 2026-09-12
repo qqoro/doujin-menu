@@ -56,6 +56,7 @@ import type {
   DuplicateBookInfo,
   DuplicateGroup,
 } from "../../../types/ipc";
+import BookDetailDialog from "../feature/BookDetailDialog.vue";
 import BookPreviewDialog from "../feature/BookPreviewDialog.vue";
 import DuplicateBookRow from "../feature/DuplicateBookRow.vue";
 import PageHeader from "../layout/PageHeader.vue";
@@ -207,9 +208,17 @@ const isPermanentDialogOpen = ref(false);
 const previewBook = ref<DuplicateBookInfo | null>(null);
 const isPreviewOpen = ref(false);
 
+const detailBook = ref<DuplicateBookInfo | null>(null);
+const isDetailOpen = ref(false);
+
 const openPreview = (book: DuplicateBookInfo) => {
   previewBook.value = book;
   isPreviewOpen.value = true;
+};
+
+const openDetails = (book: DuplicateBookInfo) => {
+  detailBook.value = book;
+  isDetailOpen.value = true;
 };
 
 const toggleSelect = (bookId: number) => {
@@ -507,6 +516,7 @@ const confirmPermanent = () => performDelete(true);
                 :highlight="highlightById.get(groupId(group))!"
                 @toggle="toggleSelect(book.id)"
                 @preview="openPreview(book)"
+                @details="openDetails(book)"
               />
             </div>
           </section>
@@ -556,6 +566,8 @@ const confirmPermanent = () => performDelete(true);
       :book="previewBook"
       @update:open="isPreviewOpen = $event"
     />
+
+    <BookDetailDialog v-model="isDetailOpen" :book="detailBook" />
 
     <!-- 휴지통 이동 확인 다이얼로그 -->
     <AlertDialog
