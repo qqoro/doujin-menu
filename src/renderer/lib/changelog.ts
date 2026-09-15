@@ -15,6 +15,27 @@ export interface Changelog {
  */
 export const changelogData: Changelog[] = [
   {
+    version: "1.26.1",
+    changes: [
+      {
+        type: "feature",
+        title: "✨ 기능 개선",
+        items: [
+          "중복 정리 화면에 히토미 ID가 표시되고, 우클릭 메뉴로 바로 복사할 수 있습니다.",
+        ],
+      },
+      {
+        type: "fix",
+        title: "🐛 버그 수정",
+        items: [
+          "라이브러리에서 방향키로 선택한 책이 뷰어를 다녀온 뒤 풀리던 문제 수정.",
+          "다운로더 목록이 화면 복귀 시 엉뚱한 위치로 이동하던 문제 수정.",
+          "목록에 처음 진입할 때 스크롤이 맨 위에서 튀던 문제 수정.",
+        ],
+      },
+    ],
+  },
+  {
     version: "1.26.0",
     changes: [
       {
