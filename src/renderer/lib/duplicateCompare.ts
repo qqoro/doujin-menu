@@ -27,6 +27,7 @@ export const formatBytes = (bytes: number): string => {
 export interface GroupHighlight {
   bestPageCount: number | null;
   bestFileSize: number | null;
+  bestHitomiId: number | null;
 }
 
 const bestOf = (values: (number | null | undefined)[]): number | null => {
@@ -38,11 +39,19 @@ const bestOf = (values: (number | null | undefined)[]): number | null => {
   return known.every((v) => v === max) ? null : max;
 };
 
+/** hitomi_id는 문자열로 저장되므로 숫자로 바꿔 비교한다. 숫자가 아니면 비교에서 뺀다 */
+const hitomiIdOf = (value: string | null | undefined): number | null => {
+  if (value == null) return null;
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : null;
+};
+
 export const computeGroupHighlight = (
   books: DuplicateBookInfo[],
 ): GroupHighlight => ({
   bestPageCount: bestOf(books.map((book) => book.page_count)),
   bestFileSize: bestOf(books.map((book) => book.file_size)),
+  bestHitomiId: bestOf(books.map((book) => hitomiIdOf(book.hitomi_id))),
 });
 
 /**

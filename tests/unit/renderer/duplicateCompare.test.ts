@@ -85,6 +85,24 @@ describe("computeGroupHighlight", () => {
 
     expect(highlight.bestFileSize).toBeNull();
   });
+
+  it("hitomi_id는 문자열이지만 숫자로 비교해 큰 쪽을 강조한다", () => {
+    const highlight = computeGroupHighlight([
+      book({ id: 1, hitomi_id: "1234567" }),
+      book({ id: 2, hitomi_id: "987654" }),
+    ]);
+
+    expect(highlight.bestHitomiId).toBe(1234567);
+  });
+
+  it("ID가 전부 같으면 강조하지 않는다 (ID 일치 그룹)", () => {
+    const highlight = computeGroupHighlight([
+      book({ id: 1, hitomi_id: "123" }),
+      book({ id: 2, hitomi_id: "123" }),
+    ]);
+
+    expect(highlight.bestHitomiId).toBeNull();
+  });
 });
 
 describe("groupReclaimableSize", () => {

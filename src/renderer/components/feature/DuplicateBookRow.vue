@@ -122,7 +122,11 @@ const metaParts = computed(() => {
   if (mtime) parts.push({ key: "mtime", text: mtime, best: false });
 
   if (book.hitomi_id)
-    parts.push({ key: "id", text: `#${book.hitomi_id}`, best: false });
+    parts.push({
+      key: "id",
+      text: `#${book.hitomi_id}`,
+      best: highlight.bestHitomiId === Number(book.hitomi_id),
+    });
 
   return parts;
 });
@@ -173,7 +177,8 @@ const readingProgress = computed(() => {
               <!-- 아이디는 다운로더처럼 클릭 시 검색어 복사, 우클릭 시 갤러리 URL 복사 -->
               <button
                 v-if="part.key === 'id'"
-                class="m-0 cursor-pointer border-none bg-transparent p-0 font-bold text-current hover:underline"
+                class="m-0 cursor-pointer border-none bg-transparent p-0 font-bold hover:underline"
+                :class="part.best ? 'text-foreground' : 'text-current'"
                 @click.stop="copyToClipboard(`id:${book.hitomi_id}`)"
                 @contextmenu.prevent.stop="
                   copyToClipboard(
