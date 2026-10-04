@@ -15,7 +15,6 @@ export interface Book {
   // 증분 스캔 캐시 키 (ZIP/CBZ 파일만). 값이 같으면 재스캔을 건너뛴다.
   file_mtime?: number | null;
   file_size?: number | null;
-  series_name?: string; // Series name can be directly on Book for display (패러디 원본용)
   artists?: Artist[];
   tags?: Tag[];
   groups?: Group[];

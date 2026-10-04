@@ -68,7 +68,7 @@ const hasBasicMeta = computed(() => {
   return Boolean(
     book.hitomi_id ||
     book.artists?.length ||
-    book.series_name ||
+    book.series?.length ||
     book.type ||
     displayLanguage.value,
   );
@@ -177,21 +177,28 @@ const searchInDownloader = (text: string, prefix: string) => {
             </div>
 
             <!-- 시리즈 -->
-            <div v-if="book.series_name" class="flex items-center gap-2">
+            <div
+              v-if="book.series && book.series.length > 0"
+              class="flex items-start gap-2"
+            >
               <Icon
                 icon="solar:library-bold-duotone"
-                class="text-primary h-5 w-5"
+                class="text-primary mt-0.5 h-5 w-5"
               />
-              <Badge
-                variant="outline"
-                class="hover:bg-accent cursor-pointer"
-                @click="copyToClipboard(book.series_name, 'series')"
-                @contextmenu.prevent="
-                  searchInDownloader(book.series_name, 'series')
-                "
-              >
-                {{ book.series_name }}
-              </Badge>
+              <div class="flex flex-wrap gap-1.5">
+                <Badge
+                  v-for="seriesName in book.series"
+                  :key="seriesName.name"
+                  variant="outline"
+                  class="hover:bg-accent cursor-pointer"
+                  @click="copyToClipboard(seriesName.name, 'series')"
+                  @contextmenu.prevent="
+                    searchInDownloader(seriesName.name, 'series')
+                  "
+                >
+                  {{ seriesName.name }}
+                </Badge>
+              </div>
             </div>
 
             <!-- 유형 -->

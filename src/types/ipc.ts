@@ -59,7 +59,6 @@ export interface Book {
   hitomi_id?: string;
   type?: string;
   added_at?: string;
-  series_name?: string;
   series_collection_id?: number;
   series_order_index?: number;
   language_name_english?: string;
