@@ -22,6 +22,11 @@ export interface LibraryViewSettings {
   offlineStatus?: "all" | "online" | "offline";
 }
 
+// 탐색 뷰 설정 타입. list는 이름 목록, grid는 대표 표지 카드다
+export interface BrowseViewSettings {
+  viewMode: "grid" | "list";
+}
+
 // 읽음 기록 뷰 설정 타입
 export interface HistoryViewSettings {
   viewMode: "grid" | "list";
@@ -62,6 +67,7 @@ export interface Config {
   capitalizeNames?: boolean; // 작가·그룹명 첫 글자 대문자 변환
   libraryViewSettings?: LibraryViewSettings;
   historyViewSettings?: HistoryViewSettings;
+  browseViewSettings?: BrowseViewSettings;
   seriesDetectionSettings?: SeriesDetectionSettings;
   seriesViewSettings?: SeriesViewSettings;
   prioritizeKoreanTitles?: boolean;
@@ -120,6 +126,9 @@ const defaults: Config = {
   seriesDetectionSettings: {
     minConfidence: 0.7,
     minBooks: 2,
+  },
+  browseViewSettings: {
+    viewMode: "list",
   },
   historyViewSettings: {
     viewMode: "grid",

@@ -1,17 +1,41 @@
 import db from "../db/index.js";
 import { ipcMain } from "electron";
+import type { BrowseItem } from "../../types/ipc.js";
 
-// 작가 목록 조회 (책 개수 포함)
-export const handleGetArtistsWithCount = async () => {
-  return await db("Artist as A")
-    .select("A.name")
-    .count("BA.book_id as count")
-    .join("BookArtist as BA", "A.id", "BA.artist_id")
-    .groupBy("A.name")
-    .orderBy("A.name");
-};
+/**
+ * 이름별 책 개수와 대표 표지(가장 최근에 추가한 책의 썸네일)를 함께 조회한다.
+ * 썸네일이 아직 없는 책은 건너뛰고, 추가 시각이 같으면 id가 큰 책을 고른다.
+ */
+const getNamesWithCover = async (
+  nameTable: string,
+  joinTable: string,
+  foreignKey: string,
+): Promise<BrowseItem[]> =>
+  await db
+    .with("ranked", (qb) =>
+      qb
+        .select("N.name", "B.cover_path")
+        .select(
+          db.raw(
+            "ROW_NUMBER() OVER (PARTITION BY N.name ORDER BY B.cover_path IS NULL, B.added_at DESC, B.id DESC) AS rn",
+          ),
+        )
+        .from(`${nameTable} as N`)
+        .join(`${joinTable} as J`, "N.id", `J.${foreignKey}`)
+        .join("Book as B", "B.id", "J.book_id"),
+    )
+    .select("name")
+    .count("* as count")
+    .select(db.raw("MAX(CASE WHEN rn = 1 THEN cover_path END) AS cover_path"))
+    .from("ranked")
+    .groupBy("name")
+    .orderBy("name");
 
-// 태그 목록 조회 (책 개수 포함)
+// 작가 목록 조회 (책 개수·대표 표지 포함)
+export const handleGetArtistsWithCount = () =>
+  getNamesWithCover("Artist", "BookArtist", "artist_id");
+
+// 태그 목록 조회 (책 개수 포함). 태그는 한 권으로 대표할 수 없어 표지를 싣지 않는다
 export const handleGetTagsWithCount = async () => {
   return await db("Tag as T")
     .select("T.name")
@@ -21,35 +45,17 @@ export const handleGetTagsWithCount = async () => {
     .orderBy("T.name");
 };
 
-// 시리즈 목록 조회 (책 개수 포함)
-export const handleGetSeriesWithCount = async () => {
-  return await db("Series as S")
-    .select("S.name")
-    .count("BS.book_id as count")
-    .join("BookSeries as BS", "S.id", "BS.series_id")
-    .groupBy("S.name")
-    .orderBy("S.name");
-};
+// 시리즈 목록 조회 (책 개수·대표 표지 포함)
+export const handleGetSeriesWithCount = () =>
+  getNamesWithCover("Series", "BookSeries", "series_id");
 
-// 캐릭터 목록 조회 (책 개수 포함)
-export const handleGetCharactersWithCount = async () => {
-  return await db("Character as C")
-    .select("C.name")
-    .count("BC.book_id as count")
-    .join("BookCharacter as BC", "C.id", "BC.character_id")
-    .groupBy("C.name")
-    .orderBy("C.name");
-};
+// 캐릭터 목록 조회 (책 개수·대표 표지 포함)
+export const handleGetCharactersWithCount = () =>
+  getNamesWithCover("Character", "BookCharacter", "character_id");
 
-// 그룹 목록 조회 (책 개수 포함)
-export const handleGetGroupsWithCount = async () => {
-  return await db("Group as G")
-    .select("G.name")
-    .count("BG.book_id as count")
-    .join("BookGroup as BG", "G.id", "BG.group_id")
-    .groupBy("G.name")
-    .orderBy("G.name");
-};
+// 그룹 목록 조회 (책 개수·대표 표지 포함)
+export const handleGetGroupsWithCount = () =>
+  getNamesWithCover("Group", "BookGroup", "group_id");
 
 export function registerBrowseHandlers() {
   ipcMain.handle("get-artists-with-count", (_event) =>

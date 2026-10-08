@@ -242,6 +242,13 @@ export interface LibraryScanProgress {
   deletedCount: number; // 삭제된 책 수
 }
 
+// 탐색 화면 항목. cover_path는 그 이름의 가장 최근 책 썸네일(없으면 null)
+export interface BrowseItem {
+  name: string;
+  count: number;
+  cover_path: string | null;
+}
+
 // IPC 채널 이름과 요청/응답 타입 매핑
 export interface IpcChannels {
   // Book handlers
@@ -911,7 +918,7 @@ export interface IpcChannels {
   // Browse handlers
   "get-artists-with-count": {
     request: void;
-    response: { name: string; count: number }[];
+    response: BrowseItem[];
   };
   "get-tags-with-count": {
     request: void;
@@ -919,15 +926,15 @@ export interface IpcChannels {
   };
   "get-series-with-count": {
     request: void;
-    response: { name: string; count: number }[];
+    response: BrowseItem[];
   };
   "get-characters-with-count": {
     request: void;
-    response: { name: string; count: number }[];
+    response: BrowseItem[];
   };
   "get-groups-with-count": {
     request: void;
-    response: { name: string; count: number }[];
+    response: BrowseItem[];
   };
 
   // Etc handlers

@@ -1,9 +1,11 @@
 <script setup lang="ts">
-import { computed, ref } from "vue";
+import { computed, nextTick, ref, watch } from "vue";
 import { useRouter } from "vue-router";
-import { useQuery } from "@tanstack/vue-query";
+import { useQuery, useQueryClient } from "@tanstack/vue-query";
 import SmartSearchInput from "../common/SmartSearchInput.vue";
 import SortMenu from "../common/SortMenu.vue";
+import ViewOptionsBar from "../common/ViewOptionsBar.vue";
+import BrowseCoverGrid from "../feature/BrowseCoverGrid.vue";
 import PageHeader from "../layout/PageHeader.vue";
 import PageToolbar from "../layout/PageToolbar.vue";
 import { useQueryAndParams } from "@/composables/useQueryAndParams";
@@ -13,19 +15,54 @@ import {
   getSeriesWithCount,
   getCharactersWithCount,
   getGroupsWithCount,
+  ipcRenderer,
 } from "@/api";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import type { BrowseItem } from "../../../types/ipc";
 
-interface NameCount {
-  name: string;
-  count: number;
-}
+/** 태그 탭은 표지가 없어 cover_path가 빠진다 */
+type NameCount = Omit<BrowseItem, "cover_path"> & {
+  cover_path?: string | null;
+};
 
 type TabKey = "artists" | "tags" | "series" | "characters" | "groups";
 
 const router = useRouter();
+const queryClient = useQueryClient();
+
+// 뷰 모드는 설정에 저장해 다음에 들어와도 유지한다
+const viewMode = ref<"grid" | "list">("list");
+
+const { data: config, isSuccess: isConfigLoaded } = useQuery({
+  queryKey: ["config"],
+  queryFn: () => ipcRenderer.invoke("get-config"),
+});
+
+// 설정에서 불러오는 최초 1회는 저장을 유발하면 안 되므로 플래그로 막는다
+const isViewModeInitialized = ref(false);
+
+watch(
+  isConfigLoaded,
+  (loaded) => {
+    if (!loaded) return;
+    viewMode.value = config.value?.browseViewSettings?.viewMode ?? "list";
+    nextTick(() => {
+      isViewModeInitialized.value = true;
+    });
+  },
+  { immediate: true },
+);
+
+watch(viewMode, async (mode) => {
+  if (!isViewModeInitialized.value) return;
+  await ipcRenderer.invoke("set-config", {
+    key: "browseViewSettings",
+    value: { viewMode: mode },
+  });
+  queryClient.invalidateQueries({ queryKey: ["config"] });
+});
 
 // URL 상태 동기화
 const tab = ref<TabKey>("artists");
@@ -115,6 +152,11 @@ const filteredItems = computed(() => {
   return result;
 });
 
+// 태그는 한 권의 표지로 대표할 수 없어 항상 이름 목록으로 보인다
+const showCoverGrid = computed(
+  () => viewMode.value === "grid" && tab.value !== "tags",
+);
+
 // 알파벳 바
 const alphabet = "abcdefghijklmnopqrstuvwxyz".split("");
 const hasDigits = computed(() => {
@@ -163,6 +205,15 @@ const goToLibraryWithSearch = (name: string) => {
           />
         </template>
 
+        <template #view>
+          <ViewOptionsBar
+            v-model="viewMode"
+            :show-zoom="tab !== 'tags'"
+            :zoom-disabled="!showCoverGrid"
+            :show-mode="tab !== 'tags'"
+          />
+        </template>
+
         <template #count> 총 {{ filteredItems.length }}개 </template>
       </PageToolbar>
 
@@ -200,17 +251,17 @@ const goToLibraryWithSearch = (name: string) => {
         </Button>
       </div>
 
-      <!-- 항목 그리드 -->
-      <ScrollArea class="flex-1">
-        <div v-if="isLoading" class="text-muted-foreground">로딩 중...</div>
+      <div v-if="isLoading" class="text-muted-foreground">로딩 중...</div>
+      <div v-else-if="filteredItems.length === 0" class="text-muted-foreground">
+        항목이 없습니다.
+      </div>
+      <BrowseCoverGrid
+        v-else-if="showCoverGrid"
+        :items="filteredItems"
+        @select="goToLibraryWithSearch"
+      />
+      <ScrollArea v-else class="flex-1">
         <div
-          v-else-if="filteredItems.length === 0"
-          class="text-muted-foreground"
-        >
-          항목이 없습니다.
-        </div>
-        <div
-          v-else
           class="grid grid-cols-2 gap-1 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6"
         >
           <button
