@@ -15,6 +15,27 @@ export interface Changelog {
  */
 export const changelogData: Changelog[] = [
   {
+    version: "1.27.0",
+    changes: [
+      {
+        type: "feature",
+        title: "✨ 새로운 기능",
+        items: [
+          "탐색 화면을 목록 대신 표지 그리드로 볼 수 있습니다. 항목마다 대표 표지가 표시됩니다.",
+          "중복 정리에서 히토미 번호가 더 큰 책을 강조 표시해 어느 쪽을 남길지 쉽게 알 수 있습니다.",
+          "검색창에 공백이 섞인 이름을 입력하면 밑줄(_) 형태 이름으로 바꾸기를 제안합니다.",
+        ],
+      },
+      {
+        type: "fix",
+        title: "🐛 버그 수정",
+        items: [
+          "상세보기 창에서 시리즈가 표시되지 않던 문제 수정.",
+        ],
+      },
+    ],
+  },
+  {
     version: "1.26.1",
     changes: [
       {
