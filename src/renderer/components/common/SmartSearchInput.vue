@@ -6,6 +6,7 @@ import {
   PopoverContent,
 } from "@/components/ui/popover";
 import { useLookupData } from "@/composables/useLookupData";
+import { findSpacedPrefixTerm, type SpacedPrefixTerm } from "@/lib/searchQuery";
 import { Icon } from "@iconify/vue";
 import { watchDebounced } from "@vueuse/core";
 import type { HTMLAttributes, PropType, StyleValue } from "vue";
@@ -184,6 +185,47 @@ const collectDataSuggestions = (
   return out;
 };
 
+const namesByPrefix = (prefix: string): string[] => {
+  if (prefix === "artist:") return artistNames.value;
+  if (prefix === "group:") return groupNames.value;
+  if (prefix === "type:") return typeNames.value;
+  if (prefix === "language:") return languageNames.value;
+  if (prefix === "series:") return seriesNames.value;
+  if (prefix === "character:") return characterNames.value;
+  if (prefix === "tag:") return tagNames.value;
+  return [];
+};
+
+/**
+ * 현재 목록이 공백 섞인 이름(`artist:aa bb`)용 제안일 때, 바꿔 끼울 범위의
+ * 시작 위치. 이때는 마지막 낱말이 아니라 `artist:aa bb` 전체를 바꿔야 한다.
+ */
+const spacedStart = ref<number | null>(null);
+
+// 저장된 이름은 공백이 `_`로 바뀌어 있으므로 밑줄 키로 비교해 제안한다
+const collectSpacedSuggestions = (
+  spaced: SpacedPrefixTerm,
+  currentTerms: Set<string>,
+): string[] => {
+  const MAX_SUGGESTIONS = 30;
+  const isGender = implicitTagPrefixes.includes(spaced.prefix);
+  // 성별 태그는 `female:big_breasts`처럼 프리픽스까지 붙은 채 저장돼 있다
+  const names = isGender ? tagNames.value : namesByPrefix(spaced.prefix);
+  const needle = isGender ? `${spaced.prefix}${spaced.key}` : spaced.key;
+
+  const out: string[] = [];
+  for (const name of names) {
+    if (out.length >= MAX_SUGGESTIONS) break;
+    if (!name.toLowerCase().startsWith(needle)) continue;
+    const suggestion = isGender ? name : `${spaced.prefix}${name}`;
+    if (currentTerms.has(suggestion.toLowerCase())) continue;
+    if (out.includes(suggestion)) continue;
+    if (!passesFilter(suggestion)) continue;
+    out.push(suggestion);
+  }
+  return out;
+};
+
 // 프리픽스 제안 (즉시 반응, 데이터 양이 적어 debounce 불필요)
 watch(
   () => props.modelValue,
@@ -191,8 +233,12 @@ watch(
     const term = currentSearchTerm.value.toLowerCase();
     const prefix = currentPrefix.value;
 
+    // 공백 섞인 이름을 치는 중이면 debounce 쪽 제안을 기다린다
+    if (findSpacedPrefixTerm(newValue)) return;
+
     // 프리픽스가 없고 입력 중일 때만 프리픽스 제안
     if (!prefix && term.length > 0) {
+      spacedStart.value = null;
       const currentTerms = new Set(
         newValue
           .toLowerCase()
@@ -221,6 +267,20 @@ watchDebounced(
         .filter((s) => s.length > 0),
     );
 
+    spacedStart.value = null;
+    const spaced = findSpacedPrefixTerm(newValue);
+    if (spaced) {
+      const spacedSuggestions = collectSpacedSuggestions(spaced, currentTerms);
+      // 맞는 이름이 없으면 `artist:aa_bb 제목어`처럼 이미 완성된 뒤 제목을
+      // 치는 경우일 수 있으니 평소대로 마지막 낱말 제안으로 넘어간다
+      if (spacedSuggestions.length > 0) {
+        suggestions.value = spacedSuggestions;
+        spacedStart.value = spaced.start;
+        activeSuggestionIndex.value = -1;
+        return;
+      }
+    }
+
     if (term.length === 0 && !manualSuggestTrigger.value) {
       suggestions.value = [];
       activeSuggestionIndex.value = -1;
@@ -242,13 +302,7 @@ watchDebounced(
       // 명시적 프리픽스가 입력된 경우 (예: 'tag:')
       suggestionPrefix = prefix;
       searchTerm = term.substring(prefix.length);
-      if (prefix === "artist:") dataToSuggest = artistNames.value;
-      else if (prefix === "group:") dataToSuggest = groupNames.value;
-      else if (prefix === "type:") dataToSuggest = typeNames.value;
-      else if (prefix === "language:") dataToSuggest = languageNames.value;
-      else if (prefix === "series:") dataToSuggest = seriesNames.value;
-      else if (prefix === "character:") dataToSuggest = characterNames.value;
-      else if (prefix === "tag:") dataToSuggest = tagNames.value;
+      dataToSuggest = namesByPrefix(prefix);
     }
 
     if (dataToSuggest.length > 0) {
@@ -290,7 +344,10 @@ watchDebounced(
 const applySuggestion = (suggestion: string) => {
   const lastSpaceIndex = props.modelValue.lastIndexOf(" ");
   let newInputValue;
-  if (lastSpaceIndex > -1) {
+  if (spacedStart.value !== null) {
+    newInputValue = `${props.modelValue.substring(0, spacedStart.value)}${suggestion}`;
+    spacedStart.value = null;
+  } else if (lastSpaceIndex > -1) {
     newInputValue = `${props.modelValue.substring(
       0,
       lastSpaceIndex + 1,
@@ -326,6 +383,7 @@ const showAllPrefixSuggestions = () => {
   const term = currentSearchTerm.value.toLowerCase();
   const allSuggestiblePrefixes = [...availablePrefixes, ...implicitTagPrefixes];
 
+  spacedStart.value = null;
   suggestions.value = allSuggestiblePrefixes
     .filter((p) => p.startsWith(term))
     .filter(

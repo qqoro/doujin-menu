@@ -1,5 +1,8 @@
 import { describe, expect, it } from "vitest";
-import { toggleSearchTerm } from "../../../src/renderer/lib/searchQuery";
+import {
+  findSpacedPrefixTerm,
+  toggleSearchTerm,
+} from "../../../src/renderer/lib/searchQuery";
 
 describe("toggleSearchTerm", () => {
   it("빈 검색어에 항목 추가", () => {
@@ -62,5 +65,59 @@ describe("toggleSearchTerm", () => {
   it("캐릭터 항목 토글", () => {
     expect(toggleSearchTerm("", "character:asuna")).toBe("character:asuna");
     expect(toggleSearchTerm("character:asuna", "character:asuna")).toBe("");
+  });
+});
+
+describe("findSpacedPrefixTerm", () => {
+  it("공백 섞인 이름을 밑줄 키로 바꾼다", () => {
+    expect(findSpacedPrefixTerm("artist:aa bb")).toEqual({
+      start: 0,
+      prefix: "artist:",
+      key: "aa_bb",
+    });
+  });
+
+  it("앞에 다른 항목이 있으면 시작 위치가 그 뒤", () => {
+    expect(findSpacedPrefixTerm("tag:nurse artist:aa bb")).toEqual({
+      start: 10,
+      prefix: "artist:",
+      key: "aa_bb",
+    });
+  });
+
+  it("세 낱말 이상, 연속 공백, 대문자도 정리", () => {
+    expect(findSpacedPrefixTerm("Series:Blue  Archive Plus")?.key).toBe(
+      "blue_archive_plus",
+    );
+  });
+
+  it("끝의 공백은 무시", () => {
+    expect(findSpacedPrefixTerm("artist:aa bb ")?.key).toBe("aa_bb");
+  });
+
+  it("성별 태그 프리픽스도 인식", () => {
+    expect(findSpacedPrefixTerm("female:big breasts")).toMatchObject({
+      prefix: "female:",
+      key: "big_breasts",
+    });
+  });
+
+  it("공백이 없는 이름은 대상이 아님", () => {
+    expect(findSpacedPrefixTerm("artist:aa_bb")).toBeNull();
+    expect(findSpacedPrefixTerm("artist:aa_bb ")).toBeNull();
+  });
+
+  it("마지막 항목이 다른 프리픽스면 대상이 아님", () => {
+    expect(findSpacedPrefixTerm("artist:aa tag:bb")).toBeNull();
+    expect(findSpacedPrefixTerm("artist:aa -tag:bb")).toBeNull();
+  });
+
+  it("제외 항목과 id는 대상이 아님", () => {
+    expect(findSpacedPrefixTerm("-artist:aa bb")).toBeNull();
+    expect(findSpacedPrefixTerm("id:123 456")).toBeNull();
+  });
+
+  it("프리픽스 없는 낱말만 있으면 대상이 아님", () => {
+    expect(findSpacedPrefixTerm("aa bb")).toBeNull();
   });
 });
