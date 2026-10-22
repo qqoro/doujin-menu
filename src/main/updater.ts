@@ -2,8 +2,11 @@ import { app, BrowserWindow, ipcMain, shell } from "electron";
 import log from "electron-log";
 import updater from "electron-updater";
 import semver from "semver"; // semver 추가
+import type { UpdateCheckResult } from "../types/ipc.js";
 import { sendTo } from "./utils/broadcast.js";
 const { autoUpdater } = updater;
+
+const RELEASES_PAGE_URL = "https://github.com/qqoro/doujin-menu/releases";
 
 export interface GitHubReleaseResponse {
   url: string;
@@ -151,75 +154,78 @@ export function registerUpdaterHandlers(mainWindow: BrowserWindow) {
       status: "error",
       error: err.message,
     });
-    // 포터블 버전의 경우, 업데이트 실패 시 GitHub 릴리즈 페이지를 열어 수동 다운로드 유도
-    if (isPortable()) {
-      shell.openExternal("https://github.com/qqoro/doujin-menu/releases");
-    }
   });
 
-  ipcMain.handle("check-for-updates", async () => {
+  // 포터블 확인으로 찾은 새 버전의 릴리즈 페이지
+  let portableReleaseUrl: string | null = null;
+
+  const checkForUpdates = async (): Promise<UpdateCheckResult> => {
     if (isPortable()) {
+      // 포터블 빌드에는 app-update.yml이 없어 electron-updater를 쓸 수 없다
       log.info(
         "Portable version detected. Checking for updates via GitHub API.",
       );
       const latestRelease = await getLatestGitHubRelease();
-      if (latestRelease) {
-        const currentVersion = app.getVersion();
-        const latestVersion = latestRelease.tag_name.replace(/^v/, ""); // 'v' 접두사 제거
-        log.info(
-          `Current version: ${currentVersion}, Latest version: ${latestVersion}`,
-        );
-
-        if (semver.gt(latestVersion, currentVersion)) {
-          const githubReleasesUrl =
-            "https://github.com/qqoro/doujin-menu/releases";
-          sendTo(mainWindow.webContents, "update-status", {
-            status: "update-available-portable",
-            info: { version: latestVersion },
-            githubReleasesUrl: githubReleasesUrl,
-          });
-          return {
-            success: true,
-            portable: true,
-            updateAvailable: true,
-            latestVersion: latestVersion,
-            githubReleasesUrl: githubReleasesUrl,
-          };
-        } else {
-          sendTo(mainWindow.webContents, "update-status", {
-            status: "update-not-available",
-          });
-          return { success: true, portable: true, updateAvailable: false };
-        }
-      } else {
+      if (!latestRelease) {
         return {
           success: false,
           portable: true,
           error: "Failed to fetch latest release info.",
         };
       }
-    } else {
-      try {
-        log.info("Checking for updates...");
-        const result = await autoUpdater.checkForUpdates();
-        return { success: true, portable: false, result };
-      } catch (error) {
-        log.error(`Failed to check for updates: ${(error as Error).message}`);
-        return {
-          success: false,
-          portable: false,
-          error: (error as Error).message,
-        };
+
+      const currentVersion = app.getVersion();
+      const latestVersion = latestRelease.tag_name.replace(/^v/, ""); // 'v' 접두사 제거
+      log.info(
+        `Current version: ${currentVersion}, Latest version: ${latestVersion}`,
+      );
+
+      if (!semver.gt(latestVersion, currentVersion)) {
+        sendTo(mainWindow.webContents, "update-status", {
+          status: "update-not-available",
+        });
+        return { success: true, portable: true };
       }
+
+      portableReleaseUrl = latestRelease.html_url;
+      sendTo(mainWindow.webContents, "update-status", {
+        status: "update-available-portable",
+        info: { version: latestVersion },
+        githubReleasesUrl: portableReleaseUrl,
+      });
+      return {
+        success: true,
+        portable: true,
+        githubReleasesUrl: portableReleaseUrl,
+        result: {
+          updateAvailable: true,
+          version: latestVersion,
+          releaseName: latestRelease.name,
+          releaseDate: latestRelease.published_at,
+        },
+      };
     }
-  });
+
+    try {
+      log.info("Checking for updates...");
+      // 결과는 autoUpdater 이벤트(update-status)로 전달된다
+      await autoUpdater.checkForUpdates();
+      return { success: true, portable: false };
+    } catch (error) {
+      log.error(`Failed to check for updates: ${(error as Error).message}`);
+      return {
+        success: false,
+        portable: false,
+        error: (error as Error).message,
+      };
+    }
+  };
+
+  ipcMain.handle("check-for-updates", () => checkForUpdates());
 
   ipcMain.handle("download-update", async () => {
     if (isPortable()) {
-      log.warn(
-        "Download update is not supported for portable version. Please download manually from GitHub releases.",
-      );
-      shell.openExternal("https://github.com/qqoro/doujin-menu/releases");
+      shell.openExternal(portableReleaseUrl ?? RELEASES_PAGE_URL);
       return {
         success: false,
         error: "Portable version requires manual download.",
@@ -243,19 +249,24 @@ export function registerUpdaterHandlers(mainWindow: BrowserWindow) {
       log.warn(
         "Install update is not supported for portable version. Please replace the executable manually.",
       );
-      shell.openExternal("https://github.com/qqoro/doujin-menu/releases");
+      shell.openExternal(portableReleaseUrl ?? RELEASES_PAGE_URL);
       return {
         success: false,
         error: "Portable version requires manual installation.",
       };
     } else {
       log.info("Installing update...");
-      autoUpdater.quitAndInstall();
+      // 설치 마법사 없이 기존 경로에 조용히 설치하고, 끝나면 앱을 다시 실행
+      autoUpdater.quitAndInstall(true, true);
     }
   });
 
-  // Check for updates on app start (optional, can be moved to a user setting)
-  if (app.isPackaged && !isPortable()) {
-    autoUpdater.checkForUpdates();
-  }
+  // 리스너 등록 전에 결과를 보내면 토스트가 사라지므로 renderer-ready 이후에 확인한다
+  let hasCheckedOnStartup = false;
+  ipcMain.on("renderer-ready", () => {
+    // Ctrl+R로 renderer-ready가 재전송돼도 최초 1회만 확인
+    if (hasCheckedOnStartup || !app.isPackaged) return;
+    hasCheckedOnStartup = true;
+    checkForUpdates();
+  });
 }

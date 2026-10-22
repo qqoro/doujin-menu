@@ -49,30 +49,54 @@ onMounted(async () => {
     uiStore.setLocked(true);
   }
 
-  ipcRenderer.on("update-status", (_event, { status, info, error }) => {
-    if (status === "update-available" && info) {
-      toast.info(`새로운 업데이트가 있습니다: ${info.version}`, {
-        action: {
-          label: "다운로드",
-          onClick: () => {
-            ipcRenderer.invoke("download-update");
-            toast.info("업데이트를 다운로드 중입니다...");
+  ipcRenderer.on(
+    "update-status",
+    (_event, { status, info, progressObj, error }) => {
+      if (status === "update-available" && info) {
+        // 수동 확인을 반복해도 쌓이지 않도록 같은 id로 교체
+        toast.info(`새 버전 v${info.version}을 사용할 수 있습니다`, {
+          id: "update-available",
+          description: "설치하기를 누르면 다운로드 후 자동으로 재시작합니다",
+          duration: Infinity,
+          action: {
+            label: "설치하기",
+            onClick: () => {
+              ipcRenderer.invoke("download-update");
+            },
           },
-        },
-      });
-    } else if (status === "update-downloaded" && info) {
-      toast.success(`업데이트 다운로드가 완료되었습니다: ${info.version}`, {
-        action: {
-          label: "설치 및 재시작",
-          onClick: () => {
-            ipcRenderer.invoke("install-update");
+        });
+      } else if (status === "update-available-portable" && info) {
+        toast.info(`새 버전 v${info.version}을 사용할 수 있습니다`, {
+          id: "update-available",
+          description: "포터블 버전은 자동 업데이트를 지원하지 않습니다",
+          duration: Infinity,
+          action: {
+            label: "다운로드 페이지",
+            onClick: () => {
+              // 메인이 해당 버전의 릴리즈 페이지를 연다
+              ipcRenderer.invoke("download-update");
+            },
           },
-        },
-      });
-    } else if (status === "error" && error) {
-      toast.error(`업데이트 오류: ${error}`);
-    }
-  });
+        });
+      } else if (status === "download-progress" && progressObj) {
+        toast.info(
+          `업데이트 다운로드 중... ${progressObj.percent.toFixed(0)}%`,
+          { id: "update-download", duration: Infinity },
+        );
+      } else if (status === "update-downloaded" && info) {
+        toast.dismiss("update-download");
+        toast.success(`v${info.version} 다운로드 완료! 앱을 재시작합니다.`, {
+          duration: 2000,
+        });
+        setTimeout(() => {
+          ipcRenderer.invoke("install-update");
+        }, 2000);
+      } else if (status === "error" && error) {
+        toast.dismiss("update-download");
+        toast.error(`업데이트 오류: ${error}`);
+      }
+    },
+  );
 
   // 구독 신작 토스트. 메인이 메인 창에만 보내므로 뷰어 창에서는 뜨지 않는다
   ipcRenderer.on(
