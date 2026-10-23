@@ -21,10 +21,11 @@ import { computed, nextTick, onUnmounted, ref, watch } from "vue";
 const props = withDefaults(
   defineProps<{
     open: boolean;
-    /** 다이얼로그 제목에 붙는 대상 이름 */
-    title: string;
-    artists: string[];
-    tags: { name: string }[];
+    /** 다이얼로그 제목에 붙는 대상 이름. 비우면 "미리보기"만 쓴다 */
+    title?: string;
+    /** `info` 슬롯을 쓰면 안 그려진다 */
+    artists?: string[];
+    tags?: { name: string }[];
     /** 표시할 이미지 URL 목록. 비동기로 채워도 된다 */
     urls: string[];
     isLoading?: boolean;
@@ -36,6 +37,9 @@ const props = withDefaults(
     scrollSpeed?: number;
   }>(),
   {
+    title: "",
+    artists: () => [],
+    tags: () => [],
     isLoading: false,
     error: null,
     hasTarget: true,
@@ -139,21 +143,26 @@ onUnmounted(disconnectObserver);
       @close-auto-focus.prevent
     >
       <DialogHeader>
-        <DialogTitle>미리보기: {{ title }}</DialogTitle>
+        <DialogTitle>미리보기{{ title ? `: ${title}` : "" }}</DialogTitle>
       </DialogHeader>
 
       <div v-if="hasTarget" class="flex flex-1 flex-col overflow-hidden">
-        <div class="mb-4 flex-shrink-0 space-y-2">
-          <p class="text-muted-foreground text-sm">작가: {{ artistLabel }}</p>
-          <div class="flex flex-wrap gap-1">
-            <Badge v-for="tag in tags" :key="tag.name" variant="secondary">
-              {{ tag.name }}
-            </Badge>
+        <!-- 메타 영역. 화면마다 정보가 달라 통째로 갈아끼울 수 있다 -->
+        <slot name="info">
+          <div class="mb-4 flex-shrink-0 space-y-2">
+            <p class="text-muted-foreground text-sm">작가: {{ artistLabel }}</p>
+            <div class="flex flex-wrap gap-1">
+              <Badge v-for="tag in tags" :key="tag.name" variant="secondary">
+                {{ tag.name }}
+              </Badge>
+            </div>
           </div>
-        </div>
+        </slot>
 
-        <div class="mb-2 flex items-center justify-end">
+        <div class="mb-2 flex items-center gap-2">
+          <slot name="toolbar" />
           <ToggleGroup
+            class="ml-auto"
             type="single"
             :model-value="viewMode"
             variant="outline"

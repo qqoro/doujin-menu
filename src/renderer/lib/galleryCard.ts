@@ -105,6 +105,99 @@ export const resolveCardStatus = ({
   }
 };
 
+// 태그
+
+/** 태그 배지 색. 성별 태그만 구분해 스캔을 돕는다 */
+export const tagTone = (type: string): string => {
+  if (type === "female")
+    return "bg-rose-100 text-rose-700 dark:bg-rose-950 dark:text-rose-200";
+  if (type === "male")
+    return "bg-sky-100 text-sky-700 dark:bg-sky-950 dark:text-sky-200";
+  return "";
+};
+
+/** 태그를 클릭 복사용 검색어로 바꾼다 */
+export const tagTerm = (type: string, name: string): string =>
+  `${type === "male" || type === "female" ? type : "tag"}:${name}`;
+
+// 상세 정보 줄
+
+export type DetailRowKey =
+  | "id"
+  | "artist"
+  | "series"
+  | "type"
+  | "language"
+  | "group"
+  | "tag"
+  | "character";
+
+export interface DetailItem {
+  text: string;
+  /** 클릭 복사할 검색어. 공백→밑줄 변환은 복사하는 쪽이 한다 */
+  term: string;
+  /** 태그 줄에만 있다. 색 구분용 */
+  tagType?: string;
+}
+
+export interface DetailRow {
+  key: DetailRowKey;
+  items: DetailItem[];
+}
+
+/** 상세 정보에 필요한 최소 모양 */
+export interface DetailSource {
+  id: number;
+  type?: string;
+  languageName?: { local?: string | null; english?: string | null } | null;
+  artists: string[];
+  groups: string[];
+  series: string[];
+  characters: string[];
+  tags: { type: string; name: string }[];
+}
+
+/**
+ * 미리보기 정보 패널의 줄들. 값이 없는 줄은 빠지고 ID 줄만 항상 남는다.
+ */
+export const buildDetailRows = (gallery: DetailSource): DetailRow[] => {
+  const names = (prefix: string, list: string[]): DetailItem[] =>
+    list.map((name) => ({ text: name, term: `${prefix}:${name}` }));
+
+  const languageText =
+    gallery.languageName?.local || gallery.languageName?.english;
+  const languageKey = gallery.languageName?.english?.toLowerCase();
+
+  const rows: DetailRow[] = [
+    { key: "id", items: names("id", [String(gallery.id)]) },
+    { key: "artist", items: names("artist", gallery.artists) },
+    { key: "series", items: names("series", gallery.series) },
+    {
+      key: "type",
+      items: gallery.type ? names("type", [gallery.type]) : [],
+    },
+    {
+      key: "language",
+      items:
+        languageText && languageKey
+          ? [{ text: languageText, term: `language:${languageKey}` }]
+          : [],
+    },
+    { key: "group", items: names("group", gallery.groups) },
+    {
+      key: "tag",
+      items: gallery.tags.map((tag) => ({
+        text: tag.name,
+        term: tagTerm(tag.type, tag.name),
+        tagType: tag.type,
+      })),
+    },
+    { key: "character", items: names("character", gallery.characters) },
+  ];
+
+  return rows.filter((row) => row.items.length > 0);
+};
+
 // 메타 한 줄
 
 /** 메타 한 줄에 필요한 최소 모양. 테스트에서 갤러리를 통째로 만들지 않으려고 좁혔다 */

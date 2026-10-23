@@ -1,7 +1,9 @@
 import { describe, expect, it } from "vitest";
 import {
+  buildDetailRows,
   buildMetaLine,
   resolveCardStatus,
+  tagTerm,
 } from "../../../src/renderer/lib/galleryCard";
 
 describe("resolveCardStatus", () => {
@@ -144,5 +146,85 @@ describe("buildMetaLine", () => {
     expect(buildMetaLine({ id: 99 }, ["id"])).toEqual([
       { key: "id", text: "#99" },
     ]);
+  });
+});
+
+describe("tagTerm", () => {
+  it("성별 태그는 타입을 접두어로 쓴다", () => {
+    expect(tagTerm("female", "big breasts")).toBe("female:big breasts");
+    expect(tagTerm("male", "sole male")).toBe("male:sole male");
+  });
+
+  it("나머지 태그는 tag: 접두어를 쓴다", () => {
+    expect(tagTerm("tag", "full color")).toBe("tag:full color");
+    expect(tagTerm("", "uncensored")).toBe("tag:uncensored");
+  });
+});
+
+describe("buildDetailRows", () => {
+  const FULL = {
+    id: 3184920,
+    type: "doujinshi",
+    languageName: { local: "한국어", english: "Korean" },
+    artists: ["sample artist"],
+    groups: ["circle"],
+    series: ["original"],
+    characters: ["heroine"],
+    tags: [
+      { type: "female", name: "stockings" },
+      { type: "tag", name: "full color" },
+    ],
+  };
+
+  it("정해진 순서로 줄을 내고 항목마다 검색어를 붙인다", () => {
+    const rows = buildDetailRows(FULL);
+    expect(rows.map((row) => row.key)).toEqual([
+      "id",
+      "artist",
+      "series",
+      "type",
+      "language",
+      "group",
+      "tag",
+      "character",
+    ]);
+    expect(rows.find((row) => row.key === "artist")?.items).toEqual([
+      { text: "sample artist", term: "artist:sample artist" },
+    ]);
+    expect(rows.find((row) => row.key === "id")?.items).toEqual([
+      { text: "3184920", term: "id:3184920" },
+    ]);
+  });
+
+  // 검색어 파서는 쿼리 전체를 소문자로 바꾼 뒤 읽는다. 표시는 현지어로 한다
+  it("언어는 현지어로 보여주고 영어 이름 소문자로 검색한다", () => {
+    const language = buildDetailRows(FULL).find(
+      (row) => row.key === "language",
+    );
+    expect(language?.items).toEqual([
+      { text: "한국어", term: "language:korean" },
+    ]);
+  });
+
+  it("태그는 타입을 함께 실어 색 구분에 쓰게 한다", () => {
+    const tag = buildDetailRows(FULL).find((row) => row.key === "tag");
+    expect(tag?.items).toEqual([
+      { text: "stockings", term: "female:stockings", tagType: "female" },
+      { text: "full color", term: "tag:full color", tagType: "tag" },
+    ]);
+  });
+
+  it("값이 없는 줄은 통째로 빠지고 ID만 남는다", () => {
+    const rows = buildDetailRows({
+      id: 1,
+      type: "",
+      languageName: null,
+      artists: [],
+      groups: [],
+      series: [],
+      characters: [],
+      tags: [],
+    });
+    expect(rows.map((row) => row.key)).toEqual(["id"]);
   });
 });

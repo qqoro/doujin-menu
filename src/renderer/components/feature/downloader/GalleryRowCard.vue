@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { useGalleryCard } from "@/composables/useGalleryCard";
 import type { MetaField } from "@/lib/cardLayout";
 import { listCardScaleStyle, listThumbnailSize } from "@/lib/cardLayout";
-import { buildMetaLine } from "@/lib/galleryCard";
+import { buildMetaLine, tagTerm, tagTone } from "@/lib/galleryCard";
 import { useUiStore } from "@/store/uiStore";
 import { Icon } from "@iconify/vue";
 import type { GalleryDto } from "@/../types/ipc";
@@ -69,19 +69,6 @@ const {
   handleDeleteGallery,
   copyToClipboard,
 } = useGalleryCard(props, emit);
-
-/** 태그 배지 색. 성별 태그만 구분해 스캔을 돕습니다 */
-const tagTone = (type: string) => {
-  if (type === "female")
-    return "bg-rose-100 text-rose-700 dark:bg-rose-950 dark:text-rose-200";
-  if (type === "male")
-    return "bg-sky-100 text-sky-700 dark:bg-sky-950 dark:text-sky-200";
-  return "";
-};
-
-/** 태그를 클릭 복사용 검색어로 바꿉니다 */
-const tagTerm = (type: string, name: string) =>
-  `${type === "male" || type === "female" ? type : "tag"}:${name}`;
 </script>
 
 <template>

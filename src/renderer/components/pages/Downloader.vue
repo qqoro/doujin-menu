@@ -1675,6 +1675,11 @@ useSearchPersistence(searchQuery, "downloader-search-query");
   <GalleryPreviewDialog
     :open="isPreviewDialogOpen"
     :gallery="selectedGallery"
+    :download-status="
+      selectedGallery ? downloadStatuses[selectedGallery.id] : undefined
+    "
+    :book-id="selectedGallery ? resolveBookId(selectedGallery.id) : null"
+    :download-path="downloadPath"
     @update:open="isPreviewDialogOpen = $event"
   />
 
