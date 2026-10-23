@@ -27,6 +27,7 @@ import {
   type LibraryFilterState,
 } from "@/lib/libraryFilters";
 import { toggleSearchTerm } from "@/lib/searchQuery";
+import { tagSearchTerm } from "@/lib/tagBadge";
 import { nextFocusIndex, type FocusDirection } from "@/lib/gridNavigation";
 import {
   DropdownMenu,
@@ -178,6 +179,10 @@ const clearAllFilters = () =>
 // 칩 하나만 해제. 여러 값을 고를 수 있는 필터는 누른 값만 빠진다
 const clearFilterByKey = (key: string) => {
   const { field, value } = parseFilterChipKey(key);
+  if (field === "searchQuery" && value !== undefined) {
+    searchQuery.value = toggleSearchTerm(searchQuery.value, value);
+    return;
+  }
   const target = multiValueFilters[field];
   if (target && value !== undefined) {
     target.value = toggleFilterValue(target.value, value);
@@ -530,8 +535,8 @@ const toggleTerm = (term: string) => {
   searchQuery.value = toggleSearchTerm(searchQuery.value, term);
 };
 
-const toggleTag = (tag: string) => toggleTerm(`tag:${tag}`);
-const excludeTag = (tag: string) => toggleTerm(`-tag:${tag}`);
+const toggleTag = (tag: string) => toggleTerm(tagSearchTerm(tag));
+const excludeTag = (tag: string) => toggleTerm(`-${tagSearchTerm(tag)}`);
 const toggleArtist = (artist: string) => toggleTerm(`artist:${artist}`);
 const toggleGroup = (group: string) => toggleTerm(`group:${group}`);
 const toggleSeries = (series: string) => toggleTerm(`series:${series}`);

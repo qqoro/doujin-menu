@@ -1,11 +1,12 @@
 <script setup lang="ts">
 import ProxiedImage from "@/components/common/ProxiedImage.vue";
-import { Badge } from "@/components/ui/badge";
+import TagBadge from "@/components/common/TagBadge.vue";
 import { Button } from "@/components/ui/button";
 import { useGalleryCard } from "@/composables/useGalleryCard";
 import type { MetaField } from "@/lib/cardLayout";
 import { listCardScaleStyle, listThumbnailSize } from "@/lib/cardLayout";
-import { buildMetaLine, tagTerm, tagTone } from "@/lib/galleryCard";
+import { buildMetaLine } from "@/lib/galleryCard";
+import { tagSearchTerm } from "@/lib/tagBadge";
 import { useUiStore } from "@/store/uiStore";
 import { Icon } from "@iconify/vue";
 import type { GalleryDto } from "@/../types/ipc";
@@ -128,19 +129,13 @@ const {
 
       <!-- 태그는 전부 보여줍니다. 성별 태그만 색으로 구분합니다 -->
       <div class="flex flex-wrap gap-1">
-        <Badge
+        <TagBadge
           v-for="tag in props.gallery.tags"
           :key="`${tag.type}:${tag.name}`"
-          variant="secondary"
-          class="cursor-pointer hover:underline"
-          :class="tagTone(tag.type)"
-          @click.stop="copyToClipboard(tagTerm(tag.type, tag.name))"
-          @contextmenu.prevent.stop="
-            copyToClipboard(`-${tagTerm(tag.type, tag.name)}`)
-          "
-        >
-          {{ tag.name }}
-        </Badge>
+          :tag="tag"
+          @click.stop="copyToClipboard(tagSearchTerm(tag))"
+          @contextmenu.prevent.stop="copyToClipboard(`-${tagSearchTerm(tag)}`)"
+        />
       </div>
     </div>
 

@@ -5,6 +5,7 @@
 
 import type { MetaField, MetaPart } from "./cardLayout";
 import { formatPublishDate } from "./formatDate";
+import { tagSearchTerm, toTagParts } from "./tagBadge";
 
 export type CardStatusKind = "owned" | "downloading" | "failed" | "idle";
 
@@ -105,21 +106,6 @@ export const resolveCardStatus = ({
   }
 };
 
-// 태그
-
-/** 태그 배지 색. 성별 태그만 구분해 스캔을 돕는다 */
-export const tagTone = (type: string): string => {
-  if (type === "female")
-    return "bg-rose-100 text-rose-700 dark:bg-rose-950 dark:text-rose-200";
-  if (type === "male")
-    return "bg-sky-100 text-sky-700 dark:bg-sky-950 dark:text-sky-200";
-  return "";
-};
-
-/** 태그를 클릭 복사용 검색어로 바꾼다 */
-export const tagTerm = (type: string, name: string): string =>
-  `${type === "male" || type === "female" ? type : "tag"}:${name}`;
-
 // 상세 정보 줄
 
 export type DetailRowKey =
@@ -136,8 +122,6 @@ export interface DetailItem {
   text: string;
   /** 클릭 복사할 검색어. 공백→밑줄 변환은 복사하는 쪽이 한다 */
   term: string;
-  /** 태그 줄에만 있다. 색 구분용 */
-  tagType?: string;
 }
 
 export interface DetailRow {
@@ -187,9 +171,8 @@ export const buildDetailRows = (gallery: DetailSource): DetailRow[] => {
     {
       key: "tag",
       items: gallery.tags.map((tag) => ({
-        text: tag.name,
-        term: tagTerm(tag.type, tag.name),
-        tagType: tag.type,
+        text: toTagParts(tag).name,
+        term: tagSearchTerm(tag),
       })),
     },
     { key: "character", items: names("character", gallery.characters) },

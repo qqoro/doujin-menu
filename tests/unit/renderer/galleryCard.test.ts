@@ -3,7 +3,6 @@ import {
   buildDetailRows,
   buildMetaLine,
   resolveCardStatus,
-  tagTerm,
 } from "../../../src/renderer/lib/galleryCard";
 
 describe("resolveCardStatus", () => {
@@ -149,18 +148,6 @@ describe("buildMetaLine", () => {
   });
 });
 
-describe("tagTerm", () => {
-  it("성별 태그는 타입을 접두어로 쓴다", () => {
-    expect(tagTerm("female", "big breasts")).toBe("female:big breasts");
-    expect(tagTerm("male", "sole male")).toBe("male:sole male");
-  });
-
-  it("나머지 태그는 tag: 접두어를 쓴다", () => {
-    expect(tagTerm("tag", "full color")).toBe("tag:full color");
-    expect(tagTerm("", "uncensored")).toBe("tag:uncensored");
-  });
-});
-
 describe("buildDetailRows", () => {
   const FULL = {
     id: 3184920,
@@ -206,11 +193,12 @@ describe("buildDetailRows", () => {
     ]);
   });
 
-  it("태그는 타입을 함께 실어 색 구분에 쓰게 한다", () => {
+  // 라이브러리 카드와 같은 글자로 보이도록 밑줄 이름을 쓴다
+  it("태그는 밑줄 이름으로 보여주고 종류 접두어를 붙여 검색한다", () => {
     const tag = buildDetailRows(FULL).find((row) => row.key === "tag");
     expect(tag?.items).toEqual([
-      { text: "stockings", term: "female:stockings", tagType: "female" },
-      { text: "full color", term: "tag:full color", tagType: "tag" },
+      { text: "stockings", term: "female:stockings" },
+      { text: "full_color", term: "tag:full_color" },
     ]);
   });
 

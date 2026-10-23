@@ -19,6 +19,7 @@ import { Button } from "@/components/ui/button";
 import { Icon } from "@iconify/vue";
 import SettingItem from "@/components/feature/settings/SettingItem.vue";
 import { BLACKLIST_TYPES, buildBlacklistEntry } from "@/lib/blacklistTag";
+import { tagTone, toTagParts } from "@/lib/tagBadge";
 import { AcceptableValue } from "reka-ui";
 import { onMounted, ref } from "vue";
 import { toast } from "vue-sonner";
@@ -275,9 +276,11 @@ const onCapitalizeNamesChange = (value: boolean) => {
           <span
             v-for="entry in blacklistTags"
             :key="entry"
-            class="bg-muted inline-flex items-center gap-1 rounded-full py-1 pr-1 pl-3 text-xs"
+            class="inline-flex items-center gap-1 rounded-full py-1 pr-1 pl-3 text-xs"
+            :class="tagTone(toTagParts(entry).kind)"
+            :title="entry"
           >
-            {{ entry }}
+            {{ toTagParts(entry).name }}
             <button
               type="button"
               class="hover:bg-background rounded-full p-0.5"

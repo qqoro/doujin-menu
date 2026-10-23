@@ -1,6 +1,8 @@
 <script setup lang="ts">
 import { getAppUsageStats, getLibrarySize, getStatistics } from "@/api";
+import TagBadge from "@/components/common/TagBadge.vue";
 import { Badge } from "@/components/ui/badge";
+import { tagSearchTerm } from "@/lib/tagBadge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -388,10 +390,10 @@ const goToViewer = (bookId: number) => {
                   v-for="tag in statistics.topTags"
                   :key="tag.name"
                   class="hover:bg-accent flex cursor-pointer items-center justify-between rounded-md px-3 py-2 transition-colors"
-                  @click="goToLibraryWithSearch('tag:' + tag.name)"
+                  @click="goToLibraryWithSearch(tagSearchTerm(tag.name))"
                 >
                   <div class="flex items-center gap-2">
-                    <Badge variant="secondary">{{ tag.name }}</Badge>
+                    <TagBadge :tag="tag.name" />
                     <span class="text-sm text-gray-500"
                       >({{ tag.count }}권)</span
                     >
@@ -430,10 +432,10 @@ const goToViewer = (bookId: number) => {
                   v-for="tag in statistics.topTagsByViews"
                   :key="tag.name"
                   class="hover:bg-accent flex cursor-pointer items-center justify-between rounded-md px-3 py-2 transition-colors"
-                  @click="goToLibraryWithSearch('tag:' + tag.name)"
+                  @click="goToLibraryWithSearch(tagSearchTerm(tag.name))"
                 >
                   <div class="flex items-center gap-2">
-                    <Badge variant="secondary">{{ tag.name }}</Badge>
+                    <TagBadge :tag="tag.name" />
                   </div>
                   <div class="text-sm text-gray-500">
                     {{ tag.view_count }}회

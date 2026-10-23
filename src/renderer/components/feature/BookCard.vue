@@ -1,9 +1,8 @@
 <script setup lang="ts">
-import { LightBadge } from "@/components/ui/badge";
+import TagBadge from "@/components/common/TagBadge.vue";
 import { Button } from "@/components/ui/button";
 import { ContextMenu, ContextMenuTrigger } from "@/components/ui/context-menu";
 import { useBookCard } from "@/composables/useBookCard";
-import { useTagDisplay } from "@/composables/useTagDisplay";
 import { buildBookMetaLine } from "@/lib/bookCard";
 import type { CreditPrefix, MetaField } from "@/lib/cardLayout";
 import { Icon } from "@iconify/vue";
@@ -35,8 +34,6 @@ const emit = defineEmits([
   "show-preview",
   "request-delete",
 ]);
-
-const { getTagDisplayInfo } = useTagDisplay();
 
 /**
  * 템플릿에 배열 리터럴을 직접 쓰면 vue-tsc가 `string[]`로 추론해 `MetaField[]`
@@ -118,16 +115,15 @@ const handleCreditSelect = (credit: { prefix: CreditPrefix; name: string }) => {
               "
             >
               <!-- 표지 위 그라디언트에 얹히므로 scrim 톤(반투명)을 쓴다 -->
-              <LightBadge
+              <TagBadge
                 v-for="tag in book.tags"
                 :key="tag.name"
-                :class="getTagDisplayInfo(tag, 'scrim').className"
+                :tag="tag.name"
+                surface="scrim"
                 class="flex-shrink-0"
                 @click.prevent.stop="emit('selectTag', tag.name)"
                 @contextmenu.prevent.stop="emit('excludeTag', tag.name)"
-              >
-                {{ getTagDisplayInfo(tag, "scrim").displayText }}
-              </LightBadge>
+              />
             </div>
             <button
               v-if="book.tags.length > 1"

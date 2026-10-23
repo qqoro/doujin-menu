@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import TagBadge from "@/components/common/TagBadge.vue";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -15,6 +16,7 @@ import { computed } from "vue";
 import { useRouter } from "vue-router";
 import { toast } from "vue-sonner";
 import * as api from "@/api";
+import { tagSearchTerm } from "@/lib/tagBadge";
 import type { Book } from "../../../types/ipc";
 import StarRating from "./parts/StarRating.vue";
 import { useOptimisticRating } from "@/composables/useOptimisticRating";
@@ -83,12 +85,13 @@ const hasTaxonomy = computed(() => {
   );
 });
 
+const toSearchQuery = (text: string, prefix: string) =>
+  prefix === "tag" ? tagSearchTerm(text) : `${prefix}:${text}`;
+
 // 클립보드 복사 함수
 const copyToClipboard = async (text: string, prefix: string) => {
   try {
-    const isGenderTag = text.startsWith("male:") || text.startsWith("female:");
-    const searchQuery =
-      prefix === "tag" && isGenderTag ? text : `${prefix}:${text}`;
+    const searchQuery = toSearchQuery(text, prefix);
     await navigator.clipboard.writeText(searchQuery);
     toast.success(`${searchQuery}가 복사되었습니다.`);
   } catch {
@@ -98,9 +101,7 @@ const copyToClipboard = async (text: string, prefix: string) => {
 
 // 다운로더에서 검색 (우클릭)
 const searchInDownloader = (text: string, prefix: string) => {
-  const isGenderTag = text.startsWith("male:") || text.startsWith("female:");
-  const searchQuery =
-    prefix === "tag" && isGenderTag ? text : `${prefix}:${text}`;
+  const searchQuery = toSearchQuery(text, prefix);
   localStorage.setItem("downloader-search-query", searchQuery);
   open.value = false;
   router.push("/downloader");
@@ -299,16 +300,13 @@ const searchInDownloader = (text: string, prefix: string) => {
                 <span class="text-sm font-semibold">태그</span>
               </div>
               <div class="flex flex-wrap gap-1.5">
-                <Badge
+                <TagBadge
                   v-for="tag in book.tags"
                   :key="tag.name"
-                  variant="secondary"
-                  class="hover:bg-secondary/80 cursor-pointer"
+                  :tag="tag.name"
                   @click="copyToClipboard(tag.name, 'tag')"
                   @contextmenu.prevent="searchInDownloader(tag.name, 'tag')"
-                >
-                  {{ tag.name }}
-                </Badge>
+                />
               </div>
             </div>
 

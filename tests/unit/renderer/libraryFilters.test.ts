@@ -24,10 +24,54 @@ describe("activeFilters", () => {
     expect(hasActiveFilters(state())).toBe(false);
   });
 
-  it("검색어가 있으면 검색 칩", () => {
-    expect(activeFilters(state({ searchQuery: "artist:yanje" }))).toEqual([
-      { key: "searchQuery", label: "검색: artist:yanje" },
+  it("검색어는 항목마다 칩 하나", () => {
+    expect(
+      activeFilters(state({ searchQuery: "artist:yanje nurse id:123" })),
+    ).toEqual([
+      { key: "searchQuery:artist:yanje", label: "작가: yanje" },
+      { key: "searchQuery:nurse", label: "제목: nurse" },
+      { key: "searchQuery:id:123", label: "ID: 123" },
     ]);
+  });
+
+  it("태그 검색어는 종류와 이름을 함께 넘긴다", () => {
+    expect(
+      activeFilters(
+        state({ searchQuery: "female:big_breasts tag:full_color" }),
+      ),
+    ).toEqual([
+      {
+        key: "searchQuery:female:big_breasts",
+        label: "big_breasts",
+        tag: { kind: "female", name: "big_breasts" },
+      },
+      {
+        key: "searchQuery:tag:full_color",
+        label: "full_color",
+        tag: { kind: "tag", name: "full_color" },
+      },
+    ]);
+  });
+
+  // 키의 값이 토큰 그대로여야 toggleSearchTerm으로 그 항목만 뺄 수 있다
+  it("제외 검색어는 표시만 바뀌고 키에는 - 가 남는다", () => {
+    expect(
+      activeFilters(state({ searchQuery: "-male:shota -artist:foo" })),
+    ).toEqual([
+      {
+        key: "searchQuery:-male:shota",
+        label: "shota",
+        tag: { kind: "male", name: "shota" },
+        excluded: true,
+      },
+      { key: "searchQuery:-artist:foo", label: "작가: foo", excluded: true },
+    ]);
+  });
+
+  it("같은 검색어가 두 번 있으면 칩은 하나", () => {
+    expect(activeFilters(state({ searchQuery: "nurse nurse" }))).toHaveLength(
+      1,
+    );
   });
 
   // 검색창을 지웠는데 공백이 남는 경우가 흔하다. 이걸 걸린 것으로 보면
@@ -38,7 +82,7 @@ describe("activeFilters", () => {
 
   it("검색어 앞뒤 공백은 라벨에서 제거된다", () => {
     expect(activeFilters(state({ searchQuery: "  nurse  " }))[0].label).toBe(
-      "검색: nurse",
+      "제목: nurse",
     );
   });
 
@@ -98,7 +142,7 @@ describe("activeFilters", () => {
       }),
     );
     expect(result.map((f) => f.key)).toEqual([
-      "searchQuery",
+      "searchQuery:nurse",
       "readStatus:completed",
       "isFavorite",
     ]);

@@ -7,6 +7,7 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover";
 import { BLACKLIST_TYPES, parseBlacklistInput } from "@/lib/blacklistTag";
+import { tagTone, toTagParts } from "@/lib/tagBadge";
 import { Icon } from "@iconify/vue";
 import { ref, watch } from "vue";
 
@@ -135,9 +136,11 @@ const removeTag = (entry: string) => {
         <span
           v-for="entry in modelValue"
           :key="entry"
-          class="bg-muted inline-flex items-center gap-1 rounded-full py-0.5 pr-1 pl-2.5 text-xs"
+          class="inline-flex items-center gap-1 rounded-full py-0.5 pr-1 pl-2.5 text-xs"
+          :class="tagTone(toTagParts(entry).kind)"
+          :title="entry"
         >
-          {{ entry }}
+          {{ toTagParts(entry).name }}
           <button
             type="button"
             class="hover:bg-background rounded-full p-0.5"

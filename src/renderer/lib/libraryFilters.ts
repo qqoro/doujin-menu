@@ -1,4 +1,5 @@
 import type { ReadStatus } from "../../types/ipc";
+import { toTagParts, type TagParts } from "./tagBadge";
 
 /**
  * 라이브러리 화면의 "지금 무엇이 걸려 있는지"를 계산합니다.
@@ -69,7 +70,43 @@ export type ActiveFilter = {
    */
   key: string;
   label: string;
+  /** 태그 검색어면 태그 뱃지로 그린다 */
+  tag?: TagParts;
+  /** `-`로 제외한 검색어 */
+  excluded?: boolean;
 };
+
+const SEARCH_PREFIX_LABELS: Record<string, string> = {
+  id: "ID",
+  artist: "작가",
+  group: "그룹",
+  series: "시리즈",
+  character: "캐릭터",
+  type: "유형",
+  language: "언어",
+};
+
+const TAG_PREFIXES = new Set(["female", "male", "tag"]);
+
+/** 검색어 토큰 하나를 칩으로. 키의 값은 토큰 그대로라 `toggleSearchTerm`으로 뺄 수 있다 */
+function searchTermFilter(term: string): ActiveFilter {
+  const excluded = term.length > 1 && term.startsWith("-");
+  const body = excluded ? term.slice(1) : term;
+  const colonAt = body.indexOf(":");
+  const prefix = colonAt === -1 ? "" : body.slice(0, colonAt).toLowerCase();
+  const filter: ActiveFilter = { key: `searchQuery:${term}`, label: body };
+  if (excluded) filter.excluded = true;
+
+  if (TAG_PREFIXES.has(prefix)) {
+    filter.tag = toTagParts(body);
+    filter.label = filter.tag.name;
+  } else if (prefix in SEARCH_PREFIX_LABELS) {
+    filter.label = `${SEARCH_PREFIX_LABELS[prefix]}: ${body.slice(colonAt + 1)}`;
+  } else if (colonAt === -1) {
+    filter.label = `제목: ${body}`;
+  }
+  return filter;
+}
 
 const READ_STATUS_LABELS: Record<string, string> = Object.fromEntries(
   READ_STATUS_OPTIONS.map(({ value, label }) => [value, label]),
@@ -162,10 +199,10 @@ export function libraryPathLabel(fullPath: string): string {
 export function activeFilters(state: LibraryFilterState): ActiveFilter[] {
   const result: ActiveFilter[] = [];
 
-  // 검색어는 앞뒤 공백만 있는 경우 걸린 것으로 보지 않습니다
-  const trimmed = state.searchQuery.trim();
-  if (trimmed !== "") {
-    result.push({ key: "searchQuery", label: `검색: ${trimmed}` });
+  // 검색어는 항목마다 칩 하나. 같은 항목이 두 번 있으면 칩은 하나만 보인다
+  const terms = new Set(state.searchQuery.split(" ").filter((s) => s !== ""));
+  for (const term of terms) {
+    result.push(searchTermFilter(term));
   }
 
   for (const path of parseLibraryPaths(state.libraryPath)) {

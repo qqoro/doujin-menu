@@ -1,13 +1,12 @@
 <script setup lang="ts">
 import ProxiedImage from "@/components/common/ProxiedImage.vue";
-import { Badge } from "@/components/ui/badge";
+import TagBadge from "@/components/common/TagBadge.vue";
 import { Button } from "@/components/ui/button";
 import { useGalleryCard } from "@/composables/useGalleryCard";
 import type { MetaField } from "@/lib/cardLayout";
 import {
   buildDetailRows,
   buildMetaLine,
-  tagTone,
   type DetailRowKey,
 } from "@/lib/galleryCard";
 import { Icon } from "@iconify/vue";
@@ -101,32 +100,21 @@ const handleRead = (event: MouseEvent) => {
               />
               {{ ROW_META[row.key].label }}
             </dt>
-            <dd v-if="row.key === 'tag'" class="flex min-w-0 flex-wrap gap-1">
-              <Badge
+            <dd class="flex min-w-0 flex-wrap gap-1">
+              <!-- 태그 외 줄은 종류 접두어가 이름에 찍히지 않도록 객체로 넘긴다 -->
+              <TagBadge
                 v-for="item in row.items"
                 :key="item.term"
-                variant="secondary"
-                class="cursor-pointer hover:underline"
-                :class="tagTone(item.tagType ?? '')"
+                :tag="
+                  row.key === 'tag'
+                    ? item.term
+                    : { type: row.key, name: item.text }
+                "
                 @click="copyToClipboard(item.term)"
-                @contextmenu.prevent="copyToClipboard(`-${item.term}`)"
-              >
-                {{ item.text }}
-              </Badge>
-            </dd>
-            <dd v-else class="flex min-w-0 flex-wrap items-center">
-              <template v-for="(item, index) in row.items" :key="item.term">
-                <button
-                  class="hover:text-primary cursor-pointer text-left break-all hover:underline"
-                  @click="copyToClipboard(item.term)"
-                  @contextmenu.prevent="
-                    row.key !== 'id' && copyToClipboard(`-${item.term}`)
-                  "
-                >
-                  {{ item.text }}
-                </button>
-                <span v-if="index < row.items.length - 1">,&nbsp;</span>
-              </template>
+                @contextmenu.prevent="
+                  row.key !== 'id' && copyToClipboard(`-${item.term}`)
+                "
+              />
             </dd>
           </template>
         </dl>

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { Badge } from "@/components/ui/badge";
+import TagBadge from "@/components/common/TagBadge.vue";
 import {
   Dialog,
   DialogContent,
@@ -152,9 +152,12 @@ onUnmounted(disconnectObserver);
           <div class="mb-4 flex-shrink-0 space-y-2">
             <p class="text-muted-foreground text-sm">작가: {{ artistLabel }}</p>
             <div class="flex flex-wrap gap-1">
-              <Badge v-for="tag in tags" :key="tag.name" variant="secondary">
-                {{ tag.name }}
-              </Badge>
+              <TagBadge
+                v-for="tag in tags"
+                :key="tag.name"
+                :tag="tag.name"
+                class="cursor-default"
+              />
             </div>
           </div>
         </slot>
