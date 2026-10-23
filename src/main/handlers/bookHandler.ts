@@ -8,6 +8,7 @@ import db from "../db/index.js";
 import { console } from "../main.js";
 import { broadcast } from "../utils/broadcast.js";
 import { naturalSort } from "../utils/index.js";
+import { whereUnderPath } from "../utils/libraryPath.js";
 import { store as configStore } from "./configHandler.js";
 
 /** `id:>3000000` 같은 히토미 ID 범위 조건. 양끝은 포함이다 */
@@ -338,7 +339,7 @@ function buildFilteredQuery(
   if (libraryPath.length > 0) {
     mainQuery.where((builder) => {
       for (const path of libraryPath) {
-        builder.orWhere("sub.path", "like", `${path}%`);
+        builder.orWhere(whereUnderPath("sub.path", path));
       }
     });
   }
@@ -877,7 +878,7 @@ export const handleGetBookCurrentPage = async (bookId: number) => {
 export const handleGetLibraryFolderStats = async (folderPath: string) => {
   try {
     const result = await db("Book")
-      .where("path", "like", `${folderPath}%`)
+      .where(whereUnderPath("path", folderPath))
       .count("* as bookCount")
       .max("added_at as lastScanned")
       .first();

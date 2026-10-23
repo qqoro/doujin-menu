@@ -112,6 +112,19 @@ describe("오프라인 라이브러리 보존", () => {
       const other = await db("Book").where("path", "D:\\other\\book3").first();
       expect(other.is_offline).toBe(0);
     });
+
+    it("이름 앞부분만 겹치는 이웃 폴더의 책은 오프라인 처리하지 않음", async () => {
+      await seedBook(db, { path: "C:\\extlib\\book1" });
+      await seedBook(db, { path: "C:\\extlib2\\book2" });
+
+      const count = await markBooksOfflineUnderPath("C:\\extlib");
+
+      expect(count).toBe(1);
+      const neighbor = await db("Book")
+        .where("path", "C:\\extlib2\\book2")
+        .first();
+      expect(neighbor.is_offline).toBe(0);
+    });
   });
 
   describe("restoreBooksOnlineUnderPath", () => {
@@ -243,6 +256,28 @@ describe("오프라인 라이브러리 보존", () => {
         expect(result.deleted).toBe(1);
         const books = await db("Book").select("*");
         expect(books).toHaveLength(1);
+      } finally {
+        await fs.rm(tmpDir, { recursive: true, force: true });
+      }
+    });
+
+    it("이름 앞부분만 겹치는 이웃 폴더의 책은 삭제하지 않음", async () => {
+      const tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), "cleanup-test-"));
+      try {
+        const root = path.join(tmpDir, "Comics");
+        await fs.mkdir(root);
+        await seedBook(db, { path: path.join(root, "남는책") });
+        const neighbor = await seedBook(db, {
+          path: path.join(`${root}2`, "이웃책"),
+          is_favorite: true,
+        });
+
+        const found = new Set([path.join(root, "남는책")]);
+        const result = await cleanupMissingBooks(root, found);
+
+        expect(result.deleted).toBe(0);
+        const kept = await db("Book").where("id", neighbor.id).first();
+        expect(kept.is_favorite).toBe(1);
       } finally {
         await fs.rm(tmpDir, { recursive: true, force: true });
       }

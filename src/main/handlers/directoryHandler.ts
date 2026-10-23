@@ -13,6 +13,7 @@ import { ParsedMetadata, parseInfoTxt } from "../parsers/infoTxtParser.js";
 import { broadcast } from "../utils/broadcast.js";
 import type { LibraryScanProgress } from "../../types/ipc.js";
 import { naturalSort } from "../utils/index.js";
+import { whereUnderPath } from "../utils/libraryPath.js";
 import { readZipPage } from "../utils/zipPages.js";
 import {
   getPrefixIndex,
@@ -80,10 +81,9 @@ async function loadZipScanCache(
     string,
     { file_mtime: number | null; file_size: number | null }
   >();
-  const normalizedDir = directoryPath.replaceAll("/", "\\");
   const rows = await db("Book")
     .select("path", "file_mtime", "file_size")
-    .whereLike("path", `${normalizedDir}%`);
+    .where(whereUnderPath("path", directoryPath));
   for (const row of rows) {
     map.set(row.path, {
       file_mtime: row.file_mtime,
@@ -227,7 +227,7 @@ export const handleAddBooksFromDirectory = async () => {
   const { added, updated, deleted } = await scanDirectory(directoryPath);
   const books = await db("Book")
     .select("id")
-    .whereLike("path", `${directoryPath}%`)
+    .where(whereUnderPath("path", directoryPath))
     .and.where("cover_path", null);
   const thumbnailQueue = new PQueue({ concurrency: os.cpus().length });
   await thumbnailQueue.addAll(
@@ -567,7 +567,7 @@ export async function markBooksOfflineUnderPath(
   directoryPath: string,
 ): Promise<number> {
   const count = await db("Book")
-    .where("path", "like", `${directoryPath}%`)
+    .where(whereUnderPath("path", directoryPath))
     .where("is_offline", false)
     .update({ is_offline: true });
 
@@ -581,7 +581,7 @@ export async function restoreBooksOnlineUnderPath(
   directoryPath: string,
 ): Promise<number> {
   const count = await db("Book")
-    .where("path", "like", `${directoryPath}%`)
+    .where(whereUnderPath("path", directoryPath))
     .where("is_offline", true)
     .update({ is_offline: false });
 
@@ -609,7 +609,7 @@ export async function cleanupMissingBooks(
   await db.transaction(async (trx) => {
     const existingBooksInDb = await trx("Book")
       .select("id", "path", "cover_path")
-      .where("path", "like", `${directoryPath}%`);
+      .where(whereUnderPath("path", directoryPath));
 
     const booksToDelete = existingBooksInDb.filter(
       (book) => !foundPaths.has(book.path),
@@ -1211,7 +1211,7 @@ export const handleRescanLibraryFolder = async (folderPath: string) => {
     if (offline) {
       // 이번에 전환된 수가 아닌 현재 오프라인 상태인 전체 권수를 집계 (재스캔 반복 시에도 정확)
       const offlineTotalResult = await db("Book")
-        .where("path", "like", `${folderPath}%`)
+        .where(whereUnderPath("path", folderPath))
         .where("is_offline", true)
         .count("* as count")
         .first();
@@ -1233,7 +1233,7 @@ export const handleRescanLibraryFolder = async (folderPath: string) => {
 
     const books = await db("Book")
       .select("id")
-      .whereLike("path", `${folderPath}%`)
+      .where(whereUnderPath("path", folderPath))
       .and.where("cover_path", null);
     const thumbnailQueue = new PQueue({ concurrency: os.cpus().length });
     await thumbnailQueue.addAll(

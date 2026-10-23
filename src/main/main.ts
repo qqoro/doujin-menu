@@ -53,6 +53,7 @@ import { registerUpdaterHandlers } from "./updater.js";
 import { sendTo } from "./utils/broadcast.js";
 import { openExternalIfAllowed } from "./utils/externalLink.js";
 import { imageMimeType, sortImageFiles } from "./utils/imageFiles.js";
+import { whereUnderPath } from "./utils/libraryPath.js";
 import { readZipPage } from "./utils/zipPages.js";
 
 log.initialize();
@@ -470,7 +471,7 @@ app.whenReady().then(async () => {
 
           const books = await db("Book")
             .select("id")
-            .whereLike("path", `${folderPath}%`)
+            .where(whereUnderPath("path", folderPath))
             .and.where("cover_path", null);
 
           // 썸네일 앞단(ZIP 열기·커버 추출)에는 워커 풀 같은 제한이 없다.

@@ -5,6 +5,7 @@ import { existsSync } from "fs";
 import fs from "fs/promises";
 import path from "path";
 import db, { closeDbConnection } from "../db/index.js";
+import { whereUnderPath } from "../utils/libraryPath.js";
 import { scanDirectory } from "./directoryHandler.js";
 import { handleGenerateThumbnail } from "./thumbnailHandler.js";
 
@@ -256,7 +257,7 @@ export const handleRescanAllMetadata = async () => {
       await scanDirectory(folderPath, { force: true });
       const books = await db("Book")
         .select("id")
-        .whereLike("path", `${folderPath}%`)
+        .where(whereUnderPath("path", folderPath))
         .and.where("cover_path", null);
       await Promise.all(books.map((book) => handleGenerateThumbnail(book.id)));
     }
@@ -312,7 +313,7 @@ async function deleteBooksInFolder(folderPath: string) {
   await db.transaction(async (trx) => {
     const booksToDelete = await trx("Book")
       .select("id", "path", "cover_path")
-      .where("path", "like", `${folderPath}%`);
+      .where(whereUnderPath("path", folderPath));
 
     for (const book of booksToDelete) {
       await trx("BookArtist").where("book_id", book.id).del();
