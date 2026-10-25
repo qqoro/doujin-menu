@@ -31,8 +31,7 @@ const emit = defineEmits([
   "selectGroup",
   "toggle-favorite",
   "open-book-folder",
-  "show-details",
-  "show-preview",
+  "show-info",
   "request-delete",
 ]);
 
@@ -168,10 +167,10 @@ const handleCreditSelect = (credit: { prefix: CreditPrefix; name: string }) => {
           <Button
             size="icon-sm"
             variant="secondary"
-            title="미리보기"
-            @click.stop="emit('show-preview', book)"
+            title="책 정보"
+            @click.stop="emit('show-info', book)"
           >
-            <Icon icon="solar:eye-bold-duotone" class="h-4 w-4" />
+            <Icon icon="solar:info-circle-bold-duotone" class="h-4 w-4" />
           </Button>
           <Button
             v-if="!IS_REMOTE"

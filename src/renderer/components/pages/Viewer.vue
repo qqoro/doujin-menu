@@ -8,7 +8,7 @@ import {
   ipcRenderer,
   openWithExternalProgram,
 } from "@/api";
-import BookDetailDialog from "@/components/feature/BookDetailDialog.vue";
+import BookInfoDialog from "@/components/feature/BookInfoDialog.vue";
 import ViewerHelpDialog from "@/components/feature/viewer/ViewerHelpDialog.vue";
 import {
   AlertDialog,
@@ -1452,7 +1452,13 @@ useKeybindings(
       </div>
     </Transition>
 
-    <BookDetailDialog v-if="book" v-model="isDetailOpen" :book="book" />
+    <BookInfoDialog
+      v-if="book"
+      :open="isDetailOpen"
+      :book="book"
+      :readable="false"
+      @update:open="isDetailOpen = $event"
+    />
 
     <!-- 책 삭제 확인 다이얼로그 -->
     <AlertDialog v-model:open="isDeleteDialogOpen">

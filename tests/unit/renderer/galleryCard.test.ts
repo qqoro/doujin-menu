@@ -202,6 +202,33 @@ describe("buildDetailRows", () => {
     ]);
   });
 
+  // info.txt 없이 스캔된 라이브러리 책
+  it("ID가 없으면 ID 줄도 빠진다", () => {
+    expect(buildDetailRows({ ...FULL, id: undefined })[0].key).toBe("artist");
+  });
+
+  // 라이브러리 책은 영문 언어명이 비어 있을 수 있다. 검색 조건이 두 컬럼을 함께 본다
+  it("영문 언어명이 없으면 현지어로 검색한다", () => {
+    const language = buildDetailRows({
+      ...FULL,
+      languageName: { local: "한국어", english: null },
+    }).find((row) => row.key === "language");
+    expect(language?.items).toEqual([
+      { text: "한국어", term: "language:한국어" },
+    ]);
+  });
+
+  it("라이브러리 태그 문자열도 갤러리 태그와 같은 검색어가 된다", () => {
+    const tag = buildDetailRows({
+      ...FULL,
+      tags: ["female:stockings", "full_color"],
+    }).find((row) => row.key === "tag");
+    expect(tag?.items).toEqual([
+      { text: "stockings", term: "female:stockings" },
+      { text: "full_color", term: "tag:full_color" },
+    ]);
+  });
+
   it("값이 없는 줄은 통째로 빠지고 ID만 남는다", () => {
     const rows = buildDetailRows({
       id: 1,

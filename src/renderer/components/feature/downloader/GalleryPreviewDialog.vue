@@ -3,7 +3,7 @@ import { toMediaUrl } from "@/lib/mediaUrl";
 import { getBook, ipcRenderer } from "@/api";
 import PreviewDialogShell from "@/components/common/PreviewDialogShell.vue";
 import ProxiedImage from "@/components/common/ProxiedImage.vue";
-import type { GalleryDto } from "@/../types/ipc";
+import type { Book, GalleryDto } from "@/../types/ipc";
 import { computed, ref, watch } from "vue";
 import GalleryPreviewPanel from "./parts/GalleryPreviewPanel.vue";
 
@@ -34,6 +34,8 @@ const refererUrl = computed(() =>
   galleryId.value ? `https://hitomi.la/reader/${galleryId.value}.html` : "",
 );
 
+/** 라이브러리에 있는 책. 정보 패널의 라이브러리 정보에 쓴다 */
+const ownedBook = ref<Book | null>(null);
 const previewImageUrls = ref<string[]>([]);
 /** 라이브러리 파일을 읽는지(local), hitomi에서 받는지(remote) */
 const previewSource = ref<"local" | "remote">("remote");
@@ -63,6 +65,7 @@ const loadPreview = async () => {
         ? await getBook(props.bookId).catch(() => null)
         : null;
     if (isStale()) return;
+    ownedBook.value = book;
 
     // 드라이브가 빠진 책은 로컬 파일을 못 읽으니 hitomi에서 받는다
     if (book && !book.is_offline && (book.page_count ?? 0) > 0) {
@@ -104,6 +107,7 @@ watch(() => [props.open, galleryId.value, props.bookId] as const, loadPreview, {
 <template>
   <PreviewDialogShell
     :open="open"
+    :title="gallery?.title.display"
     :urls="previewImageUrls"
     :is-loading="isLoadingImages"
     :error="imageLoadError"
@@ -118,19 +122,10 @@ watch(() => [props.open, galleryId.value, props.bookId] as const, loadPreview, {
         :gallery="gallery"
         :download-status="downloadStatus"
         :book-id="bookId"
+        :book="ownedBook"
         :download-path="downloadPath"
         @open-book="emit('update:open', false)"
       />
-    </template>
-
-    <template #toolbar>
-      <span
-        v-if="previewImageUrls.length > 0"
-        class="bg-muted text-muted-foreground rounded-full px-2.5 py-0.5 text-xs"
-      >
-        {{ previewSource === "local" ? "로컬 파일" : "hitomi" }} ·
-        {{ previewImageUrls.length }}장
-      </span>
     </template>
 
     <template #scroll-image="{ url, index, loaded }">
@@ -186,6 +181,23 @@ watch(() => [props.open, galleryId.value, props.bookId] as const, loadPreview, {
       >
         <p class="text-muted-foreground text-sm">로딩 중...</p>
       </div>
+    </template>
+
+    <template #large-image="{ url, index }">
+      <img
+        v-if="previewSource === 'local'"
+        :src="url"
+        :alt="`Page ${index + 1}`"
+      />
+      <!-- 래퍼가 꽉 찬 크기를 잡으므로 이미지 비율은 contain으로 지킨다 -->
+      <ProxiedImage
+        v-else
+        :id="galleryId"
+        :url="url"
+        :referer="refererUrl"
+        :alt="`Page ${index + 1}`"
+        class="[&_img]:object-contain"
+      />
     </template>
   </PreviewDialogShell>
 </template>

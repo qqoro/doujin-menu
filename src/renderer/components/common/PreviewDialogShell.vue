@@ -1,11 +1,6 @@
 <script setup lang="ts">
-import TagBadge from "@/components/common/TagBadge.vue";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
+import PageLightbox from "@/components/common/PageLightbox.vue";
+import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { usePreviewViewMode } from "@/composables/usePreviewViewMode";
 import { Icon } from "@iconify/vue";
@@ -15,17 +10,14 @@ import { computed, nextTick, onUnmounted, ref, watch } from "vue";
  * 미리보기 다이얼로그의 공통 골격.
  *
  * 라이브러리 책과 다운로더 갤러리는 이미지 출처(로컬 프로토콜 / 프록시 다운로드)만
- * 다르고 나머지는 같다. 다이얼로그 틀, 메타 표시, 뷰 모드 전환, 지연 로딩,
- * 가로 스크롤은 전부 여기가 맡고 이미지 요소만 슬롯으로 받는다.
+ * 다르고 나머지는 같다. 다이얼로그 틀, 뷰 모드 전환, 지연 로딩, 가로 스크롤,
+ * 크게 보기는 전부 여기가 맡고 정보 패널과 이미지 요소만 슬롯으로 받는다.
  */
 const props = withDefaults(
   defineProps<{
     open: boolean;
-    /** 다이얼로그 제목에 붙는 대상 이름. 비우면 "미리보기"만 쓴다 */
+    /** 화면에는 안 보이고 스크린리더용 제목으로만 쓴다. 보이는 제목은 정보 패널이 그린다 */
     title?: string;
-    /** `info` 슬롯을 쓰면 안 그려진다 */
-    artists?: string[];
-    tags?: { name: string }[];
     /** 표시할 이미지 URL 목록. 비동기로 채워도 된다 */
     urls: string[];
     isLoading?: boolean;
@@ -38,8 +30,6 @@ const props = withDefaults(
   }>(),
   {
     title: "",
-    artists: () => [],
-    tags: () => [],
     isLoading: false,
     error: null,
     hasTarget: true,
@@ -59,9 +49,15 @@ const dialogOpen = computed({
   set: (value) => emit("update:open", value),
 });
 
-const artistLabel = computed(() =>
-  props.artists.length > 0 ? props.artists.join(", ") : "알 수 없음",
-);
+/** 크게 보고 있는 페이지. null이면 닫힘 */
+const lightboxIndex = ref<number | null>(null);
+
+// 크게 보기 중의 Esc는 크게 보기만 닫는다
+const handleEscape = (event: KeyboardEvent) => {
+  if (lightboxIndex.value === null) return;
+  event.preventDefault();
+  lightboxIndex.value = null;
+};
 
 // 세로 휠을 가로 이동으로 바꾼다
 const handleWheelScroll = (event: WheelEvent) => {
@@ -110,6 +106,7 @@ const initObserver = () => {
 watch(
   () => props.open,
   (open) => {
+    lightboxIndex.value = null;
     if (open) {
       loadedImages.value.clear();
       nextTick(initObserver);
@@ -124,6 +121,7 @@ watch(
 watch(
   () => props.urls,
   () => {
+    lightboxIndex.value = null;
     loadedImages.value.clear();
     if (props.open) nextTick(initObserver);
   },
@@ -140,27 +138,14 @@ onUnmounted(disconnectObserver);
   <Dialog v-model:open="dialogOpen">
     <DialogContent
       class="flex h-[90vh] flex-col sm:max-w-[90vw]"
+      :aria-describedby="undefined"
       @close-auto-focus.prevent
+      @escape-key-down="handleEscape"
     >
-      <DialogHeader>
-        <DialogTitle>미리보기{{ title ? `: ${title}` : "" }}</DialogTitle>
-      </DialogHeader>
+      <DialogTitle class="sr-only">{{ title || "책 정보" }}</DialogTitle>
 
       <div v-if="hasTarget" class="flex flex-1 flex-col overflow-hidden">
-        <!-- 메타 영역. 화면마다 정보가 달라 통째로 갈아끼울 수 있다 -->
-        <slot name="info">
-          <div class="mb-4 flex-shrink-0 space-y-2">
-            <p class="text-muted-foreground text-sm">작가: {{ artistLabel }}</p>
-            <div class="flex flex-wrap gap-1">
-              <TagBadge
-                v-for="tag in tags"
-                :key="tag.name"
-                :tag="tag.name"
-                class="cursor-default"
-              />
-            </div>
-          </div>
-        </slot>
+        <slot name="info" />
 
         <div class="mb-2 flex items-center gap-2">
           <slot name="toolbar" />
@@ -192,7 +177,7 @@ onUnmounted(disconnectObserver);
             <p>{{ error }}</p>
           </div>
 
-          <!-- 가로 스크롤 뷰. 이미지를 누르면 다이얼로그가 닫힌다 -->
+          <!-- 가로 스크롤 뷰. 이미지를 누르면 크게 보기가 열린다 -->
           <div
             v-else-if="urls.length > 0 && viewMode === 'scroll'"
             ref="scrollContainer"
@@ -204,8 +189,8 @@ onUnmounted(disconnectObserver);
               :key="index"
               ref="imageRefs"
               :data-index="index"
-              class="flex h-full max-w-full flex-shrink-0 cursor-zoom-out items-center justify-center [&_img]:max-w-full"
-              @click="dialogOpen = false"
+              class="flex h-full max-w-full flex-shrink-0 cursor-zoom-in items-center justify-center [&_img]:max-w-full"
+              @click="lightboxIndex = index"
             >
               <slot
                 name="scroll-image"
@@ -216,7 +201,7 @@ onUnmounted(disconnectObserver);
             </div>
           </div>
 
-          <!-- 그리드 뷰. 누른 칸부터 이어 보도록 가로 스크롤 뷰로 넘긴다 -->
+          <!-- 그리드 뷰 -->
           <div
             v-else-if="urls.length > 0 && viewMode === 'grid'"
             ref="gridContainer"
@@ -227,8 +212,8 @@ onUnmounted(disconnectObserver);
               :key="'grid-' + index"
               ref="imageRefs"
               :data-index="index"
-              class="cursor-pointer overflow-hidden rounded"
-              @click="setViewMode('scroll')"
+              class="cursor-zoom-in overflow-hidden rounded"
+              @click="lightboxIndex = index"
             >
               <slot
                 name="grid-image"
@@ -251,6 +236,17 @@ onUnmounted(disconnectObserver);
       <div v-else class="text-muted-foreground text-center">
         {{ emptyMessage }}
       </div>
+
+      <PageLightbox
+        v-if="lightboxIndex !== null && urls.length > 0"
+        v-model:index="lightboxIndex"
+        :urls="urls"
+        @close="lightboxIndex = null"
+      >
+        <template #default="{ url, index }">
+          <slot name="large-image" :url="url" :index="index" />
+        </template>
+      </PageLightbox>
     </DialogContent>
   </Dialog>
 </template>

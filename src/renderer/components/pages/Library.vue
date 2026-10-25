@@ -80,8 +80,7 @@ import SortMenu from "../common/SortMenu.vue";
 import ViewOptionsBar from "../common/ViewOptionsBar.vue";
 import PageToolbar from "../layout/PageToolbar.vue";
 import BookCard from "../feature/BookCard.vue";
-import BookDetailDialog from "../feature/BookDetailDialog.vue";
-import BookPreviewDialog from "../feature/BookPreviewDialog.vue";
+import BookInfoDialog from "../feature/BookInfoDialog.vue";
 import BookRowCard from "../feature/BookRowCard.vue";
 import LibraryScanProgress from "../feature/LibraryScanProgress.vue";
 
@@ -93,10 +92,8 @@ const route = useRoute();
 const router = useRouter();
 const searchInputRef = ref<InstanceType<typeof SmartSearchInput> | null>(null);
 
-const showBookDetailDialog = ref(false);
-const showBookPreviewDialog = ref(false);
-const selectedBook = ref<Book | null>(null);
-const previewBook = ref<Book | null>(null);
+const showBookInfoDialog = ref(false);
+const infoBook = ref<Book | null>(null);
 
 // Filter and Sort State
 const libraryPath = ref((route.query.libraryPath as string) || "all");
@@ -673,14 +670,9 @@ const handleOpenFolder = async (bookPath: string) => {
   }
 };
 
-const handleShowDetails = (book: Book) => {
-  selectedBook.value = book;
-  showBookDetailDialog.value = true;
-};
-
-const handleShowPreview = (book: Book) => {
-  previewBook.value = book;
-  showBookPreviewDialog.value = true;
+const handleShowInfo = (book: Book) => {
+  infoBook.value = book;
+  showBookInfoDialog.value = true;
 };
 
 // 라이브러리 단축키 등록
@@ -850,19 +842,24 @@ const {
                   작업을 할 수 있습니다.
                 </li>
               </ul>
-              <h3 class="text-foreground text-base font-semibold">미리보기</h3>
+              <h3 class="text-foreground text-base font-semibold">책 정보</h3>
               <ul class="list-inside list-disc">
                 <li>
-                  그리드 뷰에서 책 카드를 우클릭하여 '미리보기' 메뉴를 선택하면
-                  페이지를 미리볼 수 있습니다.
+                  카드 위
+                  <Icon
+                    icon="solar:info-circle-bold-duotone"
+                    class="inline-block h-4 w-4 align-text-bottom"
+                  />
+                  버튼이나 우클릭 메뉴의 '책 정보'로 메타데이터와 페이지
+                  미리보기를 함께 볼 수 있습니다.
                 </li>
                 <li>
-                  리스트 뷰에서는 미리보기 버튼을 클릭하여 페이지를 미리볼 수
-                  있습니다.
+                  미리보기 페이지를 누르면 크게 볼 수 있습니다. 좌우 끝을
+                  누르거나 방향키·휠로 넘기고, 가운데를 누르면 닫힙니다.
                 </li>
                 <li>
-                  미리보기에서는 책의 모든 페이지를 가로 스크롤로 확인할 수
-                  있습니다.
+                  메타데이터를 클릭하면 검색어로, 우클릭하면 제외 검색어로
+                  복사됩니다.
                 </li>
               </ul>
             </div>
@@ -1096,8 +1093,7 @@ const {
                     @select-group="toggleGroup"
                     @toggle-favorite="handleToggleFavorite"
                     @open-book-folder="handleOpenFolder"
-                    @show-details="handleShowDetails"
-                    @show-preview="handleShowPreview"
+                    @show-info="handleShowInfo"
                     @request-delete="handleRequestDelete"
                   />
                   <!-- 아직 청크가 안 온 자리. 높이를 잡아둬야 행이 안 무너집니다 -->
@@ -1143,8 +1139,7 @@ const {
                   @select-character="toggleCharacter"
                   @toggle-favorite="handleToggleFavorite"
                   @open-book-folder="handleOpenFolder"
-                  @show-details="handleShowDetails"
-                  @show-preview="handleShowPreview"
+                  @show-info="handleShowInfo"
                   @request-delete="handleRequestDelete"
                 />
                 <!-- 아직 청크가 안 온 자리. 카드와 같은 껍데기로 둔다 -->
@@ -1192,17 +1187,11 @@ const {
       </div>
     </div>
 
-    <BookDetailDialog
-      v-model="showBookDetailDialog"
-      :book="selectedBook"
-      :on-toggle-favorite="handleToggleFavorite"
-      :on-open-folder="handleOpenFolder"
-    />
-
-    <BookPreviewDialog
-      :open="showBookPreviewDialog"
-      :book="previewBook"
-      @update:open="showBookPreviewDialog = $event"
+    <BookInfoDialog
+      :open="showBookInfoDialog"
+      :book="infoBook"
+      :viewer-filter="queryKey[1]"
+      @update:open="showBookInfoDialog = $event"
     />
 
     <!-- 삭제 확인 다이얼로그 (카드가 아니라 페이지가 들고 있다) -->

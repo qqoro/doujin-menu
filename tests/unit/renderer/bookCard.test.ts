@@ -154,8 +154,7 @@ describe("buildBookMenuItems", () => {
     folder: noop,
     newWindow: noop,
     external: noop,
-    details: noop,
-    preview: noop,
+    info: noop,
     rescan: noop,
     delete: noop,
   };
@@ -171,23 +170,16 @@ describe("buildBookMenuItems", () => {
       ACTIONS,
       true,
     ).map((item) => item.key);
-    expect(keys).toEqual([
-      "favorite",
-      "details",
-      "preview",
-      "rescan",
-      "delete",
-    ]);
+    expect(keys).toEqual(["favorite", "info", "rescan", "delete"]);
   });
 
-  it("외부 뷰어 경로가 없으면 그 항목을 빼고 일곱 개", () => {
+  it("외부 뷰어 경로가 없으면 그 항목을 빼고 여섯 개", () => {
     const keys = buildBookMenuItems(FLAGS, ACTIONS).map((item) => item.key);
     expect(keys).toEqual([
       "favorite",
       "folder",
       "new-window",
-      "details",
-      "preview",
+      "info",
       "rescan",
       "delete",
     ]);
@@ -199,7 +191,7 @@ describe("buildBookMenuItems", () => {
       ACTIONS,
     ).map((item) => item.key);
     expect(keys[3]).toBe("external");
-    expect(keys).toHaveLength(8);
+    expect(keys).toHaveLength(7);
   });
 
   it("즐겨찾기 여부로 문구와 아이콘이 뒤집힌다", () => {

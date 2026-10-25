@@ -34,8 +34,7 @@ const props = defineProps<{
 
 const emit = defineEmits<{
   toggle: [];
-  preview: [];
-  details: [];
+  info: [];
 }>();
 
 const isOffline = computed(() => !!props.book.is_offline);
@@ -82,8 +81,7 @@ const menuItems = computed(() =>
     {
       folder: openFolder,
       newWindow: openInNewWindow,
-      details: () => emit("details"),
-      preview: () => emit("preview"),
+      info: () => emit("info"),
     },
   ),
 );
@@ -155,7 +153,7 @@ const readingProgress = computed(() => {
             : ''
         "
         @click="!isOffline && emit('toggle')"
-        @thumbnail-click="emit('preview')"
+        @thumbnail-click="emit('info')"
       >
         <template #content>
           <h3 class="text-[0.9375em] leading-snug font-bold">
@@ -214,9 +212,9 @@ const readingProgress = computed(() => {
           <div
             class="flex w-[5.75em] shrink-0 flex-col gap-1.5 @max-md/row:w-full @max-md/row:flex-row @max-md/row:justify-end"
           >
-            <Button size="sm" variant="outline" @click.stop="emit('preview')">
-              <Icon icon="solar:eye-bold-duotone" class="h-4 w-4" />
-              미리보기
+            <Button size="sm" variant="outline" @click.stop="emit('info')">
+              <Icon icon="solar:info-circle-bold-duotone" class="h-4 w-4" />
+              책 정보
             </Button>
 
             <TooltipProvider>

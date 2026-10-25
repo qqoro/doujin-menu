@@ -5,7 +5,7 @@
 
 import type { MetaField, MetaPart } from "./cardLayout";
 import { formatPublishDate } from "./formatDate";
-import { tagSearchTerm, toTagParts } from "./tagBadge";
+import { tagSearchTerm, toTagParts, type TagSource } from "./tagBadge";
 
 export type CardStatusKind = "owned" | "downloading" | "failed" | "idle";
 
@@ -129,20 +129,21 @@ export interface DetailRow {
   items: DetailItem[];
 }
 
-/** 상세 정보에 필요한 최소 모양 */
+/** 상세 정보에 필요한 최소 모양. 갤러리와 라이브러리 책이 같이 쓴다 */
 export interface DetailSource {
-  id: number;
+  /** Hitomi ID. info.txt 없이 스캔된 책은 비어 있다 */
+  id?: number | string | null;
   type?: string;
   languageName?: { local?: string | null; english?: string | null } | null;
   artists: string[];
   groups: string[];
   series: string[];
   characters: string[];
-  tags: { type: string; name: string }[];
+  tags: TagSource[];
 }
 
 /**
- * 미리보기 정보 패널의 줄들. 값이 없는 줄은 빠지고 ID 줄만 항상 남는다.
+ * 책 정보 패널의 줄들. 값이 없는 줄은 빠진다.
  */
 export const buildDetailRows = (gallery: DetailSource): DetailRow[] => {
   const names = (prefix: string, list: string[]): DetailItem[] =>
@@ -150,10 +151,16 @@ export const buildDetailRows = (gallery: DetailSource): DetailRow[] => {
 
   const languageText =
     gallery.languageName?.local || gallery.languageName?.english;
-  const languageKey = gallery.languageName?.english?.toLowerCase();
+  // 라이브러리 책은 info.txt에 영문 언어명이 없으면 현지어만 있다.
+  // 검색 조건은 두 컬럼을 함께 보므로 현지어로 검색해도 맞는다
+  const languageKey =
+    gallery.languageName?.english?.toLowerCase() || languageText;
 
   const rows: DetailRow[] = [
-    { key: "id", items: names("id", [String(gallery.id)]) },
+    {
+      key: "id",
+      items: gallery.id ? names("id", [String(gallery.id)]) : [],
+    },
     { key: "artist", items: names("artist", gallery.artists) },
     { key: "series", items: names("series", gallery.series) },
     {

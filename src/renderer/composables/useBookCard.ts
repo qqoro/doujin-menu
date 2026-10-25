@@ -23,8 +23,7 @@ type BookCardEmit = {
   (event: "toggle-favorite", id: number, isFavorite: Book["is_favorite"]): void;
   (event: "open-book-folder", path: string): void;
   (event: "request-delete", book: Book): void;
-  (event: "show-details", book: Book): void;
-  (event: "show-preview", book: Book): void;
+  (event: "show-info", book: Book): void;
 };
 
 /**
@@ -193,8 +192,7 @@ export function useBookCard(
         folder: openBookFolder,
         newWindow: openInNewWindow,
         external: openWithExternalViewer,
-        details: () => emit("show-details", props.book),
-        preview: () => emit("show-preview", props.book),
+        info: () => emit("show-info", props.book),
         rescan: handleRescanMetadata,
         delete: requestDelete,
       },

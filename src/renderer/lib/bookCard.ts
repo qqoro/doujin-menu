@@ -2,8 +2,10 @@ import { toMediaUrl } from "./mediaUrl";
 import { IS_REMOTE } from "./runtime";
 /** 책 카드의 순수 계산. `BookCard`와 `BookRowCard`가 같은 결과를 내도록 공유한다 */
 
+import type { Book } from "../../types/ipc";
 import type { MetaField, MetaPart } from "./cardLayout";
 import { formatPublishDate } from "./formatDate";
+import type { DetailSource } from "./galleryCard";
 
 export interface NamedItem {
   name: string;
@@ -30,6 +32,25 @@ export const buildCoverUrl = (
   return toMediaUrl(
     version ? `file://${coverPath}?v=${version}` : `file://${coverPath}`,
   );
+};
+
+/** 책 정보 패널(`buildDetailRows`)에 넘길 모양. 갤러리와 같은 줄을 그리게 한다 */
+export const toBookDetailSource = (book: Book): DetailSource => {
+  const names = (items: NamedItem[] | null | undefined) =>
+    filterValidNames(items).map((item) => item.name);
+  return {
+    id: book.hitomi_id,
+    type: book.type,
+    languageName: {
+      local: book.language_name_local,
+      english: book.language_name_english,
+    },
+    artists: names(book.artists),
+    groups: names(book.groups),
+    series: names(book.series),
+    characters: names(book.characters),
+    tags: names(book.tags),
+  };
 };
 
 /** 작가나 그룹 중 하나라도 있는지 */
@@ -114,8 +135,7 @@ export type BookMenuActionKey =
   | "folder"
   | "newWindow"
   | "external"
-  | "details"
-  | "preview"
+  | "info"
   | "rescan"
   | "delete";
 
@@ -173,19 +193,11 @@ export const buildBookMenuItems = (
       },
     },
     {
-      action: actions.details,
+      action: actions.info,
       item: {
-        key: "details",
+        key: "info",
         icon: "solar:info-circle-bold-duotone",
-        label: "상세 정보",
-      },
-    },
-    {
-      action: actions.preview,
-      item: {
-        key: "preview",
-        icon: "solar:eye-bold-duotone",
-        label: "미리보기",
+        label: "책 정보",
       },
     },
     {

@@ -56,8 +56,7 @@ import type {
   DuplicateBookInfo,
   DuplicateGroup,
 } from "../../../types/ipc";
-import BookDetailDialog from "../feature/BookDetailDialog.vue";
-import BookPreviewDialog from "../feature/BookPreviewDialog.vue";
+import BookInfoDialog from "../feature/BookInfoDialog.vue";
 import DuplicateBookRow from "../feature/DuplicateBookRow.vue";
 import PageHeader from "../layout/PageHeader.vue";
 import PageToolbar from "../layout/PageToolbar.vue";
@@ -205,20 +204,12 @@ const isDeleting = ref(false);
 const isTrashDialogOpen = ref(false);
 const isPermanentDialogOpen = ref(false);
 
-const previewBook = ref<DuplicateBookInfo | null>(null);
-const isPreviewOpen = ref(false);
+const infoBook = ref<DuplicateBookInfo | null>(null);
+const isInfoOpen = ref(false);
 
-const detailBook = ref<DuplicateBookInfo | null>(null);
-const isDetailOpen = ref(false);
-
-const openPreview = (book: DuplicateBookInfo) => {
-  previewBook.value = book;
-  isPreviewOpen.value = true;
-};
-
-const openDetails = (book: DuplicateBookInfo) => {
-  detailBook.value = book;
-  isDetailOpen.value = true;
+const openInfo = (book: DuplicateBookInfo) => {
+  infoBook.value = book;
+  isInfoOpen.value = true;
 };
 
 const toggleSelect = (bookId: number) => {
@@ -515,8 +506,7 @@ const confirmPermanent = () => performDelete(true);
                 :selected="selectedIds.has(book.id)"
                 :highlight="highlightById.get(groupId(group))!"
                 @toggle="toggleSelect(book.id)"
-                @preview="openPreview(book)"
-                @details="openDetails(book)"
+                @info="openInfo(book)"
               />
             </div>
           </section>
@@ -561,13 +551,11 @@ const confirmPermanent = () => performDelete(true);
       </div>
     </div>
 
-    <BookPreviewDialog
-      :open="isPreviewOpen"
-      :book="previewBook"
-      @update:open="isPreviewOpen = $event"
+    <BookInfoDialog
+      :open="isInfoOpen"
+      :book="infoBook"
+      @update:open="isInfoOpen = $event"
     />
-
-    <BookDetailDialog v-model="isDetailOpen" :book="detailBook" />
 
     <!-- 휴지통 이동 확인 다이얼로그 -->
     <AlertDialog
