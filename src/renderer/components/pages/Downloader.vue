@@ -50,6 +50,7 @@ import {
 import {
   chunksForRange,
   computeListCols,
+  effectiveMinCardWidth,
   LIST_GAP,
   measuredRowHeight,
   MIN_LIST_CARD_WIDTH,
@@ -60,6 +61,7 @@ import { LANGUAGE_OPTIONS, withLanguage } from "@/lib/subscriptionQuery";
 import { useDownloadQueueStore } from "@/store/downloadQueueStore";
 import { useSubscriptionStore } from "@/store/subscriptionStore";
 import { useUiStore } from "@/store/uiStore";
+import { IS_REMOTE } from "@/lib/runtime";
 import { Icon } from "@iconify/vue";
 import { useQueries, useQuery, useQueryClient } from "@tanstack/vue-query";
 import { useVirtualizer } from "@tanstack/vue-virtual";
@@ -94,7 +96,7 @@ const queryClient = useQueryClient();
 // 썸네일 그리드 줌 스타일
 const downloaderGridStyle = computed(() => ({
   zoom: uiStore.thumbnailZoom,
-  gridTemplateColumns: "repeat(auto-fill, minmax(200px, 1fr))",
+  gridTemplateColumns: `repeat(${gridMetrics.value.cols}, minmax(0, 1fr))`,
 }));
 
 // Ctrl+Wheel로 썸네일 줌 조절. 그리드와 리스트 양쪽에 붙습니다
@@ -744,7 +746,13 @@ const gridMetrics = computed(() =>
     uiStore.thumbnailZoom,
     GRID_PADDING,
     GRID_GAP,
-    MIN_CARD_WIDTH,
+    effectiveMinCardWidth(
+      scrollerWidth.value,
+      uiStore.thumbnailZoom,
+      GRID_PADDING,
+      GRID_GAP,
+      MIN_CARD_WIDTH,
+    ),
   ),
 );
 
@@ -1190,8 +1198,8 @@ useSearchPersistence(searchQuery, "downloader-search-query");
         </HelpDialog>
       </template>
       <template #actions>
-        <!-- 다운로드 경로 칩 -->
-        <DropdownMenu>
+        <!-- 다운로드 경로 칩. 경로 변경·폴더 열기 모두 PC에서만 된다 -->
+        <DropdownMenu v-if="!IS_REMOTE">
           <DropdownMenuTrigger as-child>
             <Button
               variant="outline"

@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { toMediaUrl } from "@/lib/mediaUrl";
 import { getBook, ipcRenderer } from "@/api";
 import PreviewDialogShell from "@/components/common/PreviewDialogShell.vue";
 import ProxiedImage from "@/components/common/ProxiedImage.vue";
@@ -68,7 +69,7 @@ const loadPreview = async () => {
       previewSource.value = "local";
       previewImageUrls.value = Array.from(
         { length: book.page_count ?? 0 },
-        (_, index) => `doujin-menu://${book.id}/${index}`,
+        (_, index) => toMediaUrl(`doujin-menu://${book.id}/${index}`),
       );
       return;
     }

@@ -68,7 +68,9 @@ const handleRead = (event: MouseEvent) => {
 <template>
   <!-- 태그가 많은 갤러리에서 미리보기 자리를 다 먹지 않도록 높이를 묶고 정보 줄만 스크롤한다 -->
   <div class="mb-4 flex max-h-[40vh] shrink-0 gap-5">
-    <div class="relative w-44 shrink-0 self-start overflow-hidden rounded-lg">
+    <div
+      class="relative w-44 shrink-0 self-start overflow-hidden rounded-lg max-sm:w-24"
+    >
       <ProxiedImage
         :id="gallery.id"
         :url="gallery.thumbnailUrl"

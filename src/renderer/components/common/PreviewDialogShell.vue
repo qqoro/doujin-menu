@@ -204,7 +204,7 @@ onUnmounted(disconnectObserver);
               :key="index"
               ref="imageRefs"
               :data-index="index"
-              class="flex h-full flex-shrink-0 cursor-zoom-out items-center justify-center"
+              class="flex h-full max-w-full flex-shrink-0 cursor-zoom-out items-center justify-center [&_img]:max-w-full"
               @click="dialogOpen = false"
             >
               <slot
@@ -220,7 +220,7 @@ onUnmounted(disconnectObserver);
           <div
             v-else-if="urls.length > 0 && viewMode === 'grid'"
             ref="gridContainer"
-            class="grid grid-cols-5 gap-2 rounded-md border p-2"
+            class="grid grid-cols-3 gap-2 rounded-md border p-2 sm:grid-cols-5"
           >
             <div
               v-for="(url, index) in urls"

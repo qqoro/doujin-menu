@@ -37,9 +37,9 @@ const mountShell = (props: Record<string, unknown>) => {
   return { app, host, root, events };
 };
 
-/** 표지 래퍼는 셸 루트의 첫 자식이다 */
+/** 표지 래퍼는 셸 루트 안 배치 줄의 첫 자식이다 */
 const thumbnailOf = (root: HTMLElement) =>
-  root.firstElementChild as HTMLElement;
+  root.firstElementChild!.firstElementChild as HTMLElement;
 
 describe("RowCardShell", () => {
   beforeEach(() => {

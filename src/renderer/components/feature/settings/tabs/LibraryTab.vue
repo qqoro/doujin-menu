@@ -14,6 +14,7 @@ import { Progress } from "@/components/ui/progress";
 import { Switch } from "@/components/ui/switch";
 import LibraryScanProgress from "@/components/feature/LibraryScanProgress.vue";
 import SettingItem from "@/components/feature/settings/SettingItem.vue";
+import { IS_REMOTE } from "@/lib/runtime";
 import { Icon } from "@iconify/vue";
 import { onMounted, onUnmounted, ref } from "vue";
 import { toast } from "vue-sonner";
@@ -239,6 +240,7 @@ const generateMissingInfoFiles = async () => {
             </div>
             <div class="flex flex-shrink-0 items-center gap-1">
               <Button
+                v-if="!IS_REMOTE"
                 variant="ghost"
                 size="icon"
                 @click="openFolder(folder.path)"
@@ -272,7 +274,7 @@ const generateMissingInfoFiles = async () => {
           </div>
         </div>
       </CardContent>
-      <CardFooter>
+      <CardFooter v-if="!IS_REMOTE">
         <Button class="w-full" @click="addLibraryFolder">
           <Icon icon="solar:add-folder-bold-duotone" class="h-5 w-5" />
           라이브러리 폴더 추가

@@ -1,8 +1,12 @@
 <script setup lang="ts">
 import { ipcRenderer } from "@/api";
 import DownloadQueuePopover from "@/components/feature/downloader/DownloadQueuePopover.vue";
+import InstallAppButton from "./InstallAppButton.vue";
+import { IS_REMOTE } from "@/lib/runtime";
 import { Icon } from "@iconify/vue";
 import { onMounted, onUnmounted, ref } from "vue";
+
+const emit = defineEmits<{ "open-nav": [] }>();
 
 const isMaximized = ref(false);
 
@@ -28,10 +32,19 @@ onUnmounted(() => {
 
 <template>
   <header
-    class="bg-muted flex h-9 items-center justify-between border-b pl-4"
+    class="bg-muted box-content flex h-9 items-center justify-between border-b pt-[env(safe-area-inset-top)] pl-4"
     style="-webkit-app-region: drag"
   >
     <div class="flex items-center gap-2">
+      <button
+        type="button"
+        class="text-muted-foreground hover:text-foreground -ml-2 hidden size-8 items-center justify-center @max-2xl/app:flex"
+        style="-webkit-app-region: no-drag"
+        title="메뉴"
+        @click="emit('open-nav')"
+      >
+        <Icon icon="lucide:menu" class="size-5" />
+      </button>
       <Icon
         icon="solar:book-bookmark-bold-duotone"
         class="text-primary size-5"
@@ -45,11 +58,13 @@ onUnmounted(() => {
         class="flex h-full items-center px-1"
         style="-webkit-app-region: no-drag"
       >
+        <InstallAppButton v-if="IS_REMOTE" />
         <DownloadQueuePopover />
       </div>
 
       <!-- 윈도우 타이틀바 스타일 창 제어 버튼 -->
       <div
+        v-if="!IS_REMOTE"
         class="flex h-full items-stretch"
         style="-webkit-app-region: no-drag"
       >

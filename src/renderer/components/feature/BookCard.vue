@@ -13,6 +13,7 @@ import BookCardMenuButton from "./parts/BookCardMenuButton.vue";
 import CoverCardShell from "./parts/CoverCardShell.vue";
 import CreditsLine from "./parts/CreditsLine.vue";
 import MetaLine from "./parts/MetaLine.vue";
+import { IS_REMOTE } from "@/lib/runtime";
 
 const props = defineProps<{
   book: Book;
@@ -173,6 +174,7 @@ const handleCreditSelect = (credit: { prefix: CreditPrefix; name: string }) => {
             <Icon icon="solar:eye-bold-duotone" class="h-4 w-4" />
           </Button>
           <Button
+            v-if="!IS_REMOTE"
             size="icon-sm"
             variant="secondary"
             title="새 창으로 열기"

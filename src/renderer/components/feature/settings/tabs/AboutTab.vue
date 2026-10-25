@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { IS_REMOTE } from "@/lib/runtime";
 import * as api from "@/api";
 import { ipcRenderer } from "@/api";
 import ChangelogDialog from "@/components/common/ChangelogDialog.vue";
@@ -127,7 +128,8 @@ onMounted(async () => {
             >v{{ appVersion }}</span
           >
         </div>
-        <div class="grid grid-cols-3 items-center gap-4">
+        <!-- 업데이트는 PC 앱을 내려받아 다시 설치하므로 휴대폰에서는 감춘다 -->
+        <div v-if="!IS_REMOTE" class="grid grid-cols-3 items-center gap-4">
           <div class="col-span-2">
             <Label>업데이트</Label>
             <p class="text-muted-foreground text-sm">
@@ -150,7 +152,7 @@ onMounted(async () => {
             업데이트 확인
           </Button>
         </div>
-        <div>
+        <div v-if="!IS_REMOTE">
           <!-- 설치 버전: 업데이트 가능 -->
           <div
             v-if="updateStatus === 'update-available' && !isPortableVersion"
@@ -252,7 +254,7 @@ onMounted(async () => {
       </CardContent>
     </Card>
 
-    <Card>
+    <Card v-if="!IS_REMOTE">
       <CardHeader>
         <CardTitle>개발자 도구</CardTitle>
         <CardDescription>개발 및 디버깅을 위한 도구</CardDescription>

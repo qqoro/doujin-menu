@@ -9,6 +9,7 @@ import { computed, onMounted, onUnmounted, ref } from "vue";
 import AppLock from "../common/AppLock.vue";
 import ChangelogDialog from "../common/ChangelogDialog.vue";
 import Header from "./Header.vue";
+import MobileNavDrawer from "./MobileNavDrawer.vue";
 import Sidebar from "./Sidebar.vue";
 
 const subscriptionStore = useSubscriptionStore();
@@ -16,6 +17,7 @@ const uiStore = useUiStore();
 const { isSidebarCollapsed, screenRotation } = storeToRefs(uiStore);
 
 const open = ref(false);
+const isNavOpen = ref(false);
 
 // 화면 회전 스타일 계산
 const rotationStyle = computed(() => {
@@ -79,32 +81,42 @@ onMounted(async () => {
 </script>
 
 <template>
-  <div
-    :class="
-      cn(
-        'bg-background grid grid-rows-[auto_1fr] transition-[grid-template-columns] duration-300 ease-in-out',
-        // 회전된 경우 h-full, 아니면 h-screen 사용
-        screenRotation === 90 || screenRotation === 270 ? 'h-full' : 'h-screen',
-        isSidebarCollapsed ? 'grid-cols-[4rem_1fr]' : 'grid-cols-[14rem_1fr]',
-      )
-    "
-    :style="rotationStyle"
-  >
-    <Header class="col-span-2" />
-    <Sidebar class="row-start-2 min-h-0" />
-    <AppLock v-if="uiStore.isLocked" />
-    <main
-      v-else
-      class="bg-background col-start-2 row-start-2 overflow-y-auto p-6"
+  <!-- 휴대폰처럼 좁은 폭(@max-2xl/app)에서는 사이드바를 서랍으로 접는다 -->
+  <div class="@container/app">
+    <div
+      :class="
+        cn(
+          'bg-background grid grid-rows-[auto_1fr] pr-[env(safe-area-inset-right)] pl-[env(safe-area-inset-left)] transition-[grid-template-columns] duration-300 ease-in-out',
+          // 회전된 경우 h-full, 아니면 h-screen 사용
+          screenRotation === 90 || screenRotation === 270
+            ? 'h-full'
+            : 'h-screen',
+          isSidebarCollapsed ? 'grid-cols-[4rem_1fr]' : 'grid-cols-[14rem_1fr]',
+          '@max-2xl/app:grid-cols-[1fr]',
+        )
+      "
+      :style="rotationStyle"
     >
-      <router-view v-slot="{ Component }">
-        <keep-alive
-          :include="['Library', 'Downloader', 'History', 'SeriesManager']"
-        >
-          <component :is="Component" />
-        </keep-alive>
-      </router-view>
-    </main>
-    <ChangelogDialog v-model:open="open" />
+      <Header
+        class="col-span-2 @max-2xl/app:col-span-1"
+        @open-nav="isNavOpen = true"
+      />
+      <Sidebar class="row-start-2 min-h-0 @max-2xl/app:hidden" />
+      <AppLock v-if="uiStore.isLocked" />
+      <main
+        v-else
+        class="bg-background col-start-2 row-start-2 overflow-y-auto p-6 @max-2xl/app:col-start-1 @max-2xl/app:p-3 @max-2xl/app:pb-[max(0.75rem,env(safe-area-inset-bottom))]"
+      >
+        <router-view v-slot="{ Component }">
+          <keep-alive
+            :include="['Library', 'Downloader', 'History', 'SeriesManager']"
+          >
+            <component :is="Component" />
+          </keep-alive>
+        </router-view>
+      </main>
+      <ChangelogDialog v-model:open="open" />
+      <MobileNavDrawer v-model:open="isNavOpen" />
+    </div>
   </div>
 </template>

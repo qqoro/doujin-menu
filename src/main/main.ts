@@ -50,11 +50,16 @@ import {
   startSubscriptionPollingIfEnabled,
 } from "./handlers/subscriptionHandler.js";
 import { registerUpdaterHandlers } from "./updater.js";
-import { sendTo } from "./utils/broadcast.js";
+import { broadcastWeb, sendTo } from "./utils/broadcast.js";
 import { openExternalIfAllowed } from "./utils/externalLink.js";
-import { imageMimeType, sortImageFiles } from "./utils/imageFiles.js";
+import { serveBookPage } from "./utils/bookPage.js";
+import { captureIpcHandlers } from "./web/ipcRegistry.js";
+import {
+  initMobileWeb,
+  registerMobileWebHandlers,
+  stopMobileWeb,
+} from "./web/mobileWebController.js";
 import { whereUnderPath } from "./utils/libraryPath.js";
-import { readZipPage } from "./utils/zipPages.js";
 
 log.initialize();
 export const console = log;
@@ -278,69 +283,17 @@ app.whenReady().then(async () => {
     return;
   }
 
+  // 모바일 웹이 같은 핸들러를 HTTP로 부를 수 있도록 등록을 기록한다.
+  // 아래 register*Handlers보다 먼저 와야 한다.
+  captureIpcHandlers(ipcMain);
+
   // 커스텀 프로토콜 등록. 렌더러는 자신이 시작된 시점에 등록된 스킴만 알 수 있으므로
   // createWindow()보다 반드시 먼저 등록해야 한다.
   protocol.handle("doujin-menu", async (request) => {
     const url = new URL(request.url);
     const bookId = parseInt(url.hostname); // URL의 호스트 부분을 bookId로 사용
     const pageIndex = parseInt(url.pathname.substring(1)); // URL의 경로 부분을 페이지 인덱스로 사용 (선행 / 제거)
-
-    if (isNaN(bookId) || isNaN(pageIndex)) {
-      return new Response("Invalid URL", { status: 400 });
-    }
-
-    try {
-      const book = await db("Book").where("id", bookId).first();
-
-      if (!book || !book.path) {
-        console.error(
-          `[Main] Book not found or path missing for bookId: ${bookId}`,
-        );
-        return new Response("Book not found", { status: 404 });
-      }
-
-      const bookPath = book.path;
-
-      // 폴더인 경우
-      const isDirectory = await fs
-        .stat(bookPath)
-        .then((stat) => stat.isDirectory())
-        .catch(() => false);
-
-      if (isDirectory) {
-        const imageFiles = sortImageFiles(await fs.readdir(bookPath));
-
-        if (pageIndex >= 0 && pageIndex < imageFiles.length) {
-          const imagePath = path.join(bookPath, imageFiles[pageIndex]);
-          const imageBuffer = await fs.readFile(imagePath);
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          return new Response(imageBuffer as any, {
-            headers: { "Content-Type": imageMimeType(imagePath) },
-          });
-        } else {
-          return new Response("Page not found", { status: 404 });
-        }
-      } else if (/\.(cbz|zip)$/i.exec(bookPath)) {
-        const page = await readZipPage(bookPath, pageIndex);
-
-        if (!page) {
-          return new Response("Page not found in zip", { status: 404 });
-        }
-
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        return new Response(page.buffer as any, {
-          headers: { "Content-Type": imageMimeType(page.fileName) },
-        });
-      } else {
-        return new Response("Unsupported book format", { status: 400 });
-      }
-    } catch (error) {
-      console.error(
-        `[Main] Error handling doujin-menu protocol request:`,
-        error,
-      );
-      return new Response("Internal server error", { status: 500 });
-    }
+    return serveBookPage(bookId, pageIndex);
   });
 
   createWindow();
@@ -360,6 +313,20 @@ app.whenReady().then(async () => {
   registerThumbnailHandlers();
   registerWindowHandlers(mainWindow, createViewerWindow, viewerWindows);
   registerSubscriptionHandlers(mainWindow);
+  registerMobileWebHandlers();
+
+  const userData = app.getPath("userData");
+  initMobileWeb(
+    process.env.NODE_ENV === "development"
+      ? { kind: "proxy", port: Number(process.argv[2]) }
+      : {
+          kind: "static",
+          dir: path.join(import.meta.dirname, "..", "..", "renderer"),
+        },
+    ["thumbnails", "temp_cover", "downloader_temp_thumbnails"].map((name) =>
+      path.join(userData, name),
+    ),
+  );
 
   // 다운로드 큐 초기화 (미완료 다운로드 복구)
   await initializeDownloadQueue();
@@ -391,6 +358,7 @@ app.whenReady().then(async () => {
 
   // 앱 종료 시 외부 프로그램 임시 파일 정리
   app.on("before-quit", () => {
+    void stopMobileWeb();
     const tempExternalDir = path.join(app.getPath("userData"), "temp_external");
     try {
       rmSync(tempExternalDir, { recursive: true, force: true });
@@ -485,6 +453,7 @@ app.whenReady().then(async () => {
 
         // 스캔 완료 후 UI에 알림
         sendTo(mainWindow.webContents, "library-scan-completed");
+        broadcastWeb("library-scan-completed");
       });
     });
   }

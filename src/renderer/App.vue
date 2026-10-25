@@ -1,5 +1,7 @@
 <script setup lang="ts">
+import ConnectionBanner from "@/components/common/ConnectionBanner.vue";
 import { Toaster } from "@/components/ui/sonner";
+import { IS_REMOTE } from "@/lib/runtime";
 import { useKeybindings } from "@/composables/useKeybindings";
 import { useTheme } from "@/composables/useTheme";
 import type { KeybindingOverride } from "@/lib/keybindings/types";
@@ -122,5 +124,6 @@ onMounted(async () => {
 
 <template>
   <RouterView />
+  <ConnectionBanner v-if="IS_REMOTE" />
   <Toaster rich-colors position="top-center" />
 </template>

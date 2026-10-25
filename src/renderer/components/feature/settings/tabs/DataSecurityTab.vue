@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { IS_REMOTE } from "@/lib/runtime";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -276,7 +277,7 @@ const resetAllData = async () => {
       </CardFooter>
     </Card>
 
-    <Card>
+    <Card v-if="!IS_REMOTE">
       <CardHeader>
         <CardTitle>데이터 유지보수</CardTitle>
         <CardDescription

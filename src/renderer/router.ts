@@ -1,10 +1,14 @@
 import { createRouter, createWebHashHistory, RouteRecordRaw } from "vue-router";
-import log from "electron-log";
+import electronLog from "electron-log";
 import Layout from "./components/layout/Layout.vue";
 import Downloader from "./components/pages/Downloader.vue";
 import Library from "./components/pages/Library.vue";
 import Settings from "./components/pages/Settings.vue";
 import Viewer from "./components/pages/Viewer.vue";
+import { IS_REMOTE } from "./lib/runtime";
+
+// 휴대폰 브라우저에는 electron-log를 받아 줄 메인 프로세스 연결이 없다
+const log = IS_REMOTE ? console : electronLog;
 
 log.log("[Router] 모듈 로드 시작");
 
@@ -34,6 +38,16 @@ const routes: RouteRecordRaw[] = [
         name: "Statistics",
         component: () => import("./components/pages/Statistics.vue"),
       },
+      // 연결 코드와 기기 관리는 PC에서만 한다
+      ...(IS_REMOTE
+        ? [{ path: "/mobile", redirect: "/library" }]
+        : [
+            {
+              path: "/mobile",
+              name: "Mobile",
+              component: () => import("./components/pages/Mobile.vue"),
+            },
+          ]),
       {
         path: "/history",
         name: "History",

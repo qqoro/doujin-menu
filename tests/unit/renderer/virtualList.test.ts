@@ -3,6 +3,8 @@ import {
   chunksForRange,
   computeCols,
   computeListCols,
+  effectiveMinCardWidth,
+  NARROW_MIN_CARD_WIDTH,
   measuredRowHeight,
   shouldShowSkeleton,
 } from "../../../src/renderer/lib/virtualList";
@@ -224,5 +226,22 @@ describe("measuredRowHeight", () => {
     expect(
       measuredRowHeight(rowOf(0), { borderBoxSize: [{ blockSize: 0 }] }, 300),
     ).toBe(300);
+  });
+});
+
+describe("effectiveMinCardWidth", () => {
+  it("기본 너비로 1열이 되는 좁은 폭에서만 줄여 2열을 만든다", () => {
+    expect(effectiveMinCardWidth(366, 1, 0, 12, 184)).toBe(
+      NARROW_MIN_CARD_WIDTH,
+    );
+    expect(computeCols(366, 1, 0, 12, NARROW_MIN_CARD_WIDTH)).toBe(2);
+  });
+
+  it("넓은 폭에서는 기본 너비를 그대로 쓴다", () => {
+    expect(effectiveMinCardWidth(800, 1, 0, 12, 184)).toBe(184);
+  });
+
+  it("줄여도 1열이면 기본 너비를 그대로 쓴다", () => {
+    expect(effectiveMinCardWidth(250, 1, 0, 12, 184)).toBe(184);
   });
 });

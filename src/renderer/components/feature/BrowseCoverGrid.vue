@@ -3,6 +3,7 @@ import { useZoomWheel } from "@/composables/useZoomWheel";
 import { BOOK_ASPECT } from "@/lib/cardLayout";
 import {
   computeCols,
+  effectiveMinCardWidth,
   measuredRowHeight,
   usableGridWidth,
 } from "@/lib/virtualList";
@@ -37,7 +38,13 @@ const cols = computed(() =>
     uiStore.thumbnailZoom,
     0,
     GRID_GAP,
-    MIN_CARD_WIDTH,
+    effectiveMinCardWidth(
+      scrollerWidth.value,
+      uiStore.thumbnailZoom,
+      0,
+      GRID_GAP,
+      MIN_CARD_WIDTH,
+    ),
   ),
 );
 

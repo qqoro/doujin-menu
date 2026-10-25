@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { toMediaUrl } from "@/lib/mediaUrl";
 import PreviewDialogShell from "@/components/common/PreviewDialogShell.vue";
 import { computed } from "vue";
 import type { Book } from "../../../types/ipc";
@@ -22,9 +23,8 @@ const tags = computed(() => props.book?.tags ?? []);
 const urls = computed(() => {
   const book = props.book;
   if (!book) return [];
-  return Array.from(
-    { length: book.page_count ?? 0 },
-    (_, index) => `doujin-menu://${book.id}/${index}`,
+  return Array.from({ length: book.page_count ?? 0 }, (_, index) =>
+    toMediaUrl(`doujin-menu://${book.id}/${index}`),
   );
 });
 </script>

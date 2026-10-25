@@ -1,4 +1,8 @@
+import { webConnected } from "@/composables/useWebConnection";
+import { createClientId } from "@/lib/clientId";
 import { toCloneable } from "@/lib/ipcSafe";
+import { IS_REMOTE } from "@/lib/runtime";
+import { createWebIpcRenderer } from "@/lib/webIpc";
 import type {
   DeleteDuplicatesResult,
   FilterParams,
@@ -8,10 +12,33 @@ import type {
   UpdateCheckResult,
 } from "../types/ipc";
 
-// eslint-disable-next-line @typescript-eslint/ban-ts-comment
-// @ts-ignore electron 전용 API
-const rawIpcRenderer = window.require("electron")
-  .ipcRenderer as TypedIpcRenderer;
+/** 휴대폰의 이벤트 연결이 끊겼다 다시 붙었을 때 window에 보내는 이벤트 */
+export const WEB_RECONNECTED_EVENT = "mobile-web-reconnected";
+/** PC에서 이 기기를 해제했을 때 window에 보내는 이벤트 */
+export const WEB_UNAUTHORIZED_EVENT = "mobile-web-unauthorized";
+
+export const WEB_CLIENT_ID: string = IS_REMOTE ? createClientId() : "";
+
+// 휴대폰 브라우저처럼 Electron 밖에서 열리면 같은 모양의 HTTP 구현을 쓴다
+const rawIpcRenderer: TypedIpcRenderer = IS_REMOTE
+  ? createWebIpcRenderer({
+      fetch: window.fetch.bind(window),
+      EventSource,
+      clientId: WEB_CLIENT_ID,
+      openUrl: (url) => window.open(url, "_blank", "noopener"),
+      navigate: (path) => {
+        window.location.hash = `#${path}`;
+      },
+      onReconnect: () => window.dispatchEvent(new Event(WEB_RECONNECTED_EVENT)),
+      onUnauthorized: () =>
+        window.dispatchEvent(new Event(WEB_UNAUTHORIZED_EVENT)),
+      onConnectionChange: (connected) => {
+        webConnected.value = connected;
+      },
+    })
+  : // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+    // @ts-ignore electron 전용 API
+    (window.require("electron").ipcRenderer as TypedIpcRenderer);
 
 /**
  * 타입이 지정된 IPC Renderer.

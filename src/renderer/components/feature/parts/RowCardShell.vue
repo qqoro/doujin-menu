@@ -90,53 +90,63 @@ const scaleStyle = computed(() => listCardScaleStyle(uiStore.thumbnailZoom));
     그 변형만 글자 크기를 `text-[0.8rem]`으로 박아 둬서 `--text-*` 재정의가
     안 먹는다. 후손 선택자라 특이도가 이겨 버튼 쪽 유틸을 덮는다.
   -->
+  <!--
+    좁은 배치는 화면 폭이 아니라 카드 폭(@container/row)으로 판단한다.
+    대화상자 안의 카드는 앱 컨테이너 밖에 그려져 화면 기준 쿼리가 닿지 않는다.
+  -->
   <div
     data-book-card
-    class="hover:bg-muted/50 relative flex h-full cursor-pointer gap-3.5 overflow-hidden rounded-lg border p-3 transition-colors [&_[data-size=sm]]:text-[0.8em]"
+    class="hover:bg-muted/50 @container/row relative h-full cursor-pointer overflow-hidden rounded-lg border p-3 transition-colors [&_[data-size=sm]]:text-[0.8em]"
     :class="isFocused ? 'inset-ring-primary inset-ring-2' : ''"
     :style="scaleStyle"
     @click="emit('click', $event)"
   >
-    <div
-      class="relative shrink-0 overflow-hidden rounded-md"
-      :class="{ 'cursor-zoom-in': zoomable }"
-      :style="{
-        width: `${thumbSize.width}px`,
-        height: `${thumbSize.height}px`,
-      }"
-      @click="handleThumbnailClick"
-    >
-      <img
-        :src="coverUrl"
-        :alt="alt"
-        class="h-full w-full object-cover transition-transform duration-300 hover:scale-110"
-        :class="coverDimClass"
-      />
-      <Badge
-        v-if="isOffline"
-        variant="secondary"
-        class="absolute top-1.5 left-1.5 gap-1"
-      >
-        <Icon icon="solar:plug-circle-bold-duotone" class="h-3 w-3" />
-        오프라인
-      </Badge>
+    <div class="flex h-full gap-3.5 @max-md/row:flex-wrap">
+      <!-- 좁은 카드에서는 표지가 본문 자리를 다 먹지 않게 카드 폭의 30%로 막는다 -->
       <div
-        v-if="isFavorite"
-        class="absolute top-1.5 right-1.5 rounded-full bg-red-500 p-1 text-white"
+        class="relative shrink-0 self-start overflow-hidden rounded-md @max-md/row:max-w-[30%]"
+        :class="{ 'cursor-zoom-in': zoomable }"
+        :style="{
+          width: `${thumbSize.width}px`,
+          aspectRatio: `${thumbSize.width} / ${thumbSize.height}`,
+        }"
+        @click="handleThumbnailClick"
       >
-        <Icon icon="solar:heart-bold" class="h-4 w-4" />
+        <img
+          :src="coverUrl"
+          :alt="alt"
+          class="h-full w-full object-cover transition-transform duration-300 hover:scale-110"
+          :class="coverDimClass"
+        />
+        <Badge
+          v-if="isOffline"
+          variant="secondary"
+          class="absolute top-1.5 left-1.5 gap-1"
+        >
+          <Icon icon="solar:plug-circle-bold-duotone" class="h-3 w-3" />
+          오프라인
+        </Badge>
+        <div
+          v-if="isFavorite"
+          class="absolute top-1.5 right-1.5 rounded-full bg-red-500 p-1 text-white"
+        >
+          <Icon icon="solar:heart-bold" class="h-4 w-4" />
+        </div>
       </div>
-    </div>
 
-    <div
-      class="flex min-w-0 flex-1 flex-col gap-1.5"
-      :class="{ 'opacity-55': dimmed }"
-    >
-      <slot name="content" />
-    </div>
+      <div
+        class="flex min-w-0 flex-1 flex-col gap-1.5 wrap-anywhere"
+        :class="{ 'opacity-55': dimmed }"
+      >
+        <slot name="content" />
+      </div>
 
-    <!-- 액션 열. 폭 고정 여부와 버튼 구성은 화면이 정한다 -->
-    <slot name="actions" />
+      <!--
+      액션 열. 폭 고정 여부와 버튼 구성은 화면이 정한다.
+      버튼이 여럿인 세로 열은 좁은 카드에서 `@max-md/row:w-full`로 아랫줄에 눕힌다.
+    -->
+      <slot name="actions" />
+    </div>
 
     <!--
       카드 전체를 덮는 상태 표시용 자리. 루트의 hover 배경과 싸우지 않도록

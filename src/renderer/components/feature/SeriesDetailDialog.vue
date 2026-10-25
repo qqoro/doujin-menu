@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { toMediaUrl } from "@/lib/mediaUrl";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -268,12 +269,12 @@ const creationType = computed(() => {
 // 시리즈 표지. 없으면 첫 책의 표지로 대신한다
 const seriesCoverUrl = computed(() => {
   const cover = detail.value?.cover_image || books.value[0]?.cover_path;
-  return cover ? `file://${cover}` : COVER_PLACEHOLDER;
+  return cover ? toMediaUrl(`file://${cover}`) : COVER_PLACEHOLDER;
 });
 
 // 책 썸네일 URL 생성
 const getCoverUrl = (book: Book) =>
-  book.cover_path ? `file://${book.cover_path}` : COVER_PLACEHOLDER;
+  book.cover_path ? toMediaUrl(`file://${book.cover_path}`) : COVER_PLACEHOLDER;
 
 // 작가명 표시
 // 참고: 시리즈 상세 API에서는 GROUP_CONCAT으로 인해 artists가 문자열로 내려옴

@@ -1,3 +1,4 @@
+import { toMediaUrl } from "./mediaUrl";
 /**
  * 임시 썸네일 경로의 렌더러 모듈 레벨 캐시.
  *
@@ -67,9 +68,10 @@ export const loadTempThumbnail = async (
     });
 
     if (result.success && result.data) {
-      cache.set(key, result.data);
+      const url = toMediaUrl(result.data);
+      cache.set(key, url);
       trim();
-      return result.data;
+      return url;
     }
     // 실패는 캐시하지 않는다. 재시도 로직이 다시 부를 수 있어야 한다
     return null;

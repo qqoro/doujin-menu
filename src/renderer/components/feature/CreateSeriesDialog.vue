@@ -76,7 +76,7 @@ const handleCreate = () => {
 
 <template>
   <Dialog :open="props.open" @update:open="emit('update:open', $event)">
-    <DialogContent class="max-w-[500px]">
+    <DialogContent class="max-w-[500px] max-sm:max-w-[calc(100%-2rem)]">
       <DialogHeader>
         <DialogTitle>새 시리즈 만들기</DialogTitle>
         <DialogDescription>

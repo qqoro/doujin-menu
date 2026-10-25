@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { toMediaUrl } from "@/lib/mediaUrl";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Icon } from "@iconify/vue";
@@ -26,7 +27,7 @@ const emit = defineEmits<{
 
 const coverUrl = computed(() =>
   props.series.cover_image
-    ? `file://${props.series.cover_image}`
+    ? toMediaUrl(`file://${props.series.cover_image}`)
     : "https://via.placeholder.com/256x384",
 );
 
@@ -72,7 +73,9 @@ const creationType = computed(() => {
 
     <!-- 버튼 열. 라이브러리 리스트와 같이 폭을 고정해 본문 폭이 흔들리지 않게 한다 -->
     <template #actions>
-      <div class="flex w-[5.75em] shrink-0 flex-col gap-1.5">
+      <div
+        class="flex w-[5.75em] shrink-0 flex-col gap-1.5 @max-md/row:w-full @max-md/row:flex-row @max-md/row:justify-end"
+      >
         <Button size="sm" variant="outline" @click.stop="emit('click')">
           <Icon icon="solar:eye-bold-duotone" class="h-4 w-4" />
           상세 보기

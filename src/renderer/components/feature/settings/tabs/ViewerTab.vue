@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { IS_REMOTE } from "@/lib/runtime";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -295,6 +296,7 @@ const onClearExternalArchiveViewer = async () => {
         />
       </SettingItem>
       <SettingItem
+        v-if="!IS_REMOTE"
         label-for="external-image-viewer"
         title="이미지 뷰어"
         subtitle="뷰어에서 현재 페이지를 외부 프로그램으로 열거나, 폴더 형식 책을 외부로 열 때 사용합니다."
@@ -326,6 +328,7 @@ const onClearExternalArchiveViewer = async () => {
         </div>
       </SettingItem>
       <SettingItem
+        v-if="!IS_REMOTE"
         label-for="external-archive-viewer"
         title="압축파일 뷰어"
         subtitle="ZIP/CBZ 형식의 책을 외부 프로그램으로 열 때 사용합니다."

@@ -20,6 +20,7 @@ import { useVirtualizer } from "@tanstack/vue-virtual";
 import {
   chunksForRange,
   computeCols,
+  effectiveMinCardWidth,
   computeListCols,
   LIST_GAP,
   measuredRowHeight,
@@ -70,7 +71,13 @@ export function useVirtualCardList<T>(options: VirtualCardListOptions<T>) {
       uiStore.thumbnailZoom,
       GRID_PADDING,
       GRID_GAP,
-      MIN_CARD_WIDTH,
+      effectiveMinCardWidth(
+        scrollerWidth.value,
+        uiStore.thumbnailZoom,
+        GRID_PADDING,
+        GRID_GAP,
+        MIN_CARD_WIDTH,
+      ),
     ),
   );
 

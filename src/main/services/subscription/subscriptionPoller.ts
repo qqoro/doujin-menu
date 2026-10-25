@@ -9,7 +9,7 @@ import type { Tag } from "node-hitomi";
 import db from "../../db/index.js";
 import { store as configStore } from "../../handlers/configHandler.js";
 import { fetchTagIds } from "../hitomi/tags.js";
-import { broadcast, sendTo } from "../../utils/broadcast.js";
+import { broadcast, broadcastWeb, sendTo } from "../../utils/broadcast.js";
 import { buildFeed, countNew, intersect, maxId } from "./feed.js";
 import { parseSubscriptionQuery } from "./query.js";
 
@@ -186,12 +186,14 @@ const doCycle = async (silent: boolean): Promise<void> => {
   // (구독 추가·재활성화는 유저가 방금 한 행동이라 알릴 이유가 없다)
   if (status.newCount > notifiedCount) {
     if (!silent && toastTarget) {
-      sendTo(toastTarget, "subscription-new-found", {
+      const payload = {
         subscriptionCount: [...states.values()].filter(
           (state) => state.newCount > 0,
         ).length,
         newCount: status.newCount,
-      });
+      };
+      sendTo(toastTarget, "subscription-new-found", payload);
+      broadcastWeb("subscription-new-found", payload);
     }
     notifiedCount = status.newCount;
   }

@@ -16,6 +16,7 @@ import { computed } from "vue";
 import { useRouter } from "vue-router";
 import { toast } from "vue-sonner";
 import * as api from "@/api";
+import { buildCoverUrl } from "@/lib/bookCard";
 import { tagSearchTerm } from "@/lib/tagBadge";
 import type { Book } from "../../../types/ipc";
 import StarRating from "./parts/StarRating.vue";
@@ -128,7 +129,7 @@ const searchInDownloader = (text: string, prefix: string) => {
             class="bg-muted aspect-[2/3] w-40 shrink-0 self-start overflow-hidden rounded-lg shadow-lg"
           >
             <img
-              :src="book.cover_path"
+              :src="buildCoverUrl(book.cover_path, 0)"
               alt="Book Cover"
               class="h-full w-full object-contain"
             />

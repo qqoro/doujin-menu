@@ -2,9 +2,11 @@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useQueryAndParams } from "@/composables/useQueryAndParams";
 import { useLibraryScanStore } from "@/store/libraryScanStore";
+import { IS_REMOTE } from "@/lib/runtime";
 import { Icon } from "@iconify/vue";
+import { useMediaQuery } from "@vueuse/core";
 import PageHeader from "../layout/PageHeader.vue";
-import { onMounted, ref, watch } from "vue";
+import { nextTick, onMounted, ref, watch } from "vue";
 import { useRoute } from "vue-router";
 import AppearanceTab from "../feature/settings/tabs/AppearanceTab.vue";
 import GeneralTab from "../feature/settings/tabs/GeneralTab.vue";
@@ -36,13 +38,30 @@ const TAB_ALIAS: Record<string, string> = {
   etc: "about",
 };
 
+// 휴대폰에는 키보드가 없어 단축키 탭을 두지 않는다
+const HIDDEN_TABS_ON_WEB: readonly string[] = IS_REMOTE ? ["keybindings"] : [];
+
 const normalizeTab = (v: string): string => {
   if (TAB_ALIAS[v]) return TAB_ALIAS[v];
+  if (HIDDEN_TABS_ON_WEB.includes(v)) return "general";
   if ((VALID_TABS as readonly string[]).includes(v)) return v;
   return "general";
 };
 
 const tab = ref(normalizeTab((route.query.tab as string) || "general"));
+
+// 좁은 화면에서는 세로 목록이 설정 내용을 밀어내므로 가로로 넘기는 한 줄로 둔다
+const isWide = useMediaQuery("(min-width: 768px)");
+
+// 가로 탭 줄에서 고른 탭이 화면 밖에 있으면 보이는 곳으로 끌어온다
+const revealActiveTab = async () => {
+  if (isWide.value) return;
+  await nextTick();
+  document
+    .querySelector('[role="tab"][data-state="active"]')
+    ?.scrollIntoView({ block: "nearest", inline: "nearest" });
+};
+watch(tab, revealActiveTab);
 
 useQueryAndParams({
   defaultOptions: {
@@ -63,6 +82,7 @@ onMounted(() => {
   // 라이브러리 스캔 Store 초기화 (LibraryTab의 LibraryScanProgress가 사용)
   const libraryScanStore = useLibraryScanStore();
   libraryScanStore.initialize();
+  void revealActiveTab();
 });
 </script>
 
@@ -70,43 +90,67 @@ onMounted(() => {
   <div class="flex h-full flex-col gap-6">
     <PageHeader icon="solar:settings-bold-duotone" title="설정" />
 
-    <Tabs v-model="tab" orientation="vertical">
+    <Tabs v-model="tab" :orientation="isWide ? 'vertical' : 'horizontal'">
       <div class="grid w-full grid-cols-1 gap-6 md:grid-cols-4">
         <div class="md:col-span-1">
           <div class="md:sticky md:top-0">
-            <TabsList class="h-auto w-full flex-col items-stretch">
-              <TabsTrigger value="appearance" class="justify-start px-3 py-2">
+            <TabsList
+              class="h-auto w-full items-stretch group-data-horizontal/tabs:h-auto group-data-horizontal/tabs:justify-start group-data-horizontal/tabs:overflow-x-auto"
+            >
+              <TabsTrigger
+                value="appearance"
+                class="shrink-0 justify-start px-3 py-2"
+              >
                 <Icon icon="solar:palette-linear" class="h-5 w-5" />
                 외관
               </TabsTrigger>
-              <TabsTrigger value="general" class="justify-start px-3 py-2">
+              <TabsTrigger
+                value="general"
+                class="shrink-0 justify-start px-3 py-2"
+              >
                 <Icon icon="solar:settings-linear" class="h-5 w-5" />
                 일반
               </TabsTrigger>
-              <TabsTrigger value="library" class="justify-start px-3 py-2">
+              <TabsTrigger
+                value="library"
+                class="shrink-0 justify-start px-3 py-2"
+              >
                 <Icon icon="solar:folder-with-files-linear" class="h-5 w-5" />
                 라이브러리
               </TabsTrigger>
-              <TabsTrigger value="viewer" class="justify-start px-3 py-2">
+              <TabsTrigger
+                value="viewer"
+                class="shrink-0 justify-start px-3 py-2"
+              >
                 <Icon icon="solar:display-linear" class="h-5 w-5" />
                 뷰어
               </TabsTrigger>
-              <TabsTrigger value="keybindings" class="justify-start px-3 py-2">
+              <TabsTrigger
+                v-if="!IS_REMOTE"
+                value="keybindings"
+                class="shrink-0 justify-start px-3 py-2"
+              >
                 <Icon icon="solar:keyboard-linear" class="h-5 w-5" />
                 단축키
               </TabsTrigger>
-              <TabsTrigger value="downloader" class="justify-start px-3 py-2">
+              <TabsTrigger
+                value="downloader"
+                class="shrink-0 justify-start px-3 py-2"
+              >
                 <Icon icon="solar:download-square-linear" class="h-5 w-5" />
                 다운로더
               </TabsTrigger>
               <TabsTrigger
                 value="data-security"
-                class="justify-start px-3 py-2"
+                class="shrink-0 justify-start px-3 py-2"
               >
                 <Icon icon="solar:shield-check-linear" class="h-5 w-5" />
                 데이터 · 보안
               </TabsTrigger>
-              <TabsTrigger value="about" class="justify-start px-3 py-2">
+              <TabsTrigger
+                value="about"
+                class="shrink-0 justify-start px-3 py-2"
+              >
                 <Icon icon="solar:info-circle-linear" class="h-5 w-5" />
                 정보 · 업데이트
               </TabsTrigger>
@@ -131,7 +175,7 @@ onMounted(() => {
             <ViewerTab />
           </TabsContent>
 
-          <TabsContent value="keybindings" class="mt-0">
+          <TabsContent v-if="!IS_REMOTE" value="keybindings" class="mt-0">
             <KeybindingSettings />
           </TabsContent>
 

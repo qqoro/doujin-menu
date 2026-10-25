@@ -170,14 +170,14 @@ const readingProgress = computed(() => {
           />
 
           <p
-            class="text-muted-foreground flex items-center gap-1.5 overflow-hidden text-xs tabular-nums"
+            class="text-muted-foreground flex items-center gap-1.5 overflow-hidden text-xs tabular-nums @max-md/row:flex-wrap"
           >
             <template v-for="(part, index) in metaParts" :key="part.key">
               <span v-if="index > 0" class="opacity-40">·</span>
               <!-- 아이디는 다운로더처럼 클릭 시 검색어 복사, 우클릭 시 갤러리 URL 복사 -->
               <button
                 v-if="part.key === 'id'"
-                class="m-0 cursor-pointer border-none bg-transparent p-0 font-bold hover:underline"
+                class="m-0 cursor-pointer border-none bg-transparent p-0 font-bold whitespace-nowrap hover:underline"
                 :class="part.best ? 'text-foreground' : 'text-current'"
                 @click.stop="copyToClipboard(`id:${book.hitomi_id}`)"
                 @contextmenu.prevent.stop="
@@ -211,7 +211,9 @@ const readingProgress = computed(() => {
         </template>
 
         <template #actions>
-          <div class="flex w-[5.75em] shrink-0 flex-col gap-1.5">
+          <div
+            class="flex w-[5.75em] shrink-0 flex-col gap-1.5 @max-md/row:w-full @max-md/row:flex-row @max-md/row:justify-end"
+          >
             <Button size="sm" variant="outline" @click.stop="emit('preview')">
               <Icon icon="solar:eye-bold-duotone" class="h-4 w-4" />
               미리보기

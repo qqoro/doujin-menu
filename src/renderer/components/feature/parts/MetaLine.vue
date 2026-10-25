@@ -23,7 +23,7 @@ const emit = defineEmits<{
       <span v-if="index > 0" class="opacity-40">·</span>
       <button
         v-if="part.key === 'id' && interactive"
-        class="m-0 cursor-pointer border-none bg-transparent p-0 text-current hover:underline"
+        class="m-0 cursor-pointer border-none bg-transparent p-0 whitespace-nowrap text-current hover:underline"
         @click.stop="emit('select', part)"
         @contextmenu.prevent.stop="emit('context', part)"
       >

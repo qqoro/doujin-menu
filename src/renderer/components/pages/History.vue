@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { toMediaUrl } from "@/lib/mediaUrl";
 import {
   clearBookHistory,
   deleteBookHistory,
@@ -112,7 +113,7 @@ const goToBook = (bookId: number) => {
 
 const getCoverUrl = (coverPath: string) => {
   return coverPath
-    ? `file://${coverPath}`
+    ? toMediaUrl(`file://${coverPath}`)
     : "https://via.placeholder.com/256x384";
 };
 

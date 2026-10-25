@@ -92,6 +92,10 @@ export interface Config {
   viewerShowCoverAlone?: boolean; // 표지 단독 표시
   viewerReadingMode?: "ltr" | "rtl" | "webtoon"; // 뷰어 읽기 모드
   lastSeenChangelog?: string; // 마지막으로 확인한 체인지로그 버전
+  mobileWebEnabled?: boolean; // 휴대폰 브라우저 접속용 웹 서버
+  mobileWebPort?: number;
+  mobileWebUrl?: string; // Tailscale 대신 쓸 접속 주소 (빈 값이면 Tailscale)
+  mobileWebLanAddress?: string; // 와이파이 QR에 쓸 PC 주소 (빈 값이면 첫 후보)
 }
 
 const defaults: Config = {
@@ -149,6 +153,10 @@ const defaults: Config = {
   viewerHidePageNumber: false,
   viewerHideToast: false,
   enableReadingHistory: true,
+  mobileWebEnabled: false,
+  mobileWebPort: 47900,
+  mobileWebUrl: "",
+  mobileWebLanAddress: "",
 };
 
 export const store = new Store<Config>({

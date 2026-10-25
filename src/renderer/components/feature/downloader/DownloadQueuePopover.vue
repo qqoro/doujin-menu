@@ -150,7 +150,7 @@ const sortedQueue = computed(() => {
       </Button>
     </PopoverTrigger>
     <PopoverContent
-      class="flex max-h-[600px] w-[600px] flex-col overflow-hidden p-0"
+      class="flex max-h-[600px] w-[min(600px,calc(100vw-1rem))] flex-col overflow-hidden p-0"
       align="end"
     >
       <div class="bg-background flex-shrink-0 border-b p-4">

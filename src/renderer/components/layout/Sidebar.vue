@@ -5,18 +5,29 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+import { ipcRenderer } from "@/api";
 import { clearScrollPosition } from "@/composables/useScrollRestoration";
+import { IS_REMOTE } from "@/lib/runtime";
 import { cn } from "@/lib/utils";
 import { useSubscriptionStore } from "@/store/subscriptionStore";
 import { useUiStore } from "@/store/uiStore";
 import { Icon } from "@iconify/vue";
+import { useQuery } from "@tanstack/vue-query";
 import { storeToRefs } from "pinia";
+import { computed } from "vue";
 import { useRoute, useRouter } from "vue-router";
+
+const props = defineProps<{
+  /** 휴대폰 서랍처럼 접기 상태와 상관없이 항상 펼쳐서 보여 줄 때 */
+  expanded?: boolean;
+}>();
+const emit = defineEmits<{ navigate: [] }>();
 
 const subscriptionStore = useSubscriptionStore();
 const uiStore = useUiStore();
 const { isSidebarCollapsed } = storeToRefs(uiStore);
 const { toggleSidebar } = uiStore;
+const collapsed = computed(() => !props.expanded && isSidebarCollapsed.value);
 
 const route = useRoute();
 const router = useRouter();
@@ -26,10 +37,19 @@ type NavItem = {
   name: string;
   icon: string;
   label: string;
+  pcOnly?: boolean;
 };
 
+// Tailscale CLI를 부르지 않는 가벼운 신호라 페이지 밖에서도 돌려도 된다
+const { data: mobileWebRunning } = useQuery({
+  queryKey: ["mobile-web-running"],
+  queryFn: () => ipcRenderer.invoke("get-mobile-web-running"),
+  refetchInterval: 5000,
+  enabled: !IS_REMOTE,
+});
+
 // 사이드바 메뉴를 의미 단위 섹션으로 그룹화
-const navSections: { label: string; items: NavItem[] }[] = [
+const allNavSections: { label: string; items: NavItem[] }[] = [
   {
     label: "둘러보기",
     items: [
@@ -86,6 +106,13 @@ const navSections: { label: string; items: NavItem[] }[] = [
         label: "통계",
       },
       {
+        to: "/mobile",
+        name: "Mobile",
+        icon: "solar:smartphone-2-bold-duotone",
+        label: "모바일",
+        pcOnly: true,
+      },
+      {
         to: "/settings",
         name: "Settings",
         icon: "solar:settings-bold-duotone",
@@ -94,6 +121,11 @@ const navSections: { label: string; items: NavItem[] }[] = [
     ],
   },
 ];
+
+const navSections = allNavSections.map((section) => ({
+  ...section,
+  items: section.items.filter((item) => !(IS_REMOTE && item.pcOnly)),
+}));
 
 // 네비게이션 클릭 핸들러
 const handleNavClick = (item: NavItem) => {
@@ -119,6 +151,7 @@ const handleNavClick = (item: NavItem) => {
     // 다른 경로로 이동
     router.push(item.to);
   }
+  emit("navigate");
 };
 </script>
 
@@ -127,7 +160,7 @@ const handleNavClick = (item: NavItem) => {
     :class="
       cn(
         'bg-muted flex flex-col border-r p-3 transition-all duration-300 ease-in-out',
-        isSidebarCollapsed ? 'items-center' : '',
+        collapsed ? 'items-center' : '',
       )
     "
     style="-webkit-app-region: drag"
@@ -137,7 +170,7 @@ const handleNavClick = (item: NavItem) => {
         <template v-for="(section, sIdx) in navSections" :key="section.label">
           <!-- 섹션 라벨: 펼친 상태에서만 노출 -->
           <p
-            v-if="!isSidebarCollapsed"
+            v-if="!collapsed"
             :class="
               cn(
                 'text-muted-foreground shrink-0 px-2 pb-1 text-[11px] font-semibold tracking-wide uppercase',
@@ -160,7 +193,7 @@ const handleNavClick = (item: NavItem) => {
                 :class="
                   cn(
                     'text-muted-foreground hover:bg-accent hover:text-accent-foreground flex shrink-0 items-center gap-2.5 rounded-md px-2.5 py-1.5 text-sm font-medium transition-colors',
-                    isSidebarCollapsed ? 'h-10 w-10 justify-center' : '',
+                    collapsed ? 'h-10 w-10 justify-center' : '',
                     route.path === item.to
                       ? 'bg-primary/10 text-primary hover:bg-primary/15 hover:text-primary'
                       : '',
@@ -177,20 +210,24 @@ const handleNavClick = (item: NavItem) => {
                     "
                     class="bg-destructive ring-background absolute -top-0.5 -right-0.5 h-2 w-2 rounded-full ring-2"
                   />
+                  <span
+                    v-if="item.to === '/mobile' && mobileWebRunning"
+                    class="ring-background absolute -top-0.5 -right-0.5 h-2 w-2 rounded-full bg-green-500 ring-2"
+                  />
                 </span>
-                <span v-if="!isSidebarCollapsed" class="whitespace-nowrap">
+                <span v-if="!collapsed" class="whitespace-nowrap">
                   {{ item.label }}
                 </span>
               </button>
             </TooltipTrigger>
-            <TooltipContent v-if="isSidebarCollapsed" side="right">
+            <TooltipContent v-if="collapsed" side="right">
               <p>{{ item.label }}</p>
             </TooltipContent>
           </Tooltip>
         </template>
       </nav>
 
-      <div class="mt-auto pt-2">
+      <div v-if="!expanded" class="mt-auto pt-2">
         <Tooltip>
           <TooltipTrigger as-child>
             <button
@@ -198,27 +235,23 @@ const handleNavClick = (item: NavItem) => {
               :class="
                 cn(
                   'text-muted-foreground hover:bg-accent hover:text-accent-foreground flex items-center gap-2.5 rounded-md px-2.5 py-1.5 text-sm font-medium transition-colors',
-                  isSidebarCollapsed
-                    ? 'h-10 w-10 justify-center border'
-                    : 'w-full',
+                  collapsed ? 'h-10 w-10 justify-center border' : 'w-full',
                 )
               "
               @click="toggleSidebar"
             >
               <Icon
                 :icon="
-                  isSidebarCollapsed
+                  collapsed
                     ? 'solar:alt-arrow-right-bold-duotone'
                     : 'solar:alt-arrow-left-bold-duotone'
                 "
                 class="h-5 w-5"
               />
-              <span v-if="!isSidebarCollapsed" class="whitespace-nowrap">
-                접기
-              </span>
+              <span v-if="!collapsed" class="whitespace-nowrap"> 접기 </span>
             </button>
           </TooltipTrigger>
-          <TooltipContent v-if="isSidebarCollapsed" side="right">
+          <TooltipContent v-if="collapsed" side="right">
             <p>펼치기</p>
           </TooltipContent>
         </Tooltip>

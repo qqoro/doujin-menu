@@ -45,6 +45,27 @@ export const computeCols = (
   return Math.max(1, Math.floor((usableUnit + gap) / (minCardWidth + gap)));
 };
 
+/** 휴대폰 폭에서 카드를 2열로 놓기 위한 최소 폭 */
+export const NARROW_MIN_CARD_WIDTH = 140;
+
+/**
+ * 기본 최소 폭으로는 1열밖에 안 나오는 좁은 화면에서만 최소 폭을 줄인다.
+ * 1열일 때만 바꾸므로 PC 창 폭에서는 열 수가 그대로다.
+ */
+export const effectiveMinCardWidth = (
+  scrollerClientWidth: number,
+  zoom: number,
+  padding: number,
+  gap: number,
+  minCardWidth: number,
+): number => {
+  const cols = (min: number) =>
+    computeCols(scrollerClientWidth, zoom, padding, gap, min);
+  return cols(minCardWidth) === 1 && cols(NARROW_MIN_CARD_WIDTH) >= 2
+    ? NARROW_MIN_CARD_WIDTH
+    : minCardWidth;
+};
+
 /** zoom 안쪽 단위 공간으로 환산한 가용 폭. 열 수·행 높이 계산이 공유한다 */
 export const usableGridWidth = (
   scrollerClientWidth: number,

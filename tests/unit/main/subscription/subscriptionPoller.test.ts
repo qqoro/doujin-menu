@@ -34,6 +34,7 @@ const mockSendTo = vi.fn();
 vi.mock("../../../../src/main/utils/broadcast.js", () => ({
   broadcast: (...args: unknown[]) => mockBroadcast(...args),
   sendTo: (...args: unknown[]) => mockSendTo(...args),
+  broadcastWeb: vi.fn(),
 }));
 
 const dbRef: { current: Knex | null } = { current: null };

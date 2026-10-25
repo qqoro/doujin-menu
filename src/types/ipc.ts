@@ -937,6 +937,20 @@ export interface IpcChannels {
     response: BrowseItem[];
   };
 
+  // 모바일 웹 접속
+  "get-mobile-web-status": {
+    request: void;
+    response: MobileWebStatus;
+  };
+  "revoke-mobile-device": {
+    request: string;
+    response: { success: boolean; error?: string };
+  };
+  "get-mobile-web-running": {
+    request: void;
+    response: boolean;
+  };
+
   // Etc handlers
   "get-app-version": {
     request: void;
@@ -1032,6 +1046,39 @@ export interface InfoGenerationProgress {
   total: number;
   current: number;
   message: string;
+}
+
+// 모바일 웹 접속 상태 (모바일 페이지)
+// 웹 요청이 들어온 경로. Host 헤더로 나눈다
+export type MobileRoute = "lan" | "tailscale" | "custom" | "local";
+
+export interface MobileDeviceInfo {
+  id: string;
+  name: string;
+  route: MobileRoute;
+  createdAt: number;
+  lastSeenAt: number;
+}
+
+export interface TailscaleInfo {
+  // serve: tailnet 안에서만, funnel: 인터넷 공개
+  state: "not-installed" | "logged-out" | "not-served" | "serve" | "funnel";
+  url: string | null;
+  command: string;
+}
+
+export interface MobileWebStatus {
+  enabled: boolean;
+  port: number;
+  running: boolean;
+  error: string | null;
+  lan: { addresses: string[]; selected: string | null; url: string | null };
+  tailscale: TailscaleInfo;
+  // mobileWebUrl. 있으면 Tailscale 카드 자리를 대신한다
+  customUrl: string | null;
+  // 서버가 꺼져 있으면 null
+  pairing: { code: string; expiresAt: number } | null;
+  devices: MobileDeviceInfo[];
 }
 
 // 표지 해시 백필 진행률

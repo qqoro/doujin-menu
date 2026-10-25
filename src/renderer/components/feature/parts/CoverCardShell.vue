@@ -111,10 +111,14 @@ const emit = defineEmits<{ click: [event: MouseEvent] }>();
       버튼 영역 (호버 시 표시). 카드 최소 폭이 184px이고 `Button`은
       `shrink-0 whitespace-nowrap`이라 줄지 않는다. 아이콘 버튼만 쓰면 여유가
       있지만 문구를 달면 넘친다.
+
+      호버가 없는 터치 화면에서는 숨긴다. 투명해도 탭을 가로채서, 카드를 누르면
+      뷰어 대신 보이지 않는 미리보기 버튼이 눌린다. 같은 동작은 길게 눌러 여는
+      컨텍스트 메뉴에 있다.
     -->
     <div
       v-if="$slots.actions"
-      class="absolute inset-0 z-20 flex flex-wrap items-center justify-center gap-2 px-2 opacity-0 transition-opacity group-hover:opacity-100"
+      class="absolute inset-0 z-20 flex flex-wrap items-center justify-center gap-2 px-2 opacity-0 transition-opacity group-hover:opacity-100 [@media(hover:none)]:hidden"
     >
       <slot name="actions" />
     </div>

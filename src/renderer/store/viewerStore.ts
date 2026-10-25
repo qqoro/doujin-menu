@@ -1,3 +1,4 @@
+import { toMediaUrl } from "@/lib/mediaUrl";
 import { getBook, ipcRenderer, setWindowTitle } from "@/api";
 import { watchDebounced } from "@vueuse/core";
 import { defineStore } from "pinia";
@@ -674,7 +675,7 @@ export const useViewerStore = defineStore("viewer", () => {
         _bookId,
       );
       if (pathResult.success && pathResult.data) {
-        pagePaths.value = pathResult.data;
+        pagePaths.value = pathResult.data.map((p) => toMediaUrl(p));
         totalPages.value = pagePaths.value.length;
         bookTitle.value = pathResult.title || null;
         is_favorite.value = !!pathResult.is_favorite; // 즐겨찾기 상태 업데이트

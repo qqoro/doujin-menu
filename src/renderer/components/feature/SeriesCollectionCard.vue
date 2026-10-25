@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { toMediaUrl } from "@/lib/mediaUrl";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Icon } from "@iconify/vue";
@@ -28,7 +29,7 @@ const emit = defineEmits<{
 // 둘 다 없으면 셸에 빈 이미지가 들어가므로 placeholder로 대신한다
 const coverUrl = computed(() =>
   props.series.cover_image
-    ? `file://${props.series.cover_image}`
+    ? toMediaUrl(`file://${props.series.cover_image}`)
     : "https://via.placeholder.com/256x384",
 );
 

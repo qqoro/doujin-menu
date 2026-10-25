@@ -1,3 +1,5 @@
+import { toMediaUrl } from "./mediaUrl";
+import { IS_REMOTE } from "./runtime";
 /** 책 카드의 순수 계산. `BookCard`와 `BookRowCard`가 같은 결과를 내도록 공유한다 */
 
 import type { MetaField, MetaPart } from "./cardLayout";
@@ -25,7 +27,9 @@ export const buildCoverUrl = (
   version: number,
 ): string => {
   if (!coverPath) return "";
-  return version ? `file://${coverPath}?v=${version}` : `file://${coverPath}`;
+  return toMediaUrl(
+    version ? `file://${coverPath}?v=${version}` : `file://${coverPath}`,
+  );
 };
 
 /** 작가나 그룹 중 하나라도 있는지 */
@@ -128,6 +132,7 @@ export type BookMenuActions = Record<BookMenuActionKey, () => void>;
 export const buildBookMenuItems = (
   flags: BookMenuFlags,
   actions: Partial<BookMenuActions>,
+  web: boolean = IS_REMOTE,
 ): BookMenuItem[] => {
   type Candidate = { action?: () => void; item: Omit<BookMenuItem, "action"> };
 
@@ -143,7 +148,7 @@ export const buildBookMenuItems = (
       },
     },
     {
-      action: actions.folder,
+      action: web ? undefined : actions.folder,
       item: {
         key: "folder",
         icon: "solar:folder-open-bold-duotone",
@@ -151,16 +156,16 @@ export const buildBookMenuItems = (
       },
     },
     {
-      action: actions.newWindow,
+      action: web ? undefined : actions.newWindow,
       item: {
         key: "new-window",
         icon: "solar:square-top-down-bold-duotone",
         label: "새 창으로 열기",
       },
     },
-    // 외부 뷰어 경로가 설정돼 있을 때만 노출한다
+    // 외부 뷰어 경로가 설정된 PC에서만 노출한다
     {
-      action: flags.hasExternalViewer ? actions.external : undefined,
+      action: flags.hasExternalViewer && !web ? actions.external : undefined,
       item: {
         key: "external",
         icon: "solar:monitor-bold-duotone",

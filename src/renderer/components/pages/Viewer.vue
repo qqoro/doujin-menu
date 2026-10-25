@@ -40,8 +40,12 @@ import {
 } from "@/components/ui/tooltip";
 import { useKeybindings } from "@/composables/useKeybindings";
 import { usePermanentDelete } from "@/composables/usePermanentDelete";
+import { useWakeLock } from "@/composables/useWakeLock";
 import { useWindowEvent } from "@/composables/useWindowEvent";
+import { readLastInterval, writeLastInterval } from "@/lib/autoPlayPrefs";
+import { IS_REMOTE } from "@/lib/runtime";
 import { hasOpenDialog } from "@/lib/utils";
+import { classifyTap } from "@/lib/viewerTouch";
 import { useUiStore } from "@/store/uiStore";
 import { useViewerStore } from "@/store/viewerStore";
 import { Icon } from "@iconify/vue";
@@ -218,8 +222,72 @@ const dragStartY = ref(0);
 const dragStartPanX = ref(0);
 const dragStartPanY = ref(0);
 
+// 탭하면 Chrome이 호환용 mousemove를 함께 보내 컨트롤을 숨겨 버린다.
+// 터치 입력이면 마우스 기준의 컨트롤 표시 로직을 건너뛴다.
+const lastPointerType = ref("mouse");
+useWindowEvent(
+  "pointerdown",
+  (e) => {
+    lastPointerType.value = e.pointerType;
+  },
+  { capture: true },
+);
+
+// 삼성 인터넷은 터치 기기도 (hover: hover)로 알려서 탭한 넘김 영역에 호버가 남는다
+const navOverlayHoverClass = computed(() =>
+  viewerHideNavigationOverlay.value || lastPointerType.value === "touch"
+    ? ""
+    : "hover:opacity-100",
+);
+
+const handleTouchTap = (e: MouseEvent) => {
+  const action = classifyTap({
+    pointerType: lastPointerType.value,
+    insideControls: !!(e.target as HTMLElement | null)?.closest(
+      "[data-viewer-controls]",
+    ),
+    isAutoPlay: isAutoPlay.value,
+    clientX: e.clientX,
+    width: window.innerWidth,
+    hasSideZones: readingMode.value !== "webtoon",
+  });
+  if (action === "stop-autoplay") {
+    store.stopAutoPlay();
+    e.stopPropagation();
+    e.preventDefault();
+  } else if (action === "toggle-controls") {
+    showControls.value = !showControls.value;
+  }
+};
+
+const AUTO_PLAY_CHIPS = [1, 2, 3, 4, 5, 6, 7, 8, 9];
+
+// 재생 중 탭은 멈춤으로 쓰이므로 컨트롤을 숨길 다른 방법이 없다. 시작할 때 숨긴다
+const startAutoPlayFromBar = (seconds: number) => {
+  store.startAutoPlayWithInterval(seconds);
+  showControls.value = false;
+};
+
+const startAutoPlayFromChip = (seconds: number) => {
+  writeLastInterval(localStorage, seconds);
+  startAutoPlayFromBar(seconds);
+};
+
+const toggleAutoPlayFromBar = () => {
+  if (isAutoPlay.value) {
+    store.stopAutoPlay();
+    return;
+  }
+  startAutoPlayFromBar(
+    readLastInterval(localStorage) ?? autoPlayInterval.value,
+  );
+};
+
+if (IS_REMOTE) useWakeLock(isAutoPlay);
+
 let cursorHideTimer: ReturnType<typeof setTimeout> | null = null;
 const handleMouseMove = (e: MouseEvent) => {
+  if (lastPointerType.value === "touch") return;
   showCursor.value = true;
   if (cursorHideTimer !== null) {
     clearTimeout(cursorHideTimer);
@@ -660,12 +728,14 @@ useKeybindings(
       'h-screen': screenRotation !== 90 && screenRotation !== 270,
     }"
     :style="rotationStyle"
+    @click.capture="handleTouchTap"
   >
     <!-- 헤더 -->
     <Transition name="fade">
       <div
         v-if="showControls"
-        class="bg-muted-foreground/65 supports-[backdrop-filter]:bg-muted-foreground/55 fixed top-0 right-0 left-0 z-50 flex h-12 items-center justify-between gap-2 px-3 backdrop-blur-sm transition-opacity duration-300 supports-[backdrop-filter]:backdrop-blur-sm"
+        data-viewer-controls
+        class="bg-muted-foreground/65 supports-[backdrop-filter]:bg-muted-foreground/55 fixed top-0 right-0 left-0 z-50 box-content flex h-12 items-center justify-between gap-2 pt-[env(safe-area-inset-top)] pr-[max(0.75rem,env(safe-area-inset-right))] pl-[max(0.75rem,env(safe-area-inset-left))] backdrop-blur-sm transition-opacity duration-300 supports-[backdrop-filter]:backdrop-blur-sm"
         style="-webkit-app-region: drag"
       >
         <TooltipProvider>
@@ -760,7 +830,8 @@ useKeybindings(
                 <p class="flex items-center gap-1">이전 책 <kbd>[</kbd></p>
               </TooltipContent>
             </Tooltip>
-            <Tooltip>
+            <!-- 휴대폰은 하단 칩 바의 ▶를 쓴다 -->
+            <Tooltip v-if="!IS_REMOTE">
               <TooltipTrigger as-child>
                 <Button
                   variant="ghost"
@@ -902,7 +973,7 @@ useKeybindings(
           screenRotation === 90 || screenRotation === 270
             ? 'h-full'
             : 'h-screen',
-          viewerHideNavigationOverlay ? '' : 'hover:opacity-100',
+          navOverlayHoverClass,
         ]"
         @click="readingMode === 'rtl' ? store.nextPage() : store.prevPage()"
       >
@@ -923,7 +994,7 @@ useKeybindings(
           screenRotation === 90 || screenRotation === 270
             ? 'h-full'
             : 'h-screen',
-          viewerHideNavigationOverlay ? '' : 'hover:opacity-100',
+          navOverlayHoverClass,
         ]"
         @click="readingMode === 'rtl' ? store.prevPage() : store.nextPage()"
       >
@@ -940,7 +1011,7 @@ useKeybindings(
       <Transition name="fade">
         <div
           v-if="!showControls && !hidePageNumber"
-          class="fixed top-4 left-4 z-20 flex flex-col gap-1 text-xl font-bold text-white [text-shadow:0_1px_4px_rgba(0,0,0,0.85)]"
+          class="fixed top-[calc(1rem+env(safe-area-inset-top))] left-4 z-20 flex flex-col gap-1 text-xl font-bold text-white [text-shadow:0_1px_4px_rgba(0,0,0,0.85)]"
         >
           <div class="leading-tight">{{ currentPage }} / {{ totalPages }}</div>
           <div
@@ -956,7 +1027,7 @@ useKeybindings(
       <Transition name="fade">
         <div
           v-if="!viewerHideToast && showToast && toastMessage"
-          class="text-primary-foreground bg-primary/90 fixed top-15 right-4 z-20 flex items-center justify-center gap-2 rounded-md px-3.5 py-2 text-lg font-semibold shadow-md backdrop-blur-sm"
+          class="text-primary-foreground bg-primary/90 fixed top-[calc(3.75rem+env(safe-area-inset-top))] right-4 z-20 flex items-center justify-center gap-2 rounded-md px-3.5 py-2 text-lg font-semibold shadow-md backdrop-blur-sm"
         >
           <Icon icon="solar:info-circle-bold-duotone" class="size-5" />
           {{ toastMessage }}
@@ -1032,11 +1103,52 @@ useKeybindings(
       </div>
     </div>
 
+    <!-- 자동 넘김 칩 (휴대폰 브라우저 전용, Ctrl+1~9 대신) -->
+    <Transition name="fade">
+      <div
+        v-if="showControls && IS_REMOTE"
+        data-viewer-controls
+        class="bg-muted-foreground/65 supports-[backdrop-filter]:bg-muted-foreground/55 fixed right-0 bottom-[calc(3rem+env(safe-area-inset-bottom))] left-0 z-50 flex h-11 items-center justify-center gap-1 overflow-x-auto border-b border-white/10 px-2 backdrop-blur-sm"
+      >
+        <Button
+          variant="ghost"
+          size="icon"
+          class="text-background hover:bg-background/15 hover:text-background size-8 shrink-0"
+          :title="isAutoPlay ? '자동 넘김 정지' : '자동 넘김 시작'"
+          @click="toggleAutoPlayFromBar"
+        >
+          <Icon
+            :icon="
+              isAutoPlay
+                ? 'solar:pause-bold-duotone'
+                : 'solar:play-bold-duotone'
+            "
+            class="size-5"
+          />
+        </Button>
+        <button
+          v-for="seconds in AUTO_PLAY_CHIPS"
+          :key="seconds"
+          type="button"
+          class="text-background size-8 shrink-0 rounded-full text-sm font-medium transition-colors"
+          :class="
+            isAutoPlay && autoPlayInterval === seconds
+              ? 'bg-primary text-primary-foreground'
+              : 'hover:bg-background/15'
+          "
+          @click="startAutoPlayFromChip(seconds)"
+        >
+          {{ seconds }}
+        </button>
+      </div>
+    </Transition>
+
     <!-- 컨트롤 바 -->
     <Transition name="fade">
       <div
         v-if="showControls"
-        class="bg-muted-foreground/65 supports-[backdrop-filter]:bg-muted-foreground/55 fixed right-0 bottom-0 left-0 z-50 flex h-12 items-center justify-between gap-4 px-3 backdrop-blur-sm transition-opacity duration-300 supports-[backdrop-filter]:backdrop-blur-sm"
+        data-viewer-controls
+        class="bg-muted-foreground/65 supports-[backdrop-filter]:bg-muted-foreground/55 fixed right-0 bottom-0 left-0 z-50 box-content flex h-12 items-center justify-between gap-4 pr-[max(0.75rem,env(safe-area-inset-right))] pb-[env(safe-area-inset-bottom)] pl-[max(0.75rem,env(safe-area-inset-left))] backdrop-blur-sm transition-opacity duration-300 supports-[backdrop-filter]:backdrop-blur-sm"
         style="-webkit-app-region: no-drag"
       >
         <!-- 페이지 이동 -->
@@ -1095,7 +1207,7 @@ useKeybindings(
         </TooltipProvider>
         <!-- 읽기 & 자동넘김 설정 -->
         <div class="flex items-center gap-1">
-          <TooltipProvider v-if="externalProgramPath">
+          <TooltipProvider v-if="externalProgramPath && !IS_REMOTE">
             <Tooltip>
               <TooltipTrigger as-child>
                 <Button
@@ -1324,7 +1436,10 @@ useKeybindings(
               </Popover>
             </Tooltip>
           </TooltipProvider>
-          <ViewerHelpDialog @update:open="isHelpOpen = $event">
+          <ViewerHelpDialog
+            v-if="!IS_REMOTE"
+            @update:open="isHelpOpen = $event"
+          >
             <Button
               variant="ghost"
               size="icon"

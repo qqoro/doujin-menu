@@ -165,6 +165,21 @@ describe("buildBookMenuItems", () => {
     isRescanning: false,
   };
 
+  it("휴대폰 브라우저에서는 PC에서만 되는 폴더·새 창·외부 프로그램 항목을 뺀다", () => {
+    const keys = buildBookMenuItems(
+      { ...FLAGS, hasExternalViewer: true },
+      ACTIONS,
+      true,
+    ).map((item) => item.key);
+    expect(keys).toEqual([
+      "favorite",
+      "details",
+      "preview",
+      "rescan",
+      "delete",
+    ]);
+  });
+
   it("외부 뷰어 경로가 없으면 그 항목을 빼고 일곱 개", () => {
     const keys = buildBookMenuItems(FLAGS, ACTIONS).map((item) => item.key);
     expect(keys).toEqual([

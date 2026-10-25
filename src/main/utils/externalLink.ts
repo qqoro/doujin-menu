@@ -5,6 +5,7 @@ const ALLOWED_DOMAINS = [
   "www.dlsite.com",
   "forms.gle",
   "tweakcn.com",
+  "tailscale.com",
 ];
 
 /**

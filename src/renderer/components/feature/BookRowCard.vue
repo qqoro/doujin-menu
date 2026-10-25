@@ -5,6 +5,7 @@ import { ContextMenu, ContextMenuTrigger } from "@/components/ui/context-menu";
 import { useBookCard } from "@/composables/useBookCard";
 import { buildBookMetaLine } from "@/lib/bookCard";
 import type { CreditPrefix, MetaField } from "@/lib/cardLayout";
+import { IS_REMOTE } from "@/lib/runtime";
 import { Icon } from "@iconify/vue";
 import { computed } from "vue";
 import type { Book } from "../../../types/ipc";
@@ -90,7 +91,10 @@ const handleCreditSelect = (credit: { prefix: CreditPrefix; name: string }) => {
             {{ book.title }}
           </h3>
 
-          <MetaLine class="text-muted-foreground" :parts="metaParts" />
+          <MetaLine
+            class="text-muted-foreground @max-md/row:flex-wrap"
+            :parts="metaParts"
+          />
 
           <StarRating
             :model-value="rating"
@@ -124,7 +128,9 @@ const handleCreditSelect = (credit: { prefix: CreditPrefix; name: string }) => {
           폭을 `w-[5.75em]`로 고정해 문구 길이에 따라 본문 폭이 흔들리지 않게 한다.
         -->
         <template #actions>
-          <div class="flex w-[5.75em] shrink-0 flex-col gap-1.5">
+          <div
+            class="flex w-[5.75em] shrink-0 flex-col gap-1.5 @max-md/row:w-full @max-md/row:flex-row @max-md/row:justify-end"
+          >
             <Button
               size="sm"
               variant="outline"
@@ -133,7 +139,7 @@ const handleCreditSelect = (credit: { prefix: CreditPrefix; name: string }) => {
               <Icon icon="solar:eye-bold-duotone" class="h-4 w-4" />
               미리보기
             </Button>
-            <Button size="sm" @click.stop="openInNewWindow">
+            <Button v-if="!IS_REMOTE" size="sm" @click.stop="openInNewWindow">
               <Icon icon="solar:square-top-down-bold-duotone" class="h-4 w-4" />
               새 창
             </Button>

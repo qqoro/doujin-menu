@@ -20,6 +20,7 @@ describe("isAllowedExternalUrl", () => {
     expect(isAllowedExternalUrl("https://www.dlsite.com/home")).toBe(true);
     expect(isAllowedExternalUrl("https://forms.gle/abc")).toBe(true);
     expect(isAllowedExternalUrl("https://tweakcn.com/#examples")).toBe(true);
+    expect(isAllowedExternalUrl("https://tailscale.com/download")).toBe(true);
   });
 
   it("https가 아닌 스킴을 막는다", () => {
