@@ -364,6 +364,30 @@ describe("isZipUnchanged", () => {
     ).toBe(false);
   });
 
+  it("옆 파일 mtime이 저장값과 다르면 false (생김·고침·지움)", () => {
+    const base = { file_mtime: 1000, file_size: 500 };
+    // 생김: 저장값 없음 → 지금 있음
+    expect(isZipUnchanged(base, 1000, 500, 3000)).toBe(false);
+    // 고침
+    expect(isZipUnchanged({ ...base, info_mtime: 3000 }, 1000, 500, 4000)).toBe(
+      false,
+    );
+    // 지움
+    expect(isZipUnchanged({ ...base, info_mtime: 3000 }, 1000, 500, null)).toBe(
+      false,
+    );
+  });
+
+  it("옆 파일이 계속 없거나 그대로면 true", () => {
+    const base = { file_mtime: 1000, file_size: 500 };
+    expect(isZipUnchanged({ ...base, info_mtime: null }, 1000, 500, null)).toBe(
+      true,
+    );
+    expect(isZipUnchanged({ ...base, info_mtime: 3000 }, 1000, 500, 3000)).toBe(
+      true,
+    );
+  });
+
   it("size만 달라도 false를 반환해야 함", () => {
     expect(
       isZipUnchanged({ file_mtime: 1000, file_size: 500 }, 1000, 999),

@@ -11,7 +11,17 @@ import { buildInfoContent } from "../services/hitomi/gallery.js";
 import { sendTo } from "../utils/broadcast.js";
 import { openExternalIfAllowed } from "../utils/externalLink.js";
 import { sortImageFiles } from "../utils/imageFiles.js";
-import { getZipPageNames, readZipPage } from "../utils/zipPages.js";
+import {
+  getZipPageNames,
+  readZipPage,
+  zipHasEntry,
+} from "../utils/zipPages.js";
+import {
+  fileMtimeOrNull,
+  innerInfoPathFor,
+  isArchivePath,
+  sidecarPathFor,
+} from "../services/bookInfo/infoFile.js";
 import { console } from "../main.js";
 import { store as configStore } from "./configHandler.js";
 
@@ -51,7 +61,23 @@ export function formatBytes(bytes: number, decimals = 2) {
   return `${(bytes / Math.pow(k, i)).toFixed(dm)} ${sizes[i]}`;
 }
 
-async function handleGenerateMissingInfoFiles(
+interface InfoTarget {
+  itemPath: string;
+  isArchive: boolean;
+}
+
+/**
+ * 스캐너가 이미 읽을 info가 있는지. 있는데 새로 쓰면 그쪽을 덮어 버린다.
+ * 폴더는 안쪽·옆 파일 어느 쪽이든, 압축은 옆 파일 또는 압축 안의 info.txt.
+ */
+async function hasInfoFile({ itemPath, isArchive }: InfoTarget) {
+  if ((await fileMtimeOrNull(sidecarPathFor(itemPath))) !== null) return true;
+  return isArchive
+    ? zipHasEntry(itemPath, "info.txt")
+    : (await fileMtimeOrNull(innerInfoPathFor(itemPath))) !== null;
+}
+
+export async function handleGenerateMissingInfoFiles(
   event: IpcMainInvokeEvent,
   pattern: string,
 ) {
@@ -80,17 +106,24 @@ async function handleGenerateMissingInfoFiles(
   let errorCount = 0;
   let processedCount = 0;
 
-  // 1. fast-glob로 모든 하위 폴더 찾기 (중첩 폴더 포함)
-  const allFolders: string[] = [];
+  // 1. fast-glob로 모든 하위 폴더와 압축 파일 찾기 (중첩 폴더 포함)
+  const targets: InfoTarget[] = [];
   for (const folderPath of libraryFolders) {
     try {
-      const folders = await fg(["**/*"], {
+      const entries = await fg(["**/*"], {
         cwd: folderPath,
         absolute: true,
-        onlyDirectories: true,
+        onlyFiles: false,
+        objectMode: true,
         deep: 100,
       });
-      allFolders.push(...folders);
+      for (const entry of entries) {
+        if (entry.dirent.isDirectory()) {
+          targets.push({ itemPath: entry.path, isArchive: false });
+        } else if (entry.dirent.isFile() && isArchivePath(entry.path)) {
+          targets.push({ itemPath: entry.path, isArchive: true });
+        }
+      }
     } catch (error) {
       console.error(
         `Error scanning library folder ${folderPath} with fast-glob:`,
@@ -99,52 +132,60 @@ async function handleGenerateMissingInfoFiles(
     }
   }
 
-  const totalFolders = allFolders.length;
+  const total = targets.length;
 
   sendTo(event.sender, "info-generation-progress", {
-    total: totalFolders,
+    total,
     current: 0,
     message: "작업을 시작합니다...",
   });
 
-  // 2. 각 폴더에 대해 info.txt 생성
-  for (const subfolderPath of allFolders) {
+  // 2. 각 항목에 대해 info.txt 생성. 압축 파일은 옆 파일로 쓴다
+  for (const target of targets) {
     processedCount++;
-    const folderName = path.basename(subfolderPath);
-    const infoFilePath = path.join(subfolderPath, "info.txt");
+    const displayName = path.basename(target.itemPath);
     let statusMessage: string;
 
     try {
-      await fs.access(infoFilePath);
-      statusMessage = `건너뜀 (파일 있음): ${folderName}`;
-      skippedCount++;
-    } catch {
-      // info.txt가 없는 경우
-      const match = RegExp(regex).exec(folderName);
-      if (match?.[1]) {
-        const galleryId = parseInt(match[1], 10);
-        try {
-          const gallery = await hitomi.galleries.retrieve(galleryId);
-
-          await fs.writeFile(infoFilePath, buildInfoContent(gallery));
-          statusMessage = `생성 완료: ${folderName}`;
-          createdCount++;
-        } catch (error) {
-          console.error(
-            `Error fetching gallery info for ID ${galleryId}`,
-            error,
-          );
-          statusMessage = `오류 (정보 조회 실패): ${folderName}`;
-          errorCount++;
-        }
-      } else {
-        statusMessage = `건너뜀 (패턴 불일치): ${folderName}`;
+      if (await hasInfoFile(target)) {
+        statusMessage = `건너뜀 (파일 있음): ${displayName}`;
         skippedCount++;
+      } else {
+        const name = target.isArchive
+          ? path.basename(target.itemPath, path.extname(target.itemPath))
+          : displayName;
+        const match = RegExp(regex).exec(name);
+        if (match?.[1]) {
+          const galleryId = parseInt(match[1], 10);
+          try {
+            const gallery = await hitomi.galleries.retrieve(galleryId);
+            const infoFilePath = target.isArchive
+              ? sidecarPathFor(target.itemPath)
+              : innerInfoPathFor(target.itemPath);
+            await fs.writeFile(infoFilePath, buildInfoContent(gallery));
+            statusMessage = `생성 완료: ${displayName}`;
+            createdCount++;
+          } catch (error) {
+            console.error(
+              `Error fetching gallery info for ID ${galleryId}`,
+              error,
+            );
+            statusMessage = `오류 (정보 조회 실패): ${displayName}`;
+            errorCount++;
+          }
+        } else {
+          statusMessage = `건너뜀 (패턴 불일치): ${displayName}`;
+          skippedCount++;
+        }
       }
+    } catch (error) {
+      console.error(`Error checking info file for ${target.itemPath}`, error);
+      statusMessage = `오류 (파일 확인 실패): ${displayName}`;
+      errorCount++;
     }
 
     sendTo(event.sender, "info-generation-progress", {
-      total: totalFolders,
+      total,
       current: processedCount,
       message: statusMessage,
     });
@@ -152,8 +193,8 @@ async function handleGenerateMissingInfoFiles(
 
   const finalMessage = `작업 완료: ${createdCount}개 생성, ${skippedCount}개 건너뜀, ${errorCount}개 오류`;
   sendTo(event.sender, "info-generation-progress", {
-    total: totalFolders,
-    current: totalFolders,
+    total,
+    current: total,
     message: finalMessage,
   });
 

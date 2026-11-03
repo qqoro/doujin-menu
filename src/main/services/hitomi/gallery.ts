@@ -1,5 +1,6 @@
 import { Extension, ThumbnailSize, type Gallery } from "node-hitomi";
 import type { GalleryDto } from "../../../types/ipc.js";
+import { formatInfoContent } from "../../parsers/infoTxtFormat.js";
 import type { DownloadNameSource } from "../../utils/index.js";
 import { toNames } from "./tags.js";
 
@@ -61,30 +62,20 @@ export const toGalleryDto = async (gallery: Gallery): Promise<GalleryDto> => ({
   thumbnailUrl: await resolveThumbnailUrl(gallery),
 });
 
-/**
- * Hitomi-Downloader 형식의 info.txt 내용을 만듭니다.
- *
- * 다운로드와 info.txt 일괄 생성이 반드시 같은 텍스트를 내야 합니다. 이 파일은
- * 라이브러리 스캔에서 다시 파싱되므로, 항목 이름과 줄 간격을 바꾸면
- * infoTxtParser도 함께 봐야 합니다.
- */
+/** 갤러리를 info.txt 텍스트로 씁니다. 형식은 `formatInfoContent` 한 곳에 있습니다 */
 export const buildInfoContent = (gallery: Gallery): string =>
-  [
-    `갤러리 넘버: ${gallery.id}`,
-    `제목: ${gallery.title.display}`,
-    `작가: ${toNames(gallery.artists).join(", ") || "N/A"}`,
-    `그룹: ${toNames(gallery.groups).join(", ") || "N/A"}`,
-    `타입: ${gallery.type || "N/A"}`,
-    `시리즈: ${toNames(gallery.series).join(", ") || "N/A"}`,
-    `캐릭터: ${toNames(gallery.characters).join(", ") || "N/A"}`,
-    `태그: ${
-      gallery.tags
-        .map((tag) =>
-          tag.type === "male" || tag.type === "female"
-            ? `${tag.type}:${tag.name}`
-            : tag.name,
-        )
-        .join(", ") || "N/A"
-    }`,
-    `언어: ${gallery.language?.name || "N/A"}`,
-  ].join("\n\n");
+  formatInfoContent({
+    hitomi_id: String(gallery.id),
+    title: gallery.title.display,
+    artists: toNames(gallery.artists),
+    groups: toNames(gallery.groups),
+    type: gallery.type || null,
+    series: toNames(gallery.series),
+    characters: toNames(gallery.characters),
+    tags: gallery.tags.map((tag) =>
+      tag.type === "male" || tag.type === "female"
+        ? `${tag.type}:${tag.name}`
+        : tag.name,
+    ),
+    language: gallery.language?.name || null,
+  });

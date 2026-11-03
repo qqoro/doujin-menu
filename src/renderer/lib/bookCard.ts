@@ -136,6 +136,7 @@ export type BookMenuActionKey =
   | "newWindow"
   | "external"
   | "info"
+  | "edit"
   | "rescan"
   | "delete";
 
@@ -198,6 +199,14 @@ export const buildBookMenuItems = (
         key: "info",
         icon: "solar:info-circle-bold-duotone",
         label: "책 정보",
+      },
+    },
+    {
+      action: actions.edit,
+      item: {
+        key: "edit",
+        icon: "solar:pen-new-square-bold-duotone",
+        label: "정보 수정",
       },
     },
     {

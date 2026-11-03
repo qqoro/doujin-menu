@@ -24,6 +24,7 @@ type BookCardEmit = {
   (event: "open-book-folder", path: string): void;
   (event: "request-delete", book: Book): void;
   (event: "show-info", book: Book): void;
+  (event: "edit-info", book: Book): void;
 };
 
 /**
@@ -193,6 +194,7 @@ export function useBookCard(
         newWindow: openInNewWindow,
         external: openWithExternalViewer,
         info: () => emit("show-info", props.book),
+        edit: () => emit("edit-info", props.book),
         rescan: handleRescanMetadata,
         delete: requestDelete,
       },

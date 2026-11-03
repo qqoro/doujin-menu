@@ -23,10 +23,12 @@ const insertQueueRow = (row: Record<string, unknown>) =>
 
 describe("DownloadQueue 소스 구분 마이그레이션", () => {
   it("기존 히토미 행을 source/source_key로 옮긴다", async () => {
-    // 마지막 마이그레이션을 되돌려 옛 스키마로 만든 뒤, 그때의 행을 넣고 다시 올립니다.
-    await db.migrate.down();
+    // 이 마이그레이션만 되돌려 옛 스키마로 만든 뒤, 그때의 행을 넣고 다시 올립니다.
+    // 이름을 지정하지 않으면 뒤에 마이그레이션이 추가되는 순간 다른 것을 되돌립니다.
+    const name = "20260904000001_add_download_queue_source.ts";
+    await db.migrate.down({ name });
     await insertQueueRow({ gallery_id: 3241234 });
-    await db.migrate.up();
+    await db.migrate.up({ name });
 
     const row = await db("DownloadQueue").where("gallery_id", 3241234).first();
     expect(row.source).toBe("hitomi");

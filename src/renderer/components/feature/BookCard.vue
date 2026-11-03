@@ -32,6 +32,7 @@ const emit = defineEmits([
   "toggle-favorite",
   "open-book-folder",
   "show-info",
+  "edit-info",
   "request-delete",
 ]);
 

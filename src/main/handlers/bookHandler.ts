@@ -6,6 +6,10 @@ import * as yauzl from "yauzl";
 import type { Book, FilterParams, ReadStatus } from "../../types/ipc.js";
 import db from "../db/index.js";
 import { console } from "../main.js";
+import {
+  fileMtimeOrNull,
+  sidecarPathFor,
+} from "../services/bookInfo/infoFile.js";
 import { broadcast } from "../utils/broadcast.js";
 import { naturalSort } from "../utils/index.js";
 import { whereUnderPath } from "../utils/libraryPath.js";
@@ -1650,6 +1654,20 @@ export const handleDeleteBook = async (
             success: false,
             error: `파일을 ${action}하지 못했습니다.`,
           };
+        }
+      }
+
+      // 옆 파일은 책이 없으면 쓸모가 없다. 남아도 해는 없어서 실패는 기록만 한다
+      const sidecar = sidecarPathFor(book.path);
+      if ((await fileMtimeOrNull(sidecar)) !== null) {
+        try {
+          if (options?.permanent) {
+            await fs.unlink(sidecar);
+          } else {
+            await shell.trashItem(sidecar);
+          }
+        } catch (sidecarError) {
+          console.error(`[Main] Failed to delete ${sidecar}:`, sidecarError);
         }
       }
     }

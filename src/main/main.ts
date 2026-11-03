@@ -16,6 +16,7 @@ import path from "path"; // path 모듈 전체 임포트
 import db, { closeDbConnection } from "./db/index.js"; // db 모듈 추가
 import "./handlers/bookHandler.js";
 import { registerBookHandlers } from "./handlers/bookHandler.js";
+import { registerBookInfoHandlers } from "./handlers/bookInfoHandler.js";
 import {
   store as configStore,
   registerConfigHandlers,
@@ -300,6 +301,7 @@ app.whenReady().then(async () => {
 
   registerUpdaterHandlers(mainWindow);
   registerBookHandlers();
+  registerBookInfoHandlers();
   registerConfigHandlers();
   registerDirectoryHandlers();
   registerDownloaderHandlers();

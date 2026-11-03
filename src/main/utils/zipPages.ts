@@ -36,6 +36,38 @@ export async function getZipPageNames(zipPath: string): Promise<string[]> {
   });
 }
 
+/** 압축을 풀지 않고 목록만 읽어 해당 이름의 엔트리가 있는지 본다 */
+export async function zipHasEntry(
+  zipPath: string,
+  entryName: string,
+): Promise<boolean> {
+  return new Promise((resolve, reject) => {
+    yauzl.open(zipPath, { lazyEntries: true }, (err, zipfile) => {
+      if (err) return reject(err);
+      let found = false;
+
+      zipfile.on("entry", (entry: yauzl.Entry) => {
+        if (entry.fileName === entryName) {
+          found = true;
+          zipfile.close();
+          resolve(true);
+          return;
+        }
+        zipfile.readEntry();
+      });
+      zipfile.on("end", () => {
+        if (!found) resolve(false);
+      });
+      zipfile.on("error", (zipErr) => {
+        zipfile.close();
+        reject(zipErr);
+      });
+
+      zipfile.readEntry();
+    });
+  });
+}
+
 /** 범위를 벗어난 페이지는 null */
 export async function readZipPage(
   zipPath: string,

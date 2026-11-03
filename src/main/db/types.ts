@@ -15,6 +15,8 @@ export interface Book {
   // 증분 스캔 캐시 키 (ZIP/CBZ 파일만). 값이 같으면 재스캔을 건너뛴다.
   file_mtime?: number | null;
   file_size?: number | null;
+  // 압축 책 옆 파일(<파일명>.info.txt)의 mtime. 없으면 null
+  info_mtime?: number | null;
   artists?: Artist[];
   tags?: Tag[];
   groups?: Group[];

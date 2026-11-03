@@ -185,6 +185,16 @@ describe("buildBookMenuItems", () => {
     ]);
   });
 
+  it("정보 수정은 책 정보 바로 다음에 온다", () => {
+    const keys = buildBookMenuItems(FLAGS, { ...ACTIONS, edit: noop }).map(
+      (item) => item.key,
+    );
+    expect(keys.slice(keys.indexOf("info"), keys.indexOf("info") + 2)).toEqual([
+      "info",
+      "edit",
+    ]);
+  });
+
   it("외부 뷰어가 설정돼 있으면 새 창 다음에 끼워 넣는다", () => {
     const keys = buildBookMenuItems(
       { ...FLAGS, hasExternalViewer: true },

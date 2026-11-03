@@ -16,6 +16,11 @@ import { naturalSort } from "../utils/index.js";
 import { whereUnderPath } from "../utils/libraryPath.js";
 import { readZipPage } from "../utils/zipPages.js";
 import {
+  fileMtimeOrNull,
+  innerInfoPathFor,
+  sidecarPathFor,
+} from "../services/bookInfo/infoFile.js";
+import {
   getPrefixIndex,
   handleAutoDetectSeriesForBook,
   rebuildPrefixIndex,
@@ -56,38 +61,46 @@ export function cleanValue(value: string | null | undefined): string | null {
   return value;
 }
 
+export interface ZipScanCacheEntry {
+  file_mtime: number | null;
+  file_size: number | null;
+  info_mtime?: number | null;
+}
+
 // ZIP/CBZ 파일의 증분 스캔 캐시 hit 여부를 판정한다.
 // 저장된 mtime/size가 현재 파일의 값과 모두 같으면 true → 재스캔을 건너뛴다.
 // 캐시가 없거나 아직 구축되지 않은(null) 경우엔 항상 false(처리 필요)를 반환한다.
+// 옆 파일(<파일명>.info.txt)은 생기거나 지워지거나 고쳐져도 다시 읽어야 하므로
+// 그 mtime(없으면 null)도 같아야 한다.
 export function isZipUnchanged(
-  cached:
-    { file_mtime: number | null; file_size: number | null } | null | undefined,
+  cached: ZipScanCacheEntry | null | undefined,
   mtime: number,
   size: number,
+  infoMtime: number | null = null,
 ): boolean {
   if (!cached) return false;
   if (cached.file_mtime == null || cached.file_size == null) return false;
-  return cached.file_mtime === mtime && cached.file_size === size;
+  return (
+    cached.file_mtime === mtime &&
+    cached.file_size === size &&
+    (cached.info_mtime ?? null) === infoMtime
+  );
 }
 
 // 증분 스캔용 ZIP/CBZ 캐시 맵을 DB에서 로드한다.
 // 경로 구분자를 역슬래시로 정규화하여 저장된 path(역슬래시)와 매칭시킨다.
 async function loadZipScanCache(
   directoryPath: string,
-): Promise<
-  Map<string, { file_mtime: number | null; file_size: number | null }>
-> {
-  const map = new Map<
-    string,
-    { file_mtime: number | null; file_size: number | null }
-  >();
+): Promise<Map<string, ZipScanCacheEntry>> {
+  const map = new Map<string, ZipScanCacheEntry>();
   const rows = await db("Book")
-    .select("path", "file_mtime", "file_size")
+    .select("path", "file_mtime", "file_size", "info_mtime")
     .where(whereUnderPath("path", directoryPath));
   for (const row of rows) {
     map.set(row.path, {
       file_mtime: row.file_mtime,
       file_size: row.file_size,
+      info_mtime: row.info_mtime,
     });
   }
   return map;
@@ -272,12 +285,12 @@ async function processBookItem(
 
   // 2. info.txt 메타데이터를 찾고 파싱합니다.
   // 2-1. 폴더 내부에 있는 info.txt를 먼저 시도합니다.
-  const infoTxtPath = path.join(itemPath, "info.txt");
-  // 2-2. 폴더와 동일한 이름으로 부모 폴더에 있는 info.txt를 다음으로 시도합니다. (예: 'MyBook/' 폴더 -> '../MyBook.info.txt')
-  const parentInfoTxtPath = path.join(
-    path.dirname(itemPath),
-    `${name}.info.txt`,
-  );
+  const infoTxtPath = innerInfoPathFor(itemPath);
+  // 2-2. 같은 이름의 옆 파일을 다음으로 시도합니다. (예: 'MyBook/' → 'MyBook.info.txt', 'MyBook.cbz' → 'MyBook.cbz.info.txt')
+  const parentInfoTxtPath = sidecarPathFor(itemPath);
+  // 옆 파일을 읽었는지와 그 mtime. 압축 책의 증분 스캔 캐시 키로 쓴다
+  let sidecarUsed = false;
+  let info_mtime: number | null = null;
 
   try {
     const stats = await fs.stat(infoTxtPath);
@@ -288,7 +301,7 @@ async function processBookItem(
     // info.txt 파일이 없거나 읽을 수 없는 경우 무시하고 다음 단계로 진행합니다.
   }
 
-  // 2-3. 폴더 내 info.txt가 없었을 경우, 부모 폴더의 info.txt를 확인합니다.
+  // 2-3. 폴더 내 info.txt가 없었을 경우, 옆 파일을 확인합니다.
   if (Object.keys(infoMetadata).length === 0) {
     try {
       const stats = await fs.stat(parentInfoTxtPath);
@@ -296,6 +309,8 @@ async function processBookItem(
         infoMetadata = parseInfoTxt(
           await fs.readFile(parentInfoTxtPath, "utf-8"),
         );
+        sidecarUsed = Object.keys(infoMetadata).length > 0;
+        info_mtime = stats.mtimeMs;
       }
     } catch {
       // 외부 info.txt 파일이 없거나 읽을 수 없는 경우 무시합니다.
@@ -303,6 +318,7 @@ async function processBookItem(
   }
 
   // 2-4. ZIP 파일의 info.txt는 아래 3-2단계에서 페이지 수와 함께 단일 순회로 추출합니다.
+  // 옆 파일이 있으면 그쪽이 이긴다. 압축 안은 고칠 수 없어서 정보 수정은 옆 파일에 쓴다.
 
   // 3. 항목 유형(폴더 또는 파일)에 따라 책 데이터를 구성합니다.
   if (isDirectory) {
@@ -332,7 +348,7 @@ async function processBookItem(
       // ZIP을 한 번 열어 info.txt와 이미지 개수를 동시에 수집합니다.
       const { infoTxt: infoTxtContent, imageCount: pageCount } =
         await extractInfoTxtAndImageCountFromZip(itemPath);
-      if (infoTxtContent) {
+      if (infoTxtContent && !sidecarUsed) {
         infoMetadata = parseInfoTxt(infoTxtContent);
       }
       if (pageCount > 0) {
@@ -349,6 +365,7 @@ async function processBookItem(
           // 증분 스캔 캐시 키 (다음 스캔에서 이 값이 같으면 재스캔 건너뜀)
           file_mtime: file_mtime ?? null,
           file_size: file_size ?? null,
+          info_mtime,
         };
       } else {
         // 이미지가 없는 ZIP 파일은 건너뜁니다.
@@ -421,6 +438,7 @@ async function processBatchInTransaction(
           language_name_local: cleanValue(bookData.language_name_local),
           file_mtime: bookData.file_mtime ?? null,
           file_size: bookData.file_size ?? null,
+          info_mtime: bookData.info_mtime ?? null,
         });
       updatedCount++;
 
@@ -442,6 +460,7 @@ async function processBatchInTransaction(
         language_name_local: cleanValue(bookData.language_name_local),
         file_mtime: bookData.file_mtime ?? null,
         file_size: bookData.file_size ?? null,
+        info_mtime: bookData.info_mtime ?? null,
       };
       const result = await trx("Book").insert(bookToInsert);
       bookId = result[0];
@@ -657,7 +676,7 @@ export async function scanDirectory(
 
   // 증분 스캔 캐시 맵. force면 빈 맵을 써서 변경 여부와 무관하게 모두 처리한다.
   const zipCache = force
-    ? new Map<string, { file_mtime: number | null; file_size: number | null }>()
+    ? new Map<string, ZipScanCacheEntry>()
     : await loadZipScanCache(directoryPath);
 
   const totalFoundBookPathsInScan = new Set<string>();
@@ -815,6 +834,7 @@ export async function scanDirectory(
             zipCache.get(itemPath),
             entryStat.mtimeMs,
             entryStat.size,
+            await fileMtimeOrNull(sidecarPathFor(itemPath)),
           )
         ) {
           totalFoundBookPathsInScan.add(itemPath); // 삭제 대상에서 제외
@@ -1057,6 +1077,7 @@ export async function scanFile(filePath: string) {
               language_name_local: cleanValue(bookData.language_name_local),
               file_mtime: bookData.file_mtime ?? null,
               file_size: bookData.file_size ?? null,
+              info_mtime: bookData.info_mtime ?? null,
             });
 
           // 업데이트를 위해 기존 연결 제거
@@ -1077,6 +1098,7 @@ export async function scanFile(filePath: string) {
             language_name_local: cleanValue(bookData.language_name_local),
             file_mtime: bookData.file_mtime ?? null,
             file_size: bookData.file_size ?? null,
+            info_mtime: bookData.info_mtime ?? null,
           };
           const result = await trx("Book").insert(bookToInsert);
           bookId = result[0];

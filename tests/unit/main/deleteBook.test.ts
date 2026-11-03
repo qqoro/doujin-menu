@@ -178,4 +178,46 @@ describe("handleDeleteBook 휴지통 기본화", () => {
     expect(result.success).toBe(true);
     expect(await db("BookHistory").where("book_id", book.id)).toHaveLength(0);
   });
+
+  it("옆 파일(<이름>.info.txt)도 함께 휴지통으로 보낸다", async () => {
+    const filePath = await createTempFile();
+    const sidecar = `${filePath}.info.txt`;
+    await fs.writeFile(sidecar, "제목: 옆 파일");
+    const book = await seedBook(db, { title: "옆 파일 삭제", path: filePath });
+    mockTrashItem.mockResolvedValue(undefined);
+
+    const result = await handleDeleteBook(book.id as number);
+
+    expect(result.success).toBe(true);
+    expect(mockTrashItem).toHaveBeenCalledWith(filePath);
+    expect(mockTrashItem).toHaveBeenCalledWith(sidecar);
+
+    await fs.rm(filePath, { force: true });
+    await fs.rm(sidecar, { force: true });
+  });
+
+  it("영구 삭제 시 옆 파일도 지운다", async () => {
+    const filePath = await createTempFile();
+    const sidecar = `${filePath}.info.txt`;
+    await fs.writeFile(sidecar, "제목: 옆 파일");
+    const book = await seedBook(db, { title: "옆 파일 영구", path: filePath });
+
+    const result = await handleDeleteBook(book.id as number, {
+      permanent: true,
+    });
+
+    expect(result.success).toBe(true);
+    await expect(fs.access(sidecar)).rejects.toThrow();
+  });
+
+  it("옆 파일이 없으면 책만 휴지통으로 보낸다", async () => {
+    const filePath = await createTempFile();
+    const book = await seedBook(db, { title: "옆 파일 없음", path: filePath });
+    mockTrashItem.mockResolvedValue(undefined);
+
+    await handleDeleteBook(book.id as number);
+
+    expect(mockTrashItem).toHaveBeenCalledTimes(1);
+    await fs.rm(filePath, { force: true });
+  });
 });

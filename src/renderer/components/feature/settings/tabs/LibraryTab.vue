@@ -354,27 +354,29 @@ const generateMissingInfoFiles = async () => {
       <CardHeader>
         <CardTitle>info.txt 생성</CardTitle>
         <CardDescription
-          >info.txt 파일이 없는 폴더를 찾아 폴더명 정규식 기반으로 파일을
-          생성합니다.</CardDescription
+          >info.txt 파일이 없는 폴더와 압축 파일을 찾아 이름 정규식 기반으로
+          파일을 생성합니다. 압축 파일은 그대로 두고 옆에
+          <code class="font-mono">파일명.cbz.info.txt</code>로
+          만듭니다.</CardDescription
         >
       </CardHeader>
       <CardContent class="space-y-6">
         <div class="space-y-2">
-          <Label for="info-file-pattern">폴더명 분석 정규식</Label>
+          <Label for="info-file-pattern">이름 분석 정규식</Label>
           <Input
             id="info-file-pattern"
             v-model="infoFilePattern"
             placeholder="예: \((\d+)\)$"
           />
           <p class="text-muted-foreground text-sm">
-            폴더명에서 갤러리 ID를 추출할 정규식을 입력합니다. 첫 번째 캡처
-            그룹이 ID로 사용됩니다.
+            폴더명 또는 확장자를 뺀 압축 파일명에서 갤러리 ID를 추출할 정규식을
+            입력합니다. 첫 번째 캡처 그룹이 ID로 사용됩니다.
           </p>
         </div>
         <SettingItem
           label-for="generate-info-files"
           title="info.txt 생성"
-          subtitle="info.txt 파일이 없는 폴더를 찾아 위 정규식을 기반으로 파일을 생성합니다."
+          subtitle="info.txt 파일이 없는 폴더와 압축 파일을 찾아 위 정규식을 기반으로 파일을 생성합니다."
         >
           <Button
             id="generate-info-files"

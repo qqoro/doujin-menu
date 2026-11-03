@@ -4,6 +4,8 @@ import { toCloneable } from "@/lib/ipcSafe";
 import { IS_REMOTE } from "@/lib/runtime";
 import { createWebIpcRenderer } from "@/lib/webIpc";
 import type {
+  BookInfoFields,
+  BookInfoFile,
   DeleteDuplicatesResult,
   FilterParams,
   IpcChannels,
@@ -148,6 +150,25 @@ export async function rescanBookMetadata(bookId: number) {
     return true;
   } else {
     throw new Error(result.error || "메타데이터 재스캔에 실패했습니다.");
+  }
+}
+
+export async function getBookInfoFile(bookId: number): Promise<BookInfoFile> {
+  const result = await ipcRenderer.invoke("get-book-info-file", bookId);
+  if (result.success && result.data) return result.data;
+  throw new Error(result.error || "책 정보를 불러오지 못했습니다.");
+}
+
+export async function saveBookInfoFile(
+  bookId: number,
+  fields: BookInfoFields,
+): Promise<void> {
+  const result = await ipcRenderer.invoke("save-book-info-file", {
+    bookId,
+    fields,
+  });
+  if (!result.success) {
+    throw new Error(result.error || "책 정보를 저장하지 못했습니다.");
   }
 }
 

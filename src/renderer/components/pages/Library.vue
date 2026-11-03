@@ -81,6 +81,7 @@ import ViewOptionsBar from "../common/ViewOptionsBar.vue";
 import PageToolbar from "../layout/PageToolbar.vue";
 import BookCard from "../feature/BookCard.vue";
 import BookInfoDialog from "../feature/BookInfoDialog.vue";
+import BookInfoEditDialog from "../feature/BookInfoEditDialog.vue";
 import BookRowCard from "../feature/BookRowCard.vue";
 import LibraryScanProgress from "../feature/LibraryScanProgress.vue";
 
@@ -675,6 +676,14 @@ const handleShowInfo = (book: Book) => {
   showBookInfoDialog.value = true;
 };
 
+const editBook = ref<Book | null>(null);
+const showBookInfoEditDialog = ref(false);
+
+const handleEditInfo = (book: Book) => {
+  editBook.value = book;
+  showBookInfoEditDialog.value = true;
+};
+
 // 라이브러리 단축키 등록
 useKeybindings(
   "library",
@@ -1094,6 +1103,7 @@ const {
                     @toggle-favorite="handleToggleFavorite"
                     @open-book-folder="handleOpenFolder"
                     @show-info="handleShowInfo"
+                    @edit-info="handleEditInfo"
                     @request-delete="handleRequestDelete"
                   />
                   <!-- 아직 청크가 안 온 자리. 높이를 잡아둬야 행이 안 무너집니다 -->
@@ -1140,6 +1150,7 @@ const {
                   @toggle-favorite="handleToggleFavorite"
                   @open-book-folder="handleOpenFolder"
                   @show-info="handleShowInfo"
+                  @edit-info="handleEditInfo"
                   @request-delete="handleRequestDelete"
                 />
                 <!-- 아직 청크가 안 온 자리. 카드와 같은 껍데기로 둔다 -->
@@ -1192,6 +1203,12 @@ const {
       :book="infoBook"
       :viewer-filter="queryKey[1]"
       @update:open="showBookInfoDialog = $event"
+    />
+
+    <BookInfoEditDialog
+      :open="showBookInfoEditDialog"
+      :book="editBook"
+      @update:open="showBookInfoEditDialog = $event"
     />
 
     <!-- 삭제 확인 다이얼로그 (카드가 아니라 페이지가 들고 있다) -->

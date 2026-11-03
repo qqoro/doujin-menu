@@ -200,6 +200,30 @@ export interface Statistics {
   };
 }
 
+// ========== info.txt 정보 수정 ==========
+
+/** info.txt 한 장에 담기는 항목. 여러 값 항목은 공백 없는 밑줄 이름이다 */
+export interface BookInfoFields {
+  hitomi_id: string | null;
+  title: string;
+  artists: string[];
+  groups: string[];
+  type: string | null;
+  series: string[];
+  characters: string[];
+  tags: string[];
+  language: string | null;
+}
+
+export interface BookInfoFile {
+  fields: BookInfoFields;
+  /** 저장하면 쓰게 될 파일. 압축 책은 압축 파일 옆의 `<파일명>.info.txt` */
+  targetPath: string;
+  /** targetPath에 파일이 이미 있는지 */
+  targetExists: boolean;
+  isArchive: boolean;
+}
+
 // ========== 중복 책 정리 ==========
 
 // 중복 그룹 내 개별 사본 정보
@@ -573,6 +597,14 @@ export interface IpcChannels {
   };
   "rescan-book-metadata": {
     request: number; // bookId
+    response: { success: boolean; error?: string };
+  };
+  "get-book-info-file": {
+    request: number; // bookId
+    response: { success: boolean; data?: BookInfoFile; error?: string };
+  };
+  "save-book-info-file": {
+    request: { bookId: number; fields: BookInfoFields };
     response: { success: boolean; error?: string };
   };
 
