@@ -47,22 +47,32 @@ const { data: booksData, isLoading } = useQuery({
   enabled: computed(() => props.open),
 });
 
-// 제외할 책 ID를 제외한 책 목록
+/**
+ * 이 창에서 방금 추가한 책. 부모의 excludeBookIds는 시리즈 목록을 다시 받은 뒤에야
+ * 바뀌므로, 그 사이 같은 책을 또 눌러 두 번 추가되지 않게 바로 숨긴다
+ */
+const addedIds = ref(new Set<number>());
+
+// 시리즈에 이미 있는 책과 방금 추가한 책을 뺀 목록
 const availableBooks = computed(() => {
   if (!booksData.value?.data) return [];
   return booksData.value.data.filter(
-    (book: Book) => !props.excludeBookIds?.includes(book.id),
+    (book: Book) =>
+      !props.excludeBookIds?.includes(book.id) && !addedIds.value.has(book.id),
   );
 });
 
-// 책 추가 뮤테이션
+// 여러 권을 이어서 넣을 수 있게 추가해도 창을 닫지 않는다
 const addMutation = useMutation({
   mutationFn: ({ bookId, seriesId }: { bookId: number; seriesId: number }) =>
     addBookToSeries(bookId, seriesId),
-  onSuccess: () => {
-    toast.success("책이 시리즈에 추가되었습니다");
+  onSuccess: (_result, { bookId }) => {
+    addedIds.value = new Set(addedIds.value).add(bookId);
+    const title = booksData.value?.data.find(
+      (book: Book) => book.id === bookId,
+    )?.title;
+    toast.success("시리즈에 추가했습니다", { description: title });
     emit("added");
-    emit("update:open", false);
   },
   onError: (error) => {
     toast.error(`추가 실패: ${error.message}`);
@@ -76,6 +86,7 @@ watch(
     if (open) {
       searchQuery.value = "";
       currentPage.value = 1;
+      addedIds.value = new Set();
     }
   },
 );
@@ -94,7 +105,10 @@ const handleSelectBook = (bookId: number) => {
     >
       <DialogHeader>
         <DialogTitle>시리즈에 책 추가</DialogTitle>
-        <DialogDescription> 추가할 책을 검색하여 선택하세요 </DialogDescription>
+        <DialogDescription>
+          책을 누르면 바로 추가됩니다. 창을 닫지 않고 여러 권을 이어서 추가할 수
+          있습니다.
+        </DialogDescription>
       </DialogHeader>
 
       <!-- 검색 -->

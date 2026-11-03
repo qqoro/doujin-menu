@@ -344,9 +344,8 @@ const moveBook = (index: number, direction: "up" | "down") => {
   saveOrder();
 };
 
-// 책 추가 완료
+// 책 추가 완료. 추가 창은 열어 둔 채 목록만 새로 받는다
 const handleBookAdded = () => {
-  showAddBookDialog.value = false;
   refetch();
   emit("updated");
 };
