@@ -136,6 +136,7 @@ export async function generateThumbnailForBook(bookId: number) {
   }
 
   let sourcePath: string | null = null;
+  let tempCoverPath: string | null = null;
   const ext = path.extname(book.path).toLowerCase();
 
   try {
@@ -156,7 +157,7 @@ export async function generateThumbnailForBook(bookId: number) {
       await fs.mkdir(path.join(app.getPath("userData"), "temp_cover"), {
         recursive: true,
       });
-      const tempCoverPath = path.join(
+      tempCoverPath = path.join(
         app.getPath("userData"),
         "temp_cover",
         `${book.id}_temp_cover.webp`,
@@ -213,7 +214,6 @@ export async function generateThumbnailForBook(bookId: number) {
         sourcePath,
         thumbnailPath,
         bookId,
-        tempPath: app.getPath("temp"),
         thumbnailDirPath: thumbnailDir,
       });
     });
@@ -226,6 +226,12 @@ export async function generateThumbnailForBook(bookId: number) {
       error,
     );
     return null;
+  } finally {
+    if (tempCoverPath) {
+      await fs.rm(tempCoverPath, { force: true }).catch((error) => {
+        console.warn(`[Main] 임시 표지 삭제 실패: ${tempCoverPath}`, error);
+      });
+    }
   }
 }
 
@@ -314,7 +320,6 @@ const hashWithWorker = async (
       sourcePath: imagePath,
       thumbnailPath: "",
       bookId,
-      tempPath: app.getPath("temp"),
       thumbnailDirPath: thumbnailDir,
     });
   });

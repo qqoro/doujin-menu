@@ -7,7 +7,6 @@ interface ThumbnailTask {
   sourcePath: string;
   thumbnailPath: string;
   bookId: number;
-  tempPath: string;
   thumbnailDirPath: string;
   /** "hash"면 썸네일을 만들지 않고 sourcePath의 해시만 돌려준다 */
   mode?: "thumbnail" | "hash";
@@ -19,7 +18,6 @@ if (parentPort) {
       sourcePath,
       thumbnailPath,
       bookId,
-      tempPath,
       thumbnailDirPath,
       mode = "thumbnail",
     } = task;
@@ -53,19 +51,6 @@ if (parentPort) {
 
       // 같은 버퍼로 표지 해시도 뽑는다. 파일을 다시 읽지 않아 추가 비용이 없다
       const hash = await computeCoverHash(imageBuffer);
-
-      // 임시 파일이 있다면 삭제 (ZIP 파일에서 추출된 경우)
-      if (sourcePath.startsWith(tempPath) && sourcePath !== thumbnailPath) {
-        try {
-          await fs.unlink(sourcePath);
-        } catch (unlinkError) {
-          // 임시 파일 삭제 실패는 치명적이지 않으므로 경고만 로깅
-          console.warn(
-            `[Worker] Failed to delete temporary source file ${sourcePath}:`,
-            unlinkError,
-          );
-        }
-      }
 
       parentPort?.postMessage({
         status: "success",
