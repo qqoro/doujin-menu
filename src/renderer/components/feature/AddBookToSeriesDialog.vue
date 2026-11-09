@@ -100,9 +100,7 @@ const handleSelectBook = (bookId: number) => {
 
 <template>
   <Dialog :open="props.open" @update:open="emit('update:open', $event)">
-    <DialogContent
-      class="flex max-h-[80vh] max-w-[600px] flex-col max-sm:max-w-[calc(100%-2rem)]"
-    >
+    <DialogContent class="flex max-h-[80vh] flex-col sm:max-w-[600px]">
       <DialogHeader>
         <DialogTitle>시리즈에 책 추가</DialogTitle>
         <DialogDescription>

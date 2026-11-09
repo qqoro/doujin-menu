@@ -27,7 +27,7 @@ const emit = defineEmits<{ (e: "update:open", value: boolean): void }>();
       기본 grid로는 칸이 내용 높이만큼 버텨 스크롤이 안 생기므로 flex로 바꾼다
     -->
     <DialogContent
-      class="flex max-h-[85vh] max-w-2xl flex-col overflow-hidden max-sm:max-w-[calc(100%-2rem)]"
+      class="flex max-h-[85vh] flex-col overflow-hidden sm:max-w-2xl"
     >
       <DialogHeader>
         <DialogTitle class="flex items-center gap-2">

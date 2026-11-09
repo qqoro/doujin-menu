@@ -44,9 +44,7 @@ const closeDialog = () => {
 
 <template>
   <Dialog :open="open" @update:open="closeDialog">
-    <DialogContent
-      class="flex h-[80vh] max-w-3xl flex-col max-sm:max-w-[calc(100%-2rem)]"
-    >
+    <DialogContent class="flex h-[80vh] flex-col sm:max-w-3xl">
       <DialogHeader>
         <DialogTitle>오픈소스 라이선스</DialogTitle>
         <DialogDescription>
