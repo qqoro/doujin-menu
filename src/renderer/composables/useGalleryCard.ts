@@ -134,7 +134,7 @@ export function useGalleryCard(
   // 다운로드 중 여부
   const isDownloading = computed(() => cardStatus.value.kind === "downloading");
 
-  // 다운로드 완료 여부 (라이브러리 보유중 포함)
+  // 라이브러리 보유중 여부
   const isDownloadCompleted = computed(() => cardStatus.value.kind === "owned");
 
   // 다운로드 실패 여부

@@ -515,6 +515,10 @@ export interface IpcChannels {
     request: { key: string; value: unknown };
     response: { success: boolean; error?: string };
   };
+  "is-path-in-library": {
+    request: string;
+    response: boolean;
+  };
   "rescan-all-metadata": {
     request: void;
     response: { success: boolean; error?: string };

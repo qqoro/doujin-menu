@@ -1,5 +1,20 @@
 import type { Knex } from "knex";
 
+/** target이 root 폴더 자체이거나 그 하위 경로인지. whereUnderPath의 JS판이다 */
+export function isPathUnder(target: string, root: string): boolean {
+  const normalize = (value: string) =>
+    value.replaceAll("/", "\\").replace(/\\+$/, "").toLowerCase();
+
+  const normalizedTarget = normalize(target);
+  const normalizedRoot = normalize(root);
+  if (!normalizedTarget || !normalizedRoot) return false;
+
+  return (
+    normalizedTarget === normalizedRoot ||
+    normalizedTarget.startsWith(`${normalizedRoot}\\`)
+  );
+}
+
 /**
  * column이 root 폴더 자체이거나 그 하위 경로인 행을 고르는 where 콜백.
  *

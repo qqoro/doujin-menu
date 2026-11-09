@@ -57,7 +57,11 @@ export const useDownloadQueueStore = defineStore("downloadQueue", () => {
   }) => {
     try {
       const newItem = await api.addToDownloadQueue(params);
-      queue.value.push(newItem);
+      // 완료 항목을 다시 받으면 같은 id의 행이 돌아온다
+      queue.value = [
+        ...queue.value.filter((item) => item.id !== newItem.id),
+        newItem,
+      ];
       return newItem;
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);

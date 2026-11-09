@@ -5,9 +5,37 @@ import {
   seedBook,
   truncateAll,
 } from "../../../src/main/db/test-utils";
-import { whereUnderPath } from "../../../src/main/utils/libraryPath";
+import {
+  isPathUnder,
+  whereUnderPath,
+} from "../../../src/main/utils/libraryPath";
 
 let db: Knex;
+
+describe("isPathUnder", () => {
+  it.each([
+    ["D:\\Comics\\a", "D:\\Comics"],
+    ["D:\\Comics", "D:\\Comics"],
+    ["d:\\comics\\a", "D:\\Comics"],
+    ["D:\\Comics\\a", "D:\\Comics\\"],
+    ["D:/Comics/a", "D:\\Comics"],
+    ["D:\\a", "D:\\"],
+    ["D:\\만화😀\\a", "D:\\만화😀"],
+  ])("%s는 %s 안이다", (target, root) => {
+    expect(isPathUnder(target, root)).toBe(true);
+  });
+
+  it.each([
+    ["D:\\Comics2\\a", "D:\\Comics"],
+    ["D:\\Comics_old", "D:\\Comics"],
+    ["E:\\Comics\\a", "D:\\Comics"],
+    ["D:\\만화😀2\\a", "D:\\만화😀"],
+    ["D:\\Comics", ""],
+    ["", "D:\\Comics"],
+  ])("%s는 %s 밖이다", (target, root) => {
+    expect(isPathUnder(target, root)).toBe(false);
+  });
+});
 
 const pathsUnder = async (root: string) =>
   (await db("Book").where(whereUnderPath("path", root)).orderBy("path")).map(

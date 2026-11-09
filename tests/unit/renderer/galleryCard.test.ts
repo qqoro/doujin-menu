@@ -18,11 +18,16 @@ describe("resolveCardStatus", () => {
   });
 
   // 다운로드가 방금 끝나면 bookId 재조회가 오기 전이라 status만 completed다.
-  // 둘을 같은 표현으로 묶어야 배지가 깜빡이지 않는다.
-  it("방금 완료도 보유중과 같은 표현을 쓴다", () => {
+  it("방금 완료는 책 조회가 올 때까지 100% 진행 표시를 유지한다", () => {
     expect(resolveCardStatus({ bookId: null, status: "completed" })).toEqual(
-      resolveCardStatus({ bookId: 7, status: "idle" }),
+      resolveCardStatus({ bookId: null, status: "progress", progress: 100 }),
     );
+  });
+
+  it("완료 표시만으로는 보유중이 되지 않는다", () => {
+    expect(
+      resolveCardStatus({ bookId: null, status: "completed" }).kind,
+    ).not.toBe("owned");
   });
 
   it("진행 중이면 퍼센트를 배지와 버튼에 똑같이 쓴다", () => {

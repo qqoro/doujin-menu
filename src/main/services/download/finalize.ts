@@ -3,6 +3,7 @@ import { createWriteStream } from "fs";
 import fs from "fs/promises";
 import { store as configStore } from "../../handlers/configHandler.js";
 import { scanFile } from "../../handlers/directoryHandler.js";
+import { isPathUnder } from "../../utils/libraryPath.js";
 
 /**
  * 이미지를 다 받은 뒤의 마무리 — 압축과 라이브러리 편입.
@@ -41,7 +42,7 @@ export const finalizeDownload = async (downloadDir: string): Promise<void> => {
 
   const libraryFolders = configStore.get("libraryFolders", []);
   const isDownloadedToLibrary = libraryFolders.some((folder) =>
-    scanPath.startsWith(folder),
+    isPathUnder(scanPath, folder),
   );
 
   if (isDownloadedToLibrary) {

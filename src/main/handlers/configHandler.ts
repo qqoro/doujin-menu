@@ -5,7 +5,7 @@ import { existsSync } from "fs";
 import fs from "fs/promises";
 import path from "path";
 import db, { closeDbConnection } from "../db/index.js";
-import { whereUnderPath } from "../utils/libraryPath.js";
+import { isPathUnder, whereUnderPath } from "../utils/libraryPath.js";
 import { scanDirectory } from "./directoryHandler.js";
 import { handleGenerateThumbnail } from "./thumbnailHandler.js";
 
@@ -57,6 +57,7 @@ export interface Config {
   viewerAutoFitZoom?: boolean;
   viewerRestoreLastSession?: boolean;
   downloadPath?: string;
+  hideDownloadPathLibraryWarning?: boolean; // 다운로드 폴더가 라이브러리 밖이라는 경고 숨김
   downloaderLanguage?: string;
   downloadPattern?: string;
   createInfoTxtFile?: boolean;
@@ -109,6 +110,7 @@ const defaults: Config = {
   viewerRestoreLastSession: true,
   viewerExcludeCompleted: false,
   downloadPath: "",
+  hideDownloadPathLibraryWarning: false,
   downloaderLanguage: "all",
   downloadPattern: "[%artist%] %title% (%id%)",
   createInfoTxtFile: true,
@@ -548,6 +550,12 @@ export function registerConfigHandlers() {
   );
   // 설정 저장하기
   ipcMain.handle("set-config", (_event, params) => handleSetConfig(params));
+  // 경로가 라이브러리 폴더 안인지 확인
+  ipcMain.handle("is-path-in-library", (_event, targetPath) =>
+    store
+      .get("libraryFolders", [])
+      .some((folder) => isPathUnder(targetPath, folder)),
+  );
   // 전체 메타데이터 재스캔
   ipcMain.handle("rescan-all-metadata", (_event) => handleRescanAllMetadata());
   // 라이브러리 폴더 추가

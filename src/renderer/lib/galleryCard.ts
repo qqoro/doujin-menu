@@ -40,7 +40,7 @@ export const resolveCardStatus = ({
   status: string;
   progress?: number;
 }): CardStatus => {
-  if (bookId !== null || status === "completed") {
+  if (bookId !== null) {
     return {
       kind: "owned",
       badgeLabel: "보유중",
@@ -63,6 +63,16 @@ export const resolveCardStatus = ({
   const percent = typeof progress === "number" ? clampPercent(progress) : null;
 
   switch (status) {
+    // 큐의 완료 기록은 보유의 근거가 아니다. 책을 지워도 남아서, 보유중으로 치면
+    // 없는 책의 삭제 버튼이 뜨고 다운로드가 막힌다. 책 조회가 돌아올 때까지만 유지한다
+    case "completed":
+      return {
+        kind: "downloading",
+        badgeLabel: "100%",
+        buttonLabel: "100%",
+        percent: 100,
+        indeterminate: false,
+      };
     case "progress":
       return {
         kind: "downloading",

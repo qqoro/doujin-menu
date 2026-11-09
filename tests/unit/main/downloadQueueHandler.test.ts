@@ -128,6 +128,60 @@ describe("handleAddToDownloadQueue", () => {
     });
   });
 
+  it("완료된 항목은 같은 행을 대기 상태로 되돌려 다시 받는다", async () => {
+    const [id] = await addItem(101, {
+      status: "completed",
+      progress: 100,
+      total_files: 20,
+      downloaded_files: 20,
+      started_at: "2026-01-01T00:00:00.000Z",
+      completed_at: "2026-01-01T00:10:00.000Z",
+      download_path: "C:\\old",
+    });
+
+    const result = await handleAddToDownloadQueue({
+      galleryId: 101,
+      galleryTitle: "다시 받기",
+      downloadPath: "C:\\new",
+    });
+
+    expect(result.success).toBe(true);
+    expect(result.data?.id).toBe(id);
+    expect(await db("DownloadQueue").count("* as c").first()).toMatchObject({
+      c: 1,
+    });
+
+    // 추가 직후 큐 처리가 백그라운드로 돌아 행이 바뀌므로 응답 시점 값을 본다
+    expect(result.data).toMatchObject({
+      status: "pending",
+      progress: 0,
+      total_files: 0,
+      downloaded_files: 0,
+      gallery_title: "다시 받기",
+      download_path: "C:\\new",
+      started_at: null,
+      completed_at: null,
+    });
+    expect(broadcast).toHaveBeenCalled();
+  });
+
+  it.each(["pending", "downloading", "paused", "failed"])(
+    "%s 항목은 다시 넣지 않는다",
+    async (status) => {
+      await addItem(102, { status });
+
+      const result = await handleAddToDownloadQueue({
+        galleryId: 102,
+        galleryTitle: "거부",
+        downloadPath: "C:\\down",
+      });
+
+      expect(result.success).toBe(false);
+      const row = await db("DownloadQueue").where("gallery_id", 102).first();
+      expect(row.status).toBe(status);
+    },
+  );
+
   it("galleryId를 그대로 source_key로 적는다", async () => {
     const result = await handleAddToDownloadQueue({
       galleryId: 3241234,

@@ -82,16 +82,16 @@ export const handleAddToDownloadQueue = async (
       .where("source_key", sourceKey)
       .first();
 
-    if (existing) {
+    // 완료 행은 책을 지워도 남는 기록이라 다시 받기를 막으면 안 된다.
+    // 그 외 상태는 같은 폴더에 두 작업이 동시에 쓰게 되므로 거부한다
+    if (existing && existing.status !== "completed") {
       return {
         success: false,
         error: "이미 다운로드 큐에 존재합니다.",
       };
     }
 
-    // 큐에 추가
-    const [id] = await db("DownloadQueue").insert({
-      source_key: sourceKey,
+    const fields = {
       gallery_id: params.galleryId ?? null,
       gallery_title: params.galleryTitle,
       gallery_artist: params.galleryArtist,
@@ -104,7 +104,25 @@ export const handleAddToDownloadQueue = async (
       download_speed: 0,
       priority: 0,
       added_at: new Date().toISOString(),
-    });
+    };
+
+    let id: number;
+    if (existing) {
+      id = existing.id;
+      await db("DownloadQueue")
+        .where("id", id)
+        .update({
+          ...fields,
+          error_message: null,
+          started_at: null,
+          completed_at: null,
+        });
+    } else {
+      [id] = await db("DownloadQueue").insert({
+        source_key: sourceKey,
+        ...fields,
+      });
+    }
 
     const newItem = await db<DownloadQueueItem>("DownloadQueue")
       .where("id", id)

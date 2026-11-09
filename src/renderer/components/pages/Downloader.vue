@@ -143,6 +143,31 @@ const handleViewModeChange = (value: "grid" | "list") => {
 // 다운로드 경로. 카드마다 읽던 것을 여기서 한 번만 읽어 내려줍니다.
 const downloadPath = ref("");
 
+const isDownloadPathInLibrary = ref(true);
+const hideDownloadPathWarning = ref(false);
+const showDownloadPathWarning = computed(
+  () =>
+    Boolean(downloadPath.value) &&
+    !isDownloadPathInLibrary.value &&
+    !hideDownloadPathWarning.value,
+);
+
+const refreshDownloadPathCheck = async () => {
+  if (!downloadPath.value) return;
+  isDownloadPathInLibrary.value = await ipcRenderer.invoke(
+    "is-path-in-library",
+    downloadPath.value,
+  );
+};
+
+const dismissDownloadPathWarning = async () => {
+  hideDownloadPathWarning.value = true;
+  await ipcRenderer.invoke("set-config", {
+    key: "hideDownloadPathLibraryWarning",
+    value: true,
+  });
+};
+
 // 각 갤러리 ID별 다운로드 상태를 저장하는 객체
 const downloadStatuses = reactive<{
   [key: number]: { status: string; progress?: number; error?: string };
@@ -480,6 +505,10 @@ const loadDownloaderConfig = async () => {
   if (config.downloadPath) {
     downloadPath.value = config.downloadPath as string;
   }
+  hideDownloadPathWarning.value = Boolean(
+    config.hideDownloadPathLibraryWarning,
+  );
+  void refreshDownloadPathCheck();
   if (config.downloaderLanguage) {
     downloaderLanguage.value = config.downloaderLanguage as string;
   }
@@ -582,12 +611,13 @@ watch(
 
 // 큐 상태를 downloadStatuses에 반영하는 함수
 const syncQueueToStatuses = () => {
-  // 현재 큐에 있는 갤러리 ID 목록
-  const queueGalleryIds = new Set(
-    downloadQueueStore.queue.map((item) => item.gallery_id),
+  // 완료 행은 카드 상태에 반영하지 않는다. 보유 여부는 Book만 근거로 삼는다
+  const activeQueue = downloadQueueStore.queue.filter(
+    (item) => item.status !== "completed",
   );
+  const queueGalleryIds = new Set(activeQueue.map((item) => item.gallery_id));
 
-  // downloadStatuses에서 큐에 없는 항목 제거 (단, completed 상태는 유지)
+  // 진행 중이 아닌 항목 제거. completed는 방금 끝나 책 조회를 기다리는 값이다
   Object.keys(downloadStatuses).forEach((galleryIdStr) => {
     const galleryId = Number(galleryIdStr);
     if (
@@ -599,7 +629,7 @@ const syncQueueToStatuses = () => {
   });
 
   // 큐에 있는 항목들을 downloadStatuses에 업데이트
-  downloadQueueStore.queue.forEach((queueItem) => {
+  activeQueue.forEach((queueItem) => {
     // 큐의 상태를 downloadStatuses에 매핑
     let mappedStatus: string = queueItem.status;
 
@@ -631,7 +661,11 @@ const handleDownloadProgress = (
   if (status === "completed") {
     // 다시 받은 경우 예전 삭제 보정값이 남아 있으면 안 됩니다
     delete bookIdOverrides[galleryId];
-    refetchBookExists();
+    void refetchBookExists().finally(() => {
+      if (downloadStatuses[galleryId]?.status === "completed") {
+        delete downloadStatuses[galleryId];
+      }
+    });
 
     const queued = downloadQueueStore.queue.find(
       (item) => item.gallery_id === galleryId,
@@ -671,6 +705,8 @@ onMounted(() => {
 
 onActivated(() => {
   loadDownloaderConfig();
+  // keep-alive라 다른 화면에서 책을 지우거나 스캔해도 이 캐시는 그대로 남는다
+  if (galleryIds.value.length > 0) void refetchBookExists();
 });
 
 onUnmounted(() => {
@@ -1025,6 +1061,7 @@ const openFolderDialog = async () => {
       key: "downloadPath",
       value: result.path,
     });
+    await refreshDownloadPathCheck();
   }
 };
 
@@ -1110,6 +1147,28 @@ useSearchPersistence(searchQuery, "downloader-search-query");
 
 <template>
   <div class="flex h-full flex-col gap-4">
+    <div
+      v-if="showDownloadPathWarning"
+      role="status"
+      class="border-destructive/40 bg-destructive/10 flex items-center gap-2 rounded-md border px-3 py-2 text-sm"
+    >
+      <Icon
+        icon="solar:danger-triangle-bold-duotone"
+        class="text-destructive size-4 shrink-0"
+      />
+      <span class="min-w-0 flex-1">
+        다운로드 폴더가 라이브러리에 포함되어 있지 않아, 받은 책이 라이브러리에
+        나타나지 않습니다.
+      </span>
+      <Button
+        variant="ghost"
+        size="sm"
+        class="h-7 shrink-0"
+        @click="dismissDownloadPathWarning"
+      >
+        다시 보지 않기
+      </Button>
+    </div>
     <PageHeader icon="solar:download-square-bold-duotone" title="다운로더">
       <template #help>
         <HelpDialog
