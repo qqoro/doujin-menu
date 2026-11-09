@@ -15,6 +15,24 @@ export interface Changelog {
  */
 export const changelogData: Changelog[] = [
   {
+    version: "1.29.0",
+    changes: [
+      {
+        type: "feature",
+        title: "✨ 새로운 기능",
+        items: [
+          "책 정보를 앱에서 직접 수정할 수 있습니다. 카드 메뉴의 '정보 수정'을 이용하세요. 압축 파일(ZIP/CBZ) 책도 지원합니다.",
+          "시리즈에 책을 추가할 때 창을 닫지 않고 여러 권을 이어서 추가할 수 있습니다.",
+        ],
+      },
+      {
+        type: "fix",
+        title: "🐛 버그 수정",
+        items: ["삭제한 책을 다시 다운로드할 수 없던 문제 수정."],
+      },
+    ],
+  },
+  {
     version: "1.28.0",
     changes: [
       {
