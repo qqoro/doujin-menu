@@ -14,6 +14,7 @@ import { computed, ref, watch } from "vue";
 import { toast } from "vue-sonner";
 import type { Book } from "../../../types/ipc";
 import { addBookToSeries, ipcRenderer } from "../../api";
+import BookRowCard from "./BookRowCard.vue";
 
 interface Props {
   open: boolean;
@@ -26,6 +27,9 @@ const emit = defineEmits<{
   "update:open": [value: boolean];
   added: [];
 }>();
+
+/** 카드의 "새 창으로 열기"가 두 번째 값을 뷰어 필터로 넘긴다. 없으면 파싱에 실패한다 */
+const BOOK_CARD_QUERY_KEY = ["booksForSeries", {}] as const;
 
 // 검색어
 const searchQuery = ref("");
@@ -93,14 +97,14 @@ watch(
 
 // 책 선택
 const handleSelectBook = (bookId: number) => {
-  if (!props.seriesId) return;
+  if (!props.seriesId || addMutation.isPending.value) return;
   addMutation.mutate({ bookId, seriesId: props.seriesId });
 };
 </script>
 
 <template>
   <Dialog :open="props.open" @update:open="emit('update:open', $event)">
-    <DialogContent class="flex max-h-[80vh] flex-col sm:max-w-[600px]">
+    <DialogContent class="flex max-h-[85vh] flex-col sm:max-w-[760px]">
       <DialogHeader>
         <DialogTitle>시리즈에 책 추가</DialogTitle>
         <DialogDescription>
@@ -117,7 +121,7 @@ const handleSelectBook = (bookId: number) => {
         />
 
         <!-- 책 목록 -->
-        <ScrollArea class="h-[400px]">
+        <ScrollArea class="h-[60vh]">
           <div v-if="isLoading" class="py-8 text-center">
             <Icon icon="svg-spinners:ring-resize" class="mx-auto h-8 w-8" />
           </div>
@@ -129,43 +133,15 @@ const handleSelectBook = (bookId: number) => {
           </div>
 
           <div v-else class="space-y-2 pr-4">
-            <button
+            <BookRowCard
               v-for="book in availableBooks"
               :key="book.id"
-              class="hover:bg-accent w-full rounded-lg border p-3 text-left transition-colors"
-              :disabled="addMutation.isPending.value"
-              @click="handleSelectBook(book.id)"
+              :book="book"
+              :query-key="BOOK_CARD_QUERY_KEY"
+              @open="handleSelectBook(book.id)"
             >
-              <div class="font-medium">{{ book.title }}</div>
-              <div
-                class="text-muted-foreground mt-1 flex flex-wrap gap-x-2 gap-y-1 text-xs"
-              >
-                <span class="flex items-center gap-1">
-                  <Icon
-                    icon="solar:document-text-bold-duotone"
-                    class="h-3.5 w-3.5"
-                  />
-                  {{ book.page_count }}페이지
-                </span>
-                <span
-                  v-if="book.artists && book.artists.length > 0"
-                  class="flex items-center gap-1"
-                >
-                  <Icon icon="solar:user-bold-duotone" class="h-3.5 w-3.5" />
-                  {{ book.artists.map((a) => a.name).join(", ") }}
-                </span>
-                <span
-                  v-if="book.groups && book.groups.length > 0"
-                  class="flex items-center gap-1"
-                >
-                  <Icon
-                    icon="solar:users-group-rounded-bold-duotone"
-                    class="h-3.5 w-3.5"
-                  />
-                  {{ book.groups.map((g) => g.name).join(", ") }}
-                </span>
-              </div>
-            </button>
+              <template #actions />
+            </BookRowCard>
           </div>
         </ScrollArea>
       </div>

@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Icon } from "@iconify/vue";
 import { computed } from "vue";
 import RowCardShell from "./parts/RowCardShell.vue";
+import SeriesDeleteButton from "./parts/SeriesDeleteButton.vue";
 
 interface Props {
   series: {
@@ -80,13 +81,7 @@ const creationType = computed(() => {
           <Icon icon="solar:eye-bold-duotone" class="h-4 w-4" />
           상세 보기
         </Button>
-        <Button size="sm" variant="destructive" @click.stop="emit('delete')">
-          <Icon
-            icon="solar:trash-bin-minimalistic-bold-duotone"
-            class="h-4 w-4"
-          />
-          삭제
-        </Button>
+        <SeriesDeleteButton label="삭제" @click.stop="emit('delete')" />
       </div>
     </template>
   </RowCardShell>

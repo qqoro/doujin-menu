@@ -7,7 +7,7 @@ import { buildBookMetaLine } from "@/lib/bookCard";
 import type { CreditPrefix, MetaField } from "@/lib/cardLayout";
 import { IS_REMOTE } from "@/lib/runtime";
 import { Icon } from "@iconify/vue";
-import { computed } from "vue";
+import { computed, getCurrentInstance } from "vue";
 import type { Book } from "../../../types/ipc";
 import BookCardMenu from "./parts/BookCardMenu.vue";
 import BookCardMenuButton from "./parts/BookCardMenuButton.vue";
@@ -37,6 +37,8 @@ const emit = defineEmits([
   "show-info",
   "edit-info",
   "request-delete",
+  /** 연결하면 카드 클릭이 뷰어로 가는 대신 이 이벤트로 올라온다 */
+  "open",
 ]);
 
 /**
@@ -70,6 +72,30 @@ const CREDIT_EVENT = {
 const handleCreditSelect = (credit: { prefix: CreditPrefix; name: string }) => {
   emit(CREDIT_EVENT[credit.prefix], credit.name);
 };
+
+const instance = getCurrentInstance();
+
+/** 부모가 연결하지 않은 동작은 눌러도 반응이 없으므로 화면에 내놓지 않는다 */
+const hasListener = (name: string) => !!instance?.vnode.props?.[name];
+
+const MENU_LISTENER: Record<string, string> = {
+  favorite: "onToggleFavorite",
+  folder: "onOpenBookFolder",
+  info: "onShowInfo",
+  edit: "onEditInfo",
+  delete: "onRequestDelete",
+};
+
+const visibleMenuItems = computed(() =>
+  menuItems.value.filter(
+    (item) => !MENU_LISTENER[item.key] || hasListener(MENU_LISTENER[item.key]),
+  ),
+);
+
+const handleClick = (event: MouseEvent) => {
+  if (hasListener("onOpen")) emit("open", event);
+  else handleCardClick(event);
+};
 </script>
 
 <template>
@@ -84,7 +110,7 @@ const handleCreditSelect = (credit: { prefix: CreditPrefix; name: string }) => {
         :is-offline="isOffline"
         :is-favorite="!!book.is_favorite"
         :is-focused="isFocused"
-        @click="handleCardClick"
+        @click="handleClick"
       >
         <template #content>
           <h3 class="text-[0.9375em] leading-snug font-bold">
@@ -104,11 +130,16 @@ const handleCreditSelect = (credit: { prefix: CreditPrefix; name: string }) => {
 
           <CreditsLine
             class="text-muted-foreground text-[0.78125em]"
+            :class="{ 'pointer-events-none': !hasListener('onSelectArtist') }"
             :credits="credits"
             @select="handleCreditSelect"
           />
 
-          <div v-if="!hideTags" class="flex flex-wrap gap-1">
+          <div
+            v-if="!hideTags"
+            class="flex flex-wrap gap-1"
+            :class="{ 'pointer-events-none': !hasListener('onSelectTag') }"
+          >
             <TagBadge
               v-for="tag in book.tags"
               :key="tag.name"
@@ -126,9 +157,14 @@ const handleCreditSelect = (credit: { prefix: CreditPrefix; name: string }) => {
           정해버려서 표지보다 버튼이 먼저 눈에 들어온다.
 
           폭을 `w-[5.75em]`로 고정해 문구 길이에 따라 본문 폭이 흔들리지 않게 한다.
+
+          `$slots`로 분기한다. `<slot>`의 기본 내용은 빈 슬롯을 넘겨도 다시 그려져
+          버튼을 숨길 수 없다.
         -->
         <template #actions>
+          <slot v-if="$slots.actions" name="actions" />
           <div
+            v-else
             class="flex w-[5.75em] shrink-0 flex-col gap-1.5 @max-md/row:w-full @max-md/row:flex-row @max-md/row:justify-end"
           >
             <Button
@@ -143,7 +179,7 @@ const handleCreditSelect = (credit: { prefix: CreditPrefix; name: string }) => {
               <Icon icon="solar:square-top-down-bold-duotone" class="h-4 w-4" />
               새 창
             </Button>
-            <BookCardMenuButton variant="labeled" :items="menuItems" />
+            <BookCardMenuButton variant="labeled" :items="visibleMenuItems" />
             <Button size="sm" variant="destructive" @click.stop="requestDelete">
               <Icon
                 icon="solar:trash-bin-minimalistic-bold-duotone"
@@ -156,6 +192,6 @@ const handleCreditSelect = (credit: { prefix: CreditPrefix; name: string }) => {
       </RowCardShell>
     </ContextMenuTrigger>
 
-    <BookCardMenu :items="menuItems" />
+    <BookCardMenu :items="visibleMenuItems" />
   </ContextMenu>
 </template>

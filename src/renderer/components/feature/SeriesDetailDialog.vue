@@ -1,15 +1,4 @@
 <script setup lang="ts">
-import { toMediaUrl } from "@/lib/mediaUrl";
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@/components/ui/alert-dialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -22,7 +11,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Icon } from "@iconify/vue";
-import { useMutation, useQuery } from "@tanstack/vue-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/vue-query";
 import { useDebounceFn } from "@vueuse/core";
 import { computed, ref, watch } from "vue";
 import { useRouter } from "vue-router";
@@ -33,13 +22,15 @@ import type {
   SeriesCollectionWithBooks,
 } from "../../../types/ipc";
 import {
+  addBookToSeries,
   getSeriesCollectionById,
   removeBookFromSeries,
   reorderBooksInSeries,
   updateSeriesCollection,
 } from "../../api";
 import AddBookToSeriesDialog from "./AddBookToSeriesDialog.vue";
-import RowCardShell from "./parts/RowCardShell.vue";
+import SeriesDeleteButton from "./parts/SeriesDeleteButton.vue";
+import BookRowCard from "./BookRowCard.vue";
 
 interface Props {
   open: boolean;
@@ -54,9 +45,10 @@ const emit = defineEmits<{
 }>();
 
 const router = useRouter();
+const queryClient = useQueryClient();
 
-/** 표지가 없을 때 쓰는 자리 채우기. 셸은 항상 img를 그린다 */
-const COVER_PLACEHOLDER = "https://via.placeholder.com/256x384";
+/** 카드의 "새 창으로 열기"가 두 번째 값을 뷰어 필터로 넘긴다. 없으면 파싱에 실패한다 */
+const BOOK_CARD_QUERY_KEY = ["seriesCollection", {}] as const;
 
 // 편집 모드
 const isEditing = ref(false);
@@ -65,10 +57,6 @@ const editDescription = ref("");
 
 // 책 추가 다이얼로그
 const showAddBookDialog = ref(false);
-
-// 책 제거 확인 다이얼로그
-const showRemoveDialog = ref(false);
-const bookToRemove = ref<number | null>(null);
 
 // 드래그 앤 드롭 상태
 const draggedIndex = ref<number | null>(null);
@@ -142,11 +130,43 @@ const updateMutation = useMutation({
   },
 });
 
+interface RemovedBook {
+  bookId: number;
+  title: string;
+  seriesId: number;
+  index: number;
+}
+
+/**
+ * 제거 되돌리기. 토스트는 창을 닫거나 다른 시리즈를 연 뒤에도 남아 있으므로
+ * 화면의 목록 대신 그 시리즈의 현재 목록을 다시 받아 원래 자리에 끼워 넣는다.
+ */
+const restoreBook = async ({ bookId, seriesId, index }: RemovedBook) => {
+  try {
+    await addBookToSeries(bookId, seriesId);
+    const current = await getSeriesCollectionById(seriesId);
+    const bookIds = (current?.books ?? [])
+      .map((book: Book) => book.id)
+      .filter((id) => id !== bookId);
+    bookIds.splice(index, 0, bookId);
+    await reorderBooksInSeries(seriesId, bookIds);
+    await queryClient.invalidateQueries({
+      queryKey: ["seriesCollection", seriesId],
+    });
+    emit("updated");
+  } catch (error) {
+    toast.error(`되돌리기 실패: ${(error as Error).message}`);
+  }
+};
+
 // 책 제거 뮤테이션
 const removeBookMutation = useMutation({
-  mutationFn: removeBookFromSeries,
-  onSuccess: () => {
-    toast.success("책이 시리즈에서 제거되었습니다");
+  mutationFn: ({ bookId }: RemovedBook) => removeBookFromSeries(bookId),
+  onSuccess: (_result, removed) => {
+    toast.success("시리즈에서 뺐습니다", {
+      description: removed.title,
+      action: { label: "되돌리기", onClick: () => restoreBook(removed) },
+    });
     refetch();
     emit("updated");
   },
@@ -227,19 +247,16 @@ const saveEdit = () => {
   });
 };
 
-// 책 제거 요청
-const handleRemoveBook = (bookId: number) => {
-  bookToRemove.value = bookId;
-  showRemoveDialog.value = true;
-};
-
-// 책 제거 확정
-const confirmRemoveBook = () => {
-  if (bookToRemove.value !== null) {
-    removeBookMutation.mutate(bookToRemove.value);
-    bookToRemove.value = null;
-  }
-  showRemoveDialog.value = false;
+// 확인 없이 바로 빠지므로, 더블클릭의 두 번째 클릭이 위로 올라온 다음 책까지
+// 빼지 않게 첫 클릭만 받는다. 키보드로 누르면 detail은 0이다
+const handleRemoveBook = (event: MouseEvent, book: Book, index: number) => {
+  if (event.detail > 1 || !props.series) return;
+  removeBookMutation.mutate({
+    bookId: book.id,
+    title: book.title,
+    seriesId: props.series.id,
+    index,
+  });
 };
 
 // 책 클릭 - 뷰어로 이동
@@ -265,30 +282,6 @@ const creationType = computed(() => {
   if (detail.value?.is_auto_generated) return "자동";
   return "혼합";
 });
-
-// 시리즈 표지. 없으면 첫 책의 표지로 대신한다
-const seriesCoverUrl = computed(() => {
-  const cover = detail.value?.cover_image || books.value[0]?.cover_path;
-  return cover ? toMediaUrl(`file://${cover}`) : COVER_PLACEHOLDER;
-});
-
-// 책 썸네일 URL 생성
-const getCoverUrl = (book: Book) =>
-  book.cover_path ? toMediaUrl(`file://${book.cover_path}`) : COVER_PLACEHOLDER;
-
-// 작가명 표시
-// 참고: 시리즈 상세 API에서는 GROUP_CONCAT으로 인해 artists가 문자열로 내려옴
-const getArtistNames = (book: Book) => {
-  if (!book.artists) return "";
-  // 배열인 경우 (일반 Book 타입)
-  if (Array.isArray(book.artists)) {
-    if (book.artists.length === 0) return "";
-    return book.artists.map((a: { name: string }) => a.name).join(", ");
-  }
-  // 문자열인 경우 (GROUP_CONCAT 결과)
-  const str = String(book.artists);
-  return str || "";
-};
 
 // 드래그 앤 드롭 핸들러
 const handleDragStart = (index: number) => {
@@ -378,72 +371,62 @@ const excludeBookIds = computed(() => books.value.map((book) => book.id));
 
       <div class="min-h-0 flex-1 overflow-y-auto pr-1">
         <!-- 시리즈 정보 -->
-        <div class="flex gap-5">
-          <img
-            :src="seriesCoverUrl"
-            :alt="detail?.name"
-            class="aspect-[2/3] w-28 shrink-0 rounded-lg object-cover shadow-md"
-          />
-
-          <div class="flex min-w-0 flex-1 flex-col gap-3">
-            <!-- 편집 중에만 라벨을 그린다. 읽기 상태에서도 띄우면 폼처럼 보인다 -->
-            <template v-if="isEditing">
-              <div class="space-y-1.5">
-                <Label for="series-name">시리즈명</Label>
-                <Input
-                  id="series-name"
-                  v-model="editName"
-                  placeholder="시리즈 이름을 입력하세요"
-                />
-              </div>
-              <div class="space-y-1.5">
-                <Label for="series-description">설명</Label>
-                <Textarea
-                  id="series-description"
-                  v-model="editDescription"
-                  placeholder="시리즈 설명을 입력하세요 (선택사항)"
-                  rows="3"
-                />
-              </div>
-              <div class="flex justify-end gap-2">
-                <Button variant="outline" size="sm" @click="cancelEdit">
-                  취소
-                </Button>
-                <Button
-                  size="sm"
-                  :disabled="updateMutation.isPending.value"
-                  @click="saveEdit"
-                >
-                  저장
-                </Button>
-              </div>
-            </template>
-
-            <template v-else>
-              <p class="text-muted-foreground text-sm">{{ books.length }}권</p>
-              <p
-                v-if="detail?.description"
-                class="text-sm leading-relaxed whitespace-pre-line"
-              >
-                {{ detail.description }}
-              </p>
-              <p v-else class="text-muted-foreground text-sm italic">
-                설명 없음
-              </p>
-              <div class="mt-auto flex justify-end">
-                <Button variant="outline" size="sm" @click="startEdit">
-                  <Icon icon="solar:pen-bold-duotone" class="h-4 w-4" />
-                  편집
-                </Button>
-              </div>
-            </template>
+        <!-- 편집 중에만 라벨을 그린다. 읽기 상태에서도 띄우면 폼처럼 보인다 -->
+        <div v-if="isEditing" class="flex flex-col gap-3 p-1">
+          <div class="space-y-1.5">
+            <Label for="series-name">시리즈명</Label>
+            <Input
+              id="series-name"
+              v-model="editName"
+              placeholder="시리즈 이름을 입력하세요"
+            />
           </div>
+          <div class="space-y-1.5">
+            <Label for="series-description">설명</Label>
+            <Textarea
+              id="series-description"
+              v-model="editDescription"
+              placeholder="시리즈 설명을 입력하세요 (선택사항)"
+              rows="3"
+            />
+          </div>
+          <div class="flex justify-end gap-2">
+            <Button variant="outline" size="sm" @click="cancelEdit">
+              취소
+            </Button>
+            <Button
+              size="sm"
+              :disabled="updateMutation.isPending.value"
+              @click="saveEdit"
+            >
+              저장
+            </Button>
+          </div>
+        </div>
+
+        <div v-else class="flex items-start justify-between gap-4">
+          <p
+            v-if="detail?.description"
+            class="min-w-0 text-sm leading-relaxed whitespace-pre-line"
+          >
+            {{ detail.description }}
+          </p>
+          <p v-else class="text-muted-foreground text-sm italic">설명 없음</p>
+          <Button
+            variant="outline"
+            size="sm"
+            class="shrink-0"
+            @click="startEdit"
+          >
+            <Icon icon="solar:pen-bold-duotone" class="h-4 w-4" />
+            편집
+          </Button>
         </div>
 
         <!-- 소속 책 목록.
              제목 줄은 sticky라 목록을 내려도 "책 추가"에 계속 닿는다 -->
         <div
-          class="bg-popover sticky top-0 z-10 mt-6 flex items-center justify-between py-2"
+          class="bg-popover sticky top-0 z-10 mt-4 flex items-center justify-between py-2"
         >
           <h3 class="font-semibold">소속 책 ({{ books.length }}권)</h3>
           <Button variant="outline" size="sm" @click="showAddBookDialog = true">
@@ -520,58 +503,26 @@ const excludeBookIds = computed(() => books.value.map((book) => book.id));
                 </div>
               </div>
 
-              <RowCardShell
-                class="min-w-0 flex-1"
-                :cover-url="getCoverUrl(book)"
-                :alt="book.title"
-                @click="handleBookClick(book.id)"
-              >
-                <template #content>
-                  <h4
-                    class="text-sm leading-snug font-semibold"
-                    :title="book.title"
-                  >
-                    {{ book.title }}
-                  </h4>
-                  <div
-                    class="text-muted-foreground flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs"
-                  >
-                    <span
-                      v-if="getArtistNames(book)"
-                      class="flex items-center gap-1"
+              <div class="min-w-0 flex-1">
+                <BookRowCard
+                  :book="book"
+                  :query-key="BOOK_CARD_QUERY_KEY"
+                  @open="handleBookClick(book.id)"
+                >
+                  <!-- 항상 보이게 둔다. 호버로만 나타나면 키보드로는 닿을 수 없다 -->
+                  <template #actions>
+                    <div
+                      class="flex shrink-0 items-center @max-md/row:w-full @max-md/row:justify-end"
                     >
-                      <Icon icon="solar:user-bold-duotone" class="h-3 w-3" />
-                      {{ getArtistNames(book) }}
-                    </span>
-                    <span
-                      v-if="book.page_count"
-                      class="flex items-center gap-1"
-                    >
-                      <Icon
-                        icon="solar:document-text-bold-duotone"
-                        class="h-3 w-3"
+                      <SeriesDeleteButton
+                        title="시리즈에서 빼기"
+                        aria-label="시리즈에서 빼기"
+                        @click.stop="handleRemoveBook($event, book, index)"
                       />
-                      {{ book.page_count }}페이지
-                    </span>
-                  </div>
-                </template>
-
-                <!-- 항상 보이게 둔다. 호버로만 나타나면 키보드로는 닿을 수 없다 -->
-                <template #actions>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    class="text-muted-foreground hover:text-destructive self-center"
-                    aria-label="시리즈에서 제거"
-                    @click.stop="handleRemoveBook(book.id)"
-                  >
-                    <Icon
-                      icon="solar:trash-bin-trash-bold-duotone"
-                      class="h-4 w-4"
-                    />
-                  </Button>
-                </template>
-              </RowCardShell>
+                    </div>
+                  </template>
+                </BookRowCard>
+              </div>
             </div>
           </template>
 
@@ -593,24 +544,4 @@ const excludeBookIds = computed(() => books.value.map((book) => book.id));
     :exclude-book-ids="excludeBookIds"
     @added="handleBookAdded"
   />
-
-  <!-- 책 제거 확인 다이얼로그 -->
-  <AlertDialog
-    :open="showRemoveDialog"
-    @update:open="showRemoveDialog = $event"
-  >
-    <AlertDialogContent>
-      <AlertDialogHeader>
-        <AlertDialogTitle>시리즈에서 책 제거</AlertDialogTitle>
-        <AlertDialogDescription>
-          이 책을 시리즈에서 제거하시겠습니까? 책 자체는 삭제되지 않고
-          시리즈에서만 제거됩니다.
-        </AlertDialogDescription>
-      </AlertDialogHeader>
-      <AlertDialogFooter>
-        <AlertDialogCancel>취소</AlertDialogCancel>
-        <AlertDialogAction @click="confirmRemoveBook">제거</AlertDialogAction>
-      </AlertDialogFooter>
-    </AlertDialogContent>
-  </AlertDialog>
 </template>

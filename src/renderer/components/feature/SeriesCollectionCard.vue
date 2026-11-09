@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Icon } from "@iconify/vue";
 import { computed } from "vue";
 import CoverCardShell from "./parts/CoverCardShell.vue";
+import SeriesDeleteButton from "./parts/SeriesDeleteButton.vue";
 
 interface Props {
   series: {
@@ -105,14 +106,7 @@ const creationType = computed(() => {
       >
         <Icon icon="solar:eye-bold-duotone" class="h-4 w-4" />
       </Button>
-      <Button
-        size="icon-sm"
-        variant="destructive"
-        title="삭제"
-        @click.stop="emit('delete')"
-      >
-        <Icon icon="solar:trash-bin-trash-bold-duotone" class="h-4 w-4" />
-      </Button>
+      <SeriesDeleteButton title="삭제" @click.stop="emit('delete')" />
     </template>
   </CoverCardShell>
 </template>

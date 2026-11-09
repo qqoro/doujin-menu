@@ -14,6 +14,7 @@ import { PrefixIndex } from "../services/seriesDetection/prefixIndex.js";
 import type { SerializedIndexEntry } from "../services/seriesDetection/prefixIndex.js";
 import type { DetectionOptions } from "../services/seriesDetection/types.js";
 import { broadcast } from "../utils/broadcast.js";
+import { mapBooksToResponse } from "./bookHandler.js";
 import { store } from "./configHandler.js";
 
 // 전역 접두사 인덱스 (앱 시작 시 초기화)
@@ -509,19 +510,10 @@ export async function handleGetSeriesCollectionById(seriesId: number) {
     }
 
     // 소속 책들 조회 (순서대로)
-    const books = await db("Book")
-      .select(
-        "Book.*",
-        db.raw("GROUP_CONCAT(DISTINCT Artist.name) as artists"),
-        db.raw("GROUP_CONCAT(DISTINCT Tag.name) as tags"),
-      )
-      .leftJoin("BookArtist", "Book.id", "BookArtist.book_id")
-      .leftJoin("Artist", "BookArtist.artist_id", "Artist.id")
-      .leftJoin("BookTag", "Book.id", "BookTag.book_id")
-      .leftJoin("Tag", "BookTag.tag_id", "Tag.id")
-      .where("Book.series_collection_id", seriesId)
-      .groupBy("Book.id")
-      .orderBy("Book.series_order_index", "asc");
+    const rows = await db("Book")
+      .where("series_collection_id", seriesId)
+      .orderBy("series_order_index", "asc");
+    const books = await mapBooksToResponse(rows);
 
     const result: SeriesCollectionWithBooks = {
       ...collection,
