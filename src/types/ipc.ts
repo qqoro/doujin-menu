@@ -15,6 +15,10 @@ export interface FilterParams {
   isFavorite?: boolean;
   offlineStatus?: "all" | "online" | "offline";
   randomSeed?: number; // 랜덤 정렬용 시드([0, 2^30) 정수) — 같은 시드면 항상 같은 순서
+  /** 어느 시리즈에도 속하지 않은 책만 */
+  unassignedOnly?: boolean;
+  /** 이 시리즈에 속한 책은 뺀다 */
+  excludeSeriesId?: number;
 }
 
 export interface Preset {

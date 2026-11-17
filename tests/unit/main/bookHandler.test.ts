@@ -660,6 +660,53 @@ describe("handleGetBooks - 통합 테스트", () => {
     });
   });
 
+  describe("시리즈 소속 필터", () => {
+    const seedCollections = async () => {
+      const [mine] = await db("SeriesCollection").insert({ name: "내 시리즈" });
+      const [other] = await db("SeriesCollection").insert({
+        name: "다른 시리즈",
+      });
+      const free = await seedBook(db, { path: "/free" });
+      const inMine = await seedBook(db, {
+        path: "/mine",
+        series_collection_id: mine,
+      });
+      const inOther = await seedBook(db, {
+        path: "/other",
+        series_collection_id: other,
+      });
+      return { mine, free, inMine, inOther };
+    };
+
+    it("unassignedOnly → 어느 시리즈에도 없는 책만", async () => {
+      const { free } = await seedCollections();
+
+      const ids = await getResultIds({ unassignedOnly: true });
+      expect(ids).toEqual([free.id]);
+    });
+
+    it("excludeSeriesId → 그 시리즈 책만 빠지고 다른 시리즈 책은 남는다", async () => {
+      const { mine, free, inOther } = await seedCollections();
+
+      const ids = await getResultIds({ excludeSeriesId: mine });
+      expect(ids).toEqual([free.id, inOther.id].sort());
+    });
+
+    it("페이지를 자르기 전에 걸러서 한 페이지가 꽉 찬다", async () => {
+      const { mine } = await seedCollections();
+      await seedBook(db, { path: "/free2" });
+
+      const result = await handleGetBooks({
+        excludeSeriesId: mine,
+        pageSize: 2,
+        sortBy: "title",
+      });
+      expect(result.data).toHaveLength(2);
+      expect(result.totalCount).toBe(3);
+      expect(result.hasNextPage).toBe(true);
+    });
+  });
+
   describe("검색어 필터", () => {
     it("id:12345 → 해당 hitomi_id 책만", async () => {
       await seedBook(db, { path: "/a", hitomi_id: "12345" });

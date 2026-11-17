@@ -322,6 +322,8 @@ function buildFilteredQuery(
     isFavorite = false,
     libraryPath = [],
     offlineStatus = "all",
+    unassignedOnly = false,
+    excludeSeriesId,
   } = filter || {};
 
   // 별칭을 `sub`로 유지해 아래 조건들과 호출부의 `sub.xxx` 참조를 그대로 쓴다.
@@ -577,6 +579,19 @@ function buildFilteredQuery(
     mainQuery.where("sub.is_offline", false);
   } else if (offlineStatus === "offline") {
     mainQuery.where("sub.is_offline", true);
+  }
+
+  if (unassignedOnly) {
+    mainQuery.whereNull("sub.series_collection_id");
+  }
+
+  // `!=`만 쓰면 NULL(시리즈 없는 책)까지 빠진다
+  if (excludeSeriesId !== undefined) {
+    mainQuery.where((builder) =>
+      builder
+        .whereNull("sub.series_collection_id")
+        .orWhereNot("sub.series_collection_id", excludeSeriesId),
+    );
   }
 
   return mainQuery;
