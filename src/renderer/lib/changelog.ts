@@ -15,6 +15,25 @@ export interface Changelog {
  */
 export const changelogData: Changelog[] = [
   {
+    version: "1.29.1",
+    changes: [
+      {
+        type: "feature",
+        title: "✨ 기능 개선",
+        items: [
+          "시리즈에 책을 추가할 때 이미 다른 시리즈에 들어 있는 책은 기본으로 숨겨집니다.",
+        ],
+      },
+      {
+        type: "fix",
+        title: "🐛 버그 수정",
+        items: [
+          "시리즈 책 추가 창에서 검색 결과가 20권까지만 보이던 문제 수정.",
+        ],
+      },
+    ],
+  },
+  {
     version: "1.29.0",
     changes: [
       {
