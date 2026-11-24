@@ -47,7 +47,7 @@ vi.mock("../../../src/main/db/index.js", () => ({ default: vi.fn() }));
 // 정적 import를 쓰면 위 const들이 초기화되기 전에 mock 팩토리가 실행되어
 // TDZ 에러가 난다. 기존 테스트(presetHandler.test.ts:98)와 같은 방식으로
 // const 선언 뒤에서 동적으로 가져온다.
-const { __clearIdCache, handleSearchGalleries } =
+const { __clearIdCache, handleSearchGalleries, toTempImageFileName } =
   await import("../../../src/main/handlers/downloaderHandler.js");
 
 describe("handleSearchGalleries — 음성 태그", () => {
@@ -411,5 +411,29 @@ describe("인기 필터", () => {
 
     const options = mockGalleryList.mock.calls[0][0];
     expect(options.orderBy).toBeUndefined();
+  });
+});
+
+describe("toTempImageFileName", () => {
+  const hash =
+    "0a1b2c3d4e5f60718293a4b5c6d7e8f90a1b2c3d4e5f60718293a4b5c6d7e8f9";
+  const thumbnailUrl = `https://tn.gold-usergeneratedcontent.net/webpbigtn/9/8f/${hash}.webp`;
+  const originalUrl = `https://w1.gold-usergeneratedcontent.net/1732400000/2296/${hash}.webp`;
+
+  it("같은 해시의 썸네일과 원본은 다른 파일이 된다", () => {
+    expect(toTempImageFileName(123, thumbnailUrl)).not.toBe(
+      toTempImageFileName(123, originalUrl),
+    );
+  });
+
+  it("원본은 이미지 서버나 시각 경로가 바뀌어도 같은 파일이다", () => {
+    const rotated = `https://w2.gold-usergeneratedcontent.net/1732500000/2296/${hash}.webp`;
+    expect(toTempImageFileName(123, rotated)).toBe(
+      toTempImageFileName(123, originalUrl),
+    );
+  });
+
+  it("원본 파일명은 그대로 유지한다", () => {
+    expect(toTempImageFileName(123, originalUrl)).toBe(`123_${hash}.webp`);
   });
 });

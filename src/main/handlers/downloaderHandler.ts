@@ -417,6 +417,19 @@ export const handleDownloadGallery = async (
   }
 };
 
+/**
+ * 임시 이미지 파일명입니다.
+ *
+ * hitomi는 썸네일과 원본을 같은 `<hash>.webp` 이름으로 내주므로 파일명만으로는
+ * 둘이 겹쳐, 먼저 받은 썸네일이 미리보기 1페이지 원본 자리를 차지합니다.
+ * 썸네일 호스트(`tn.`)에서 온 것에만 접두어를 붙여 갈라 둡니다.
+ */
+export const toTempImageFileName = (galleryId: number, url: string): string => {
+  const { hostname, pathname } = new URL(url);
+  const kind = hostname.startsWith("tn.") ? "tn_" : "";
+  return `${galleryId}_${kind}${path.basename(pathname)}`;
+};
+
 export const handleDownloadTempThumbnail = async ({
   url,
   referer,
@@ -433,8 +446,7 @@ export const handleDownloadTempThumbnail = async ({
     );
     await fs.mkdir(tempDir, { recursive: true });
 
-    const fileName = `${galleryId}_${path.basename(new URL(url).pathname)}`;
-    const filePath = path.join(tempDir, fileName);
+    const filePath = path.join(tempDir, toTempImageFileName(galleryId, url));
 
     // 파일이 이미 존재하면 바로 경로를 반환
     try {
