@@ -15,6 +15,25 @@ export interface Changelog {
  */
 export const changelogData: Changelog[] = [
   {
+    version: "1.30.0",
+    changes: [
+      {
+        type: "feature",
+        title: "✨ 새로운 기능",
+        items: [
+          "다운로더 상세보기에서 연관 작품과 다른 언어판으로 바로 이동할 수 있습니다.",
+          "연관 작품 목록에 마우스를 올리면 표지를 크게 볼 수 있습니다.",
+          "설정 > 정보에서 버그 제보·건의를 앱에서 바로 보낼 수 있습니다.",
+        ],
+      },
+      {
+        type: "fix",
+        title: "🐛 버그 수정",
+        items: ["다운로더 상세보기에서 1페이지가 저화질로 나오던 문제 수정."],
+      },
+    ],
+  },
+  {
     version: "1.29.1",
     changes: [
       {
