@@ -177,7 +177,7 @@ if (legacyPath) {
 }
 
 const isDevelopment = process.env.NODE_ENV === "development";
-const getDbPath = () => {
+export const getDbPath = () => {
   if (isDevelopment) {
     return path.resolve(process.cwd(), "dev.sqlite3");
   } else {

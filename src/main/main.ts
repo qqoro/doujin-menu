@@ -30,7 +30,9 @@ import {
   initializeDownloadQueue,
   registerDownloadQueueHandlers,
 } from "./handlers/downloadQueueHandler.js";
+import { registerDebugDataHandlers } from "./handlers/debugDataHandler.js";
 import { registerEtcHandlers } from "./handlers/etcHandler.js";
+import { registerFeedbackHandlers } from "./handlers/feedbackHandler.js";
 import { registerPresetHandlers } from "./handlers/presetHandler.js";
 import {
   registerSeriesCollectionHandlers,
@@ -307,6 +309,8 @@ app.whenReady().then(async () => {
   registerDownloaderHandlers();
   registerDownloadQueueHandlers(mainWindow);
   registerEtcHandlers(mainWindow);
+  registerDebugDataHandlers();
+  registerFeedbackHandlers();
   registerPresetHandlers();
   registerSeriesCollectionHandlers();
   registerBrowseHandlers();

@@ -36,6 +36,22 @@ export interface LicenseInfo {
   licenseText?: string;
 }
 
+export interface FeedbackPayload {
+  kind: "bug" | "idea";
+  content: string;
+  email: string;
+  attachDebug: boolean;
+  includeDb: boolean;
+}
+
+export type FeedbackResult =
+  | { ok: true; id: number }
+  | {
+      ok: false;
+      reason: "too-large" | "rate-limited" | "failed";
+      size?: number;
+    };
+
 export interface UpdateCheckResult {
   success: boolean;
   portable: boolean;
@@ -1054,6 +1070,20 @@ export interface IpcChannels {
   "open-github-releases": {
     request: string; // url
     response: void;
+  };
+
+  "export-debug-data": {
+    request: { includeDb: boolean };
+    response: {
+      success: boolean;
+      canceled?: boolean;
+      path?: string;
+      error?: string;
+    };
+  };
+  "submit-feedback": {
+    request: FeedbackPayload;
+    response: FeedbackResult;
   };
 }
 

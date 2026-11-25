@@ -29,6 +29,8 @@ describe("PC_ONLY_INVOKE_CHANNELS", () => {
         "get-mobile-web-status",
         "revoke-mobile-device",
         "get-mobile-web-running",
+        "export-debug-data",
+        "submit-feedback",
       ].sort(),
     );
   });

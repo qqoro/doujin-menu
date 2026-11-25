@@ -26,6 +26,8 @@ export const PC_ONLY_INVOKE_CHANNELS: ReadonlySet<string> = new Set([
   "get-mobile-web-status",
   "revoke-mobile-device",
   "get-mobile-web-running",
+  "export-debug-data",
+  "submit-feedback",
 ]);
 
 export const MOBILE_SETTINGS_MESSAGE =
