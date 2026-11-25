@@ -148,6 +148,13 @@ export interface GalleryDto {
   /** 발행일이 있으면 발행일, 없으면 히토미에 올라온 날짜 */
   releaseDate: Date;
   thumbnailUrl: string;
+  /** 같은 작품의 언어판. 있으면 자기 자신도 들어 있어서, 다른 언어판이 하나면 길이가 2입니다 */
+  translations: {
+    id: number;
+    languageName: { english: string; local: string } | null;
+  }[];
+  /** 히토미가 묶어 둔 연관 작품 id. 상세는 따로 조회합니다 */
+  relatedIds: number[];
 }
 
 /** 구독 = 다운로더 검색어 문자열 하나 */

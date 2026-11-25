@@ -63,7 +63,12 @@ import { useSubscriptionStore } from "@/store/subscriptionStore";
 import { useUiStore } from "@/store/uiStore";
 import { IS_REMOTE } from "@/lib/runtime";
 import { Icon } from "@iconify/vue";
-import { useQueries, useQuery, useQueryClient } from "@tanstack/vue-query";
+import {
+  keepPreviousData,
+  useQueries,
+  useQuery,
+  useQueryClient,
+} from "@tanstack/vue-query";
 import { useVirtualizer } from "@tanstack/vue-virtual";
 import { useThrottleFn } from "@vueuse/core";
 import type { GalleryDto } from "@/../types/ipc";
@@ -440,10 +445,21 @@ const retryFailedDetails = () => {
 
 // 라이브러리 보유 여부. 화면에 있는 ID를 모아 한 번에 묻는다. 갤러리 상세와
 // 쿼리 키를 분리해야 보유 여부만 다시 조회할 때 상세 30건이 딸려오지 않는다.
-const galleryIds = computed(() => loadedGalleries.value.map((item) => item.id));
+// 상세보기의 연관 작품·언어판도 같은 조회에 얹어야 다운로드 완료 재조회와 삭제
+// 보정값이 그쪽에도 똑같이 적용된다.
+const previewExtraIds = ref<number[]>([]);
+const galleryIds = computed(() => [
+  ...new Set([
+    ...loadedGalleries.value.map((item) => item.id),
+    ...previewExtraIds.value,
+  ]),
+]);
 
-const { data: bookExistsMap, refetch: refetchBookExists } = useQuery({
+const { data: bookExistsMap } = useQuery({
   queryKey: ["downloader-book-exists", galleryIds],
+  // id가 늘 때마다 키가 바뀌므로, 응답 전까지 앞 결과를 들고 있어야 보유 배지가
+  // 깜빡이지 않는다
+  placeholderData: keepPreviousData,
   queryFn: async () => {
     const result = await ipcRenderer.invoke(
       "check-books-exist-by-hitomi-ids",
@@ -454,6 +470,14 @@ const { data: bookExistsMap, refetch: refetchBookExists } = useQuery({
   enabled: computed(() => galleryIds.value.length > 0),
   staleTime: 30 * 1000,
 });
+
+/**
+ * 보유 여부 재조회. `refetch`는 지금 키 하나만 다시 받는데, 상세보기에서 옮겨
+ * 다니면 키가 바뀌어 앞서 쓰던 키의 캐시가 남는다. 그 상태로 돌아가면 방금 받은
+ * 책이 30초 동안 미보유로 보이므로 키 전체를 무효화한다.
+ */
+const refetchBookExists = () =>
+  queryClient.invalidateQueries({ queryKey: ["downloader-book-exists"] });
 
 /**
  * 배치 조회 결과보다 우선하는 로컬 보정값. 삭제 직후 재조회 응답이 오기 전까지
@@ -1742,12 +1766,11 @@ useSearchPersistence(searchQuery, "downloader-search-query");
   <GalleryPreviewDialog
     :open="isPreviewDialogOpen"
     :gallery="selectedGallery"
-    :download-status="
-      selectedGallery ? downloadStatuses[selectedGallery.id] : undefined
-    "
-    :book-id="selectedGallery ? resolveBookId(selectedGallery.id) : null"
+    :download-statuses="downloadStatuses"
+    :resolve-book-id="resolveBookId"
     :download-path="downloadPath"
     @update:open="isPreviewDialogOpen = $event"
+    @visible-ids="previewExtraIds = $event"
   />
 
   <!-- 검색어를 비운 채 구독하면 언어 전체가 구독된다. 의도한 경우가 드물어 확인한다 -->

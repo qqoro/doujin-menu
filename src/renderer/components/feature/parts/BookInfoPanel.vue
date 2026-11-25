@@ -3,6 +3,8 @@ import TagBadge from "@/components/common/TagBadge.vue";
 import type { MetaPart } from "@/lib/cardLayout";
 import type { DetailRow, DetailRowKey } from "@/lib/galleryCard";
 import { Icon } from "@iconify/vue";
+import { useElementSize } from "@vueuse/core";
+import { computed, ref } from "vue";
 import { toast } from "vue-sonner";
 import MetaLine from "./MetaLine.vue";
 
@@ -27,6 +29,16 @@ const ROW_META: Record<DetailRowKey, { label: string; icon: string }> = {
   character: { label: "캐릭터", icon: "solar:user-linear" },
 };
 
+/**
+ * 패널 폭이 넉넉하면 `aside`를 오른쪽 열로, 좁으면(휴대폰 포함) 정보 줄 아래로 둔다.
+ * 화면 폭이 아니라 패널 폭으로 판단한다 — 아래로 내리면 태그 많은 책에서 스크롤해야
+ * 보이므로, 표지·정보 줄·오른쪽 열이 다 들어가는 한 오른쪽에 둔다.
+ */
+const ASIDE_MIN_PANEL_WIDTH = 820;
+const panel = ref<HTMLElement | null>(null);
+const { width: panelWidth } = useElementSize(panel);
+const isWide = computed(() => panelWidth.value >= ASIDE_MIN_PANEL_WIDTH);
+
 const copyTerm = async (term: string) => {
   const text = term.replaceAll(" ", "_");
   try {
@@ -40,7 +52,7 @@ const copyTerm = async (term: string) => {
 
 <template>
   <!-- 태그가 많은 책에서 미리보기 자리를 다 먹지 않도록 높이를 묶고 정보 줄만 스크롤한다 -->
-  <div class="mb-4 flex max-h-[45vh] shrink-0 gap-5">
+  <div ref="panel" class="mb-4 flex max-h-[45vh] shrink-0 gap-5">
     <div
       class="relative w-44 shrink-0 self-start overflow-hidden rounded-lg max-sm:w-24"
     >
@@ -66,31 +78,37 @@ const copyTerm = async (term: string) => {
                 {{ ROW_META[row.key].label }}
               </dt>
               <dd class="flex min-w-0 flex-wrap gap-1">
-                <!-- 태그 외 줄은 종류 접두어가 이름에 찍히지 않도록 객체로 넘긴다 -->
-                <TagBadge
-                  v-for="item in row.items"
-                  :key="item.term"
-                  :tag="
-                    row.key === 'tag'
-                      ? item.term
-                      : { type: row.key, name: item.text }
-                  "
-                  :title="
-                    row.key === 'id'
-                      ? '클릭: 검색어 복사'
-                      : '클릭: 검색어 복사 · 우클릭: 제외 검색어 복사'
-                  "
-                  @click="copyTerm(item.term)"
-                  @contextmenu.prevent="
-                    row.key !== 'id' && copyTerm(`-${item.term}`)
-                  "
-                />
+                <slot :name="`row-${row.key}`" :row="row">
+                  <!-- 태그 외 줄은 종류 접두어가 이름에 찍히지 않도록 객체로 넘긴다 -->
+                  <TagBadge
+                    v-for="item in row.items"
+                    :key="item.term"
+                    :tag="
+                      row.key === 'tag'
+                        ? item.term
+                        : { type: row.key, name: item.text }
+                    "
+                    :title="
+                      row.key === 'id'
+                        ? '클릭: 검색어 복사'
+                        : '클릭: 검색어 복사 · 우클릭: 제외 검색어 복사'
+                    "
+                    @click="copyTerm(item.term)"
+                    @contextmenu.prevent="
+                      row.key !== 'id' && copyTerm(`-${item.term}`)
+                    "
+                  />
+                </slot>
               </dd>
             </template>
           </dl>
         </template>
 
         <slot name="extras" />
+
+        <div v-if="$slots.aside && !isWide" class="mt-4">
+          <slot name="aside" />
+        </div>
       </div>
 
       <div
@@ -98,6 +116,14 @@ const copyTerm = async (term: string) => {
       >
         <slot name="actions" />
       </div>
+    </div>
+
+    <!-- 오른쪽 위 닫기 버튼과 겹치지 않게 오른쪽을 비워 둔다 -->
+    <div
+      v-if="$slots.aside && isWide"
+      class="mr-8 flex w-[300px] shrink-0 flex-col border-l pl-2.5"
+    >
+      <slot name="aside" />
     </div>
   </div>
 </template>

@@ -3,6 +3,7 @@ import PageLightbox from "@/components/common/PageLightbox.vue";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { usePreviewViewMode } from "@/composables/usePreviewViewMode";
+import { useWindowEvent } from "@/composables/useWindowEvent";
 import { Icon } from "@iconify/vue";
 import { computed, nextTick, onUnmounted, ref, watch } from "vue";
 
@@ -40,6 +41,8 @@ const props = withDefaults(
 
 const emit = defineEmits<{
   "update:open": [value: boolean];
+  /** 크게 보기가 닫혀 있을 때의 Esc. preventDefault하면 다이얼로그가 닫히지 않는다 */
+  escape: [event: KeyboardEvent];
 }>();
 
 const { viewMode, setViewMode } = usePreviewViewMode();
@@ -54,10 +57,37 @@ const lightboxIndex = ref<number | null>(null);
 
 // 크게 보기 중의 Esc는 크게 보기만 닫는다
 const handleEscape = (event: KeyboardEvent) => {
-  if (lightboxIndex.value === null) return;
+  if (lightboxIndex.value === null) {
+    emit("escape", event);
+    return;
+  }
   event.preventDefault();
   lightboxIndex.value = null;
 };
+
+/**
+ * 마우스 뒤로가기 버튼은 Esc와 똑같이 한 단계 물러난다.
+ * 기본 동작을 막지 않으면 모달 뒤의 화면이 라우터 기록을 따라 이전 페이지로 넘어간다.
+ */
+const handleMouseBack = (event: MouseEvent) => {
+  if (!props.open || event.button !== 3) return;
+  event.preventDefault();
+  if (event.type !== "mouseup") return;
+
+  if (lightboxIndex.value !== null) {
+    lightboxIndex.value = null;
+    return;
+  }
+  const escape = new KeyboardEvent("keydown", {
+    key: "Escape",
+    cancelable: true,
+  });
+  emit("escape", escape);
+  if (!escape.defaultPrevented) dialogOpen.value = false;
+};
+
+useWindowEvent("mousedown", handleMouseBack);
+useWindowEvent("mouseup", handleMouseBack);
 
 // 세로 휠을 가로 이동으로 바꾼다
 const handleWheelScroll = (event: WheelEvent) => {

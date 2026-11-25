@@ -60,6 +60,16 @@ export const toGalleryDto = async (gallery: Gallery): Promise<GalleryDto> => ({
   pageCount: gallery.files.length,
   releaseDate: gallery.publishedDate ?? gallery.addedDate,
   thumbnailUrl: await resolveThumbnailUrl(gallery),
+  translations: gallery.translations.map((translation) => ({
+    id: translation.id,
+    languageName: translation.language
+      ? {
+          english: translation.language.name,
+          local: translation.language.localName,
+        }
+      : null,
+  })),
+  relatedIds: gallery.relations.map((relation) => relation.id),
 });
 
 /** 갤러리를 info.txt 텍스트로 씁니다. 형식은 `formatInfoContent` 한 곳에 있습니다 */
